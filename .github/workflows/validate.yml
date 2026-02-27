@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Check for broken symlinks
         run: |
@@ -25,7 +27,6 @@ jobs:
       - name: Check version bump on skill changes
         if: github.event_name == 'pull_request'
         run: |
-          git fetch origin ${{ github.base_ref }} --depth=1
           SKILL_CHANGES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- shared/skills/ plugins/core-skills/skills/ | grep -v '_template/' || true)
           VERSION_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- plugins/core-skills/.claude-plugin/plugin.json || true)
           if [ -n "$SKILL_CHANGES" ] && [ -z "$VERSION_CHANGED" ]; then
@@ -35,7 +36,6 @@ jobs:
       - name: Check doc coverage for skill and structure changes
         if: github.event_name == 'pull_request'
         run: |
-          git fetch origin ${{ github.base_ref }} --depth=1
           CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
 
           # Skill added/changed => manifest.md should be updated
