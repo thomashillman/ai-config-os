@@ -6,7 +6,7 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 
 | Skill | Description | Path |
 |---|---|---|
-| _(none yet)_ | Run `ops/new-skill.sh <name>` to add your first skill | — |
+| `session-start-hook` | Validates plugin structure at session start in remote Claude Code environments | `shared/skills/session-start-hook/SKILL.md` |
 
 ## Plugins
 
