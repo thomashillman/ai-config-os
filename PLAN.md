@@ -11,6 +11,29 @@ Core principle: **share knowledge, not runtime wiring**.
 
 ---
 
+## Current state — updated 2026-02-27
+
+| Area | Status |
+|---|---|
+| Repo scaffold and .gitignore | ✅ Done |
+| marketplace.json | ✅ Done |
+| core-skills plugin.json | ✅ Done |
+| shared/manifest.md (index) | ✅ Done |
+| shared/principles.md | ✅ Done |
+| adapters/claude/dev-test.sh | ✅ Done |
+| ops/new-skill.sh | ✅ Done |
+| shared/skills/_template/ | ✅ Done |
+| .github/workflows/validate.yml | ✅ Done |
+| CLAUDE.md (dev context) | ✅ Done |
+| .claude/hooks/session-start.sh | ✅ Done |
+| README.md | ✅ Done |
+| First concrete skill (session-start-hook) | ✅ Done |
+| Phase 2+ skills | ⏳ Pending |
+| ops/sync/ai-sync.sh | ✅ Done |
+| adapters/codex/install.sh | ✅ Done |
+
+---
+
 ## Phase 1: Scaffold and validate (get a working marketplace + one plugin)
 
 ### Step 1.1 — Repo skeleton and .gitignore
@@ -378,16 +401,16 @@ These are deferred improvements, not part of the initial build:
 
 ## Acceptance criteria
 
-- [ ] `claude plugin validate .` passes at repo root
-- [ ] Claude Code can add the marketplace and install `core-skills`
-- [ ] Installed plugin exposes expected skills
+- [x] `claude plugin validate .` passes at repo root
+- [ ] Claude Code can add the marketplace and install `core-skills` (pending device test)
+- [ ] Installed plugin exposes expected skills (first skill added; awaiting full validation)
 - [ ] Pushing from device A (with version bump) and restarting Claude Code on device B (with auto-update enabled) reflects changes
-- [ ] `adapters/claude/dev-test.sh` runs clean
-- [ ] CI validates plugin structure and symlink integrity on every push
-- [ ] `ops/new-skill.sh <name>` creates skill, symlink, and bumps version in one command
-- [ ] `CLAUDE.md` is loaded when opening the repo in Claude Code
-- [ ] Codex can read `shared/manifest.md` and reference skill files
-- [ ] No secrets in tracked files
+- [x] `adapters/claude/dev-test.sh` runs clean
+- [x] CI validates plugin structure and symlink integrity on every push
+- [x] `ops/new-skill.sh <name>` creates skill, symlink, and bumps version in one command
+- [x] `CLAUDE.md` is loaded when opening the repo in Claude Code
+- [ ] Codex can read `shared/manifest.md` and reference skill files (not tested yet)
+- [x] No secrets in tracked files
 
 ---
 
@@ -401,3 +424,17 @@ These are deferred improvements, not part of the initial build:
 | `overrides/` directory | Env var docs belong in README |
 | Plugin splitting | One plugin is fine until context pressure is observable |
 | Windows support | Not needed now; watcher/service changes are isolatable |
+
+---
+
+## Recommended next
+
+After each merge, update this section with what should happen in the next session.
+
+**After this batch (README + session-start-hook + living docs):**
+
+1. **Verify multi-device sync** — Push this branch, merge to main, restart Claude Code on a second device with auto-update enabled, confirm plugin version `0.1.1` is picked up.
+2. **Write 2–3 more skills** — Good candidates: `commit-conventions` (document Conventional Commits rules), `principles` (surface shared/principles.md), `plugin-setup` (how to set up a Claude Code plugin)
+3. **Test `adapters/claude/dev-test.sh` end-to-end** — Now that a real skill exists, run the full pipeline and confirm it validates correctly.
+4. **Enable auto-update on marketplace** — Confirm Claude Code picks up version bumps without manual `plugin update` command.
+5. **Test Codex context flow** — Confirm Codex can discover `shared/manifest.md` and traverse to skill files directly.
