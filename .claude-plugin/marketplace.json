@@ -1,0 +1,15 @@
+{
+  "name": "ai-config-os",
+  "owner": {
+    "name": "thomashillman"
+  },
+  "metadata": {
+    "description": "Personal AI behaviour layer — skills, plugins, and shared conventions"
+  },
+  "plugins": [
+    {
+      "name": "core-skills",
+      "source": "./plugins/core-skills"
+    }
+  ]
+}

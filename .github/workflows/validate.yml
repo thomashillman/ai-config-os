@@ -1,0 +1,33 @@
+name: Validate plugin structure
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for broken symlinks
+        run: |
+          broken=$(find plugins/ -type l ! -exec test -e {} \; -print)
+          if [ -n "$broken" ]; then
+            echo "Broken symlinks found:"
+            echo "$broken"
+            exit 1
+          fi
+          echo "All symlinks valid."
+
+      - name: Check version bump on skill changes
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          SKILL_CHANGES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- shared/skills/ plugins/core-skills/skills/ | grep -v '_template/' || true)
+          VERSION_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- plugins/core-skills/.claude-plugin/plugin.json || true)
+          if [ -n "$SKILL_CHANGES" ] && [ -z "$VERSION_CHANGED" ]; then
+            echo "::warning::Skill files changed but plugin.json version was not bumped. Updates won't propagate to other devices."
+          fi

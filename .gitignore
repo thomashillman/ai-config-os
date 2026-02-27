@@ -1,0 +1,13 @@
+# Local Claude Code settings
+.claude/settings.local.json
+
+# Local-only overrides
+overrides/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor configs (uncomment to track)
+# .vscode/
+# .idea/
