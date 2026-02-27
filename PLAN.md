@@ -30,13 +30,17 @@ ai-config/
 │   ├── manifest.md
 │   ├── principles.md
 │   └── skills/
+│       └── _template/
+│           └── SKILL.md
 ├── adapters/
 │   ├── claude/
 │   └── codex/
 ├── ops/
+│   ├── new-skill.sh
 │   └── sync/
 ├── .github/
 │   └── workflows/
+├── CLAUDE.md
 ├── .gitignore
 └── README.md
 ```
@@ -52,7 +56,12 @@ ai-config/
 ```json
 {
   "name": "ai-config-os",
-  "description": "Personal AI behaviour layer — skills, plugins, and shared conventions",
+  "owner": {
+    "name": "thomashillman"
+  },
+  "metadata": {
+    "description": "Personal AI behaviour layer — skills, plugins, and shared conventions"
+  },
   "plugins": [
     {
       "name": "core-skills",
@@ -61,6 +70,8 @@ ai-config/
   ]
 }
 ```
+
+Note: `owner.name` is required. `metadata.description` is the correct location for the marketplace description.
 
 ### Step 1.3 — core-skills plugin
 
@@ -108,13 +119,133 @@ echo "==> Done."
 
 Run this after every structural change. Wire it into CI next.
 
-### Step 1.6 — GitHub Actions CI
+Note: `claude --plugin-dir` loads the plugin for that session only. If you edit a skill and re-run this script, you must restart Claude Code or run a fresh `claude` invocation to pick up changes.
+
+### Step 1.6 — Version bump discipline
+
+Claude Code caches installed plugins and compares `version` in `plugin.json` to detect updates. **If you change skill content but don't bump the version, no device will see the update through marketplace sync.**
+
+Rules:
+- Bump the patch version (`0.1.0` → `0.1.1`) on every meaningful skill change
+- Bump minor (`0.1.0` → `0.2.0`) when adding new skills
+- Use the scaffold script (`ops/new-skill.sh`, see Step 1.8) to auto-bump on skill creation
+- CI should warn if skill files changed but `plugin.json` version didn't
+
+### Step 1.7 — CLAUDE.md (repo development context)
+
+Create `CLAUDE.md` at the repo root. This is loaded automatically when you open the repo in Claude Code, giving every development session context about the repo's conventions:
+
+```markdown
+# AI Config OS
+
+## Structure
+- `shared/skills/` — canonical skill definitions (author here)
+- `plugins/core-skills/skills/` — symlinks into shared/skills (never edit here directly)
+- `.claude-plugin/marketplace.json` — marketplace manifest
+- `plugins/core-skills/.claude-plugin/plugin.json` — plugin metadata (bump version on changes)
+
+## Creating a new skill
+Run `ops/new-skill.sh <skill-name>` — this creates the skill directory, symlink, manifest entry, and bumps the plugin version.
+
+## Testing locally
+Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
+
+## Key rules
+- Always author skills in `shared/skills/`, never directly in `plugins/`
+- Bump `version` in `plugins/core-skills/.claude-plugin/plugin.json` after any skill change
+- Symlinks must use relative paths: `../../../shared/skills/<name>`
+- Run `claude plugin validate .` before committing
+```
+
+### Step 1.8 — Skill scaffold script
+
+`ops/new-skill.sh` — reduces the 4-step skill creation to one command:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+SKILL_NAME="${1:?Usage: new-skill.sh <skill-name>}"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SHARED_DIR="$REPO_ROOT/shared/skills/$SKILL_NAME"
+PLUGIN_DIR="$REPO_ROOT/plugins/core-skills/skills/$SKILL_NAME"
+
+if [ -d "$SHARED_DIR" ]; then
+  echo "Error: skill '$SKILL_NAME' already exists at $SHARED_DIR" >&2
+  exit 1
+fi
+
+# 1. Create skill from template
+mkdir -p "$SHARED_DIR"
+sed "s/{{SKILL_NAME}}/$SKILL_NAME/g" "$REPO_ROOT/shared/skills/_template/SKILL.md" > "$SHARED_DIR/SKILL.md"
+
+# 2. Symlink into plugin
+mkdir -p "$(dirname "$PLUGIN_DIR")"
+ln -s "../../../shared/skills/$SKILL_NAME" "$PLUGIN_DIR"
+
+# 3. Bump patch version
+PLUGIN_JSON="$REPO_ROOT/plugins/core-skills/.claude-plugin/plugin.json"
+if command -v jq &>/dev/null; then
+  CURRENT=$(jq -r '.version' "$PLUGIN_JSON")
+  NEXT=$(echo "$CURRENT" | awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}')
+  jq --arg v "$NEXT" '.version = $v' "$PLUGIN_JSON" > "$PLUGIN_JSON.tmp" && mv "$PLUGIN_JSON.tmp" "$PLUGIN_JSON"
+  echo "Bumped plugin version: $CURRENT → $NEXT"
+fi
+
+echo "Created skill '$SKILL_NAME'"
+echo "  → $SHARED_DIR/SKILL.md (edit this)"
+echo "  → $PLUGIN_DIR (symlink)"
+echo ""
+echo "Next: edit SKILL.md, update shared/manifest.md, then run adapters/claude/dev-test.sh"
+```
+
+### Step 1.9 — Skill template
+
+`shared/skills/_template/SKILL.md`:
+
+```markdown
+---
+skill: {{SKILL_NAME}}
+---
+
+# {{SKILL_NAME}}
+
+<skill-description>
+<!-- One sentence: what does this skill do and when should Claude invoke it? -->
+</skill-description>
+
+## When to use
+<!-- Describe the trigger conditions — what user request or context activates this skill -->
+
+## Instructions
+<!-- The actual instructions Claude should follow when this skill is invoked -->
+
+## Examples
+<!-- Optional: show input/output examples to calibrate behaviour -->
+```
+
+### Step 1.10 — GitHub Actions CI
 
 `.github/workflows/validate.yml`:
 - On push to `main` and PRs
 - Runs `claude plugin validate .`
+- Validates all symlinks under `plugins/` resolve to real files (catches broken relative paths)
+- Warns if skill files changed but `plugin.json` version wasn't bumped
 - Optionally lints markdown files
 - Catches structural breakage before it hits other devices
+
+Symlink validation step:
+
+```bash
+# Fail if any symlink under plugins/ is broken
+find plugins/ -type l ! -exec test -e {} \; -print | {
+  if read -r broken; then
+    echo "Broken symlink: $broken"
+    cat <(echo "$broken") - | while read -r f; do echo "Broken symlink: $f"; done
+    exit 1
+  fi
+}
+```
 
 ---
 
@@ -123,19 +254,34 @@ Run this after every structural change. Wire it into CI next.
 ### Step 2.1 — Write your actual skills
 
 For each skill you want:
-1. Create `shared/skills/<skill-name>/SKILL.md`
-2. Symlink into `plugins/core-skills/skills/<skill-name>`
+1. Run `ops/new-skill.sh <skill-name>` (creates directory, symlink, bumps version)
+2. Edit `shared/skills/<skill-name>/SKILL.md` with your skill content
 3. Update `shared/manifest.md` index
 4. Run `adapters/claude/dev-test.sh`
 
 ### Step 2.2 — Add optional plugin capabilities as needed
 
 Only add these when you have a concrete use case:
-- `commands/` — slash commands (when you want `/my-command` shortcuts)
 - `agents/` — subagents (when you want specialised agent personas)
 - `hooks/` + `hooks/hooks.json` — lifecycle hooks (when you want auto-actions on events)
 - `.mcp.json` — MCP servers (when you want tool integrations bundled with the plugin)
 - `settings.json` — default agent selection (when you have agents defined)
+
+Note: `commands/` is legacy. Use `skills/` for all new functionality.
+
+**Important conventions for hooks and MCP configs:**
+- Hook scripts must be executable: `chmod +x hooks/my-hook.sh`
+- Any file paths inside hooks or `.mcp.json` must use `${CLAUDE_PLUGIN_ROOT}` instead of relative paths, because installed plugins live in `~/.claude/plugins/cache/`, not in your repo. Example:
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [{
+      "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-tool.sh"
+    }]
+  }
+}
+```
 
 ### Step 2.3 — Principles and conventions
 
@@ -182,8 +328,16 @@ That's it for v1. No locking, no coalescing, no conflict sentinels. Add those on
 Per device:
 1. `git clone <repo-url> ~/ai-config`
 2. In Claude Code: add marketplace from GitHub, install `core-skills`
-3. Optionally set `AI_CONFIG_HOME` in shell profile
-4. Run `adapters/claude/dev-test.sh` to verify
+3. **Enable auto-update for the marketplace** — third-party (non-Anthropic) marketplaces have auto-update disabled by default. Enable it via `/plugin` → Marketplaces tab, or updates won't propagate automatically.
+4. Optionally set `AI_CONFIG_HOME` in shell profile
+5. Run `adapters/claude/dev-test.sh` to verify
+
+**Update flow (device A → device B):**
+1. On device A: edit skills, bump version, commit, push
+2. On device B (auto-update enabled): restart Claude Code — it checks for marketplace updates at startup and pulls new versions automatically
+3. On device B (auto-update disabled): manually run `claude plugin update core-skills@ai-config-os`
+
+If auto-update is enabled, the full cycle is: edit → bump version → push → restart Claude Code on other device. No manual `plugin update` needed.
 
 ---
 
@@ -217,8 +371,7 @@ These are deferred improvements, not part of the initial build:
 
 - **Interop markers**: Add structured handoff metadata between agents only when you have a real two-agent workflow that breaks without it
 - **Sync guardrails**: Add locking, conflict sentinels, allowlist enforcement only when concurrent edits cause real problems
-- **Additional plugins**: Split `core-skills` into domain-specific plugins when it grows too large (>10 skills is a reasonable threshold)
-- **Versioning strategy**: Decide on semver bump rules when you have consumers who need stability guarantees
+- **Plugin splitting**: Split `core-skills` into domain-specific plugins when context cost becomes noticeable. All skills in a plugin are discovered by Claude Code — a plugin with many large skills adds context overhead to every session. Watch for signs: slower response times, skills being ignored or confused, or context window pressure in long sessions. When splitting, group by domain (e.g., `coding-skills`, `writing-skills`) and keep each plugin focused on one concern. Start with one plugin and split reactively, not preemptively.
 - **Background auto-sync**: Launchd/systemd timer for hands-off commits only if manual `ai-sync.sh push` becomes tedious
 
 ---
@@ -228,9 +381,11 @@ These are deferred improvements, not part of the initial build:
 - [ ] `claude plugin validate .` passes at repo root
 - [ ] Claude Code can add the marketplace and install `core-skills`
 - [ ] Installed plugin exposes expected skills
-- [ ] Pushing from device A and reinstalling on device B reflects changes
+- [ ] Pushing from device A (with version bump) and restarting Claude Code on device B (with auto-update enabled) reflects changes
 - [ ] `adapters/claude/dev-test.sh` runs clean
-- [ ] CI validates plugin structure on every push
+- [ ] CI validates plugin structure and symlink integrity on every push
+- [ ] `ops/new-skill.sh <name>` creates skill, symlink, and bumps version in one command
+- [ ] `CLAUDE.md` is loaded when opening the repo in Claude Code
 - [ ] Codex can read `shared/manifest.md` and reference skill files
 - [ ] No secrets in tracked files
 
@@ -244,5 +399,5 @@ These are deferred improvements, not part of the initial build:
 | Sync locking and conflict sentinels | Single-user repo; `git rebase --autostash` handles it |
 | Coalescing window for commits | Premature optimisation for commit noise |
 | `overrides/` directory | Env var docs belong in README |
-| Plugin versioning policy | No external consumers yet |
+| Plugin splitting | One plugin is fine until context pressure is observable |
 | Windows support | Not needed now; watcher/service changes are isolatable |
