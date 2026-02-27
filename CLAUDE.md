@@ -18,6 +18,24 @@ Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
 - Symlinks must use relative paths: `../../../shared/skills/<name>`
 - Run `claude plugin validate .` before committing
 
+## Living docs protocol
+
+Three docs stay in sync; each owns a distinct slice:
+
+| Doc | Update when |
+|---|---|
+| `README.md` | Directory structure changes, install steps change, new major capability added |
+| `PLAN.md` | A phase completes, acceptance criteria are met, recommended next steps change |
+| `CLAUDE.md` | Dev conventions change, new ops scripts added, git/proxy workflow changes |
+| `shared/manifest.md` | A skill is added, renamed, or removed (one row per skill) |
+
+**Rules for Claude agents:**
+- After any commit that creates or modifies a skill: update `shared/manifest.md` row + check if README or PLAN.md need a line.
+- After any commit that changes repo structure (new top-level dir, new ops script): update README directory table + CLAUDE.md Structure section.
+- After any merge to main: update PLAN.md "Current state" table and "Recommended next" section.
+- Never duplicate content across docs. If you find the same fact in two places, pick the authoritative owner (table above) and remove it from the other, replacing with a link.
+- Run `ops/check-docs.sh` before committing to see which docs the changed files are expected to touch.
+
 ## Workflow — Local Proxy Environment
 
 This repo's remote is a local proxy (`http://local_proxy@127.0.0.1:41590/git/…`), not a direct GitHub connection. This has important implications for how Claude agents should operate:
