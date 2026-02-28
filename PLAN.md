@@ -35,6 +35,7 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 3: Multi-device sync | ✅ Done | ops/sync/ai-sync.sh implemented |
 | Phase 4: Codex adapter | ✅ Done | adapters/codex/install.sh exists |
 | Validation infrastructure | ✅ Done | yaml-parser compatible with mawk, dev-test passes |
+| Phase 6: Feature expansion (14 items) | 🔲 Planned | See Phase 6 below — 6 new skills, 3 ops tools, 2 hooks, 2 workflows, CI, Cursor adapter |
 
 ---
 
@@ -449,3 +450,229 @@ After each merge, update this section with what should happen in the next sessio
    - Performance issues or context window pressure from plugins
    - Bugs in multi-model variant selection
    - Sync failures or edge cases with concurrent edits
+
+**After Phase 6 planning (current):** Execute the 9-commit sequence defined in Phase 6 below.
+
+---
+
+## Phase 6: Feature Expansion — 14-item implementation
+
+**Branch:** `claude/analyze-propose-features-kyrYH`
+**Target version:** `0.4.0` (derive from `git show origin/main:plugins/core-skills/.claude-plugin/plugin.json | jq -r '.version'` at bump time)
+
+### Critical files
+
+| File | Role |
+|---|---|
+| `shared/skills/_template/SKILL.md` | Canonical template — all new skills follow this |
+| `shared/skills/code-review/SKILL.md` | Reference implementation for full-frontmatter skill |
+| `ops/new-skill.sh` | Scaffolds skill dir, symlink, version bump — will be enhanced |
+| `plugins/core-skills/.claude-plugin/plugin.json` | Version bumped after all skill additions |
+| `.claude/settings.json` | Hooks registry — gains PreToolUse + PostToolUse entries |
+| `.github/workflows/validate.yml` | CI — gains frontmatter validation step |
+| `shared/manifest.md` | Skill index — needs 6 new rows |
+| `shared/workflows/` | Persona/workflow compositions live here |
+
+---
+
+### Commit 1 — `feat(ops): add lint-skill.sh for single-skill frontmatter validation`
+
+**New file:** `ops/lint-skill.sh` (chmod +x)
+
+Validates one skill by name. Checks:
+- Required fields present: `skill`, `description`, `type`, `status`, `version`
+- `type` ∈ `{prompt, hook, agent, workflow-blueprint}`
+- `status` ∈ `{stable, experimental, deprecated}`
+- `version` matches semver `X.Y.Z`
+- All `dependencies.skills[].name` values resolve to real directories under `shared/skills/`
+- For `type: prompt`: any `prompt_file:` referenced in variants exists on disk (warn, not error)
+
+Uses only `awk`, `grep`, `sed` — same approach as existing `ops/validate-variants.sh`.
+Exit 0 = OK, exit 1 = errors found.
+
+```
+Usage: ops/lint-skill.sh <skill-name>
+Example: ops/lint-skill.sh code-review  →  OK: code-review
+```
+
+---
+
+### Commit 2 — `feat(ops): add skill-stats.sh for library overview table`
+
+**New file:** `ops/skill-stats.sh` (chmod +x)
+
+Iterates `shared/skills/*/` (skip `_template`), extracts from SKILL.md frontmatter:
+- `type`, `status`
+- Presence of opus/sonnet/haiku variant sections (✓ or -)
+- Count of test entries (`- id:` lines in tests block)
+
+Prints a formatted table:
+```
+SKILL                TYPE       STATUS       OPUS     SONNET   HAIKU    TESTS
+code-review          prompt     stable       ✓        ✓        ✓        3
+debug                prompt     stable       ✓        ✓        ✓        3
+...
+```
+
+---
+
+### Commit 3 — `feat(ops): enhance new-skill.sh to auto-update manifest.md and run lint`
+
+**Edit:** `ops/new-skill.sh`
+
+After creating the skill directory and symlink, add two new steps:
+
+- **Auto-append manifest.md row** — inserts a placeholder row in the skills table.
+- **Call lint-skill.sh** — post-scaffold check; warns (does not fail) if frontmatter issues found.
+
+---
+
+### Commit 4 — `feat(skills): add debug, changelog, task-decompose, explain-code, skill-audit, release-checklist`
+
+Create all 6 skills via `ops/new-skill.sh` then fill their SKILL.md. Each follows the full-frontmatter pattern from `shared/skills/code-review/SKILL.md` — all 6 Phase 2 feature blocks + body sections (When to use / Instructions / Examples).
+
+#### `debug` (type: prompt, status: stable)
+- **inputs:** `symptoms` (required), `error_message` (optional), `codebase_context` (optional)
+- **outputs:** `diagnosis` object — hypothesis, root_cause, fix, regression_test
+- **variants:** opus=deep multi-system, sonnet=standard loop, haiku=quick stacktrace scan; **fallback:** sonnet→opus→haiku
+- **tests:** test-syntax-error, test-logic-bug, test-regression-find (3)
+- **instructions:** form hypothesis → isolate → test assumption → confirm root cause → document fix + write regression test
+
+#### `changelog` (type: workflow-blueprint, status: stable)
+- **inputs:** `since_ref` (required: git ref, e.g. `v0.3.0`), `version` (required: target version string)
+- **outputs:** `changelog_entry` — markdown formatted string
+- **variants:** opus=detailed with migration notes, sonnet=standard, haiku=one-liner; **fallback:** sonnet→haiku→opus
+- **dependencies:** `commit-conventions` skill
+- **tests:** test-basic-entry, test-breaking-change (2)
+- **instructions:** `git log --oneline <since_ref>..HEAD` → group by conventional prefix → flag `!` or `BREAKING CHANGE` → render markdown entry
+
+#### `task-decompose` (type: prompt, status: stable)
+- **inputs:** `task_description` (required), `constraints` (optional: time/tech/scope)
+- **outputs:** `subtasks` array — each with title, acceptance_criteria, blockers
+- **variants:** opus=architectural breakdown with dependency graph, sonnet=standard, haiku=quick scope check; **fallback:** sonnet→opus→haiku
+- **tests:** test-vague-task, test-constrained-task (2)
+- **instructions:** identify known vs unknown scope → slice into ≤1-session subtasks → write observable acceptance criteria → flag external blockers → order by dependency
+
+#### `explain-code` (type: prompt, status: stable)
+- **inputs:** `code` (required), `depth` (optional: `brief`/`detailed`/`architectural`, default `detailed`)
+- **outputs:** `explanation` string
+- **variants:** haiku=one-liner, sonnet=functional explanation (default), opus=architectural intent and design patterns; **fallback:** sonnet→haiku→opus
+- **tests:** test-simple-function, test-complex-pattern, test-architectural (3)
+- **instructions:** map `depth` to model tier → explain what before why → highlight non-obvious decisions → for `architectural`: describe patterns, trade-offs, and fit in larger system
+
+#### `skill-audit` (type: agent, status: experimental)
+- **inputs:** `scope` (optional: `"all"` or specific skill name, default `"all"`)
+- **outputs:** `audit_report` object — per-skill health scores, gaps list, recommendations
+- **variants:** opus=deep with prioritised recommendations, sonnet=standard gap report; **fallback:** sonnet→opus
+- **tests:** test-full-audit, test-single-skill (2)
+- **instructions:** read `shared/manifest.md` → for each skill: check all required frontmatter fields, all 3 variants, ≥2 tests, non-stale status, resolvable deps → produce ranked gaps list with severity + concrete fix suggestions
+
+#### `release-checklist` (type: workflow-blueprint, status: stable)
+- **inputs:** `version` (required: semver string), `release_notes` (optional)
+- **outputs:** `checklist_result` object — steps_completed, steps_failed, ready_to_release bool
+- **dependencies:** `git-ops`, `commit-conventions`, `changelog`
+- **variants:** sonnet=standard, opus=verbose with risk assessment; **fallback:** sonnet→opus
+- **tests:** test-clean-state, test-dirty-state (2)
+- **instructions:** (1) validate plugin.json version matches target via `git-ops`, (2) run `adapters/claude/dev-test.sh`, (3) invoke `changelog` for entry since last tag, (4) invoke `commit-conventions` to draft release commit, (5) tag, (6) push, (7) output readiness summary
+
+---
+
+### Commit 5 — `feat(hooks): add PreToolUse guard and PostToolUse living-docs reminder`
+
+**New files:**
+
+**`.claude/hooks/pre-tool-use.sh`** (chmod +x) — reads JSON from stdin; if `tool_name` is `Write`/`Edit`/`NotebookEdit` and `file_path` matches `*/plugins/core-skills/skills/*`, emits `{"decision":"block","reason":"Author skills in shared/skills/ not plugins/ directly."}` and exits.
+
+**`.claude/hooks/post-tool-use.sh`** (chmod +x) — reads JSON from stdin; if `file_path` is under `shared/skills/` or `ops/`, prints a reminder to run `ops/check-docs.sh`.
+
+**Edit:** `.claude/settings.json` — add `PreToolUse` and `PostToolUse` hook entries alongside the existing `SessionStart`:
+```json
+"PreToolUse": [
+  { "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/pre-tool-use.sh" }] }
+],
+"PostToolUse": [
+  { "hooks": [{ "type": "command", "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/post-tool-use.sh" }] }
+]
+```
+
+---
+
+### Commit 6 — `feat(workflows): add code-quality and release-agent persona workflows`
+
+**New files in `shared/workflows/`:**
+
+**`code-quality.json`** — persona `code-quality-agent` composing `code-review` + `debug` + `explain-code` (sonnet default). Execution flow: review → debug → explain. Follows structure of `shared/workflows/research-mode/workflow.json`.
+
+**`release-agent.json`** — persona `release-agent` composing `git-ops` + `commit-conventions` + `changelog` + `release-checklist` (sonnet/haiku). Execution flow: validate version → generate changelog → draft release commit → run checklist.
+
+---
+
+### Commit 7 — `feat(ci): add skill frontmatter validation step to validate.yml`
+
+**Edit:** `.github/workflows/validate.yml`
+
+Add a step after the existing symlink check:
+```yaml
+- name: Validate skill frontmatter
+  run: |
+    ERRORS=0
+    for skill_dir in shared/skills/*/; do
+      skill_name=$(basename "$skill_dir")
+      [ "$skill_name" = "_template" ] && continue
+      bash ops/lint-skill.sh "$skill_name" || ERRORS=$((ERRORS+1))
+    done
+    [ $ERRORS -eq 0 ] || { echo "::error::$ERRORS skill(s) failed frontmatter lint"; exit 1; }
+```
+
+---
+
+### Commit 8 — `feat(adapters): add Cursor adapter`
+
+**New file:** `adapters/cursor/install.sh` (chmod +x)
+
+Generates/appends an `AI Config OS` section to a `.cursorrules` file in a target directory (default: `$PWD`). Exports:
+1. `shared/principles.md` verbatim
+2. One-line descriptions from `code-review`, `commit-conventions`, `debug`, `explain-code`
+
+Checks for an existing AI Config OS block before appending to avoid duplicates. Follows the detection-and-append pattern of `adapters/codex/install.sh`.
+
+---
+
+### Commit 9 — `docs: update manifest, README, PLAN; bump plugin to 0.4.0`
+
+- **`shared/manifest.md`** — add 6 rows for new skills; add/update Workflows table with code-quality and release-agent.
+- **`plugins/core-skills/.claude-plugin/plugin.json`** — bump to `0.4.0` (7 new skills = minor bump). Derive base from `git show origin/main:…` at bump time.
+- **`README.md`** — add `adapters/cursor/` row to directory table; update skill count.
+- **`PLAN.md`** — update Current State table: mark Phase 6 as ✅ Done.
+
+---
+
+### Verification (run before pushing)
+
+```bash
+# 1. Lint all new skills
+for s in debug changelog task-decompose explain-code skill-audit release-checklist; do
+  bash ops/lint-skill.sh "$s"
+done
+
+# 2. Stats table — should show 15 skills
+bash ops/skill-stats.sh
+
+# 3. Full validation suite
+bash ops/validate-all.sh
+
+# 4. Dev test
+bash adapters/claude/dev-test.sh
+
+# 5. Docs consistency
+bash ops/check-docs.sh
+
+# 6. Hooks registered
+grep -q "PreToolUse" .claude/settings.json && echo "PreToolUse: OK"
+grep -q "PostToolUse" .claude/settings.json && echo "PostToolUse: OK"
+
+# 7. No broken symlinks
+find plugins/ -type l ! -exec test -e {} \; -print | grep . && exit 1 || echo "Symlinks: OK"
+```
+
+Expected: all commands exit 0, skill-stats shows 15 rows, settings.json has all 3 hook event types.
