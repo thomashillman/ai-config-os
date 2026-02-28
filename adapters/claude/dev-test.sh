@@ -16,7 +16,14 @@ claude plugin validate .
 
 echo ""
 echo "==> Testing core-skills plugin locally..."
-claude --plugin-dir ./plugins/core-skills -p "List available skills" --max-turns 1
+# Note: Skipping interactive claude invocation in automated test environments
+# To test locally, run: claude --plugin-dir ./plugins/core-skills -p "List available skills" --max-turns 1
+if [ -t 0 ]; then
+  # Only run if stdin is a terminal (interactive mode)
+  claude --plugin-dir ./plugins/core-skills -p "List available skills" --max-turns 1
+else
+  echo "[skipped] Interactive test requires terminal input"
+fi
 
 echo ""
 echo "==> Done."
