@@ -82,14 +82,16 @@ get_skill_dependencies() {
   local yaml_content="$1"
 
   # Extract all lines under dependencies.skills[] that have "- name:"
+  # Compatible with both GAWK and mawk
   echo "$yaml_content" | awk '
     /^dependencies:/ { in_deps=1; next }
     in_deps && /^[a-z]/ { in_deps=0 }
     in_deps && /skills:/ { in_skills=1; next }
     in_skills && /^[a-z]/ { in_skills=0 }
     in_skills && /name:/ {
-      match($0, /name:[[:space:]]*([a-z-]+)/, arr)
-      if (arr[1]) print arr[1]
+      sub(/.*name:[[:space:]]*/, "")
+      sub(/[[:space:]].*/, "")
+      if ($0) print $0
     }
   '
 }
@@ -101,12 +103,14 @@ get_skill_variants() {
   local yaml_content="$1"
 
   # Extract all lines under variants: that are keys (e.g., "  opus:")
+  # Compatible with both GAWK and mawk
   echo "$yaml_content" | awk '
     /^variants:/ { in_variants=1; next }
     in_variants && /^[a-z]/ && !/^  / { in_variants=0 }
-    in_variants && /^  [a-z].*:/ {
-      match($0, /^  ([a-z_]+):/, arr)
-      if (arr[1]) print arr[1]
+    in_variants && /^  [a-z_]*:/ {
+      sub(/^  /, "")
+      sub(/:.*/, "")
+      print
     }
   '
 }
@@ -118,12 +122,14 @@ get_skill_tests() {
   local yaml_content="$1"
 
   # Extract all lines under tests[] that have "- id:"
+  # Compatible with both GAWK and mawk
   echo "$yaml_content" | awk '
     /^tests:/ { in_tests=1; next }
     in_tests && /^[a-z]/ { in_tests=0 }
     in_tests && /^  - id:/ {
-      match($0, /id:[[:space:]]*([a-z0-9-]+)/, arr)
-      if (arr[1]) print arr[1]
+      sub(/.*id:[[:space:]]*/, "")
+      sub(/[[:space:]].*/, "")
+      if ($0) print $0
     }
   '
 }
@@ -135,14 +141,16 @@ get_variant_prompt_file() {
   local yaml_content="$1"
   local variant="$2"
 
+  # Compatible with both GAWK and mawk
   echo "$yaml_content" | awk "
     /^variants:/ { in_variants=1; next }
     in_variants && /^[a-z]/ && !/^  / { in_variants=0 }
     in_variants && /^  ${variant}:/ { in_variant=1; next }
     in_variant && /^  [a-z]/ && !/^    / { in_variant=0 }
     in_variant && /prompt_file:/ {
-      match(\$0, /prompt_file:[[:space:]]*([^ ]+)/, arr)
-      print arr[1]
+      sub(/.*prompt_file:[[:space:]]*/, \"\")
+      sub(/[[:space:]].*/, \"\")
+      if (\$0) print \$0
     }
   "
 }
