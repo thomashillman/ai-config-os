@@ -12,6 +12,15 @@ Run `ops/new-skill.sh <skill-name>` — this creates the skill directory, symlin
 ## Testing locally
 Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
 
+## Continual self-improvement
+
+**Your self-improvement is key.** If a task has failed or not worked efficiently, you **must** visibly state:
+
+1. **What went wrong** — be explicit, not vague
+2. **What to do differently** — concrete steps to prevent recurrence
+
+Token efficiency is paramount. **Unnecessary token wastage is forbidden.** Prefer concise tool calls, avoid re-reading files you already have in context, and do not repeat information already established.
+
 ## Key rules
 - Always author skills in `shared/skills/`, never directly in `plugins/`
 - Bump `version` in `plugins/core-skills/.claude-plugin/plugin.json` after any skill change
