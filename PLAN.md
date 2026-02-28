@@ -35,7 +35,7 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 3: Multi-device sync | ✅ Done | ops/sync/ai-sync.sh implemented |
 | Phase 4: Codex adapter | ✅ Done | adapters/codex/install.sh exists |
 | Validation infrastructure | ✅ Done | yaml-parser compatible with mawk, dev-test passes |
-| Phase 6: Feature expansion (14 items) | 🔲 Planned | See Phase 6 below — 6 new skills, 3 ops tools, 2 hooks, 2 workflows, CI, Cursor adapter |
+| Phase 6: Feature expansion (14 items) | ✅ Done | 6 new skills, 3 ops tools, 2 hooks, 2 workflows, CI frontmatter validation, Cursor adapter |
 
 ---
 
