@@ -134,6 +134,30 @@ get_skill_tests() {
   '
 }
 
+# Get a specific field from a test block
+# Usage: get_test_field <yaml_content> <test_id> <field_name>
+# Output: field value
+# Example: get_test_field "$frontmatter" "test-basic-search" "type"
+get_test_field() {
+  local yaml_content="$1"
+  local test_id="$2"
+  local field_name="$3"
+
+  # Compatible with both GAWK and mawk
+  echo "$yaml_content" | awk "
+    /^tests:/ { in_tests=1; next }
+    in_tests && /^[a-z]/ { in_tests=0 }
+    in_tests && /^  - id: ${test_id}/ { in_test=1; next }
+    in_test && /^  - id:/ { in_test=0 }
+    in_test && /^    ${field_name}:/ {
+      sub(/.*${field_name}:[[:space:]]*/, \"\")
+      sub(/[[:space:]].*/, \"\")
+      gsub(/['\"]/, \"\")
+      if (\$0) print \$0; exit
+    }
+  "
+}
+
 # Get variant prompt file path
 # Usage: get_variant_prompt_file <yaml_content> <variant_name>
 # Output: relative path to prompt file
@@ -215,6 +239,7 @@ export -f get_yaml_list_field
 export -f get_skill_dependencies
 export -f get_skill_variants
 export -f get_skill_tests
+export -f get_test_field
 export -f get_variant_prompt_file
 export -f is_valid_yaml
 export -f parse_skill_metadata
