@@ -6,7 +6,7 @@ description: |
   Ensures single-source-of-truth for monotonically-incrementing values like plugin.json.
 
 # Type & Status
-type: hook  # Guides git/commit operations
+type: hook
 status: stable
 
 # Feature 1: Dependencies & Metadata
