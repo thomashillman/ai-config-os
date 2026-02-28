@@ -1,0 +1,87 @@
+{
+  "workflow": "release-agent",
+  "version": "1.0.0",
+  "description": "End-to-end release workflow: version bump, changelog generation, release commit, and quality checklist",
+
+  "metadata": {
+    "author": "system",
+    "created": "2026-02-28",
+    "tags": ["release", "git", "changelog", "versioning", "quality"]
+  },
+
+  "personas": [
+    {
+      "name": "release-agent",
+      "description": "Orchestrates version bumping, changelog generation, release commits, and quality checks",
+      "skills": [
+        {
+          "name": "git-ops",
+          "config": {
+            "variant": "sonnet",
+            "operation": "bump-version"
+          }
+        },
+        {
+          "name": "commit-conventions",
+          "config": {
+            "variant": "haiku"
+          }
+        },
+        {
+          "name": "changelog",
+          "config": {
+            "variant": "sonnet"
+          }
+        },
+        {
+          "name": "release-checklist",
+          "config": {
+            "variant": "sonnet"
+          }
+        }
+      ]
+    }
+  ],
+
+  "execution_flow": [
+    {
+      "step": 1,
+      "persona": "release-agent",
+      "skill": "git-ops",
+      "input_from": "target_version",
+      "output_to": "version_validated"
+    },
+    {
+      "step": 2,
+      "persona": "release-agent",
+      "skill": "changelog",
+      "input_from": "version_validated",
+      "output_to": "changelog_entry"
+    },
+    {
+      "step": 3,
+      "persona": "release-agent",
+      "skill": "commit-conventions",
+      "input_from": "changelog_entry",
+      "output_to": "commit_message"
+    },
+    {
+      "step": 4,
+      "persona": "release-agent",
+      "skill": "release-checklist",
+      "input_from": "commit_message",
+      "output_to": "checklist_result"
+    }
+  ],
+
+  "dependencies_required": {
+    "skills": ["git-ops", "commit-conventions", "changelog", "release-checklist"],
+    "models": ["sonnet", "haiku"],
+    "apis": []
+  },
+
+  "performance_expectations": {
+    "total_latency_ms": 4000,
+    "estimated_cost": 0.008
+  }
+}
