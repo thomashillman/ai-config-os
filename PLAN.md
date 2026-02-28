@@ -28,7 +28,7 @@ Core principle: **share knowledge, not runtime wiring**.
 | .claude/hooks/session-start.sh | ✅ Done |
 | README.md | ✅ Done |
 | First concrete skill (session-start-hook) | ✅ Done |
-| Phase 2+ skills | ⏳ Pending |
+| Phase 2+ skills | ✅ Done |
 | ops/sync/ai-sync.sh | ✅ Done |
 | adapters/codex/install.sh | ✅ Done |
 
@@ -431,10 +431,10 @@ These are deferred improvements, not part of the initial build:
 
 After each merge, update this section with what should happen in the next session.
 
-**After this batch (README + session-start-hook + living docs):**
+**After this batch (3 new skills: commit-conventions, principles, plugin-setup — v0.3.0):**
 
-1. **Verify multi-device sync** — Push this branch, merge to main, restart Claude Code on a second device with auto-update enabled, confirm plugin version `0.1.1` is picked up.
-2. **Write 2–3 more skills** — Good candidates: `commit-conventions` (document Conventional Commits rules), `principles` (surface shared/principles.md), `plugin-setup` (how to set up a Claude Code plugin)
-3. **Test `adapters/claude/dev-test.sh` end-to-end** — Now that a real skill exists, run the full pipeline and confirm it validates correctly.
+1. **Verify multi-device sync** — Merge to main, restart Claude Code on a second device with auto-update enabled, confirm plugin version `0.3.0` is picked up automatically.
+2. **Test `adapters/claude/dev-test.sh` end-to-end** — Run the full pipeline with all 5 skills present and confirm it validates correctly.
+3. **Step 2.2 — Add optional plugin capabilities** — Evaluate whether any of the new skills benefit from `hooks/`, `.mcp.json`, or `agents/` additions now that concrete skills exist.
 4. **Enable auto-update on marketplace** — Confirm Claude Code picks up version bumps without manual `plugin update` command.
 5. **Test Codex context flow** — Confirm Codex can discover `shared/manifest.md` and traverse to skill files directly.
