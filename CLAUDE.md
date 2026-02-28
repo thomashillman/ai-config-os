@@ -17,6 +17,109 @@ Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
 - Bump `version` in `plugins/core-skills/.claude-plugin/plugin.json` after any skill change
 - Symlinks must use relative paths: `../../../shared/skills/<name>`
 - Run `claude plugin validate .` before committing
+- Start new skills from `shared/skills/_template/SKILL.md` (Phase 2: enhanced with full frontmatter)
+
+## Phase 2: Enhanced SKILL.md Frontmatter
+
+All skills define metadata in YAML frontmatter (between `---` markers):
+
+```yaml
+---
+# Identity
+skill: skill-name
+description: One sentence summary; one paragraph context max.
+type: prompt  # or: hook, agent, workflow-blueprint
+status: stable  # or: experimental, deprecated
+
+# Feature 1: Dependencies & Metadata
+inputs:
+  - name: input_name
+    type: string
+    description: Description
+    required: true
+
+outputs:
+  - name: output_name
+    type: string
+    description: Description
+
+dependencies:
+  skills:
+    - name: dependency-skill
+      version: "^1.0"  # semver constraint
+      optional: false
+  apis:
+    - external-api-name
+  models:
+    - opus  # or: sonnet, haiku
+
+examples:
+  - input: "User input"
+    output: "Skill output"
+    expected_model: sonnet
+
+# Feature 2: Multi-Model Variants
+variants:
+  opus:
+    prompt_file: prompts/detailed.md
+    description: For complex topics
+    cost_factor: 3.0
+    latency_baseline_ms: 800
+  sonnet:
+    prompt_file: prompts/balanced.md
+    description: Default; balanced
+    cost_factor: 1.0
+    latency_baseline_ms: 300
+  haiku:
+    prompt_file: prompts/brief.md
+    description: For quick lookups
+    cost_factor: 0.3
+    latency_baseline_ms: 150
+  fallback_chain:
+    - opus
+    - sonnet
+    - haiku
+
+# Feature 3: Skill Testing
+tests:
+  - id: test-id
+    type: prompt-validation  # or: structure-check, integration, performance
+    input: "Test input"
+    expected_substring: "expected text"
+    models_to_test:
+      - sonnet
+
+# Feature 4: Skill Composition
+composition:
+  personas:
+    - name: persona-name
+      skills:
+        - skill-name
+
+# Feature 5: Auto-Generated Documentation
+docs:
+  auto_generate_readme: true
+  sections_to_include:
+    - description
+    - inputs
+    - outputs
+
+# Feature 6: Performance Monitoring
+monitoring:
+  enabled: true
+  track_metrics:
+    - latency
+    - token_count
+    - cost
+    - variant_selected
+
+version: "1.0.0"
+changelog:
+  "1.0.0": "Initial release"
+---
+```
+
+See `shared/skills/_template/SKILL.md` for complete template.
 
 ## Living docs protocol
 
