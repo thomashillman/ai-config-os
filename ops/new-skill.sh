@@ -32,4 +32,26 @@ echo "Created skill '$SKILL_NAME'"
 echo "  → $SHARED_DIR/SKILL.md (edit this)"
 echo "  → $PLUGIN_DIR (symlink)"
 echo ""
-echo "Next: edit SKILL.md, update shared/manifest.md, then run adapters/claude/dev-test.sh"
+
+# 4. Auto-append to manifest.md
+MANIFEST="$REPO_ROOT/shared/manifest.md"
+if [ -f "$MANIFEST" ]; then
+  # Insert a placeholder row into the skills table
+  # Find the line before "## Plugins" section and insert before it
+  sed -i "/^## Plugins/i | \`$SKILL_NAME\` | TODO: fill description from SKILL.md | \`shared/skills/$SKILL_NAME/SKILL.md\` |" "$MANIFEST" 2>/dev/null || {
+    echo "WARNING: Could not auto-update manifest.md (check file permissions)"
+  }
+  echo "  → Added placeholder row to shared/manifest.md (update the description)"
+fi
+
+# 5. Run lint-skill.sh as post-scaffold check
+echo ""
+if bash "$REPO_ROOT/ops/lint-skill.sh" "$SKILL_NAME" 2>/dev/null; then
+  echo "Frontmatter lint: OK"
+else
+  echo "WARNING: Frontmatter has issues. Edit SKILL.md or run:"
+  echo "  bash ops/lint-skill.sh $SKILL_NAME"
+fi
+
+echo ""
+echo "Next: edit SKILL.md, review manifest.md row, then run adapters/claude/dev-test.sh"
