@@ -11,26 +11,30 @@ Core principle: **share knowledge, not runtime wiring**.
 
 ---
 
-## Current state — updated 2026-02-27
+## Current state — updated 2026-02-28
 
-| Area | Status |
-|---|---|
-| Repo scaffold and .gitignore | ✅ Done |
-| marketplace.json | ✅ Done |
-| core-skills plugin.json | ✅ Done |
-| shared/manifest.md (index) | ✅ Done |
-| shared/principles.md | ✅ Done |
-| adapters/claude/dev-test.sh | ✅ Done |
-| ops/new-skill.sh | ✅ Done |
-| shared/skills/_template/ | ✅ Done |
-| .github/workflows/validate.yml | ✅ Done |
-| CLAUDE.md (dev context) | ✅ Done |
-| .claude/hooks/session-start.sh | ✅ Done |
-| README.md | ✅ Done |
-| First concrete skill (session-start-hook) | ✅ Done |
-| Phase 2+ skills | ✅ Done |
-| ops/sync/ai-sync.sh | ✅ Done |
-| adapters/codex/install.sh | ✅ Done |
+| Area | Status | Notes |
+|---|---|---|
+| Repo scaffold and .gitignore | ✅ Done | Phase 1 complete |
+| marketplace.json | ✅ Done | Phase 1 complete |
+| core-skills plugin.json | ✅ Done | v0.3.2 current |
+| shared/manifest.md (index) | ✅ Done | 6 skills listed |
+| shared/principles.md | ✅ Done | Phase 1 complete |
+| adapters/claude/dev-test.sh | ✅ Done | Fixed for non-interactive environments |
+| ops/new-skill.sh | ✅ Done | Phase 1 complete |
+| shared/skills/_template/ | ✅ Done | Phase 2 enhanced with full frontmatter |
+| .github/workflows/validate.yml | ✅ Done | Phase 1 complete |
+| CLAUDE.md (dev context) | ✅ Done | Extended with self-improvement rules |
+| .claude/hooks/session-start.sh | ✅ Done | SessionStart hook implemented |
+| README.md | ✅ Done | Phase 2 documentation |
+| All core skills (6 total) | ✅ Done | session-start-hook, web-search, commit-conventions, git-ops, principles, plugin-setup |
+| Phase 2: Multi-model variants | ✅ Done | All skills have opus/sonnet/haiku variants |
+| Phase 2: Testing framework | ✅ Done | Skill tests defined in frontmatter |
+| Phase 2: Composition & workflows | ✅ Done | Framework present |
+| Phase 2: Performance monitoring | ✅ Done | Analytics infrastructure ready |
+| Phase 3: Multi-device sync | ✅ Done | ops/sync/ai-sync.sh implemented |
+| Phase 4: Codex adapter | ✅ Done | adapters/codex/install.sh exists |
+| Validation infrastructure | ✅ Done | yaml-parser compatible with mawk, dev-test passes |
 
 ---
 
@@ -431,10 +435,17 @@ These are deferred improvements, not part of the initial build:
 
 After each merge, update this section with what should happen in the next session.
 
-**After this batch (3 new skills: commit-conventions, principles, plugin-setup — v0.3.0):**
+**After v0.3.2 (fixed validation infrastructure, AWK compatibility, dev-test improvements):**
 
-1. **Verify multi-device sync** — Merge to main, restart Claude Code on a second device with auto-update enabled, confirm plugin version `0.3.0` is picked up automatically.
-2. **Test `adapters/claude/dev-test.sh` end-to-end** — Run the full pipeline with all 5 skills present and confirm it validates correctly.
-3. **Step 2.2 — Add optional plugin capabilities** — Evaluate whether any of the new skills benefit from `hooks/`, `.mcp.json`, or `agents/` additions now that concrete skills exist.
-4. **Enable auto-update on marketplace** — Confirm Claude Code picks up version bumps without manual `plugin update` command.
-5. **Test Codex context flow** — Confirm Codex can discover `shared/manifest.md` and traverse to skill files directly.
+1. **Test on second device** — Multi-device sync: merge to main, restart Claude Code on a second device with auto-update enabled, confirm version `0.3.2+` is picked up and all 6 skills load correctly.
+2. **Evaluate concrete use cases for Phase 2.2 features** — Review whether any current skills genuinely need:
+   - `hooks/` integration beyond the existing SessionStart hook
+   - `.mcp.json` for external API/tool integrations (e.g., web-search could use this)
+   - `agents/` for specialized persona-based behaviours
+   - **Only implement if a real workflow problem emerges; Phase 2.2 is optional infrastructure.**
+3. **Test Codex integration** — Confirm Codex can discover `shared/manifest.md` and directly reference skill files for knowledge synthesis.
+4. **Monitor feedback from real usage** — Watch for:
+   - Skills that would benefit from each other (compose workflow skills)
+   - Performance issues or context window pressure from plugins
+   - Bugs in multi-model variant selection
+   - Sync failures or edge cases with concurrent edits
