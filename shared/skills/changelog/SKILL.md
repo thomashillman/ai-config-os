@@ -26,6 +26,11 @@ dependencies:
     - name: commit-conventions
       version: "^1.0"
       optional: false
+  apis: []
+  models:
+    - sonnet
+    - opus
+    - haiku
 
 # Feature 2: Multi-Model Variants
 variants:
@@ -89,6 +94,11 @@ monitoring:
 version: "1.0.0"
 changelog:
   "1.0.0": "Initial release with support for conventional commit grouping and breaking change detection"
+
+tags:
+  - core
+  - workflow
+  - documentation
 ---
 
 ## When to use

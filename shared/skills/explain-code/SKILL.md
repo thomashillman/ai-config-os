@@ -23,6 +23,11 @@ outputs:
 
 dependencies:
   skills: []
+  apis: []
+  models:
+    - sonnet
+    - haiku
+    - opus
 
 # Feature 2: Multi-Model Variants
 variants:
@@ -92,6 +97,11 @@ monitoring:
 version: "1.0.0"
 changelog:
   "1.0.0": "Initial release with depth-aware explanations and architectural analysis"
+
+tags:
+  - utility
+  - documentation
+  - explanation
 ---
 
 ## When to use

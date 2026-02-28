@@ -23,6 +23,11 @@ outputs:
 
 dependencies:
   skills: []
+  apis: []
+  models:
+    - sonnet
+    - opus
+    - haiku
 
 # Feature 2: Multi-Model Variants
 variants:
@@ -86,6 +91,11 @@ monitoring:
 version: "1.0.0"
 changelog:
   "1.0.0": "Initial release with constraint-aware decomposition and dependency ordering"
+
+tags:
+  - core
+  - workflow
+  - planning
 ---
 
 ## When to use
