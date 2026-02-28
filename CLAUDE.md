@@ -19,6 +19,37 @@ Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
 - Run `claude plugin validate .` before committing
 - Start new skills from `shared/skills/_template/SKILL.md` (Phase 2: enhanced with full frontmatter)
 
+## Session startup checklist
+
+Before doing any work on a `claude/` branch:
+
+1. **Fetch main to get latest state**
+   ```sh
+   git fetch origin main
+   ```
+
+2. **Rebase onto main** (if safe)
+   ```sh
+   git rebase origin/main
+   ```
+   - Skip if: branch has been reviewed, 5+ commits with likely conflicts, or deliberately cut from a historical tag
+   - Use the `git-ops` skill to validate before rebasing
+
+3. **When bumping `plugin.json` version, derive from `origin/main` at bump-time**
+   ```sh
+   # Read canonical version, don't trust the working tree
+   git show origin/main:plugins/core-skills/.claude-plugin/plugin.json | jq -r '.version'
+   ```
+   - Parse that version and increment the patch component (unless major/minor bump needed)
+   - Never read the working tree's version as the base; it reflects an older merge-base
+
+4. **If another `claude/` branch is known to be open and also touching `plugin.json`**
+   - Flag the conflict to the user rather than guessing the version
+   - Use the `git-ops` skill's race-condition detection
+   - Recommendation: coordinate with the other session or escalate to user
+
+The `git-ops` skill automates these checks. Use it whenever bumping versions or rebasing.
+
 ## Phase 2: Enhanced SKILL.md Frontmatter
 
 All skills define metadata in YAML frontmatter (between `---` markers):
