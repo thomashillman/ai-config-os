@@ -1,0 +1,75 @@
+{
+  "workflow": "code-quality",
+  "version": "1.0.0",
+  "description": "Full code quality loop: review, debug, and explain code changes",
+
+  "metadata": {
+    "author": "system",
+    "created": "2026-02-28",
+    "tags": ["code-quality", "review", "debug", "explanation"]
+  },
+
+  "personas": [
+    {
+      "name": "code-quality-agent",
+      "description": "Reviews code, identifies bugs and issues, and explains decisions and patterns",
+      "skills": [
+        {
+          "name": "code-review",
+          "config": {
+            "variant": "sonnet",
+            "review_type": "full"
+          }
+        },
+        {
+          "name": "debug",
+          "config": {
+            "variant": "sonnet"
+          }
+        },
+        {
+          "name": "explain-code",
+          "config": {
+            "variant": "sonnet",
+            "depth": "detailed"
+          }
+        }
+      ]
+    }
+  ],
+
+  "execution_flow": [
+    {
+      "step": 1,
+      "persona": "code-quality-agent",
+      "skill": "code-review",
+      "input_from": "code_diff",
+      "output_to": "review_result"
+    },
+    {
+      "step": 2,
+      "persona": "code-quality-agent",
+      "skill": "debug",
+      "input_from": "review_result",
+      "output_to": "debug_result"
+    },
+    {
+      "step": 3,
+      "persona": "code-quality-agent",
+      "skill": "explain-code",
+      "input_from": "code_diff",
+      "output_to": "explanation"
+    }
+  ],
+
+  "dependencies_required": {
+    "skills": ["code-review", "debug", "explain-code"],
+    "models": ["sonnet", "opus"],
+    "apis": []
+  },
+
+  "performance_expectations": {
+    "total_latency_ms": 5000,
+    "estimated_cost": 0.015
+  }
+}
