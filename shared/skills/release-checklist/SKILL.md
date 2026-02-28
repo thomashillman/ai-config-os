@@ -1,7 +1,7 @@
 ---
 # Identity
 skill: release-checklist
-description: Validate release readiness by checking plugin.json version, running tests, generating changelog, and staging a release commit with tag.
+description: Automated release workflow validation, changelog generation, tagging, and readiness assessment.
 type: workflow-blueprint
 status: stable
 
@@ -9,17 +9,17 @@ status: stable
 inputs:
   - name: version
     type: string
-    description: Semver version string for release (e.g., "1.0.0", "2.1.3")
+    description: Target release version in semver format (e.g. "1.0.0")
     required: true
   - name: release_notes
     type: string
-    description: Optional release notes to include in commit message and tag
+    description: Optional supplementary release notes (markdown)
     required: false
 
 outputs:
   - name: checklist_result
     type: object
-    description: Object with steps_completed (array), steps_failed (array), ready_to_release (boolean), summary
+    description: Steps completed, failed steps, ready_to_release bool, and tag output
 
 dependencies:
   skills:
@@ -32,38 +32,19 @@ dependencies:
     - name: changelog
       version: "^1.0"
       optional: false
-  apis: []
-  models:
-    - sonnet
-    - opus
-
-examples:
-  - input:
-      version: "1.0.0"
-      release_notes: "Stable release with Phase 2 skill metadata support"
-    output:
-      steps_completed:
-        - "Validated plugin.json version matches target 1.0.0"
-        - "Ran adapters/claude/dev-test.sh successfully"
-        - "Generated changelog entries (5 features, 2 fixes, 1 breaking change)"
-        - "Staged release commit: 'chore(release): 1.0.0'"
-        - "Created annotated tag v1.0.0 with release notes"
-      steps_failed: []
-      ready_to_release: true
-      summary: "All checks passed. Branch is clean and ready to push and merge to main."
-      next_action: "Run: git push -u origin claude/release-1.0.0 && git push origin v1.0.0"
-    expected_model: sonnet
 
 # Feature 2: Multi-Model Variants
 variants:
   sonnet:
-    description: Standard release checklist with step-by-step validation
+    prompt_file: prompts/standard.md
+    description: Standard release checklist validation (default)
     cost_factor: 1.0
-    latency_baseline_ms: 1500
+    latency_baseline_ms: 600
   opus:
-    description: Verbose checklist with risk assessment and rollback guidance
+    prompt_file: prompts/verbose-risk.md
+    description: Verbose checklist with risk assessment and mitigation guidance
     cost_factor: 3.0
-    latency_baseline_ms: 2000
+    latency_baseline_ms: 1200
   fallback_chain:
     - sonnet
     - opus
@@ -72,18 +53,16 @@ variants:
 tests:
   - id: test-clean-state
     type: integration
-    input:
-      version: "1.1.0"
+    input: '{"version": "1.0.0"}'
     expected_substring: "ready_to_release"
     models_to_test:
       - sonnet
   - id: test-dirty-state
     type: integration
-    input:
-      version: "1.1.0"
-    expected_substring: "failed"
+    input: '{"version": "1.0.1"}'
+    expected_substring: "steps_failed"
     models_to_test:
-      - opus
+      - sonnet
 
 # Feature 4: Skill Composition
 composition:
@@ -96,6 +75,7 @@ docs:
     - description
     - inputs
     - outputs
+    - instructions
 
 # Feature 6: Performance Monitoring
 monitoring:
@@ -108,54 +88,27 @@ monitoring:
 
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release"
+  "1.0.0": "Initial release with automated validation and release readiness assessment"
 ---
 
 ## When to use
 
-Use this skill to:
-- Automate release validation and safeguard against common errors
-- Generate consistent release commits and tags
-- Ensure version numbers are synchronized across manifest files
-- Document breaking changes and migration steps
-- Prepare a branch ready for merging to main
+Use `release-checklist` when:
+- Preparing a new version for release
+- Validating that all pre-release steps are complete
+- Automating tagging and push workflows
+- Documenting release state and readiness criteria
 
 ## Instructions
 
-1. **Validate plugin.json version**:
-   - Read `plugins/core-skills/.claude-plugin/plugin.json`
-   - Extract current version
-   - Confirm it matches or can be incremented to target `version` input
-   - Use git-ops skill to fetch canonical version from origin/main if in doubt
-
-2. **Run test suite**:
-   - Execute `adapters/claude/dev-test.sh`
-   - Capture exit code and output
-   - If any test fails, flag and stop (don't continue to commit)
-
-3. **Invoke changelog skill**:
-   - Determine `since_ref` (last tag, e.g., "v0.9.0")
-   - Call changelog with (since_ref, version)
-   - Receive changelog entry (markdown)
-
-4. **Stage release commit**:
-   - Write changelog entry to `CHANGELOG.md` (create if doesn't exist)
-   - Update `plugin.json` version to target version
-   - Stage both files: `git add CHANGELOG.md plugins/core-skills/.claude-plugin/plugin.json`
-   - Commit with conventional message: `chore(release): <version>` + optional release notes in body
-
-5. **Create annotated tag**:
-   - Format: `v<version>` (e.g., `v1.0.0`)
-   - Tag message: include release notes + link to changelog
-   - Example: `git tag -a v1.0.0 -m "Release v1.0.0: Phase 2 support"`
-
-6. **Output readiness**:
-   - List all steps completed
-   - Flag any failures
-   - If all pass: output next action (git push + push tags)
-   - If any fail: list remediation steps
-
-7. **Opus variant only**: Add risk assessment (what could go wrong on merge), rollback steps
+1. **Validate plugin.json version**: Confirm `plugins/core-skills/.claude-plugin/plugin.json` version field matches target
+2. **Run test suite**: Execute `adapters/claude/dev-test.sh`; fail fast if tests don't pass
+3. **Invoke changelog**: Call `changelog` skill with `since_ref` = previous tag, `version` = target
+4. **Draft release commit**: Create release commit with updated CHANGELOG.md and plugin.json
+5. **Create tag**: Git tag with `v<version>` format, include changelog body as message
+6. **Push branch and tag**: Push to origin, verify remote state
+7. **Output readiness**: Summarize steps, highlight any failures, produce bool `ready_to_release`
+8. **Opus variant**: Include risk assessment (what can break in production), rollback guidance, customer communication templates
 
 ## Examples
 
@@ -163,66 +116,177 @@ Use this skill to:
 ```json
 {
   "version": "1.0.0",
-  "release_notes": "Stable GA release with complete Phase 2 skill metadata and audit tooling"
+  "release_notes": "Major release: Phase 2 skill frontmatter, 5 new skills"
 }
 ```
 
-### Output (Sonnet)
+### Output (sonnet)
 ```json
 {
+  "version": "1.0.0",
+  "timestamp": "2026-02-28T11:00:00Z",
   "steps_completed": [
-    "Validated plugin.json: current version 0.9.0 → target 1.0.0 (patch bump allowed)",
-    "Ran adapters/claude/dev-test.sh: PASSED (15/15 tests)",
-    "Generated changelog: 7 features, 3 fixes, 1 breaking change (symlink paths)",
-    "Updated CHANGELOG.md with new 1.0.0 entry",
-    "Updated plugins/core-skills/.claude-plugin/plugin.json to version 1.0.0",
-    "Staged release commit: chore(release): 1.0.0",
-    "Created annotated tag v1.0.0"
+    {
+      "step": 1,
+      "name": "Validate plugin.json version",
+      "status": "success",
+      "detail": "Version 1.0.0 matches target"
+    },
+    {
+      "step": 2,
+      "name": "Run test suite (adapters/claude/dev-test.sh)",
+      "status": "success",
+      "detail": "All 12 tests passed; coverage 87%"
+    },
+    {
+      "step": 3,
+      "name": "Generate changelog",
+      "status": "success",
+      "detail": "Changelog generated from v0.3.0..HEAD; 8 features, 3 fixes, 2 breaking changes"
+    },
+    {
+      "step": 4,
+      "name": "Draft release commit",
+      "status": "success",
+      "detail": "Commit ready: docs(release): 1.0.0 changelog"
+    },
+    {
+      "step": 5,
+      "name": "Create git tag",
+      "status": "success",
+      "detail": "Tag v1.0.0 created with changelog as annotation"
+    },
+    {
+      "step": 6,
+      "name": "Push to origin",
+      "status": "success",
+      "detail": "Branch and tag pushed to origin"
+    }
   ],
   "steps_failed": [],
   "ready_to_release": true,
-  "summary": "All release checks passed. Repository is clean and ready to push.",
-  "next_action": "git push -u origin claude/release-1.0.0 && git push origin v1.0.0",
-  "manual_steps": [
-    "Merge the claude/release-1.0.0 branch to main via GitHub UI",
-    "GitHub Actions will auto-publish tagged release to marketplace"
+  "tag_ref": "v1.0.0",
+  "next_steps": [
+    "Create GitHub release from tag v1.0.0",
+    "Notify stakeholders of availability",
+    "Update plugin marketplace entry"
   ]
 }
 ```
 
-### Output (Opus with risk assessment)
+### Output (opus with risk assessment)
 ```json
 {
+  "version": "1.0.0",
+  "timestamp": "2026-02-28T11:00:00Z",
   "steps_completed": [
-    "Validated plugin.json: current version 0.9.0 → target 1.0.0",
-    "Ran adapters/claude/dev-test.sh: PASSED (15/15 tests)",
-    "Generated changelog: 7 features, 3 fixes, 1 breaking change",
-    "Updated CHANGELOG.md and plugin.json",
-    "Staged release commit and created tag v1.0.0"
+    {
+      "step": 1,
+      "name": "Validate plugin.json version",
+      "status": "success"
+    },
+    {
+      "step": 2,
+      "name": "Run test suite",
+      "status": "success",
+      "coverage": "87%"
+    },
+    {
+      "step": 3,
+      "name": "Generate changelog",
+      "status": "success"
+    },
+    {
+      "step": 4,
+      "name": "Draft release commit",
+      "status": "success"
+    },
+    {
+      "step": 5,
+      "name": "Create git tag",
+      "status": "success"
+    },
+    {
+      "step": 6,
+      "name": "Push to origin",
+      "status": "success"
+    }
   ],
-  "steps_failed": [],
   "ready_to_release": true,
-  "summary": "All release checks passed.",
   "risk_assessment": {
-    "blockers": [],
-    "warnings": [
+    "overall_risk": "medium",
+    "risk_factors": [
       {
-        "severity": "warning",
-        "issue": "Breaking change in symlink paths affects downstream users",
-        "mitigation": "Changelog includes migration guide; users must update symlinks before upgrading"
+        "category": "Breaking Changes",
+        "severity": "high",
+        "detail": "2 BREAKING CHANGE items in changelog (manifest.md schema, skill interface)",
+        "impact": "Users on v0.x must update all skill definitions before upgrading",
+        "mitigation": "Provide migration guide; offer 2-week support window for questions"
+      },
+      {
+        "category": "New Skills (Experimental)",
+        "severity": "medium",
+        "detail": "skill-audit is experimental; may change in 1.1.0",
+        "impact": "Early adopters may need to update usage in 2–4 weeks",
+        "mitigation": "Document in release notes; flag as experimental in marketplace"
+      },
+      {
+        "category": "Dependency Blocker",
+        "severity": "low",
+        "detail": "release-checklist depends on commit-conventions (not yet released)",
+        "impact": "release-checklist cannot be used until commit-conventions is published",
+        "mitigation": "Create commit-conventions skill in parallel; publish simultaneously"
       }
-    ],
-    "rollback_procedure": [
-      "If issues arise after merge to main, revert commit: git revert <commit-sha>",
-      "Delete tag: git tag -d v1.0.0 && git push origin :refs/tags/v1.0.0",
-      "Re-tag with 'yanked' or 'broken' suffix if needed for records"
     ]
   },
-  "next_action": "git push -u origin claude/release-1.0.0 && git push origin v1.0.0",
-  "post_merge_verification": [
-    "Confirm GitHub Actions ran successfully",
-    "Verify marketplace reflects new version within 5 minutes",
-    "Test plugin installation in clean environment"
+  "customer_communication": {
+    "email_subject": "AI Config OS v1.0.0: Major release with Phase 2 skill frontmatter",
+    "body_template": "Dear Users,\n\nWe're excited to announce AI Config OS v1.0.0 with major enhancements:\n\n**Breaking Changes (action required):**\n- Skill manifests now require `dependencies.skills` array with semver constraints\n- See MIGRATION.md for step-by-step upgrade guide\n\n**New Features:**\n- 5 new skills: changelog, task-decompose, explain-code, skill-audit, release-checklist\n- Phase 2 skill frontmatter with multi-model variants and performance monitoring\n\n**Timeline:**\n- Upgrade window: 2 weeks recommended\n- Support: Please open GitHub issues with migration questions\n"
+  },
+  "rollback_procedure": {
+    "if_critical_bug": "git revert v1.0.0 && git push origin main && publish v1.0.1 hotfix within 2 hours",
+    "communication": "Notify stakeholders immediately; post incident report within 24 hours"
+  },
+  "tag_ref": "v1.0.0",
+  "next_steps": [
+    "Publish to marketplace",
+    "Post release announcement",
+    "Monitor early adopter feedback for 48 hours"
+  ]
+}
+```
+
+### Input (with dirty repo state)
+```json
+{
+  "version": "1.0.1"
+}
+```
+
+### Output (failure case)
+```json
+{
+  "version": "1.0.1",
+  "timestamp": "2026-02-28T11:05:00Z",
+  "steps_completed": [
+    {
+      "step": 1,
+      "name": "Validate plugin.json version",
+      "status": "failed",
+      "detail": "Expected version 1.0.1 but found 1.0.0 in plugin.json. Run: jq '.version = \"1.0.1\"' plugins/core-skills/.claude-plugin/plugin.json > /tmp/plugin.json && mv /tmp/plugin.json plugins/core-skills/.claude-plugin/plugin.json"
+    }
+  ],
+  "steps_failed": [
+    {
+      "step": 1,
+      "name": "Validate plugin.json version",
+      "error": "Version mismatch"
+    }
+  ],
+  "ready_to_release": false,
+  "blockers": [
+    "Fix plugin.json version to match target 1.0.1",
+    "Run full checklist again before releasing"
   ]
 }
 ```

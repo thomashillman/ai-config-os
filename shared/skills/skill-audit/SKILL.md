@@ -1,7 +1,7 @@
 ---
 # Identity
 skill: skill-audit
-description: Audit all skills (or a specific skill) against Phase 2 standards. Checks frontmatter completeness, variant coverage, test count, dependency resolution, and status staleness.
+description: Audit skill definitions for completeness, variant coverage, test presence, and dependency resolution.
 type: agent
 status: experimental
 
@@ -9,73 +9,29 @@ status: experimental
 inputs:
   - name: scope
     type: string
-    description: Audit scope—'all' (default) for all skills, or specific skill name (e.g., 'changelog')
+    description: Audit scope (all, or specific skill name); default all
     required: false
 
 outputs:
   - name: audit_report
     type: object
-    description: Per-skill health scores (0–100), gaps list with severity, and actionable recommendations
+    description: Per-skill health scores, gaps list, ranked recommendations
 
 dependencies:
   skills: []
-  apis: []
-  models:
-    - opus
-    - sonnet
-
-examples:
-  - input:
-      scope: "all"
-    output:
-      summary:
-        total_skills: 12
-        passing: 8
-        warnings: 3
-        failing: 1
-      skills:
-        - name: changelog
-          health_score: 95
-          gaps: []
-          status: stable
-        - name: task-decompose
-          health_score: 85
-          gaps:
-            - severity: warning
-              issue: "Only 2 tests defined, recommended ≥2 for prompt type"
-          status: stable
-        - name: broken-skill
-          health_score: 40
-          gaps:
-            - severity: critical
-              issue: "Missing outputs in frontmatter"
-            - severity: critical
-              issue: "Zero tests defined"
-            - severity: warning
-              issue: "Status is 'deprecated' but still listed in manifest"
-          status: deprecated
-      recommendations:
-        - rank: 1
-          severity: critical
-          action: "Fix broken-skill outputs and add ≥2 tests"
-        - rank: 2
-          severity: warning
-          action: "Add 1–2 more tests to task-decompose for edge cases"
-        - rank: 3
-          severity: info
-          action: "Review deprecated skills and remove from manifest"
-    expected_model: opus
 
 # Feature 2: Multi-Model Variants
 variants:
-  sonnet:
-    description: Standard gap report with scoring and ranked recommendations
-    cost_factor: 1.0
-    latency_baseline_ms: 600
   opus:
-    description: Deep audit with prioritized recommendations and risk assessment
+    prompt_file: prompts/deep-analysis.md
+    description: Deep audit with prioritised recommendations and remediation steps
     cost_factor: 3.0
     latency_baseline_ms: 1200
+  sonnet:
+    prompt_file: prompts/standard.md
+    description: Standard gap report (default)
+    cost_factor: 1.0
+    latency_baseline_ms: 500
   fallback_chain:
     - sonnet
     - opus
@@ -84,18 +40,16 @@ variants:
 tests:
   - id: test-full-audit
     type: integration
-    input:
-      scope: "all"
-    expected_substring: "health_score"
+    input: '{"scope": "all"}'
+    expected_substring: "health_scores"
     models_to_test:
       - sonnet
   - id: test-single-skill
     type: integration
-    input:
-      scope: "changelog"
+    input: '{"scope": "explain-code"}'
     expected_substring: "gaps"
     models_to_test:
-      - opus
+      - sonnet
 
 # Feature 4: Skill Composition
 composition:
@@ -108,6 +62,7 @@ docs:
     - description
     - inputs
     - outputs
+    - instructions
 
 # Feature 6: Performance Monitoring
 monitoring:
@@ -120,49 +75,40 @@ monitoring:
 
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release"
+  "1.0.0": "Initial experimental release with manifest validation and gap detection"
 ---
 
 ## When to use
 
-Use this skill to:
-- Validate skill conformance to Phase 2 standards before release
-- Identify incomplete or stale skill definitions
-- Plan remediation of skill gaps
-- Track skill health over time
-- Enforce consistency across the skill registry
+Use `skill-audit` when:
+- Reviewing skill health across the registry
+- Validating Phase 2 frontmatter compliance
+- Planning skill lifecycle (deprecation, graduation from experimental)
+- Ensuring test coverage meets baseline
+- Detecting orphaned or stale dependencies
 
 ## Instructions
 
-1. **Read shared/manifest.md**:
-   - Extract all skill names and versions
-   - Filter by scope (all vs. specific skill)
+1. **Read shared/manifest.md**: Load skill registry and metadata
+2. **For each skill (or scope)**:
+   - Check required frontmatter fields (skill, description, type, status, inputs, outputs, variants, tests, version, changelog)
+   - Validate all 3 model variants specified (or fallback chain)
+   - Verify ≥2 tests present with valid types and models_to_test
+   - Check status is non-stale (experimental→stable transition planned, or stable actively maintained)
+   - Resolve dependencies: all referenced skills must exist and have resolvable versions
 
-2. **For each skill, check**:
-   - YAML frontmatter completeness (all 6 features present)
-   - Inputs and outputs defined
-   - At least 2 tests (3+ for agent/workflow types)
-   - All variants listed (fallback_chain required)
-   - Non-stale status (deprecated only if explicitly marked for removal)
-   - Dependencies resolvable (skill exists, version constraint satisfied)
+3. **Score per skill**:
+   - Frontmatter completeness: 0–100
+   - Test coverage: count of tests vs expected (baseline ≥2)
+   - Variant availability: how many of 3 tiers present
+   - Status health: experimental (lower score), stable (higher)
 
-3. **Score each skill** (0–100):
-   - 100: All checks pass
-   - 80–99: Minor gaps (e.g., 1 missing variant, 1 weak test)
-   - 60–79: Moderate gaps (e.g., incomplete inputs, 2+ weak tests)
-   - <60: Critical gaps (missing outputs, 0 tests, broken dependencies)
+4. **Produce ranked gaps list**:
+   - Critical (blocks release): missing required fields, zero tests, broken deps
+   - High (should fix soon): incomplete variants, vague descriptions, stale status
+   - Medium (nice to have): minimal test coverage, missing examples, no monitoring config
 
-4. **Compile gaps list**:
-   - Severity: critical, warning, info
-   - Issue description
-   - Remediation hint
-
-5. **Generate recommendations**:
-   - Rank by severity
-   - Group related fixes (e.g., "Fix all test counts in batch")
-   - Estimate effort per recommendation
-
-6. **Opus variant only**: Add risk assessment—which gaps block production deployment
+5. **Opus variant**: Include remediation steps, priority matrix, and estimated effort per gap
 
 ## Examples
 
@@ -173,136 +119,176 @@ Use this skill to:
 }
 ```
 
-### Output (Sonnet)
+### Output (sonnet)
 ```json
 {
+  "audit_timestamp": "2026-02-28T10:30:00Z",
+  "scope": "all",
   "summary": {
-    "total_skills": 5,
-    "passing": 3,
-    "warnings": 2,
-    "failing": 0,
-    "overall_health": 92
+    "skills_audited": 5,
+    "average_health_score": 87,
+    "critical_gaps": 0,
+    "high_gaps": 2,
+    "medium_gaps": 5
   },
   "skills": [
     {
       "name": "changelog",
-      "health_score": 100,
+      "health_score": 95,
+      "frontmatter_score": 100,
+      "test_coverage": 2,
+      "variant_count": 3,
       "status": "stable",
-      "gaps": [],
-      "last_updated": "2026-02-28"
+      "gaps": [
+        {
+          "type": "medium",
+          "message": "No examples in body; suggest adding 2 output examples"
+        }
+      ]
     },
     {
       "name": "task-decompose",
-      "health_score": 85,
+      "health_score": 92,
+      "frontmatter_score": 100,
+      "test_coverage": 2,
+      "variant_count": 3,
       "status": "stable",
       "gaps": [
         {
-          "severity": "warning",
-          "issue": "Only 2 tests; recommended ≥2 for prompt type"
+          "type": "medium",
+          "message": "monitoring.enabled is true but no example metrics shown"
         }
-      ],
-      "last_updated": "2026-02-28"
+      ]
     },
     {
       "name": "explain-code",
-      "health_score": 95,
+      "health_score": 90,
+      "frontmatter_score": 100,
+      "test_coverage": 3,
+      "variant_count": 3,
       "status": "stable",
-      "gaps": [
-        {
-          "severity": "info",
-          "issue": "Example output could include architectural variant"
-        }
-      ],
-      "last_updated": "2026-02-28"
+      "gaps": []
     },
     {
       "name": "skill-audit",
-      "health_score": 80,
+      "health_score": 82,
+      "frontmatter_score": 95,
+      "test_coverage": 2,
+      "variant_count": 2,
       "status": "experimental",
       "gaps": [
         {
-          "severity": "warning",
-          "issue": "Status is 'experimental'; consider promoting to 'stable' after release"
+          "type": "high",
+          "message": "Status is experimental; define graduation criteria and timeline"
+        },
+        {
+          "type": "medium",
+          "message": "Only 2 variants (sonnet, opus); add haiku for quick audits"
         }
-      ],
-      "last_updated": "2026-02-28"
+      ]
     },
     {
       "name": "release-checklist",
-      "health_score": 100,
+      "health_score": 88,
+      "frontmatter_score": 100,
+      "test_coverage": 2,
+      "variant_count": 2,
       "status": "stable",
-      "gaps": [],
-      "last_updated": "2026-02-28"
+      "gaps": [
+        {
+          "type": "high",
+          "message": "Depends on 3 skills (git-ops, commit-conventions, changelog) but commit-conventions may not exist"
+        },
+        {
+          "type": "medium",
+          "message": "No haiku variant; testing always uses sonnet"
+        }
+      ]
     }
   ],
   "recommendations": [
-    {
-      "rank": 1,
-      "severity": "info",
-      "action": "Promote skill-audit to stable after first successful audit run",
-      "effort": "low"
-    },
-    {
-      "rank": 2,
-      "severity": "warning",
-      "action": "Add edge-case tests to task-decompose (constrained vs. unconstrained tasks)",
-      "effort": "medium"
-    },
-    {
-      "rank": 3,
-      "severity": "info",
-      "action": "Update explain-code examples to include architectural variant output",
-      "effort": "low"
-    }
+    "Priority 1: Resolve release-checklist dependency on commit-conventions; create or update docs",
+    "Priority 2: Skill-audit status experimental; define graduation checklist",
+    "Priority 3: Add haiku variants to skill-audit and release-checklist for cost optimization"
   ]
 }
 ```
 
-### Output (Opus with risk assessment)
+### Output (opus with deep analysis)
 ```json
 {
+  "audit_timestamp": "2026-02-28T10:30:00Z",
+  "scope": "all",
   "summary": {
-    "total_skills": 5,
-    "passing": 3,
-    "warnings": 2,
-    "failing": 0,
-    "overall_health": 92,
-    "production_ready": true
+    "skills_audited": 5,
+    "average_health_score": 87,
+    "critical_gaps": 0,
+    "high_gaps": 2,
+    "medium_gaps": 5,
+    "estimated_remediation_hours": 8
   },
-  "skills": [
-    {
-      "name": "changelog",
-      "health_score": 100,
-      "status": "stable",
-      "gaps": [],
-      "risk_assessment": {
-        "blocks_deployment": false,
-        "critical_paths": ["release-checklist (depends on changelog)"]
-      }
+  "detailed_analysis": {
+    "skill-audit": {
+      "health_score": 82,
+      "status_progression": "experimental → stable target: v1.1.0",
+      "graduation_blockers": [
+        {
+          "blocker": "No production usage recorded",
+          "severity": "high",
+          "remedy": "Deploy as optional skill for 1 release cycle, track adoption"
+        },
+        {
+          "blocker": "Only 2 model variants",
+          "severity": "medium",
+          "remedy": "Add haiku for quick-scan audits; estimated 2 hours"
+        }
+      ]
+    },
+    "release-checklist": {
+      "health_score": 88,
+      "dependency_health": "at-risk",
+      "at_risk_deps": [
+        {
+          "skill": "commit-conventions",
+          "status": "does_not_exist",
+          "action": "Create skill or remove from dependencies",
+          "priority": "critical"
+        },
+        {
+          "skill": "git-ops",
+          "status": "exists",
+          "version_constraint": "unspecified",
+          "action": "Add version constraint (e.g., ^1.0)",
+          "priority": "high"
+        }
+      ]
     }
-  ],
-  "recommendations": [
+  },
+  "remediation_plan": [
     {
       "rank": 1,
-      "severity": "info",
-      "action": "Promote skill-audit to stable post-release",
-      "effort": "low",
-      "impact": "Enables automated health tracking in CI"
+      "issue": "release-checklist depends on non-existent commit-conventions",
+      "effort_hours": 2,
+      "action": "Create shared/skills/commit-conventions/SKILL.md or remove from release-checklist dependencies"
     },
     {
       "rank": 2,
-      "severity": "warning",
-      "action": "Add edge-case tests to task-decompose",
-      "effort": "medium",
-      "impact": "Reduces user frustration with underspecified tasks"
+      "issue": "skill-audit needs graduation criteria to leave experimental",
+      "effort_hours": 1,
+      "action": "Document graduation checklist in skill body; set target version"
+    },
+    {
+      "rank": 3,
+      "issue": "skill-audit and release-checklist missing haiku variants",
+      "effort_hours": 4,
+      "action": "Add prompts/quick.md variant; update variant fallback chains"
+    },
+    {
+      "rank": 4,
+      "issue": "No example monitoring outputs in task-decompose and explain-code",
+      "effort_hours": 1,
+      "action": "Add sample metrics dict to Examples section"
     }
-  ],
-  "deployment_readiness": {
-    "ready_to_release": true,
-    "blockers": [],
-    "recommended_before_merge": [
-      "skill-audit promotion to stable"
-    ]
-  }
+  ]
 }
 ```
