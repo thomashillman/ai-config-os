@@ -1,0 +1,47 @@
+{
+  "name": "pre-commit",
+  "description": "Quality gate before committing: security review + code review + conventions check",
+  "type": "workflow",
+  "version": "1.0.0",
+  "composed_skills": [
+    {
+      "skill": "security-review",
+      "variant": "sonnet",
+      "description": "Check for security vulnerabilities"
+    },
+    {
+      "skill": "code-review",
+      "variant": "sonnet",
+      "description": "Structural code quality review"
+    },
+    {
+      "skill": "commit-conventions",
+      "variant": "haiku",
+      "description": "Validate commit message format"
+    }
+  ],
+  "execution_flow": [
+    {
+      "step": 1,
+      "skill": "security-review",
+      "action": "review changed files for vulnerabilities",
+      "output_key": "security_issues"
+    },
+    {
+      "step": 2,
+      "skill": "code-review",
+      "action": "review code quality",
+      "output_key": "code_issues"
+    },
+    {
+      "step": 3,
+      "skill": "commit-conventions",
+      "action": "validate commit message",
+      "output_key": "convention_check"
+    }
+  ],
+  "expected_latency_ms": 3000,
+  "estimated_cost_usd": 0.08,
+  "gate_policy": "allow_medium_and_below",
+  "tags": ["quality-gate", "commit", "pre-commit"]
+}
