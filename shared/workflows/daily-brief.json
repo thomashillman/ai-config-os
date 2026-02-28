@@ -1,0 +1,59 @@
+{
+  "name": "daily-brief",
+  "description": "Morning standup: synthesize recent changes, open issues, blocked work",
+  "type": "workflow",
+  "version": "1.0.0",
+  "composed_skills": [
+    {
+      "skill": "git-ops",
+      "variant": "sonnet",
+      "description": "Fetch recent commits and branches"
+    },
+    {
+      "skill": "changelog",
+      "variant": "sonnet",
+      "description": "Generate changelog from yesterday's commits"
+    },
+    {
+      "skill": "memory",
+      "variant": "sonnet",
+      "description": "Load known blockers and ongoing work"
+    },
+    {
+      "skill": "task-decompose",
+      "variant": "sonnet",
+      "description": "Prioritize tasks for today"
+    }
+  ],
+  "execution_flow": [
+    {
+      "step": 1,
+      "skill": "git-ops",
+      "action": "fetch recent commits",
+      "output_key": "recent_commits"
+    },
+    {
+      "step": 2,
+      "skill": "changelog",
+      "action": "generate changelog from commits",
+      "input_from": "recent_commits",
+      "output_key": "changelog"
+    },
+    {
+      "step": 3,
+      "skill": "memory",
+      "action": "read project memory",
+      "output_key": "context"
+    },
+    {
+      "step": 4,
+      "skill": "task-decompose",
+      "action": "prioritize tasks",
+      "input_from": ["changelog", "context"],
+      "output_key": "daily_plan"
+    }
+  ],
+  "expected_latency_ms": 2000,
+  "estimated_cost_usd": 0.05,
+  "tags": ["standup", "planning", "daily"]
+}

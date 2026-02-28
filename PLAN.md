@@ -17,8 +17,8 @@ Core principle: **share knowledge, not runtime wiring**.
 |---|---|---|
 | Repo scaffold and .gitignore | ✅ Done | Phase 1 complete |
 | marketplace.json | ✅ Done | Phase 1 complete |
-| core-skills plugin.json | ✅ Done | v0.3.2 current |
-| shared/manifest.md (index) | ✅ Done | 6 skills listed |
+| core-skills plugin.json | ✅ Done | v0.4.7 (Phase 7) |
+| shared/manifest.md (index) | ✅ Done | 23 skills + 2 workflows listed |
 | shared/principles.md | ✅ Done | Phase 1 complete |
 | adapters/claude/dev-test.sh | ✅ Done | Fixed for non-interactive environments |
 | ops/new-skill.sh | ✅ Done | Phase 1 complete |
@@ -27,7 +27,7 @@ Core principle: **share knowledge, not runtime wiring**.
 | CLAUDE.md (dev context) | ✅ Done | Extended with self-improvement rules |
 | .claude/hooks/session-start.sh | ✅ Done | SessionStart hook implemented |
 | README.md | ✅ Done | Phase 2 documentation |
-| All core skills (6 total) | ✅ Done | session-start-hook, web-search, commit-conventions, git-ops, principles, plugin-setup |
+| All original skills (6 total) | ✅ Done | session-start-hook, web-search, commit-conventions, git-ops, principles, plugin-setup |
 | Phase 2: Multi-model variants | ✅ Done | All skills have opus/sonnet/haiku variants |
 | Phase 2: Testing framework | ✅ Done | Skill tests defined in frontmatter |
 | Phase 2: Composition & workflows | ✅ Done | Framework present |
@@ -36,6 +36,49 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 4: Codex adapter | ✅ Done | adapters/codex/install.sh exists |
 | Validation infrastructure | ✅ Done | yaml-parser compatible with mawk, dev-test passes |
 | Phase 6: Feature expansion (14 items) | ✅ Done | 6 new skills, 3 ops tools, 2 hooks, 2 workflows, CI frontmatter validation, Cursor adapter |
+| Phase 7: Code quality & workflow expansion | ✅ Done | 7 new skills (memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify); 2 workflows (daily-brief, pre-commit); 2 infrastructure scripts |
+
+---
+
+## Phase 7: Code Quality & Workflow Expansion — 12-item implementation (COMPLETE ✅)
+
+**Version:** v0.4.7
+**Branch:** `claude/review-features-plan-omLC3`
+**Completion:** 2026-02-28
+
+### Summary
+
+Expanded the skill library from 16 to 23 skills, added 2 multi-skill workflows, and infrastructure for skill versioning and analytics:
+
+**Skills added:**
+1. `memory` — Persistent cross-session project context
+2. `test-writer` — Comprehensive test generation from code
+3. `security-review` — OWASP-aware vulnerability scanning
+4. `refactor` — Structured refactoring with safety checks
+5. `review-pr` — Incoming PR review and quality gating
+6. `issue-triage` — GitHub issue classification and response drafting
+7. `simplify` — Code complexity reduction guidance
+
+**Workflows added:**
+1. `daily-brief` — Morning standup synthesis (git-ops → changelog → memory → task-decompose)
+2. `pre-commit` — Quality gate before committing (security-review → code-review → commit-conventions)
+
+**Infrastructure:**
+- `ops/validate-pins.sh` — Enforce optional skill version pinning
+- `.claude/hooks/post-tool-use-metrics.sh` — Analytics data collection
+- Manifest and documentation updated; all skills validated
+
+All 7 new skills include multi-model variants (opus/sonnet/haiku) with cost factors and latency baselines.
+
+---
+
+## Phase 8: Feedback Loop & Refinement (Next)
+
+Pending real-world usage feedback on Phase 7 features. Likely improvements:
+- Additional workflow compositions (e.g., `documentation-agent`, `testing-agent`)
+- Performance baseline calibration based on actual usage
+- Memory skill enhancement (search, archival, consensus)
+- Skill pinning + versioning adoption
 
 ---
 
@@ -436,22 +479,36 @@ These are deferred improvements, not part of the initial build:
 
 After each merge, update this section with what should happen in the next session.
 
-**After v0.3.2 (fixed validation infrastructure, AWK compatibility, dev-test improvements):**
+**After Phase 7 (v0.4.7 — 7 new skills + 2 workflows + infrastructure):**
 
-1. **Test on second device** — Multi-device sync: merge to main, restart Claude Code on a second device with auto-update enabled, confirm version `0.3.2+` is picked up and all 6 skills load correctly.
-2. **Evaluate concrete use cases for Phase 2.2 features** — Review whether any current skills genuinely need:
-   - `hooks/` integration beyond the existing SessionStart hook
-   - `.mcp.json` for external API/tool integrations (e.g., web-search could use this)
-   - `agents/` for specialized persona-based behaviours
-   - **Only implement if a real workflow problem emerges; Phase 2.2 is optional infrastructure.**
-3. **Test Codex integration** — Confirm Codex can discover `shared/manifest.md` and directly reference skill files for knowledge synthesis.
-4. **Monitor feedback from real usage** — Watch for:
-   - Skills that would benefit from each other (compose workflow skills)
-   - Performance issues or context window pressure from plugins
-   - Bugs in multi-model variant selection
-   - Sync failures or edge cases with concurrent edits
+1. **Validate Phase 7 on second device** — Merge to main, restart Claude Code on a second device with auto-update enabled, confirm version `0.4.7` is picked up and all 23 skills + 2 workflows load correctly.
 
-**After Phase 6 planning (current):** Execute the 9-commit sequence defined in Phase 6 below.
+2. **Test the memory skill workflow** — Use the `memory` skill to persist context across sessions:
+   - At session start: `action: read` to load project state
+   - During work: `action: update` to record decisions/blockers
+   - At session end: verify `.memory/<project>.md` persists
+
+3. **Pilot the daily-brief workflow** — Run the daily-brief workflow (composes git-ops → changelog → memory → task-decompose) to validate multi-skill composition:
+   - Does it synthesize recent work correctly?
+   - Are the composed skills executing in correct order?
+   - Adjust skill ordering/variants if needed
+
+4. **Pilot the pre-commit workflow** — Use the pre-commit workflow as a quality gate before commits:
+   - Does it catch real security or code quality issues?
+   - Is the gate too strict or too loose?
+   - Refine severity thresholds if needed
+
+5. **Activate analytics collection** — Ensure the `post-tool-use-metrics.sh` hook is collecting data:
+   - Check `.claude/metrics.jsonl` for entries after skill invocations
+   - Validate metrics include timestamp, tool name, status
+   - Begin trending latency and cost by skill/variant
+
+6. **Monitor Phase 5 deferred items** — Watch for signs that these are now needed:
+   - Skill context pressure → consider plugin splitting
+   - Concurrent edit issues → implement sync locking
+   - Agent coordination problems → add interop markers
+
+**After Phase 6 (v0.4.0):** Executed Phase 7 expansion.
 
 ---
 

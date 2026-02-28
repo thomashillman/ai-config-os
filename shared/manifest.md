@@ -11,7 +11,6 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `commit-conventions` | Surfaces Conventional Commits prefix rules and helps draft well-formed commit messages | `shared/skills/commit-conventions/SKILL.md` |
 | `changelog` | Generate structured changelog entries from git history, grouping by conventional prefix and flagging breaking changes | `shared/skills/changelog/SKILL.md` |
 | `code-review` | Perform structured code review with severity levels and actionable feedback | `shared/skills/code-review/SKILL.md` |
-| `commit-conventions` | Surfaces Conventional Commits prefix rules and helps draft well-formed commit messages | `shared/skills/commit-conventions/SKILL.md` |
 | `context-budget` | Guidelines for managing context window efficiently; when to use subagents and summarization | `shared/skills/context-budget/SKILL.md` |
 | `debug` | Structured debugging loop for symptoms, errors, and stack traces; diagnoses root cause and fix | `shared/skills/debug/SKILL.md` |
 | `explain-code` | Explain code snippets at varying depth (brief, detailed, architectural) | `shared/skills/explain-code/SKILL.md` |
@@ -22,6 +21,21 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `release-checklist` | End-to-end release workflow checklist: version bump, changelog, release commit, tag, push | `shared/skills/release-checklist/SKILL.md` |
 | `skill-audit` | Audit skill library for completeness: check required fields, variants, tests, dependencies | `shared/skills/skill-audit/SKILL.md` |
 | `task-decompose` | Decompose high-level tasks into concrete, measurable subtasks with acceptance criteria | `shared/skills/task-decompose/SKILL.md` |
+
+| `memory` | Maintain persistent cross-session project context (decisions, patterns, known issues, workarounds) | `shared/skills/memory/SKILL.md` |
+| `test-writer` | Generate comprehensive unit and integration tests from function/module code | `shared/skills/test-writer/SKILL.md` |
+| `security-review` | Perform OWASP-aware security review of code, dependencies, and configuration | `shared/skills/security-review/SKILL.md` |
+| `refactor` | Perform structured code refactoring with safety checks (extract-method, decompose, etc.) | `shared/skills/refactor/SKILL.md` |
+| `review-pr` | Review incoming pull requests for correctness, breaking changes, test coverage, and security | `shared/skills/review-pr/SKILL.md` |
+| `issue-triage` | Analyze and classify GitHub issues by severity, suggest labels, identify affected areas | `shared/skills/issue-triage/SKILL.md` |
+| `simplify` | Review code for complexity reduction and removal of duplication/overengineering | `shared/skills/simplify/SKILL.md` |
+
+## Workflows
+
+| Workflow | Composed Skills | Description |
+|---|---|---|
+| `daily-brief` | git-ops, changelog, memory, task-decompose | Morning standup: synthesize recent changes, open issues, blocked work |
+| `pre-commit` | security-review, code-review, commit-conventions | Quality gate before committing: security + code quality + conventions |
 
 ## Plugins
 
