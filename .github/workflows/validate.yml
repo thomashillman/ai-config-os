@@ -24,6 +24,21 @@ jobs:
           fi
           echo "All symlinks valid."
 
+      - name: Validate skill frontmatter
+        run: |
+          ERRORS=0
+          for skill_dir in shared/skills/*/; do
+            skill_name=$(basename "$skill_dir")
+            [ "$skill_name" = "_template" ] && continue
+            if ! bash ops/lint-skill.sh "$skill_name"; then
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+          if [ $ERRORS -gt 0 ]; then
+            echo "::error::$ERRORS skill(s) failed frontmatter validation"
+            exit 1
+          fi
+
       - name: Check version bump on skill changes
         if: github.event_name == 'pull_request'
         run: |
