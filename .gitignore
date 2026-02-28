@@ -11,3 +11,7 @@ Thumbs.db
 # Editor configs (uncomment to track)
 # .vscode/
 # .idea/
+
+# Skill testing & analytics (generated, local-only)
+shared/test-results/
+~/.claude/skill-analytics/

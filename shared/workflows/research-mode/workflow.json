@@ -1,0 +1,48 @@
+{
+  "workflow": "research-mode",
+  "version": "1.0.0",
+  "description": "Deep research persona for comprehensive information synthesis",
+
+  "metadata": {
+    "author": "system",
+    "created": "2026-02-28",
+    "tags": ["research", "synthesis", "information-gathering"]
+  },
+
+  "personas": [
+    {
+      "name": "researcher",
+      "description": "Synthesize information across multiple sources with depth and accuracy",
+      "skills": [
+        {
+          "name": "web-search",
+          "config": {
+            "variant": "opus",
+            "num_results": 10,
+            "filter_by_date": "latest_month"
+          }
+        }
+      ]
+    }
+  ],
+
+  "execution_flow": [
+    {
+      "step": 1,
+      "persona": "researcher",
+      "input_from": "user_query",
+      "output_to": "research_findings"
+    }
+  ],
+
+  "dependencies_required": {
+    "skills": ["web-search"],
+    "models": ["opus", "sonnet"],
+    "apis": ["web-search-api"]
+  },
+
+  "performance_expectations": {
+    "total_latency_ms": 3000,
+    "estimated_cost": 0.010
+  }
+}
