@@ -32,6 +32,10 @@ dependencies:
     - name: changelog
       version: "^1.0"
       optional: false
+  apis: []
+  models:
+    - sonnet
+    - opus
 
 # Feature 2: Multi-Model Variants
 variants:
@@ -89,6 +93,11 @@ monitoring:
 version: "1.0.0"
 changelog:
   "1.0.0": "Initial release with automated validation and release readiness assessment"
+
+tags:
+  - core
+  - workflow
+  - release
 ---
 
 ## When to use
