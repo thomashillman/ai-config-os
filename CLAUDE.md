@@ -1,5 +1,7 @@
 # AI Config OS
 
+**Purpose:** Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents. All skill authoring happens in `shared/skills/`; `plugins/` contains only symlinks.
+
 ## Structure
 - `shared/skills/` — canonical skill definitions (author here)
 - `plugins/core-skills/skills/` — symlinks into shared/skills (never edit here directly)
