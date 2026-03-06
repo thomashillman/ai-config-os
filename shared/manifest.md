@@ -50,3 +50,11 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 - **Version bumps** are required in `plugins/core-skills/.claude-plugin/plugin.json` after any skill change
 - **Naming**: use kebab-case for skill directory names
 - **Template**: new skills should follow the structure in `shared/skills/_template/SKILL.md`
+
+## Tools
+
+| Tool ID | Adapter | Description |
+|---|---|---|
+| `claude-code` | cli | Primary AI coding assistant |
+| `cursor` | file | AI code editor (.cursorrules injection) |
+| `codex` | shell | OpenAI coding assistant |

@@ -7,6 +7,8 @@
 - `plugins/core-skills/skills/` — symlinks into shared/skills (never edit here directly)
 - `.claude-plugin/marketplace.json` — marketplace manifest
 - `plugins/core-skills/.claude-plugin/plugin.json` — plugin metadata (bump version on changes)
+- `runtime/` — desired-state tool management: config, adapters, sync, manifest, MCP server
+- `dashboard/` — React SPA: tool status, skill stats, context cost, config, audit, analytics
 
 ## Creating a new skill
 Run `ops/new-skill.sh <skill-name>` — this creates the skill directory, symlink, manifest entry, and bumps the plugin version.
@@ -180,6 +182,26 @@ Three docs stay in sync; each owns a distinct slice:
 - After any merge to main: update PLAN.md "Current state" table and "Recommended next" section.
 - Never duplicate content across docs. If you find the same fact in two places, pick the authoritative owner (table above) and remove it from the other, replacing with a link.
 - Run `ops/check-docs.sh` before committing to see which docs the changed files are expected to touch.
+
+## Runtime
+
+The `runtime/` layer manages tool installation and configuration:
+
+- **Config:** Three-tier YAML (`global.yaml` < `machines/{hostname}.yaml` < `project.yaml`)
+- **Sync:** `bash runtime/sync.sh` — reconciles desired config with live Claude Code environment
+- **Dry run:** `bash runtime/sync.sh --dry-run` — previews changes without applying
+- **Watch mode:** `bash runtime/watch.sh` — triggers sync on config file changes
+- **Status:** `bash ops/runtime-status.sh` — full runtime health check
+
+### Adding an MCP server
+
+1. Edit `runtime/config/global.yaml` (or machine/project override)
+2. Add entry under `mcps:`
+3. Run `bash runtime/sync.sh`
+
+### MCP self-management (experimental)
+
+The MCP server at `runtime/mcp/server.js` exposes sync and skill operations as MCP tools, allowing Claude Code to manage its own configuration. Start with `bash runtime/mcp/start.sh`. Treat as experimental until validated in daily use.
 
 ## Workflow — Local Proxy Environment
 

@@ -6,6 +6,8 @@ Personal AI behaviour layer — skills, plugins, and shared conventions for Clau
 
 - Claude Code
 - `jq` (required by `ops/new-skill.sh` for version bumping)
+- `yq` (required by runtime config merger): `brew install yq` / `snap install yq`
+- Node.js 18+ (required by MCP server and dashboard)
 
 ## Install the plugin (new device)
 
@@ -33,7 +35,7 @@ See [PLAN.md](PLAN.md) for Phase 2 details and [CLAUDE.md](CLAUDE.md) for the en
 | `shared/skills/` | Canonical skill definitions; author here |
 | `shared/skills/_template/SKILL.md` | Enhanced template with full frontmatter schema (Phase 2) |
 | `shared/workflows/` | Skill composition workflows (named personas and execution flows) |
-| `shared/lib/` | Utility libraries (YAML parser, analytics logging) |
+| `shared/lib/` | Utility libraries (YAML parser, analytics logging, config merger) |
 | `plugins/core-skills/` | Claude Code plugin (contains symlinks into `shared/skills/`) |
 | `.claude-plugin/marketplace.json` | Marketplace manifest |
 | `ops/` | Developer scripts: `new-skill.sh`, `lint-skill.sh`, `skill-stats.sh`, validators, test runner, doc generator |
@@ -41,6 +43,10 @@ See [PLAN.md](PLAN.md) for Phase 2 details and [CLAUDE.md](CLAUDE.md) for the en
 | `adapters/codex/` | Codex integration (install.sh) |
 | `adapters/cursor/` | Cursor integration (install.sh for .cursorrules) |
 | `.github/workflows/` | CI validation (symlinks, version bumps, frontmatter lint, docs) |
+| `runtime/` | Desired-state tool management: config, adapters, sync engine, manifest, MCP server |
+| `runtime/config/` | Three-tier YAML config (global, machine, project) |
+| `runtime/mcp/` | MCP server exposing runtime operations to Claude Code |
+| `dashboard/` | React SPA for runtime and skill library visibility |
 
 ## Add a skill
 
@@ -57,6 +63,19 @@ vim shared/manifest.md
 # 4. Validate
 adapters/claude/dev-test.sh
 ```
+
+## Dashboard
+
+```bash
+# Start the MCP server (also serves dashboard API on port 4242)
+bash runtime/mcp/start.sh &
+
+# In a separate terminal, start the dashboard dev server
+cd dashboard && npm run dev
+# Open http://localhost:5173
+```
+
+The dashboard provides six tabs: Tools (runtime status + sync), Skills (library inventory), Context Cost (token footprint), Config (merged config viewer), Audit (validation runner), Analytics (invocation metrics).
 
 ## Develop in this repo
 
