@@ -66,3 +66,16 @@ jobs:
           if [ -n "$STRUCT_CHANGES" ] && [ -z "$README_CHANGED" ]; then
             echo "::warning::Structural files (ops/, adapters/, plugins/) changed but README.md was not updated. Check the directory table."
           fi
+
+      - name: Install runtime dependencies
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq jq yq || true
+
+      - name: Validate tool registry
+        run: bash runtime/validate-registry.sh
+
+      - name: Validate runtime config schema
+        run: |
+          bash shared/lib/config-merger.sh > /dev/null
+          echo "Config merge: OK"
