@@ -37,6 +37,7 @@ Core principle: **share knowledge, not runtime wiring**.
 | Validation infrastructure | ✅ Done | yaml-parser compatible with mawk, dev-test passes |
 | Phase 6: Feature expansion (14 items) | ✅ Done | 6 new skills, 3 ops tools, 2 hooks, 2 workflows, CI frontmatter validation, Cursor adapter |
 | Phase 7: Code quality & workflow expansion | ✅ Done | 7 new skills (memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify); 2 workflows (daily-brief, pre-commit); 2 infrastructure scripts |
+| Phase 8: Runtime integration | ✅ Done | v0.5.0: Three-tier config, tool registry, adapters, sync engine, manifest, MCP server, React dashboard, ops/CI updates |
 
 ---
 
@@ -72,12 +73,51 @@ All 7 new skills include multi-model variants (opus/sonnet/haiku) with cost fact
 
 ---
 
-## Phase 8: Feedback Loop & Refinement (Next)
+## Phase 8: Runtime Integration — Tool Management & Sync (COMPLETE ✅)
 
-Pending real-world usage feedback on Phase 7 features. Likely improvements:
-- Additional workflow compositions (e.g., `documentation-agent`, `testing-agent`)
+**Version:** v0.5.0
+**Branch:** `claude/phase-8-runtime-Z3Zo4`
+**Completion:** 2026-03-06
+
+### Summary
+
+Integrated Mycelium's runtime concepts (desired-state tool management, three-tier config merge, MCP server, dashboard) into ai-config-os. All components written from scratch using ai-config-os conventions. Resolved Mycelium's architectural problems (in-place mutation, subprocess overhead, race conditions).
+
+**Layer model post-Phase-8:**
+```
+shared/skills/          authoring layer (unchanged)
+shared/manifest.md      registry layer (extended)
+runtime/                new: desired-state config + adapters + sync
+dashboard/              new: React SPA
+```
+
+**Implementation:**
+1. Three-tier config schema (global, machine, project) with field-level merge for MCPs
+2. Tool registry (claude-code, cursor, codex) with adapter abstraction
+3. Adapter layer: MCP, CLI, file adapters for tool management
+4. Sync engine with manifest state tracking and dry-run mode
+5. MCP server exposing runtime operations as Claude Code tools
+6. React dashboard with 6 tabs: Tools, Skills, Context Cost, Config, Audit, Analytics
+7. Updated session-start hook to validate and sync runtime
+8. Ops tools: runtime-status.sh, validate-registry.sh
+9. CI integration: tool registry and config schema validation
+
+**Not included (deferred):**
+- Plugin takeover injection (not needed: plugins load directly)
+- Cross-session learning feedback loop (requires usage data)
+- Conflict detector (single-pass check can be added later)
+
+---
+
+## Phase 9: Runtime Validation & Feedback Loop (Next)
+
+**Expected focus:** Real-world validation of Phase 8 runtime and Phase 7 features. Likely work:
+- Daily usage of dashboard and sync for tool management
+- Validation of MCP self-management in practice
 - Performance baseline calibration based on actual usage
+- Additional workflow compositions (e.g., `documentation-agent`, `testing-agent`)
 - Memory skill enhancement (search, archival, consensus)
+- Cross-session learning patterns from analytics data
 - Skill pinning + versioning adoption
 
 ---

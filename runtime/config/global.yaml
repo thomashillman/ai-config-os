@@ -1,0 +1,20 @@
+# Global defaults applied across all machines
+# Override in runtime/config/machines/{hostname}.yaml or runtime/config/project.yaml
+
+mcps: {}
+# Example MCP entry:
+# mcps:
+#   my-mcp-server:
+#     command: npx
+#     args: ["-y", "@package/server"]
+#     env:
+#       API_KEY: "${MY_API_KEY}"
+#     enabled: true
+
+skills:
+  plugin: core-skills
+  marketplace: ./plugins/core-skills
+
+agents: {}
+rules: {}
+commands: {}

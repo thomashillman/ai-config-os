@@ -15,3 +15,14 @@ Thumbs.db
 # Skill testing & analytics (generated, local-only)
 shared/test-results/
 ~/.claude/skill-analytics/
+
+# Runtime: machine-specific and project-local config
+runtime/config/machines/*.yaml
+runtime/config/project.yaml
+
+# Runtime: manifest state (generated)
+runtime/manifest.yaml
+
+# Dashboard: build artifacts
+dashboard/dist/
+dashboard/node_modules/

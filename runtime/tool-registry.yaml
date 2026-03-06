@@ -1,0 +1,26 @@
+# Known tool adapters and their configuration paths
+# Add entries here when supporting new tools
+
+tools:
+  - id: claude-code
+    name: Claude Code
+    adapter: cli
+    cli_command: claude
+    paths:
+      config: ~/.claude/
+      mcp_config: ~/.claude/mcp.json
+      skills_cache: ~/.claude/plugins/cache/
+    description: Primary AI coding assistant
+
+  - id: cursor
+    name: Cursor
+    adapter: file
+    paths:
+      rules: .cursorrules
+    description: AI code editor (rules injected via .cursorrules)
+
+  - id: codex
+    name: OpenAI Codex
+    adapter: shell
+    install_script: adapters/codex/install.sh
+    description: OpenAI coding assistant
