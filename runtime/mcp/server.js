@@ -8,6 +8,9 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprot
 import { execSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
+import express from "express";
+import cors from "cors";
+import fs from "fs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -164,7 +167,64 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// Dashboard API server (Express)
+function startDashboardApi() {
+  const app = express();
+  app.use(cors());
+  app.use(express.json());
+
+  // Dashboard data endpoints
+  app.get("/api/manifest", (req, res) => {
+    const result = runScript("runtime/manifest.sh", "status");
+    res.json({ output: result.output, success: result.success });
+  });
+
+  app.get("/api/skill-stats", (req, res) => {
+    const result = runScript("ops/skill-stats.sh");
+    res.json({ output: result.output, success: result.success });
+  });
+
+  app.get("/api/context-cost", (req, res) => {
+    const threshold = req.query.threshold || 2000;
+    const result = runScript("ops/context-cost.sh", `--threshold ${threshold}`);
+    res.json({ output: result.output, success: result.success });
+  });
+
+  app.get("/api/config", (req, res) => {
+    const result = runScript("shared/lib/config-merger.sh");
+    res.json({ output: result.output, success: result.success });
+  });
+
+  app.get("/api/analytics", (req, res) => {
+    const metricsFile = `${REPO_ROOT}/.claude/metrics.jsonl`;
+    try {
+      const lines = fs.readFileSync(metricsFile, "utf8").trim().split("\n").filter(Boolean);
+      const metrics = lines.map(l => JSON.parse(l));
+      res.json({ metrics, success: true });
+    } catch {
+      res.json({ metrics: [], success: true, note: "No metrics collected yet" });
+    }
+  });
+
+  app.post("/api/sync", (req, res) => {
+    const dryRun = req.body?.dry_run ? "--dry-run" : "";
+    const result = runScript("runtime/sync.sh", dryRun);
+    res.json({ output: result.output, success: result.success });
+  });
+
+  app.get("/api/validate-all", (req, res) => {
+    const result = runScript("ops/validate-all.sh");
+    res.json({ output: result.output, success: result.success });
+  });
+
+  const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;
+  app.listen(DASHBOARD_PORT, () => {
+    console.error(`[ai-config-os dashboard API] Listening on http://localhost:${DASHBOARD_PORT}`);
+  });
+}
+
 async function main() {
+  startDashboardApi();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("[ai-config-os MCP] Server running on stdio");
