@@ -1,0 +1,10 @@
+# Copy to project.yaml and gitignore for local project overrides.
+# project.yaml overrides machine config, which overrides global.yaml.
+# Field-level merge for mcps (individual server settings merged).
+# Last-writer-wins for skills, agents, rules, commands.
+
+mcps: {}
+skills: {}
+agents: {}
+rules: {}
+commands: {}
