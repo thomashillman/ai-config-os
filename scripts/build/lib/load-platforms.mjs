@@ -21,7 +21,10 @@ export function loadPlatforms(repoRoot) {
   const errors = [];
 
   if (!existsSync(platformDir)) {
-    console.warn('  [warn] No platform directory found at shared/targets/platforms/');
+    errors.push(
+      'Platform directory not found: shared/targets/platforms/ ' +
+      '— this is a fatal configuration error, not a soft condition.'
+    );
     return { platforms, errors };
   }
 
