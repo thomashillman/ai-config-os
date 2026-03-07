@@ -188,7 +188,11 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 |------|----------------|
 | `shared/skills/` | **Write skills here.** Each skill is a folder with SKILL.md (metadata + prompts) and optional subdirectories (prompts/, tests/) |
 | `shared/workflows/` | Skill compositions: named collections of skills executed in sequence |
+| `shared/targets/` | Platform reference docs (clients.yaml — known distribution targets) |
 | `shared/lib/` | Shared utility libraries (YAML parser, analytics, config merger) |
+| `schemas/` | JSON Schemas for skill package manifests and related structures |
+| `scripts/build/` | Compiler that validates skills and emits `dist/` artefacts |
+| `worker/` | Cloudflare Worker serving compiled skills via bearer-auth REST API |
 | `plugins/core-skills/` | Claude Code plugin (contains only symlinks to `shared/skills/`) |
 | `runtime/config/` | Desired-state configuration (global, machine, project overrides) |
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
@@ -196,7 +200,7 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `dashboard/` | React SPA for runtime visibility and control |
 | `ops/` | Developer scripts (new-skill, lint, validate, docs generator) |
 | `.claude/hooks/` | Startup and post-tool hooks for Claude Code |
-| `.github/workflows/` | CI validation (structure, metadata, symlinks, docs) |
+| `.github/workflows/` | CI validation (structure, metadata, symlinks, docs, build) |
 
 ---
 
@@ -259,9 +263,10 @@ Run it: `Claude Code → Run Workflow → daily-standup`
 
 | Phase | Status | What it adds |
 |-------|--------|-------------|
-| Phase 1–7 | ✅ Complete | 23 skills, skill metadata, testing, composition, multi-device sync |
+| Phase 1–7 | ✅ Complete | 22 skills, skill metadata, testing, composition, multi-device sync |
 | Phase 8 | ✅ Complete | Runtime config layer, MCP server, React dashboard, desired-state sync |
-| Phase 9 | 🔄 Planned | Analytics dashboard refinement, skill marketplace discovery |
+| Phase 9.1 | ✅ Complete | Skill schema, build compiler, Cloudflare Worker distribution, CI build workflow |
+| Phase 9.x | 🔄 Planned | Multi-platform emitters (cursor, codex), Worker deployment, analytics refinement |
 
 See [PLAN.md](PLAN.md) for detailed implementation progress and [CLAUDE.md](CLAUDE.md) for development conventions.
 

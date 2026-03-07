@@ -11,14 +11,14 @@ Core principle: **share knowledge, not runtime wiring**.
 
 ---
 
-## Current state — updated 2026-02-28
+## Current state — updated 2026-03-07
 
 | Area | Status | Notes |
 |---|---|---|
 | Repo scaffold and .gitignore | ✅ Done | Phase 1 complete |
 | marketplace.json | ✅ Done | Phase 1 complete |
-| core-skills plugin.json | ✅ Done | v0.4.7 (Phase 7) |
-| shared/manifest.md (index) | ✅ Done | 23 skills + 2 workflows listed |
+| core-skills plugin.json | ✅ Done | v0.5.1 (Phase 9.1) |
+| shared/manifest.md (index) | ✅ Done | 22 skills listed |
 | shared/principles.md | ✅ Done | Phase 1 complete |
 | adapters/claude/dev-test.sh | ✅ Done | Fixed for non-interactive environments |
 | ops/new-skill.sh | ✅ Done | Phase 1 complete |
@@ -38,6 +38,7 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 6: Feature expansion (14 items) | ✅ Done | 6 new skills, 3 ops tools, 2 hooks, 2 workflows, CI frontmatter validation, Cursor adapter |
 | Phase 7: Code quality & workflow expansion | ✅ Done | 7 new skills (memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify); 2 workflows (daily-brief, pre-commit); 2 infrastructure scripts |
 | Phase 8: Runtime integration | ✅ Done | v0.5.0: Three-tier config, tool registry, adapters, sync engine, manifest, MCP server, React dashboard, ops/CI updates |
+| Phase 9.1: Distribution first slice | ✅ Done | v0.5.1: skill schema, compiler, Cloudflare Worker, CI build workflow, materialiser adapter |
 
 ---
 
@@ -106,6 +107,31 @@ dashboard/              new: React SPA
 - Plugin takeover injection (not needed: plugins load directly)
 - Cross-session learning feedback loop (requires usage data)
 - Conflict detector (single-pass check can be added later)
+
+---
+
+## Phase 9.1: Distribution First Slice (COMPLETE ✅)
+
+**Version:** v0.5.1
+**Branch:** `claude/plan-config-os-distribution-rjqcI`
+**Completion:** 2026-03-07
+
+### Summary
+
+Introduced the GitHub-authored, CI-compiled, Cloudflare-distributed architecture. All existing local capability is preserved — this layer is purely additive.
+
+**Design:** skill schema is a **package manifest + adapter hints** (not a runtime abstraction). Skills declare `platforms:` mappings and `capabilities:` hints (filesystem, network, git) — platform-agnostic.
+
+**Components added:**
+1. `schemas/skill.schema.json` — JSON Schema draft 2020-12; skills are package manifests, not runtime configs
+2. `shared/targets/clients.yaml` — reference doc for known platforms (claude-code, claude-web, codex, cursor)
+3. `scripts/build/compile.mjs` — compiler: scans all 22 skills, validates schema, emits `dist/`
+4. `package.json` — root package with `yaml` + `ajv` dependencies
+5. `worker/` — Cloudflare Worker serving skills via bearer-auth REST API
+6. `.github/workflows/build.yml` — CI: validates + builds + uploads dist/ as artefact
+7. `adapters/claude/materialise.sh` — fetches compiled skills from Worker to local cache
+
+**Also fixed:** 7 YAML quoting bugs in skill frontmatters (unquoted `"foo" (extra)` descriptions).
 
 ---
 
@@ -518,6 +544,18 @@ These are deferred improvements, not part of the initial build:
 ## Recommended next
 
 After each merge, update this section with what should happen in the next session.
+
+**After Phase 9.1 (v0.5.1 — distribution layer):**
+
+1. **Add `platforms:` blocks to skills** — existing skills default to `claude-code`. Add explicit `platforms:` + `capabilities:` to each skill to enable multi-platform distribution (cursor, codex).
+
+2. **Deploy the Worker** — `cd worker && wrangler secret put AUTH_TOKEN && wrangler deploy`. Test with `bash adapters/claude/materialise.sh status`.
+
+3. **Wire materialiser into session-start hook** — auto-fetch latest from Worker on session start if a newer version exists remotely.
+
+4. **Add emitters for cursor and codex** — implement `emit-cursor.mjs` and `emit-codex.mjs` in `scripts/build/lib/`.
+
+5. **Validate CI** — merge to main and confirm `.github/workflows/build.yml` passes; check that `dist/` artefact uploads correctly.
 
 **After Phase 7 (v0.4.7 — 7 new skills + 2 workflows + infrastructure):**
 
