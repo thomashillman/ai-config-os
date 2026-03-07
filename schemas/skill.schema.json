@@ -4,8 +4,8 @@
   "title": "Skill Package Manifest",
   "description": "Canonical package manifest for an ai-config-os skill. Describes identity, dependencies, platform mappings, and adapter hints.",
   "type": "object",
-  "required": ["skill", "description", "type", "status", "version"],
-  "additionalProperties": true,
+  "required": ["skill", "description", "type", "status", "version", "capabilities"],
+  "additionalProperties": false,
   "properties": {
     "skill": {
       "type": "string",
@@ -259,6 +259,12 @@
       "type": "object",
       "description": "Version history. Keys are semver strings, values are description strings.",
       "additionalProperties": { "type": "string" }
+    },
+
+    "$extensions": {
+      "type": "object",
+      "description": "Escape hatch for non-standard metadata. Use a namespaced key (e.g. 'myorg.field'). Core tooling ignores all fields here.",
+      "additionalProperties": true
     }
   },
 

@@ -1,7 +1,7 @@
 // compile.mjs - ai-config-os build compiler
 //
 // 1. Scans all shared/skills/*/SKILL.md
-// 2. Validates each against schemas/skill.schema.json (warns, does not hard-fail)
+// 2. Validates each against schemas/skill.schema.json (hard-fails on schema errors)
 // 3. Loads platform definitions and resolves compatibility
 // 4. Emits dist/clients/<platform>/ artefacts (filtered by compatibility)
 // 5. Emits dist/registry/index.json with compatibility matrix
@@ -74,7 +74,6 @@ async function main() {
 
   const parsed = [];
   let parseErrors = 0;
-  let validateWarnings = 0;
 
   for (const { skillName, skillDir, skillMdPath } of skillEntries) {
     let skill;
@@ -90,18 +89,18 @@ async function main() {
 
     const valid = validate(skill.frontmatter);
     if (!valid) {
-      console.warn(`  [warn] ${skillName}: schema issues:`);
+      console.error(`  [error] ${skillName}: schema validation failed:`);
       for (const e of validate.errors || []) {
-        console.warn(`         ${e.instancePath || '(root)'}: ${e.message}`);
+        console.error(`          ${e.instancePath || '(root)'}: ${e.message}`);
       }
-      validateWarnings++;
-    } else {
-      console.log(`  [ok]   ${skillName} v${skill.frontmatter.version || '?'}`);
+      parseErrors++;
+      continue;
     }
+    console.log(`  [ok]   ${skillName} v${skill.frontmatter.version || '?'}`);
     parsed.push(skill);
   }
 
-  console.log(`\nParsed: ${parsed.length}  errors: ${parseErrors}  warnings: ${validateWarnings}`);
+  console.log(`\nParsed: ${parsed.length}  errors: ${parseErrors}`);
 
   if (parseErrors > 0) {
     console.error('\nBuild failed: fix parse errors above.');
@@ -111,19 +110,6 @@ async function main() {
   // Load platform definitions
   const platforms = loadPlatforms(ROOT);
   console.log(`\nLoaded ${platforms.size} platform(s): ${[...platforms.keys()].join(', ')}`);
-
-  // Enforce: all skills must have capabilities.required (migration complete)
-  const noCaps = parsed.filter(
-    s => !s.frontmatter.capabilities || !Array.isArray(s.frontmatter.capabilities?.required)
-  );
-  if (noCaps.length > 0) {
-    console.error(`\n  [error] ${noCaps.length} skill(s) missing capabilities.required:`);
-    for (const s of noCaps) {
-      console.error(`    - ${s.skillName}`);
-    }
-    console.error('\n  All skills must declare capabilities.required (can be empty []).');
-    process.exit(1);
-  }
 
   // Resolve compatibility matrix
   const compatMatrix = resolveAll(parsed, platforms);
