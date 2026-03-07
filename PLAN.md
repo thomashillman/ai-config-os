@@ -39,6 +39,7 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 7: Code quality & workflow expansion | ✅ Done | 7 new skills (memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify); 2 workflows (daily-brief, pre-commit); 2 infrastructure scripts |
 | Phase 8: Runtime integration | ✅ Done | v0.5.0: Three-tier config, tool registry, adapters, sync engine, manifest, MCP server, React dashboard, ops/CI updates |
 | Phase 9.1: Distribution first slice | ✅ Done | v0.5.1: skill schema, compiler, Cloudflare Worker, CI build workflow, materialiser adapter |
+| Phase 9.2: Capability-driven compatibility | ✅ Done | v0.5.2: platform registry, capability contracts, compatibility resolver, runtime probe, Node linter |
 
 ---
 
@@ -135,16 +136,41 @@ Introduced the GitHub-authored, CI-compiled, Cloudflare-distributed architecture
 
 ---
 
-## Phase 9: Runtime Validation & Feedback Loop (Next)
+## Phase 9.2: Capability-Driven Compatibility (COMPLETE ✅)
 
-**Expected focus:** Real-world validation of Phase 8 runtime and Phase 7 features. Likely work:
-- Daily usage of dashboard and sync for tool management
-- Validation of MCP self-management in practice
-- Performance baseline calibration based on actual usage
-- Additional workflow compositions (e.g., `documentation-agent`, `testing-agent`)
-- Memory skill enhancement (search, archival, consensus)
-- Cross-session learning patterns from analytics data
-- Skill pinning + versioning adoption
+**Version:** v0.5.2
+**Branch:** `claude/plan-config-os-distribution-rjqcI`
+**Completion:** 2026-03-07
+
+### Summary
+
+Replaced flat capability hints and implicit claude-code defaulting with a structured capability contract model. Compatibility is now *computed* from platform capability states, not hand-maintained per skill.
+
+**Core change:** Skills declare minimum viable capabilities (`required`/`optional`/`fallback_mode`), platforms declare capability states (`supported`/`unsupported`/`unknown`), and the compiler resolves compatibility automatically.
+
+**Components added:**
+1. `schemas/platform.schema.json` — schema for platform capability definitions
+2. `shared/targets/platforms/*.yaml` — 5 platform files (claude-code, claude-web, claude-ios, codex, cursor) with evidence-tracked capability states
+3. `scripts/lint/skill.mjs` — Node-based skill linter replacing bash parsing
+4. `scripts/lint/platform.mjs` — Node-based platform file linter
+5. `scripts/build/lib/load-platforms.mjs` — platform loader for compiler
+6. `scripts/build/lib/resolve-compatibility.mjs` — capability-driven compatibility algorithm
+7. `ops/capability-probe.sh` — runtime capability probe (tests capabilities at session start)
+8. `schemas/probe-result.schema.json` — schema for probe output
+
+**Migrated:** All 22 skills now have structured capability contracts. 14 pure prompt skills have `required: []` (work everywhere). 8 skills with required capabilities are correctly excluded or marked unverified on platforms that lack support.
+
+**CI enforcement:** Build fails if any skill is missing `capabilities.required`. Registry includes per-skill compatibility matrix.
+
+---
+
+## Recommended next
+
+1. **Deploy Worker and validate CI** — merge to main, confirm build workflow passes, deploy Worker.
+2. **Run probes on Claude Web/iOS** — use `ops/capability-probe.sh` to discover real capabilities, update platform files with evidence.
+3. **Add emitters for cursor and codex** — `scripts/build/lib/emit-cursor.mjs`, `emit-codex.mjs`.
+4. **Wire materialiser into session-start hook** — auto-fetch latest from Worker if newer version exists.
+5. **Platform-specific skill variants** — alternative prompts/workflows per platform (e.g., git-ops generates scripts on web instead of executing them).
 
 ---
 
