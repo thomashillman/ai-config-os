@@ -13,7 +13,7 @@ status: stable
 inputs:
   - name: action
     type: string
-    description: "read" (fetch context), "update" (add/modify), or "summarize" (periodic refresh)
+    description: '"read" (fetch context), "update" (add/modify), or "summarize" (periodic refresh)'
     required: true
   - name: content
     type: string

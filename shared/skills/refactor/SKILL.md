@@ -14,7 +14,7 @@ inputs:
     required: true
   - name: goal
     type: string
-    description: "simplify", "extract-method", "decompose", "reduce-duplication", "improve-readability"
+    description: '"simplify", "extract-method", "decompose", "reduce-duplication", "improve-readability"'
     required: false
   - name: constraints
     type: string

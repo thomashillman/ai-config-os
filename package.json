@@ -1,0 +1,19 @@
+{
+  "name": "ai-config-os",
+  "version": "1.0.0",
+  "description": "Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build/compile.mjs",
+    "build:watch": "node --watch scripts/build/compile.mjs",
+    "validate": "node scripts/build/compile.mjs --validate-only"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
