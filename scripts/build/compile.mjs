@@ -141,18 +141,17 @@ async function main() {
     }
   }
 
-  // Fallback: skills without capabilities.required default to claude-code (migration compat)
+  // Enforce: all skills must have capabilities.required (migration complete)
   const noCaps = parsed.filter(
     s => !s.frontmatter.capabilities || !Array.isArray(s.frontmatter.capabilities?.required)
   );
   if (noCaps.length > 0) {
-    console.log(`\n  [warn] ${noCaps.length} skill(s) without capabilities.required — defaulting to claude-code`);
-    if (!platformSkills['claude-code']) platformSkills['claude-code'] = [];
+    console.error(`\n  [error] ${noCaps.length} skill(s) missing capabilities.required:`);
     for (const s of noCaps) {
-      if (!platformSkills['claude-code'].includes(s)) {
-        platformSkills['claude-code'].push(s);
-      }
+      console.error(`    - ${s.skillName}`);
     }
+    console.error('\n  All skills must declare capabilities.required (can be empty []).');
+    process.exit(1);
   }
 
   const emittedPlatforms = Object.keys(platformSkills);
