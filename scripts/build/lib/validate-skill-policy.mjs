@@ -50,12 +50,18 @@ export function validateSkillPolicy(frontmatter, skillName, knownPlatforms = new
     }
   }
 
-  // 4. Hook skills must exclude platforms that can't package hooks
-  if (frontmatter.type === 'hook' && frontmatter.platforms) {
+  // 4. Hook skills must explicitly exclude platforms that can't package hooks
+  if (frontmatter.type === 'hook') {
     const nonHookPlatforms = ['claude-web', 'claude-ios', 'cursor', 'codex'];
-    for (const pid of nonHookPlatforms) {
-      if (frontmatter.platforms[pid] && frontmatter.platforms[pid].mode !== 'excluded') {
-        errors.push(`Hook skill should exclude platform '${pid}' (no hook surface).`);
+    // If no platforms block, default to error — hooks must explicitly declare exclusions
+    const hasExplicitPlatforms = frontmatter.platforms && typeof frontmatter.platforms === 'object';
+    if (!hasExplicitPlatforms) {
+      errors.push(`Hook skill must have explicit 'platforms' block with exclusions for non-hook surfaces.`);
+    } else {
+      for (const pid of nonHookPlatforms) {
+        if (frontmatter.platforms[pid] && frontmatter.platforms[pid].mode !== 'excluded') {
+          errors.push(`Hook skill should exclude platform '${pid}' (no hook surface).`);
+        }
       }
     }
   }

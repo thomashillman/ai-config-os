@@ -192,6 +192,12 @@ v0.5.2 shipped the right architecture but had implementation gaps that made the 
 **Status:** Phases 1-4 implemented and passing; Phases 5 & 10 deferred
 
 ### Problem (Analysis)
+## Phase 9.4: Validation Architecture Overhaul (IN PROGRESS)
+
+**Version:** v0.5.3+ (split-brain fix)
+**Branch:** `claude/analyze-product-feedback-FQeFT`
+
+### Problem
 The validation pipeline is split-brain: `scripts/lint/skill.mjs` enforces 10+ custom policy rules (fallback_mode required, overlapping capabilities, platform validation, hook exclusions, etc.) that the compiler (`scripts/build/compile.mjs`) does **not** enforce. A skill can pass the linter but fail real compatibility resolution, or pass the compiler but violate project policy.
 
 Additional gaps:
