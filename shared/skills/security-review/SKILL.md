@@ -14,11 +14,11 @@ inputs:
     required: true
   - name: context
     type: string
-    description: "web" (HTTP APIs), "cli" (command-line tools), "data" (databases), "general"
+    description: '"web" (HTTP APIs), "cli" (command-line tools), "data" (databases), "general"'
     required: false
   - name: scope
     type: string
-    description: "quick" (top issues), "thorough" (all OWASP categories)
+    description: '"quick" (top issues), "thorough" (all OWASP categories)'
     required: false
 
 outputs:
@@ -39,7 +39,7 @@ dependencies:
     - sonnet
 
 examples:
-  - input: "SQL query: SELECT * FROM users WHERE id = " + userId"
+  - input: 'SQL query: SELECT * FROM users WHERE id = " + userId'
     output: "CRITICAL: SQL injection vulnerability; use parameterized queries"
     expected_model: sonnet
 

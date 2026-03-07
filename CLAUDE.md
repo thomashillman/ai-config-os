@@ -4,9 +4,13 @@
 
 ## Structure
 - `shared/skills/` — canonical skill definitions (author here)
+- `shared/targets/clients.yaml` — reference doc for known platforms (not schema-enforced)
 - `plugins/core-skills/skills/` — symlinks into shared/skills (never edit here directly)
 - `.claude-plugin/marketplace.json` — marketplace manifest
 - `plugins/core-skills/.claude-plugin/plugin.json` — plugin metadata (bump version on changes)
+- `schemas/skill.schema.json` — JSON Schema for skill package manifests
+- `scripts/build/` — compiler: validates skills, emits `dist/` artefacts
+- `worker/` — Cloudflare Worker serving compiled skills via bearer-auth REST API
 - `runtime/` — desired-state tool management: config, adapters, sync, manifest, MCP server
 - `dashboard/` — React SPA: tool status, skill stats, context cost, config, audit, analytics
 
@@ -182,6 +186,51 @@ Three docs stay in sync; each owns a distinct slice:
 - After any merge to main: update PLAN.md "Current state" table and "Recommended next" section.
 - Never duplicate content across docs. If you find the same fact in two places, pick the authoritative owner (table above) and remove it from the other, replacing with a link.
 - Run `ops/check-docs.sh` before committing to see which docs the changed files are expected to touch.
+
+## Distribution layer (Phase 9.1)
+
+Skills are compiled and distributed via a GitHub-authored, CI-built, Cloudflare-served pipeline.
+
+### Build
+```bash
+npm install                            # first time only
+node scripts/build/compile.mjs         # validate + emit dist/
+node scripts/build/compile.mjs --validate-only  # schema check, no output
+```
+
+Output: `dist/clients/claude-code/` + `dist/registry/index.json`
+
+### Skill manifest fields (new in 9.1)
+Add these to skill YAML frontmatter to enable multi-platform distribution:
+
+```yaml
+capabilities: [filesystem, network, git]  # what the skill needs (adapter hints)
+
+platforms:
+  claude-code:
+    type: skill
+    entry: skills/my-skill/
+  cursor:
+    type: rules
+    entry: rules/my-skill.md
+```
+
+Skills without a `platforms:` block default to `claude-code`.
+
+### Worker deployment
+```bash
+cd worker
+wrangler secret put AUTH_TOKEN         # set bearer token
+wrangler deploy                        # deploy to Cloudflare
+```
+
+### Fetching from Worker (local)
+```bash
+export AI_CONFIG_TOKEN=<your-token>
+export AI_CONFIG_WORKER=https://ai-config-os.workers.dev  # or local
+bash adapters/claude/materialise.sh         # fetch + cache
+bash adapters/claude/materialise.sh status  # compare versions
+```
 
 ## Runtime
 

@@ -26,3 +26,8 @@ runtime/manifest.yaml
 # Dashboard: build artifacts
 dashboard/dist/
 dashboard/node_modules/
+
+# Build system
+dist/
+node_modules/
+package-lock.json

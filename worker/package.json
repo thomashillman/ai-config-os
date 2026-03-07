@@ -1,0 +1,16 @@
+{
+  "name": "ai-config-os-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for ai-config-os skill distribution",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dry": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241224.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^3.101.0"
+  }
+}

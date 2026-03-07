@@ -1,0 +1,75 @@
+name: Build and Validate Skills
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'shared/skills/**'
+      - 'schemas/**'
+      - 'scripts/build/**'
+      - 'package.json'
+  pull_request:
+    paths:
+      - 'shared/skills/**'
+      - 'schemas/**'
+      - 'scripts/build/**'
+      - 'package.json'
+
+jobs:
+  build:
+    name: Compile skills and validate output
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run compiler (validate-only)
+        run: node scripts/build/compile.mjs --validate-only
+
+      - name: Run compiler (full build)
+        run: node scripts/build/compile.mjs
+
+      - name: Validate registry output
+        run: |
+          if [ ! -f dist/registry/index.json ]; then
+            echo "ERROR: dist/registry/index.json not found"
+            exit 1
+          fi
+          python3 -c "
+          import json, sys
+          with open('dist/registry/index.json') as f:
+              d = json.load(f)
+          assert 'version' in d, 'Missing version'
+          assert 'skills' in d, 'Missing skills'
+          assert len(d['skills']) > 0, 'No skills in registry'
+          print(f'Registry OK: {len(d[\"skills\"])} skill(s), platforms: {d[\"platforms\"]}')
+          "
+
+      - name: Validate claude-code output
+        run: |
+          if [ ! -f dist/clients/claude-code/.claude-plugin/plugin.json ]; then
+            echo "ERROR: plugin.json not found"
+            exit 1
+          fi
+          if [ ! -d dist/clients/claude-code/skills ]; then
+            echo "ERROR: skills dir not found"
+            exit 1
+          fi
+          SKILL_COUNT=$(ls dist/clients/claude-code/skills | wc -l)
+          echo "claude-code output OK: ${SKILL_COUNT} skill(s)"
+
+      - name: Upload dist as artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 30

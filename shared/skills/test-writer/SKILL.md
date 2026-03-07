@@ -14,11 +14,11 @@ inputs:
     required: true
   - name: test_type
     type: string
-    description: "unit" (isolated), "integration" (with dependencies), or "both"
+    description: '"unit" (isolated), "integration" (with dependencies), or "both"'
     required: false
   - name: framework
     type: string
-    description: "jest", "mocha", "pytest", "go test", etc. (inferred if omitted)
+    description: '"jest", "mocha", "pytest", "go test", etc. (inferred if omitted)'
     required: false
 
 outputs:

@@ -14,7 +14,7 @@ inputs:
     required: true
   - name: focus
     type: string
-    description: "logic" (algorithm complexity), "structure" (OOP design), "duplication", "overengineering"
+    description: '"logic" (algorithm complexity), "structure" (OOP design), "duplication", "overengineering"'
     required: false
 
 outputs:

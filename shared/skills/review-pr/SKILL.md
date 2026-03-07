@@ -14,11 +14,11 @@ inputs:
     required: true
   - name: focus_areas
     type: string
-    description: "breaking-changes", "security", "test-coverage", "api-design", "all"
+    description: '"breaking-changes", "security", "test-coverage", "api-design", "all"'
     required: false
   - name: severity
     type: string
-    description: "thorough" (detailed) or "quick" (critical issues only)
+    description: '"thorough" (detailed) or "quick" (critical issues only)'
     required: false
 
 outputs:
