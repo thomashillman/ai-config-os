@@ -1,0 +1,64 @@
+id: codex
+name: OpenAI Codex CLI
+surface: cloud-sandbox
+default_package: file
+
+capabilities:
+  fs.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  fs.write:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  shell.exec:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  shell.long-running:
+    status: unknown
+    confidence: low
+    source: inference
+  git.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  git.write:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  network.http:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  browser.fetch:
+    status: unsupported
+    confidence: medium
+    source: inference
+  mcp.client:
+    status: unsupported
+    confidence: medium
+    source: vendor-doc
+  env.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  secrets.inject:
+    status: unknown
+    confidence: low
+    source: inference
+  ui.prompt-only:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: vendor-doc
+
+notes: OpenAI Codex runs in a cloud sandbox with filesystem, shell, and git access. No MCP support.

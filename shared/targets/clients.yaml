@@ -1,3 +1,7 @@
+# DEPRECATED (v0.5.2): Use shared/targets/platforms/*.yaml instead.
+# This file is kept for reference only. The platform registry in
+# shared/targets/platforms/ is now the source of truth for capability states.
+#
 # Known platforms — for human reference and compiler hints.
 # This file is NOT schema-validated. It documents the platform ecosystem.
 #

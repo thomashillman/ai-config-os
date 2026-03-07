@@ -1,0 +1,65 @@
+id: cursor
+name: Cursor
+surface: desktop-ide
+default_package: rules
+
+capabilities:
+  fs.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  fs.write:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  shell.exec:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  shell.long-running:
+    status: unknown
+    confidence: low
+    source: inference
+  git.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  git.write:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  network.http:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  browser.fetch:
+    status: unsupported
+    confidence: medium
+    source: inference
+  mcp.client:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  env.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  secrets.inject:
+    status: unknown
+    confidence: low
+    source: inference
+  ui.prompt-only:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: vendor-doc
+
+notes: IDE-integrated agent. Skills packaged as .cursorrules files. Static context injection, no dynamic invocation.

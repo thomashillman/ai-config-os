@@ -1,0 +1,58 @@
+id: claude-web
+name: Claude Web
+surface: web-app
+default_package: api
+
+capabilities:
+  fs.read:
+    status: unknown
+    confidence: low
+    source: inference
+  fs.write:
+    status: unknown
+    confidence: low
+    source: inference
+  shell.exec:
+    status: unknown
+    confidence: low
+    source: inference
+  shell.long-running:
+    status: unsupported
+    confidence: medium
+    source: inference
+  git.read:
+    status: unknown
+    confidence: low
+    source: inference
+  git.write:
+    status: unknown
+    confidence: low
+    source: inference
+  network.http:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  browser.fetch:
+    status: unknown
+    confidence: low
+    source: inference
+  mcp.client:
+    status: unknown
+    confidence: low
+    source: inference
+  env.read:
+    status: unknown
+    confidence: low
+    source: inference
+  secrets.inject:
+    status: unsupported
+    confidence: medium
+    source: inference
+  ui.prompt-only:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: vendor-doc
+
+notes: Web interface. Most local capabilities unknown until probed. Prompt-only mode always available.

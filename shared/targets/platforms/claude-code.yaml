@@ -1,0 +1,68 @@
+id: claude-code
+name: Claude Code
+surface: desktop-cli
+default_package: skill
+
+capabilities:
+  fs.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  fs.write:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  shell.exec:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  shell.long-running:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  git.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  git.write:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  network.http:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  browser.fetch:
+    status: unsupported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: vendor-doc
+  mcp.client:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  env.read:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  secrets.inject:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+  ui.prompt-only:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: manual-test
+
+notes: Primary local execution environment. Full tool access via Claude Code CLI.

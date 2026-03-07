@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/schemas/platform.schema.json",
+  "title": "Platform Capability Definition",
+  "description": "Declares the capabilities available on a specific AI platform/surface, with evidence-tracked states.",
+  "type": "object",
+  "required": ["id", "name", "surface", "default_package", "capabilities"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "Stable machine identifier matching the filename"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable platform name"
+    },
+    "surface": {
+      "type": "string",
+      "description": "Deployment surface type (e.g. desktop-cli, web-app, mobile-app, cloud-sandbox)"
+    },
+    "default_package": {
+      "type": "string",
+      "enum": ["skill", "plugin", "rules", "file", "api"],
+      "description": "Default packaging format for skills on this platform"
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "Capability states for this platform. Each key is a capability ID.",
+      "additionalProperties": false,
+      "properties": {
+        "fs.read":           { "$ref": "#/$defs/capabilityState" },
+        "fs.write":          { "$ref": "#/$defs/capabilityState" },
+        "shell.exec":        { "$ref": "#/$defs/capabilityState" },
+        "shell.long-running": { "$ref": "#/$defs/capabilityState" },
+        "git.read":          { "$ref": "#/$defs/capabilityState" },
+        "git.write":         { "$ref": "#/$defs/capabilityState" },
+        "network.http":      { "$ref": "#/$defs/capabilityState" },
+        "browser.fetch":     { "$ref": "#/$defs/capabilityState" },
+        "mcp.client":        { "$ref": "#/$defs/capabilityState" },
+        "env.read":          { "$ref": "#/$defs/capabilityState" },
+        "secrets.inject":    { "$ref": "#/$defs/capabilityState" },
+        "ui.prompt-only":    { "$ref": "#/$defs/capabilityState" }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Human-readable context about this platform"
+    }
+  },
+
+  "$defs": {
+    "capabilityState": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["supported", "unsupported", "unknown"]
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date",
+          "description": "When this capability was last verified"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["low", "medium", "high"],
+          "description": "Confidence in the status assessment"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["vendor-doc", "manual-test", "probe", "inference"],
+          "description": "How the status was determined"
+        }
+      }
+    }
+  }
+}
