@@ -138,8 +138,17 @@ tests:
     type: prompt-validation  # or: structure-check, integration, performance
     input: "Test input"
     expected_substring: "expected text"
+    expected_not_null: true  # assert non-empty output
     models_to_test:
       - sonnet
+  - id: perf-test
+    type: performance
+    input: "Benchmark input"
+    max_latency_ms: 2000
+    iterations: 5
+    model: sonnet
+    track_metrics:
+      - latency
 
 # Feature 4: Skill Composition
 composition:
@@ -155,6 +164,10 @@ docs:
     - description
     - inputs
     - outputs
+  help_text: "One-line contextual help with {placeholders}"
+  keywords:
+    - search-term
+    - discovery-tag
 
 # Feature 6: Performance Monitoring
 monitoring:
@@ -164,6 +177,8 @@ monitoring:
     - token_count
     - cost
     - variant_selected
+  alert_threshold_latency_ms: 5000
+  public_metrics: false
 
 version: "1.0.0"
 changelog:
