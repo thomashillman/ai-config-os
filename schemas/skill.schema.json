@@ -226,6 +226,7 @@
       "items": {
         "type": "object",
         "required": ["id", "type"],
+        "additionalProperties": false,
         "properties": {
           "id": { "type": "string" },
           "type": {
@@ -234,9 +235,18 @@
           },
           "input": { "type": "string" },
           "expected_substring": { "type": "string" },
+          "expected_not_null": { "type": "boolean", "description": "Assert the skill produces non-empty output" },
+          "max_latency_ms": { "type": "number", "minimum": 0, "description": "Maximum acceptable latency for performance tests" },
+          "iterations": { "type": "integer", "minimum": 1, "description": "Number of iterations for performance tests" },
+          "model": { "type": "string", "description": "Single model to test against (alternative to models_to_test)" },
           "models_to_test": {
             "type": "array",
             "items": { "type": "string" }
+          },
+          "track_metrics": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Metrics to track during test execution"
           }
         }
       }
@@ -249,20 +259,26 @@
 
     "docs": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "auto_generate_readme": { "type": "boolean" },
-        "sections_to_include": { "type": "array", "items": { "type": "string" } }
+        "sections_to_include": { "type": "array", "items": { "type": "string" } },
+        "help_text": { "type": "string", "description": "Template string for contextual help (may include {placeholders})" },
+        "keywords": { "type": "array", "items": { "type": "string" }, "description": "Search keywords for discoverability" }
       }
     },
 
     "monitoring": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "enabled": { "type": "boolean" },
         "track_metrics": {
           "type": "array",
           "items": { "type": "string" }
-        }
+        },
+        "alert_threshold_latency_ms": { "type": "number", "minimum": 0, "description": "Latency threshold that triggers an alert" },
+        "public_metrics": { "type": "boolean", "description": "Whether metrics are exposed publicly" }
       }
     },
 
