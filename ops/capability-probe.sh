@@ -111,12 +111,14 @@ fs_write=$(probe_capability "fs.write" 2 bash -c "tmpf=\$(mktemp) && echo probe 
 shell_exec=$(probe_capability "shell.exec" 2 echo "probe-test")
 shell_long=$(probe_capability "shell.long-running" 3 sleep 0.1)
 git_read=$(probe_capability "git.read" 3 git -C "$REPO_ROOT" status --short)
-git_write=$(probe_capability "git.write" 3 git -C "$REPO_ROOT" stash list)
+# git.write: create and immediately delete a lightweight tag (actual write, safe, idempotent)
+git_write=$(probe_capability "git.write" 3 bash -c "cd \"$REPO_ROOT\" && git tag probe-test-$$ 2>/dev/null && git tag -d probe-test-$$ >/dev/null 2>&1")
 network_http=$(probe_capability "network.http" 5 bash -c "curl -sf --max-time 4 -o /dev/null https://httpbin.org/get 2>/dev/null || wget -q --timeout=4 -O /dev/null https://httpbin.org/get 2>/dev/null")
 env_read=$(probe_capability "env.read" 1 bash -c "test -n \"\$HOME\"")
 
-# MCP probe: check if any MCP config exists
-mcp_result=$(probe_capability "mcp.client" 2 bash -c "test -f \"$REPO_ROOT/.claude/settings.json\" && grep -q mcpServers \"$REPO_ROOT/.claude/settings.json\" 2>/dev/null || test -f \"$HOME/.claude/settings.json\" && grep -q mcpServers \"$HOME/.claude/settings.json\" 2>/dev/null")
+# MCP probe: try claude mcp list (real invocation test), fall back to config presence check
+# Note: config presence does not prove the platform can invoke MCP tools at runtime
+mcp_result=$(probe_capability "mcp.client" 2 bash -c "claude mcp list >/dev/null 2>&1 || (test -f \"$REPO_ROOT/.claude/settings.json\" && grep -q mcpServers \"$REPO_ROOT/.claude/settings.json\" 2>/dev/null) || (test -f \"$HOME/.claude/settings.json\" && grep -q mcpServers \"$HOME/.claude/settings.json\" 2>/dev/null)")
 
 END_TIME=$(date +%s%N 2>/dev/null || echo "0")
 DURATION_MS=0

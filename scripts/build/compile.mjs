@@ -2,9 +2,9 @@
 //
 // 1. Scans all shared/skills/*/SKILL.md
 // 2. Validates each against schemas/skill.schema.json (warns, does not hard-fail)
-// 3. Groups skills by declared platforms block
-// 4. Emits dist/clients/<platform>/ artefacts
-// 5. Emits dist/registry/index.json
+// 3. Loads platform definitions and resolves compatibility
+// 4. Emits dist/clients/<platform>/ artefacts (filtered by compatibility)
+// 5. Emits dist/registry/index.json with compatibility matrix
 //
 // Usage:
 //   node scripts/build/compile.mjs
@@ -16,6 +16,7 @@ import { fileURLToPath } from 'url';
 
 import { parseSkill } from './lib/parse-skill.mjs';
 import { emitClaudeCode } from './lib/emit-claude-code.mjs';
+import { emitCursor } from './lib/emit-cursor.mjs';
 import { emitRegistry } from './lib/emit-registry.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
 import { resolveAll } from './lib/resolve-compatibility.mjs';
@@ -107,14 +108,22 @@ async function main() {
     process.exit(1);
   }
 
-  if (VALIDATE_ONLY) {
-    console.log('\nValidate-only mode - no artefacts written.');
-    return;
-  }
-
   // Load platform definitions
   const platforms = loadPlatforms(ROOT);
   console.log(`\nLoaded ${platforms.size} platform(s): ${[...platforms.keys()].join(', ')}`);
+
+  // Enforce: all skills must have capabilities.required (migration complete)
+  const noCaps = parsed.filter(
+    s => !s.frontmatter.capabilities || !Array.isArray(s.frontmatter.capabilities?.required)
+  );
+  if (noCaps.length > 0) {
+    console.error(`\n  [error] ${noCaps.length} skill(s) missing capabilities.required:`);
+    for (const s of noCaps) {
+      console.error(`    - ${s.skillName}`);
+    }
+    console.error('\n  All skills must declare capabilities.required (can be empty []).');
+    process.exit(1);
+  }
 
   // Resolve compatibility matrix
   const compatMatrix = resolveAll(parsed, platforms);
@@ -141,17 +150,9 @@ async function main() {
     }
   }
 
-  // Enforce: all skills must have capabilities.required (migration complete)
-  const noCaps = parsed.filter(
-    s => !s.frontmatter.capabilities || !Array.isArray(s.frontmatter.capabilities?.required)
-  );
-  if (noCaps.length > 0) {
-    console.error(`\n  [error] ${noCaps.length} skill(s) missing capabilities.required:`);
-    for (const s of noCaps) {
-      console.error(`    - ${s.skillName}`);
-    }
-    console.error('\n  All skills must declare capabilities.required (can be empty []).');
-    process.exit(1);
+  if (VALIDATE_ONLY) {
+    console.log('\nValidate-only mode — full validation passed, no artefacts written.');
+    return;
   }
 
   const emittedPlatforms = Object.keys(platformSkills);
@@ -162,7 +163,9 @@ async function main() {
     console.log(`\n[platform: ${platformId}]`);
 
     if (platformId === 'claude-code') {
-      emitClaudeCode(parsed, { distDir: platformDist, buildVersion, builtAt });
+      emitClaudeCode(skills, { distDir: platformDist, buildVersion, builtAt });
+    } else if (platformId === 'cursor') {
+      emitCursor(skills, { distDir: platformDist, buildVersion, builtAt, compatMatrix });
     } else {
       console.log(`  [${platformId}] emitter not yet implemented — skipping (${skills.length} skill(s))`);
     }

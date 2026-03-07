@@ -10,7 +10,7 @@ import { readFileSync, readdirSync, existsSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
-import Ajv from 'ajv';
+import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -35,6 +35,11 @@ for (const pid of knownPlatforms) {
     platformCaps[pid] = parseYaml(raw);
   } catch { /* skip unreadable */ }
 }
+
+// Set up AJV schema validation (2020-12 draft, matching platform.mjs)
+const ajv = new Ajv2020({ allErrors: true, strict: false });
+addFormats(ajv);
+const validateSchema = ajv.compile(skillSchema);
 
 // Capability enum from schema
 const CAPABILITY_IDS = skillSchema.$defs?.capabilityId?.enum || [];
@@ -61,7 +66,17 @@ function lintSkill(filePath) {
     return { errors: [e.message], warnings: [], skillName };
   }
 
-  // === HARD ERRORS ===
+  // === SCHEMA VALIDATION (AJV) ===
+  const schemaValid = validateSchema(fm);
+  if (!schemaValid) {
+    for (const err of validateSchema.errors) {
+      errors.push(`Schema: ${err.instancePath || '/'} ${err.message}`);
+    }
+    // Return early — custom rules depend on valid structure
+    return { errors, warnings, skillName };
+  }
+
+  // === HARD ERRORS (custom rules beyond schema) ===
 
   // 1. capabilities.required must exist (if capabilities is present, it must be an object)
   if (fm.capabilities !== undefined) {
