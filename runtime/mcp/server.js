@@ -223,9 +223,6 @@ function startDashboardApi() {
   });
 }
 
-// Export validators for testing
-export { validateName, validateNumber };
-
 async function main() {
   startDashboardApi();
   const transport = new StdioServerTransport();
