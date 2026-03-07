@@ -11,24 +11,10 @@ import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
+import { validateName, validateNumber } from "./validators.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
-
-const SAFE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
-
-function validateName(name) {
-  if (typeof name !== "string" || !SAFE_NAME.test(name)) {
-    throw new Error(`Invalid name: must match ${SAFE_NAME}`);
-  }
-  return name;
-}
-
-function validateNumber(value, fallback) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return n;
-}
 
 function runScript(script, args = []) {
   try {
@@ -236,9 +222,6 @@ function startDashboardApi() {
     console.error(`[ai-config-os dashboard API] Listening on http://localhost:${DASHBOARD_PORT}`);
   });
 }
-
-// Export validators for testing
-export { validateName, validateNumber };
 
 async function main() {
   startDashboardApi();
