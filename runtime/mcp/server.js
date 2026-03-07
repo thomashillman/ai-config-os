@@ -5,7 +5,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
@@ -15,9 +15,24 @@ import fs from "fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
 
-function runScript(script, args = "") {
+const SAFE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
+
+function validateName(name) {
+  if (typeof name !== "string" || !SAFE_NAME.test(name)) {
+    throw new Error(`Invalid name: must match ${SAFE_NAME}`);
+  }
+  return name;
+}
+
+function validateNumber(value, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return n;
+}
+
+function runScript(script, args = []) {
   try {
-    const result = execSync(`bash ${path.join(REPO_ROOT, script)} ${args}`, {
+    const result = execFileSync("bash", [path.join(REPO_ROOT, script), ...args], {
       encoding: "utf8",
       timeout: 30000,
       cwd: REPO_ROOT,
@@ -112,13 +127,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   switch (name) {
     case "sync_tools": {
-      const flags = args?.dry_run ? "--dry-run" : "";
-      const result = runScript("runtime/sync.sh", flags);
+      const result = runScript("runtime/sync.sh", args?.dry_run ? ["--dry-run"] : []);
       return { content: [{ type: "text", text: result.output }] };
     }
 
     case "list_tools": {
-      const result = runScript("runtime/manifest.sh", "status");
+      const result = runScript("runtime/manifest.sh", ["status"]);
       return { content: [{ type: "text", text: result.output }] };
     }
 
@@ -133,8 +147,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     case "context_cost": {
-      const threshold = args?.threshold || 2000;
-      const result = runScript("ops/context-cost.sh", `--threshold ${threshold}`);
+      const threshold = validateNumber(args?.threshold, 2000);
+      const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
       return { content: [{ type: "text", text: result.output }] };
     }
 
@@ -144,21 +158,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     case "mcp_list": {
-      const result = runScript("runtime/adapters/mcp-adapter.sh", "list");
+      const result = runScript("runtime/adapters/mcp-adapter.sh", ["list"]);
       return { content: [{ type: "text", text: result.output }] };
     }
 
     case "mcp_add": {
-      const argsStr = (args.args || []).join(" ");
+      validateName(args.name);
       const result = runScript(
         "runtime/adapters/mcp-adapter.sh",
-        `add "${args.name}" "${args.command}" ${argsStr}`
+        ["add", args.name, args.command, ...(args.args || [])]
       );
       return { content: [{ type: "text", text: result.output }] };
     }
 
     case "mcp_remove": {
-      const result = runScript("runtime/adapters/mcp-adapter.sh", `remove "${args.name}"`);
+      validateName(args.name);
+      const result = runScript("runtime/adapters/mcp-adapter.sh", ["remove", args.name]);
       return { content: [{ type: "text", text: result.output }] };
     }
 
@@ -170,12 +185,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 // Dashboard API server (Express)
 function startDashboardApi() {
   const app = express();
-  app.use(cors());
-  app.use(express.json());
+  app.use(cors({ origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:4242"] }));
+  app.use(express.json({ limit: "10kb" }));
 
   // Dashboard data endpoints
   app.get("/api/manifest", (req, res) => {
-    const result = runScript("runtime/manifest.sh", "status");
+    const result = runScript("runtime/manifest.sh", ["status"]);
     res.json({ output: result.output, success: result.success });
   });
 
@@ -185,8 +200,8 @@ function startDashboardApi() {
   });
 
   app.get("/api/context-cost", (req, res) => {
-    const threshold = req.query.threshold || 2000;
-    const result = runScript("ops/context-cost.sh", `--threshold ${threshold}`);
+    const threshold = validateNumber(req.query.threshold, 2000);
+    const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
     res.json({ output: result.output, success: result.success });
   });
 
@@ -207,8 +222,7 @@ function startDashboardApi() {
   });
 
   app.post("/api/sync", (req, res) => {
-    const dryRun = req.body?.dry_run ? "--dry-run" : "";
-    const result = runScript("runtime/sync.sh", dryRun);
+    const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
     res.json({ output: result.output, success: result.success });
   });
 
@@ -222,6 +236,9 @@ function startDashboardApi() {
     console.error(`[ai-config-os dashboard API] Listening on http://localhost:${DASHBOARD_PORT}`);
   });
 }
+
+// Export validators for testing
+export { validateName, validateNumber };
 
 async function main() {
   startDashboardApi();
