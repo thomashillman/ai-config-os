@@ -1,119 +1,111 @@
 ---
-skill: refactor
-description: |
-  Perform structured code refactoring with safety checks.
-  Suggests extract-method, rename, decompose patterns; validates API contracts.
+skill: "refactor"
+description: "Perform structured code refactoring with safety checks.
 
-type: prompt
-status: stable
-
+  Suggests extract-method, rename, decompose patterns; validates API contracts.\n"
+type: "prompt"
+status: "stable"
 inputs:
-  - name: code
-    type: string
-    description: Code snippet to refactor
+  - name: "code"
+    type: "string"
+    description: "Code snippet to refactor"
     required: true
-  - name: goal
-    type: string
-    description: '"simplify", "extract-method", "decompose", "reduce-duplication", "improve-readability"'
+  - name: "goal"
+    type: "string"
+    description: "\"simplify\", \"extract-method\", \"decompose\", \"reduce-duplication\", \"improve-readability\""
     required: false
-  - name: constraints
-    type: string
-    description: API contracts or invariants to preserve
+  - name: "constraints"
+    type: "string"
+    description: "API contracts or invariants to preserve"
     required: false
-
 outputs:
-  - name: refactored_code
-    type: string
-    description: Refactored code with comments explaining changes
-  - name: breaking_changes
-    type: string
-    description: List of API changes (empty if none)
-  - name: test_impact
-    type: string
-    description: Tests that may need updates
-
+  - name: "refactored_code"
+    type: "string"
+    description: "Refactored code with comments explaining changes"
+  - name: "breaking_changes"
+    type: "string"
+    description: "List of API changes (empty if none)"
+  - name: "test_impact"
+    type: "string"
+    description: "Tests that may need updates"
 dependencies:
   skills:
-    - name: code-review
+    - name: "code-review"
       version: "^1.0"
       optional: true
-    - name: test-writer
+    - name: "test-writer"
       version: "^1.0"
       optional: true
   apis: []
   models:
-    - sonnet
-
+    - "sonnet"
 examples:
   - input: "Long method with mixed concerns"
     output: "Decomposed into focused methods with clear responsibilities"
-    expected_model: sonnet
-
+    expected_model: "sonnet"
 variants:
   opus:
-    prompt_file: prompts/detailed.md
-    description: Deep refactoring; suggests architectural improvements
+    prompt_file: "prompts/detailed.md"
+    description: "Deep refactoring; suggests architectural improvements"
     cost_factor: 2.5
     latency_baseline_ms: 700
-
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; practical refactoring, safety-focused
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Default; practical refactoring, safety-focused"
+    cost_factor: 1
     latency_baseline_ms: 400
-
   haiku:
-    prompt_file: prompts/brief.md
-    description: Simple refactoring only; obvious improvements
+    prompt_file: "prompts/brief.md"
+    description: "Simple refactoring only; obvious improvements"
     cost_factor: 0.3
     latency_baseline_ms: 150
-
   fallback_chain:
-    - opus
-    - sonnet
-    - haiku
-
+    - "opus"
+    - "sonnet"
+    - "haiku"
 tests:
-  - id: test-extract-method
-    type: prompt-validation
+  - id: "test-extract-method"
+    type: "prompt-validation"
     input: "Long function mixing logging, business logic, and API calls"
     expected_substring: "extract"
     models_to_test:
-      - sonnet
-
-  - id: test-preserve-contracts
-    type: prompt-validation
+      - "sonnet"
+  - id: "test-preserve-contracts"
+    type: "prompt-validation"
     input: "Function with specific signature constraints"
     expected_substring: "signature"
     models_to_test:
-      - sonnet
-
+      - "sonnet"
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - examples
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "examples"
   keywords:
-    - refactoring
-    - code-quality
-    - simplification
-    - decomposition
-
+    - "refactoring"
+    - "code-quality"
+    - "simplification"
+    - "decomposition"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - breaking_changes_count
-
+    - "latency"
+    - "breaking_changes_count"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release; structured refactoring"
-
+  1.0.0: "Initial release; structured refactoring"
 tags:
-  - code-quality
-  - refactoring
+  - "code-quality"
+  - "refactoring"
+capabilities:
+  required: []
+  optional:
+    - "fs.read"
+    - "fs.write"
+  fallback_mode: "prompt-only"
+  fallback_notes: "Can propose refactors or rewrite pasted code."
 ---
 
 # Refactor

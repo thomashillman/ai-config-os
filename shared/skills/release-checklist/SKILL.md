@@ -1,103 +1,100 @@
 ---
-# Identity
-skill: release-checklist
-description: Automated release workflow validation, changelog generation, tagging, and readiness assessment.
-type: workflow-blueprint
-status: stable
-
-# Feature 1: Dependencies & Metadata
+skill: "release-checklist"
+description: "Automated release workflow validation, changelog generation, tagging, and readiness assessment."
+type: "workflow-blueprint"
+status: "stable"
 inputs:
-  - name: version
-    type: string
-    description: Target release version in semver format (e.g. "1.0.0")
+  - name: "version"
+    type: "string"
+    description: "Target release version in semver format (e.g. \"1.0.0\")"
     required: true
-  - name: release_notes
-    type: string
-    description: Optional supplementary release notes (markdown)
+  - name: "release_notes"
+    type: "string"
+    description: "Optional supplementary release notes (markdown)"
     required: false
-
 outputs:
-  - name: checklist_result
-    type: object
-    description: Steps completed, failed steps, ready_to_release bool, and tag output
-
+  - name: "checklist_result"
+    type: "object"
+    description: "Steps completed, failed steps, ready_to_release bool, and tag output"
 dependencies:
   skills:
-    - name: git-ops
+    - name: "git-ops"
       version: "^1.0"
       optional: false
-    - name: commit-conventions
+    - name: "commit-conventions"
       version: "^1.0"
       optional: false
-    - name: changelog
+    - name: "changelog"
       version: "^1.0"
       optional: false
   apis: []
   models:
-    - sonnet
-    - opus
-
-# Feature 2: Multi-Model Variants
+    - "sonnet"
+    - "opus"
 variants:
   sonnet:
-    prompt_file: prompts/standard.md
-    description: Standard release checklist validation (default)
-    cost_factor: 1.0
+    prompt_file: "prompts/standard.md"
+    description: "Standard release checklist validation (default)"
+    cost_factor: 1
     latency_baseline_ms: 600
   opus:
-    prompt_file: prompts/verbose-risk.md
-    description: Verbose checklist with risk assessment and mitigation guidance
-    cost_factor: 3.0
+    prompt_file: "prompts/verbose-risk.md"
+    description: "Verbose checklist with risk assessment and mitigation guidance"
+    cost_factor: 3
     latency_baseline_ms: 1200
   fallback_chain:
-    - sonnet
-    - opus
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "opus"
 tests:
-  - id: test-clean-state
-    type: integration
-    input: '{"version": "1.0.0"}'
+  - id: "test-clean-state"
+    type: "integration"
+    input: "{\"version\": \"1.0.0\"}"
     expected_substring: "ready_to_release"
     models_to_test:
-      - sonnet
-  - id: test-dirty-state
-    type: integration
-    input: '{"version": "1.0.1"}'
+      - "sonnet"
+  - id: "test-dirty-state"
+    type: "integration"
+    input: "{\"version\": \"1.0.1\"}"
     expected_substring: "steps_failed"
     models_to_test:
-      - sonnet
-
-# Feature 4: Skill Composition
+      - "sonnet"
 composition:
   personas: []
-
-# Feature 5: Auto-Generated Documentation
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - instructions
-
-# Feature 6: Performance Monitoring
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "instructions"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
-
+    - "latency"
+    - "token_count"
+    - "cost"
+    - "variant_selected"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release with automated validation and release readiness assessment"
-
+  1.0.0: "Initial release with automated validation and release readiness assessment"
 tags:
-  - core
-  - workflow
-  - release
+  - "core"
+  - "workflow"
+  - "release"
+capabilities:
+  required:
+    - "git.read"
+    - "shell.exec"
+  optional:
+    - "git.write"
+    - "fs.read"
+    - "network.http"
+  fallback_mode: "manual"
+  fallback_notes: "Can produce a manual release sequence when repo mutation is unavailable."
+platforms:
+  claude-ios:
+    mode: "excluded"
+    notes: "Requires git and shell access"
 ---
 
 ## When to use

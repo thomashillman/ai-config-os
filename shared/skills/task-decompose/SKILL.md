@@ -1,101 +1,89 @@
 ---
-# Identity
-skill: task-decompose
-description: Break down vague or large tasks into discrete, single-session subtasks with clear acceptance criteria and dependency ordering.
-type: prompt
-status: stable
-
-# Feature 1: Dependencies & Metadata
+skill: "task-decompose"
+description: "Break down vague or large tasks into discrete, single-session subtasks with clear acceptance criteria and dependency ordering."
+type: "prompt"
+status: "stable"
 inputs:
-  - name: task_description
-    type: string
-    description: High-level task or goal to decompose
+  - name: "task_description"
+    type: "string"
+    description: "High-level task or goal to decompose"
     required: true
-  - name: constraints
-    type: string
-    description: Optional constraints (time budget, tech stack, scope limits)
+  - name: "constraints"
+    type: "string"
+    description: "Optional constraints (time budget, tech stack, scope limits)"
     required: false
-
 outputs:
-  - name: subtasks
-    type: array
-    description: Array of subtask objects with title, acceptance_criteria, blockers, and dependencies
-
+  - name: "subtasks"
+    type: "array"
+    description: "Array of subtask objects with title, acceptance_criteria, blockers, and dependencies"
 dependencies:
   skills: []
   apis: []
   models:
-    - sonnet
-    - opus
-    - haiku
-
-# Feature 2: Multi-Model Variants
+    - "sonnet"
+    - "opus"
+    - "haiku"
 variants:
   opus:
-    prompt_file: prompts/architectural.md
-    description: Architectural breakdown with dependency graph
-    cost_factor: 3.0
+    prompt_file: "prompts/architectural.md"
+    description: "Architectural breakdown with dependency graph"
+    cost_factor: 3
     latency_baseline_ms: 900
   sonnet:
-    prompt_file: prompts/standard.md
-    description: Standard decomposition (default)
-    cost_factor: 1.0
+    prompt_file: "prompts/standard.md"
+    description: "Standard decomposition (default)"
+    cost_factor: 1
     latency_baseline_ms: 350
   haiku:
-    prompt_file: prompts/quick-scope.md
-    description: Quick scope check and high-level breakdown
+    prompt_file: "prompts/quick-scope.md"
+    description: "Quick scope check and high-level breakdown"
     cost_factor: 0.3
     latency_baseline_ms: 150
   fallback_chain:
-    - sonnet
-    - opus
-    - haiku
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "opus"
+    - "haiku"
 tests:
-  - id: test-vague-task
-    type: prompt-validation
-    input: '{"task_description": "Improve the codebase"}'
+  - id: "test-vague-task"
+    type: "prompt-validation"
+    input: "{\"task_description\": \"Improve the codebase\"}"
     expected_substring: "subtasks"
     models_to_test:
-      - sonnet
-  - id: test-constrained-task
-    type: prompt-validation
-    input: '{"task_description": "Add dark mode", "constraints": "2 days, React only, no API changes"}'
+      - "sonnet"
+  - id: "test-constrained-task"
+    type: "prompt-validation"
+    input: "{\"task_description\": \"Add dark mode\", \"constraints\": \"2 days, React only, no API changes\"}"
     expected_substring: "acceptance_criteria"
     models_to_test:
-      - sonnet
-
-# Feature 4: Skill Composition
+      - "sonnet"
 composition:
   personas: []
-
-# Feature 5: Auto-Generated Documentation
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - instructions
-
-# Feature 6: Performance Monitoring
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "instructions"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
-
+    - "latency"
+    - "token_count"
+    - "cost"
+    - "variant_selected"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release with constraint-aware decomposition and dependency ordering"
-
+  1.0.0: "Initial release with constraint-aware decomposition and dependency ordering"
 tags:
-  - core
-  - workflow
-  - planning
+  - "core"
+  - "workflow"
+  - "planning"
+capabilities:
+  required: []
+  optional: []
+  fallback_mode: "prompt-only"
+  fallback_notes: "Pure reasoning skill."
 ---
 
 ## When to use

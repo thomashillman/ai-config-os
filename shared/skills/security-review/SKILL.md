@@ -1,115 +1,107 @@
 ---
-skill: security-review
-description: |
-  Perform OWASP-aware security review of code, dependencies, and configuration.
-  Identifies injection risks, auth/authn flaws, secrets exposure, CVEs.
+skill: "security-review"
+description: "Perform OWASP-aware security review of code, dependencies, and configuration.
 
-type: prompt
-status: stable
-
+  Identifies injection risks, auth/authn flaws, secrets exposure, CVEs.\n"
+type: "prompt"
+status: "stable"
 inputs:
-  - name: code_or_config
-    type: string
-    description: Code snippet, config file, or dependency list to review
+  - name: "code_or_config"
+    type: "string"
+    description: "Code snippet, config file, or dependency list to review"
     required: true
-  - name: context
-    type: string
-    description: '"web" (HTTP APIs), "cli" (command-line tools), "data" (databases), "general"'
+  - name: "context"
+    type: "string"
+    description: "\"web\" (HTTP APIs), \"cli\" (command-line tools), \"data\" (databases), \"general\""
     required: false
-  - name: scope
-    type: string
-    description: '"quick" (top issues), "thorough" (all OWASP categories)'
+  - name: "scope"
+    type: "string"
+    description: "\"quick\" (top issues), \"thorough\" (all OWASP categories)"
     required: false
-
 outputs:
-  - name: findings
-    type: string
-    description: Severity-tagged findings (CRITICAL/HIGH/MEDIUM/LOW) with remediation
-  - name: risk_score
-    type: number
-    description: 1-10 security risk assessment
-
+  - name: "findings"
+    type: "string"
+    description: "Severity-tagged findings (CRITICAL/HIGH/MEDIUM/LOW) with remediation"
+  - name: "risk_score"
+    type: "number"
+    description: "1-10 security risk assessment"
 dependencies:
   skills:
-    - name: code-review
+    - name: "code-review"
       version: "^1.0"
       optional: true
   apis: []
   models:
-    - sonnet
-
+    - "sonnet"
 examples:
-  - input: 'SQL query: SELECT * FROM users WHERE id = " + userId'
+  - input: "SQL query: SELECT * FROM users WHERE id = \" + userId"
     output: "CRITICAL: SQL injection vulnerability; use parameterized queries"
-    expected_model: sonnet
-
+    expected_model: "sonnet"
 variants:
   opus:
-    prompt_file: prompts/detailed.md
-    description: Full OWASP analysis, threat modeling
+    prompt_file: "prompts/detailed.md"
+    description: "Full OWASP analysis, threat modeling"
     cost_factor: 2.5
     latency_baseline_ms: 700
-
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; top security issues with fixes
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Default; top security issues with fixes"
+    cost_factor: 1
     latency_baseline_ms: 400
-
   haiku:
-    prompt_file: prompts/brief.md
-    description: Critical issues only
+    prompt_file: "prompts/brief.md"
+    description: "Critical issues only"
     cost_factor: 0.3
     latency_baseline_ms: 150
-
   fallback_chain:
-    - opus
-    - sonnet
-    - haiku
-
+    - "opus"
+    - "sonnet"
+    - "haiku"
 tests:
-  - id: test-injection
-    type: prompt-validation
+  - id: "test-injection"
+    type: "prompt-validation"
     input: "SQL code with string interpolation"
     expected_substring: "injection"
     models_to_test:
-      - sonnet
-
-  - id: test-secrets
-    type: prompt-validation
+      - "sonnet"
+  - id: "test-secrets"
+    type: "prompt-validation"
     input: "Code logging API key to console"
     expected_substring: "secret"
     models_to_test:
-      - sonnet
-
+      - "sonnet"
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - examples
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "examples"
   keywords:
-    - security
-    - owasp
-    - vulnerabilities
-    - injection
-    - secrets
-
+    - "security"
+    - "owasp"
+    - "vulnerabilities"
+    - "injection"
+    - "secrets"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - findings_count
-    - risk_score
-
+    - "latency"
+    - "findings_count"
+    - "risk_score"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release; OWASP security review"
-
+  1.0.0: "Initial release; OWASP security review"
 tags:
-  - security
-  - code-quality
+  - "security"
+  - "code-quality"
+capabilities:
+  required: []
+  optional:
+    - "fs.read"
+    - "network.http"
+  fallback_mode: "prompt-only"
+  fallback_notes: "Can review pasted code or configs without live lookups."
 ---
 
 # Security Review

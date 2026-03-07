@@ -1,112 +1,103 @@
 ---
-skill: test-writer
-description: |
-  Generate comprehensive unit and integration tests from function/module code.
-  Complements code-review and debug skills to complete the code quality toolkit.
+skill: "test-writer"
+description: "Generate comprehensive unit and integration tests from function/module code.
 
-type: prompt
-status: stable
-
+  Complements code-review and debug skills to complete the code quality toolkit.\n"
+type: "prompt"
+status: "stable"
 inputs:
-  - name: code
-    type: string
-    description: Function or module to test
+  - name: "code"
+    type: "string"
+    description: "Function or module to test"
     required: true
-  - name: test_type
-    type: string
-    description: '"unit" (isolated), "integration" (with dependencies), or "both"'
+  - name: "test_type"
+    type: "string"
+    description: "\"unit\" (isolated), \"integration\" (with dependencies), or \"both\""
     required: false
-  - name: framework
-    type: string
-    description: '"jest", "mocha", "pytest", "go test", etc. (inferred if omitted)'
+  - name: "framework"
+    type: "string"
+    description: "\"jest\", \"mocha\", \"pytest\", \"go test\", etc. (inferred if omitted)"
     required: false
-
 outputs:
-  - name: test_code
-    type: string
-    description: Complete test suite covering happy path, edge cases, error states
-  - name: coverage_estimate
-    type: string
-    description: Expected line/branch coverage
-
+  - name: "test_code"
+    type: "string"
+    description: "Complete test suite covering happy path, edge cases, error states"
+  - name: "coverage_estimate"
+    type: "string"
+    description: "Expected line/branch coverage"
 dependencies:
   skills: []
   apis: []
   models:
-    - sonnet
-
+    - "sonnet"
 examples:
   - input: "JavaScript function: function factorial(n) { if (n <= 1) return 1; return n * factorial(n-1); }"
     output: "Jest test suite with happy path, zero input, negative input, large number tests"
-    expected_model: sonnet
-
+    expected_model: "sonnet"
 variants:
   opus:
-    prompt_file: prompts/detailed.md
-    description: Complex tests with edge cases, performance, fuzzing
+    prompt_file: "prompts/detailed.md"
+    description: "Complex tests with edge cases, performance, fuzzing"
     cost_factor: 2.5
     latency_baseline_ms: 700
-
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; unit + integration tests, good coverage
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Default; unit + integration tests, good coverage"
+    cost_factor: 1
     latency_baseline_ms: 400
-
   haiku:
-    prompt_file: prompts/brief.md
-    description: Basic unit tests only
+    prompt_file: "prompts/brief.md"
+    description: "Basic unit tests only"
     cost_factor: 0.3
     latency_baseline_ms: 150
-
   fallback_chain:
-    - opus
-    - sonnet
-    - haiku
-
+    - "opus"
+    - "sonnet"
+    - "haiku"
 tests:
-  - id: test-unit-tests
-    type: prompt-validation
+  - id: "test-unit-tests"
+    type: "prompt-validation"
     input: "JavaScript function that sums two numbers"
     expected_substring: "test"
     models_to_test:
-      - sonnet
-
-  - id: test-edge-cases
-    type: prompt-validation
+      - "sonnet"
+  - id: "test-edge-cases"
+    type: "prompt-validation"
     input: "Function handling division by zero"
     expected_substring: "zero"
     models_to_test:
-      - sonnet
-
+      - "sonnet"
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - examples
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "examples"
   keywords:
-    - testing
-    - coverage
-    - jest
-    - pytest
-    - mocha
-
+    - "testing"
+    - "coverage"
+    - "jest"
+    - "pytest"
+    - "mocha"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - test_count_generated
-
+    - "latency"
+    - "token_count"
+    - "test_count_generated"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release; comprehensive test generation"
-
+  1.0.0: "Initial release; comprehensive test generation"
 tags:
-  - code-quality
-  - testing
+  - "code-quality"
+  - "testing"
+capabilities:
+  required: []
+  optional:
+    - "fs.read"
+  fallback_mode: "prompt-only"
+  fallback_notes: "Can generate tests from pasted code."
 ---
 
 # Test Writer

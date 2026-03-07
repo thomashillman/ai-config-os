@@ -1,111 +1,109 @@
 ---
-# Identity & Description
-skill: plugin-setup
-description: |
-  Step-by-step guidance for creating and registering a new skill in this repo's Claude Code plugin.
-  Use when adding a new skill, troubleshooting a broken symlink, or explaining the skill authoring workflow.
+skill: "plugin-setup"
+description: "Step-by-step guidance for creating and registering a new skill in this repo's Claude Code plugin.
 
-# Type & Status
-type: prompt
-status: stable
-
-# Feature 1: Dependencies & Metadata
+  Use when adding a new skill, troubleshooting a broken symlink, or explaining the skill authoring workflow.\n"
+type: "prompt"
+status: "stable"
 inputs:
-  - name: skill_name
-    type: string
-    description: The kebab-case name for the new skill (e.g. "web-search", "commit-conventions")
+  - name: "skill_name"
+    type: "string"
+    description: "The kebab-case name for the new skill (e.g. \"web-search\", \"commit-conventions\")"
     required: false
-
 outputs:
-  - name: setup_steps
-    type: string
-    description: The complete set of commands and edits needed to create and register the skill
-
+  - name: "setup_steps"
+    type: "string"
+    description: "The complete set of commands and edits needed to create and register the skill"
 dependencies:
   skills: []
   apis: []
   models:
-    - sonnet
-
+    - "sonnet"
 examples:
   - input: "How do I add a new skill called 'code-review'?"
-    output: "Run: ops/new-skill.sh code-review\nThen edit shared/skills/code-review/SKILL.md\nUpdate shared/manifest.md\nBump plugin.json version (minor for new skill)\nRun adapters/claude/dev-test.sh"
-    expected_model: sonnet
+    output: "Run: ops/new-skill.sh code-review
+
+      Then edit shared/skills/code-review/SKILL.md
+
+      Update shared/manifest.md
+
+      Bump plugin.json version (minor for new skill)
+
+      Run adapters/claude/dev-test.sh"
+    expected_model: "sonnet"
   - input: "What are the key rules for skill authoring?"
     output: "Author in shared/skills/ only, use relative symlinks, bump version on every change."
-    expected_model: haiku
-
-# Feature 2: Multi-Model Variants
+    expected_model: "haiku"
 variants:
   opus:
-    prompt_file: prompts/detailed.md
-    description: Full walkthrough including troubleshooting, Phase 2 frontmatter explanation, and version discipline rationale
-    cost_factor: 3.0
+    prompt_file: "prompts/detailed.md"
+    description: "Full walkthrough including troubleshooting, Phase 2 frontmatter explanation, and version discipline rationale"
+    cost_factor: 3
     latency_baseline_ms: 900
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; returns all steps clearly with commands and post-script checklist
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Default; returns all steps clearly with commands and post-script checklist"
+    cost_factor: 1
     latency_baseline_ms: 350
   haiku:
-    prompt_file: prompts/brief.md
-    description: Returns commands only, no explanation
+    prompt_file: "prompts/brief.md"
+    description: "Returns commands only, no explanation"
     cost_factor: 0.3
     latency_baseline_ms: 150
   fallback_chain:
-    - sonnet
-    - haiku
-    - opus
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "haiku"
+    - "opus"
 tests:
-  - id: test-new-skill-command
-    type: prompt-validation
+  - id: "test-new-skill-command"
+    type: "prompt-validation"
     input: "How do I create a new skill?"
     expected_substring: "new-skill.sh"
     models_to_test:
-      - sonnet
-  - id: test-symlink-rule
-    type: prompt-validation
+      - "sonnet"
+  - id: "test-symlink-rule"
+    type: "prompt-validation"
     input: "Where do I author skill files?"
     expected_substring: "shared/skills"
     models_to_test:
-      - haiku
-  - id: test-version-bump
-    type: prompt-validation
+      - "haiku"
+  - id: "test-version-bump"
+    type: "prompt-validation"
     input: "Do I need to bump the version when adding a skill?"
     expected_substring: "version"
     models_to_test:
-      - sonnet
-
-# Feature 5: Auto-Generated Documentation
+      - "sonnet"
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - examples
-
-# Feature 6: Performance Monitoring
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "examples"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
+    - "latency"
+    - "token_count"
+    - "cost"
+    - "variant_selected"
   alert_threshold_latency_ms: 1500
   public_metrics: false
-
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release"
-
+  1.0.0: "Initial release"
 tags:
-  - workflow
-  - plugin
-  - core
+  - "workflow"
+  - "plugin"
+  - "core"
+capabilities:
+  required: []
+  optional:
+    - "fs.read"
+    - "fs.write"
+    - "shell.exec"
+  fallback_mode: "prompt-only"
+  fallback_notes: "Can provide manual setup steps."
 ---
 
 # plugin-setup

@@ -1,107 +1,96 @@
 ---
-# Identity
-skill: explain-code
-description: Explain code snippets at varying depths, from one-liners to architectural intent and design trade-offs.
-type: prompt
-status: stable
-
-# Feature 1: Dependencies & Metadata
+skill: "explain-code"
+description: "Explain code snippets at varying depths, from one-liners to architectural intent and design trade-offs."
+type: "prompt"
+status: "stable"
 inputs:
-  - name: code
-    type: string
-    description: Code snippet to explain (function, class, algorithm, module)
+  - name: "code"
+    type: "string"
+    description: "Code snippet to explain (function, class, algorithm, module)"
     required: true
-  - name: depth
-    type: string
-    description: Explanation depth level (brief, detailed, architectural); default detailed
+  - name: "depth"
+    type: "string"
+    description: "Explanation depth level (brief, detailed, architectural); default detailed"
     required: false
-
 outputs:
-  - name: explanation
-    type: string
-    description: Natural language explanation at requested depth
-
+  - name: "explanation"
+    type: "string"
+    description: "Natural language explanation at requested depth"
 dependencies:
   skills: []
   apis: []
   models:
-    - sonnet
-    - haiku
-    - opus
-
-# Feature 2: Multi-Model Variants
+    - "sonnet"
+    - "haiku"
+    - "opus"
 variants:
   haiku:
-    prompt_file: prompts/one-liner.md
-    description: One-liner summary
+    prompt_file: "prompts/one-liner.md"
+    description: "One-liner summary"
     cost_factor: 0.3
     latency_baseline_ms: 100
   sonnet:
-    prompt_file: prompts/functional.md
-    description: Functional explanation with examples (default)
-    cost_factor: 1.0
+    prompt_file: "prompts/functional.md"
+    description: "Functional explanation with examples (default)"
+    cost_factor: 1
     latency_baseline_ms: 300
   opus:
-    prompt_file: prompts/architectural.md
-    description: Deep dive into architectural intent, patterns, and trade-offs
-    cost_factor: 3.0
+    prompt_file: "prompts/architectural.md"
+    description: "Deep dive into architectural intent, patterns, and trade-offs"
+    cost_factor: 3
     latency_baseline_ms: 800
   fallback_chain:
-    - sonnet
-    - haiku
-    - opus
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "haiku"
+    - "opus"
 tests:
-  - id: test-simple-function
-    type: prompt-validation
-    input: '{"code": "def add(a, b):\n  return a + b", "depth": "brief"}'
+  - id: "test-simple-function"
+    type: "prompt-validation"
+    input: "{\"code\": \"def add(a, b):\\n  return a + b\", \"depth\": \"brief\"}"
     expected_substring: "addition"
     models_to_test:
-      - sonnet
-  - id: test-complex-pattern
-    type: prompt-validation
-    input: '{"code": "class Observer:\n  def __init__(self):\n    self.observers = []\n  def notify(self):\n    for obs in self.observers:\n      obs.update()", "depth": "detailed"}'
+      - "sonnet"
+  - id: "test-complex-pattern"
+    type: "prompt-validation"
+    input: "{\"code\": \"class Observer:\\n  def __init__(self):\\n    self.observers = []\\n  def notify(self):\\n    for obs in self.observers:\\n      obs.update()\", \"depth\": \"detailed\"}"
     expected_substring: "Observer"
     models_to_test:
-      - sonnet
-  - id: test-architectural
-    type: prompt-validation
-    input: '{"code": "async def fetch_with_cache(key, fetcher):\n  if cache.has(key):\n    return cache.get(key)\n  result = await fetcher()\n  cache.set(key, result, ttl=3600)\n  return result", "depth": "architectural"}'
+      - "sonnet"
+  - id: "test-architectural"
+    type: "prompt-validation"
+    input: "{\"code\": \"async def fetch_with_cache(key, fetcher):\\n  if cache.has(key):\\n    return cache.get(key)\\n  result = await fetcher()\\n  cache.set(key, result, ttl=3600)\\n  return result\", \"depth\": \"architectural\"}"
     expected_substring: "caching"
     models_to_test:
-      - opus
-
-# Feature 4: Skill Composition
+      - "opus"
 composition:
   personas: []
-
-# Feature 5: Auto-Generated Documentation
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - instructions
-
-# Feature 6: Performance Monitoring
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "instructions"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
-
+    - "latency"
+    - "token_count"
+    - "cost"
+    - "variant_selected"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release with depth-aware explanations and architectural analysis"
-
+  1.0.0: "Initial release with depth-aware explanations and architectural analysis"
 tags:
-  - utility
-  - documentation
-  - explanation
+  - "utility"
+  - "documentation"
+  - "explanation"
+capabilities:
+  required: []
+  optional:
+    - "fs.read"
+  fallback_mode: "prompt-only"
+  fallback_notes: "Can explain pasted code."
 ---
 
 ## When to use
