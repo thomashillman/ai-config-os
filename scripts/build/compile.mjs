@@ -21,8 +21,6 @@ import { emitRegistry } from './lib/emit-registry.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
 import { resolveAll } from './lib/resolve-compatibility.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
-import Ajv2020 from 'ajv/dist/2020.js';
-import addFormats from 'ajv-formats';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -86,11 +84,20 @@ async function main() {
   let fatalErrors = 0;
 
   // Load platforms first for policy validation
-  const platforms = loadPlatforms(ROOT);
+  const { platforms, errors: loadErrors } = loadPlatforms(ROOT);
   const knownPlatforms = new Set(platforms.keys());
 
   // Validate all platform definitions
   console.log('[platforms]');
+
+  // Hard-fail on load/parse errors
+  if (loadErrors.length > 0) {
+    for (const err of loadErrors) {
+      console.error(`  [error] ${err}`);
+    }
+    fatalErrors += loadErrors.length;
+  }
+
   for (const [platformId, platformDef] of platforms) {
     const valid = platformValidator(platformDef);
     if (!valid) {
@@ -170,6 +177,9 @@ async function main() {
   // Platforms already loaded and validated above
   console.log(`\nLoaded ${platforms.size} platform(s): ${[...platforms.keys()].join(', ')}`);
 
+  // Build skill map once (avoid O(n²) lookup in compatibility and zero-emit checks)
+  const skillById = new Map(parsed.map(s => [s.skillName, s]));
+
   // Resolve compatibility matrix
   const compatMatrix = resolveAll(parsed, platforms);
 
@@ -185,7 +195,7 @@ async function main() {
     }
 
     // Check for zero-emit (skip if deprecated)
-    const skill = parsed.find(s => s.skillName === skillId);
+    const skill = skillById.get(skillId);
     if (skill && !hasEmit && skill.frontmatter.status !== 'deprecated') {
       zeroEmitSkills.push(skillId);
     }
@@ -204,9 +214,6 @@ async function main() {
     );
     process.exit(1);
   }
-
-  // Build skill map once (avoid O(n²) lookup)
-  const skillById = new Map(parsed.map(s => [s.skillName, s]));
 
   // Group skills by platform based on compatibility (emit=true)
   const platformSkills = {};
