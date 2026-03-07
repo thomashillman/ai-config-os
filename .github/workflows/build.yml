@@ -42,6 +42,9 @@ jobs:
       - name: Lint skill files
         run: node scripts/lint/skill.mjs shared/skills/[!_]*/SKILL.md
 
+      - name: Run tests
+        run: npm test
+
       - name: Run compiler (validate-only)
         run: node scripts/build/compile.mjs --validate-only
 

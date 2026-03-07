@@ -29,8 +29,15 @@ ensure_mcp_config() {
 }
 
 # Resolve env vars in string (replaces ${VAR} with value)
+# Uses safe indirect expansion — no eval
 resolve_env() {
-  echo "$1" | sed 's/\${[A-Za-z_][A-Za-z_0-9]*}/'"$(eval echo "$1")"'/g' || echo "$1"
+  local val="$1"
+  while [[ "$val" =~ \$\{([A-Za-z_][A-Za-z_0-9]*)\} ]]; do
+    local varname="${BASH_REMATCH[1]}"
+    local varval="${!varname:-}"
+    val="${val/\$\{$varname\}/$varval}"
+  done
+  echo "$val"
 }
 
 case "$COMMAND" in

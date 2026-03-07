@@ -156,11 +156,11 @@ bash runtime/watch.sh
 
 ```yaml
 mcps:
-  - name: blockscout
+  blockscout:
     type: http
     url: https://api.blockscout.com/
     enabled: true
-  - name: web-search
+  web-search:
     type: native
     enabled: true
 ```
@@ -229,7 +229,7 @@ vim runtime/config/machines/work-laptop.yaml
 
 # 2. Add the MCP you want
 # mcps:
-#   - name: my-mcp
+#   my-mcp:
 #     type: stdio
 #     command: /usr/local/bin/my-mcp
 
@@ -267,6 +267,16 @@ Run it: `Claude Code → Run Workflow → daily-standup`
 | Phase 8 | ✅ Complete | Runtime config layer, MCP server, React dashboard, desired-state sync |
 | Phase 9.1 | ✅ Complete | Skill schema, build compiler, Cloudflare Worker distribution, CI build workflow |
 | Phase 9.x | 🔄 Planned | Multi-platform emitters (cursor, codex), Worker deployment, analytics refinement |
+
+### Platform maturity
+
+| Platform | Compiler | Worker | Runtime sync | Status |
+|----------|----------|--------|-------------|--------|
+| Claude Code | Full emitter | Serves latest bundle | Full desired-state sync | **Production** |
+| Cursor | Emits rules | Not served | No runtime adapter | **Partial** |
+| claude-web, claude-ios, codex | Capability model loaded | Not served | No adapter | **Model only** |
+
+The capability contract and compatibility model cover all platforms, but operational tooling (worker distribution, runtime sync, materialise) is currently Claude Code only. Cursor gets compiler output but no runtime management. Other platforms are tracked for compatibility but have no emitters or adapters yet.
 
 See [PLAN.md](PLAN.md) for detailed implementation progress and [CLAUDE.md](CLAUDE.md) for development conventions.
 
