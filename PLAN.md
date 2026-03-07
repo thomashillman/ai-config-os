@@ -164,13 +164,34 @@ Replaced flat capability hints and implicit claude-code defaulting with a struct
 
 ---
 
+## Phase 9.3: Close the Compatibility Loop (IN PROGRESS)
+
+**Version:** v0.5.3
+**Branch:** `claude/plan-config-os-distribution-rjqcI`
+
+### Summary
+
+v0.5.2 shipped the right architecture but had implementation gaps that made the compatibility system decorative rather than enforced. v0.5.3 makes it honest.
+
+**Fixes:**
+1. **Emitter wiring** — compiler now passes compatibility-filtered skills to emitters instead of full unfiltered set
+2. **Validate-only pipeline** — `--validate-only` now runs full validation (platforms, capabilities, compatibility) — just skips file output
+3. **Skill linter schema validation** — AJV schema validation added (was loaded but never compiled/run)
+4. **Probe accuracy** — `git.write` tests actual writes; `mcp.client` tries real invocation before config check
+5. **CLAUDE.md contract drift** — examples updated to match current schema
+
+**New capability:**
+6. **Cursor emitter** — first non-Claude-Code emitter, producing `.cursorrules` from compatible skills with degradation notes
+
+---
+
 ## Recommended next
 
-1. **Deploy Worker and validate CI** — merge to main, confirm build workflow passes, deploy Worker.
+1. **Add Codex emitter** — second non-Claude emitter to validate the pattern further.
 2. **Run probes on Claude Web/iOS** — use `ops/capability-probe.sh` to discover real capabilities, update platform files with evidence.
-3. **Add emitters for cursor and codex** — `scripts/build/lib/emit-cursor.mjs`, `emit-codex.mjs`.
+3. **Probe-driven platform overlays** — local probe results override shared platform assumptions per machine.
 4. **Wire materialiser into session-start hook** — auto-fetch latest from Worker if newer version exists.
-5. **Platform-specific skill variants** — alternative prompts/workflows per platform (e.g., git-ops generates scripts on web instead of executing them).
+5. **Deploy Worker and validate CI** — merge to main, confirm build workflow passes, deploy Worker.
 
 ---
 

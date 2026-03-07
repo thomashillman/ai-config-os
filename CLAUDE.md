@@ -191,35 +191,51 @@ Three docs stay in sync; each owns a distinct slice:
 - Never duplicate content across docs. If you find the same fact in two places, pick the authoritative owner (table above) and remove it from the other, replacing with a link.
 - Run `ops/check-docs.sh` before committing to see which docs the changed files are expected to touch.
 
-## Distribution layer (Phase 9.1)
+## Distribution layer
 
-Skills are compiled and distributed via a GitHub-authored, CI-built, Cloudflare-served pipeline.
+Skills are compiled and distributed via a GitHub-authored, CI-built, Cloudflare-served pipeline. Compatibility is computed from capability contracts (v0.5.2+).
 
 ### Build
 ```bash
 npm install                            # first time only
-node scripts/build/compile.mjs         # validate + emit dist/
-node scripts/build/compile.mjs --validate-only  # schema check, no output
+node scripts/build/compile.mjs         # validate + resolve compatibility + emit dist/
+node scripts/build/compile.mjs --validate-only  # full validation pipeline, no file output
 ```
 
-Output: `dist/clients/claude-code/` + `dist/registry/index.json`
+Output: `dist/clients/<platform>/` (claude-code, cursor) + `dist/registry/index.json`
 
-### Skill manifest fields (new in 9.1)
-Add these to skill YAML frontmatter to enable multi-platform distribution:
+### Skill capability contract
+Skills declare structured capability requirements in YAML frontmatter:
 
 ```yaml
-capabilities: [filesystem, network, git]  # what the skill needs (adapter hints)
-
-platforms:
-  claude-code:
-    type: skill
-    entry: skills/my-skill/
-  cursor:
-    type: rules
-    entry: rules/my-skill.md
+capabilities:
+  required: [git.read, shell.exec]     # must be supported for skill to work
+  optional: [fs.write]                 # enhances skill but not essential
+  fallback_mode: prompt-only           # none | manual | prompt-only
+  fallback_notes: "User can paste git output manually"
 ```
 
-Skills without a `platforms:` block default to `claude-code`.
+Platform overrides are thin and optional — most skills need none:
+```yaml
+platforms:
+  cursor:
+    package: rules                     # override default package format
+    mode: degraded                     # native | degraded | excluded
+    notes: "No hook surface in Cursor"
+  claude-web:
+    allow_unverified: true             # emit even for unverified capabilities
+```
+
+Skills without a `platforms:` block are emitted to all platforms where their required capabilities are supported. See `schemas/skill.schema.json` for the full contract.
+
+### Platform definitions
+Platform capability states live in `shared/targets/platforms/*.yaml`. Each capability has a status (`supported`/`unsupported`/`unknown`), evidence date, confidence level, and source. The compiler resolves skill-platform compatibility from these.
+
+### Linting
+```bash
+node scripts/lint/skill.mjs shared/skills/*/SKILL.md      # schema + custom rules
+node scripts/lint/platform.mjs shared/targets/platforms/*.yaml  # schema validation
+```
 
 ### Worker deployment
 ```bash
