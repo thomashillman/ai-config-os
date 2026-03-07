@@ -35,7 +35,7 @@ export function emitRegistry(skills, platforms, { distDir, buildVersion, builtAt
         invocation: s.frontmatter.invocation || null,
         tags: s.frontmatter.tags || [],
         capabilities: {
-          required: Array.isArray(caps.required) ? caps.required : (Array.isArray(caps) ? caps : []),
+          required: caps.required || [],
           optional: caps.optional || [],
           fallback_mode: caps.fallback_mode || null,
         },

@@ -116,6 +116,17 @@
           "type": "string",
           "description": "Human explanation of how degradation works"
         }
+      },
+      "if": {
+        "properties": {
+          "required": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      },
+      "then": {
+        "required": ["fallback_mode"]
       }
     },
 
@@ -264,6 +275,9 @@
     "$extensions": {
       "type": "object",
       "description": "Escape hatch for non-standard metadata. Use a namespaced key (e.g. 'myorg.field'). Core tooling ignores all fields here.",
+      "propertyNames": {
+        "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$"
+      },
       "additionalProperties": true
     }
   },
@@ -288,12 +302,12 @@
     },
     "variant": {
       "type": "object",
-      "additionalProperties": true,
+      "additionalProperties": false,
       "properties": {
         "prompt_file": { "type": "string" },
         "description": { "type": "string" },
-        "cost_factor": { "type": "number" },
-        "latency_baseline_ms": { "type": "number" }
+        "cost_factor": { "type": "number", "minimum": 0 },
+        "latency_baseline_ms": { "type": "number", "minimum": 0 }
       }
     }
   }
