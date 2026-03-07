@@ -12,36 +12,27 @@ import { mkdirSync, writeFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 
 /**
- * @param {object[]} skills - Parsed skill objects { frontmatter, body, filePath, skillDir, skillName }
+ * @param {object[]} skills - Pre-filtered skills for claude-code (from compatibility resolution)
  * @param {object} opts
  * @param {string} opts.distDir - e.g. dist/clients/claude-code
  * @param {string} opts.buildVersion - build version string
  * @param {string} opts.builtAt - ISO timestamp
  */
 export function emitClaudeCode(skills, { distDir, buildVersion, builtAt }) {
-  // Filter to skills that declare claude-code platform
-  const claudeCodeSkills = skills.filter(
-    s => s.frontmatter.platforms?.['claude-code']
-  );
-
-  if (claudeCodeSkills.length === 0) {
-    // Fall back: emit all skills (graceful — existing skills predate platforms: field)
-    emitSkills(skills, distDir);
-  } else {
-    emitSkills(claudeCodeSkills, distDir);
-  }
+  // Skills are pre-filtered by the compiler's compatibility resolution.
+  // The emitter's job is packaging, not filtering.
+  emitSkills(skills, distDir);
 
   // Generate plugin.json
   const pluginJsonPath = join(distDir, '.claude-plugin', 'plugin.json');
   mkdirSync(dirname(pluginJsonPath), { recursive: true });
 
-  const emitted = claudeCodeSkills.length > 0 ? claudeCodeSkills : skills;
   const pluginJson = {
     name: 'core-skills',
     version: buildVersion,
     description: 'Core AI Config OS skills',
     built_at: builtAt,
-    skills: emitted.map(s => ({
+    skills: skills.map(s => ({
       name: s.skillName,
       version: s.frontmatter.version || '1.0.0',
       path: `skills/${s.skillName}/SKILL.md`,
