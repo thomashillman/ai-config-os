@@ -1,0 +1,43 @@
+# Known platforms — for human reference and compiler hints.
+# This file is NOT schema-validated. It documents the platform ecosystem.
+#
+# Skills declare their own platform mappings in their `platforms:` block.
+# The compiler uses those declarations — not this file — to route output.
+#
+# `known_capabilities` lists the adapter hints each platform can honour.
+# Skills use `capabilities:` to declare what they need (platform-agnostic).
+
+platforms:
+  claude-code:
+    name: Claude Code
+    format: plugin
+    known_capabilities: [filesystem, network, git, shell, mcp, secrets]
+    output_structure:
+      plugin_json: .claude-plugin/plugin.json
+      skills_dir: skills/
+    notes: >
+      Primary platform. Skills packaged as a .claude-plugin with skill
+      directories. Hooks and MCP supported.
+
+  claude-web:
+    name: Claude Web / iOS
+    format: api
+    known_capabilities: [network]
+    notes: >
+      No filesystem or shell access. Skills are surfaced as prompts
+      via the API. Future: skills-as-tools via API.
+
+  codex:
+    name: OpenAI Codex CLI
+    format: file
+    known_capabilities: [filesystem, network, git, shell]
+    notes: >
+      Skills packaged as standalone prompt files. No plugin manifest.
+
+  cursor:
+    name: Cursor
+    format: rules
+    known_capabilities: [filesystem, rules]
+    notes: >
+      Skills expressed as .cursorrules or Cursor rules files.
+      No dynamic invocation — static injection into context.

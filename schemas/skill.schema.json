@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/schemas/skill.schema.json",
+  "title": "Skill Package Manifest",
+  "description": "Canonical package manifest for an ai-config-os skill. Describes identity, dependencies, platform mappings, and adapter hints.",
+  "type": "object",
+  "required": ["skill", "description", "type", "status", "version"],
+  "additionalProperties": true,
+  "properties": {
+    "skill": {
+      "type": "string",
+      "description": "Stable machine identifier for the skill (kebab-case)",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "version": {
+      "type": "string",
+      "description": "Semver version string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$"
+    },
+    "description": {
+      "type": "string",
+      "description": "One sentence summary; up to one paragraph context"
+    },
+    "invocation": {
+      "type": "string",
+      "description": "Trigger hint — slash command, keyword, or invocation pattern (e.g. /code-review)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["prompt", "hook", "agent", "workflow-blueprint"],
+      "description": "Skill execution model"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["stable", "experimental", "deprecated"],
+      "description": "Maturity level"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Searchable labels for discoverability"
+    },
+
+    "dependencies": {
+      "type": "object",
+      "description": "What this skill needs to function",
+      "additionalProperties": false,
+      "properties": {
+        "runtime": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Required system-level tools (e.g. git, jq, curl)"
+        },
+        "optional": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Nice-to-have system tools (skill degrades gracefully without them)"
+        },
+        "skills": {
+          "type": "array",
+          "description": "Other skills this skill depends on",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "version": {
+                "type": "string",
+                "description": "Semver constraint (e.g. ^1.0)"
+              },
+              "optional": { "type": "boolean", "default": false }
+            }
+          }
+        },
+        "apis": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "External APIs consumed (e.g. github, linear)"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["opus", "sonnet", "haiku"]
+          },
+          "description": "AI models required"
+        }
+      }
+    },
+
+    "capabilities": {
+      "type": "array",
+      "description": "Platform-agnostic adapter hints. Skills declare WHAT they need; each platform maps this to its own permission model.",
+      "items": {
+        "type": "string",
+        "enum": ["filesystem", "network", "git", "shell", "mcp", "browser", "secrets"]
+      }
+    },
+
+    "platforms": {
+      "type": "object",
+      "description": "Per-platform distribution mappings. Keys are platform IDs (e.g. claude-code, codex, cursor). A skill only appears in a platform's output if it declares that platform here.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["type"],
+        "additionalProperties": true,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["skill", "plugin", "rules", "file", "api"],
+            "description": "How this skill is packaged for the platform"
+          },
+          "entry": {
+            "type": "string",
+            "description": "Relative entry path within the platform's output structure"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Platform-specific caveats or limitations"
+          }
+        }
+      }
+    },
+
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "description": { "type": "string" },
+          "required": { "type": "boolean", "default": false }
+        }
+      }
+    },
+
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "description": { "type": "string" }
+        }
+      }
+    },
+
+    "examples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "input": { "type": "string" },
+          "output": { "type": "string" },
+          "expected_model": { "type": "string" }
+        }
+      }
+    },
+
+    "variants": {
+      "type": "object",
+      "description": "Multi-model variants for cost/latency tradeoffs",
+      "properties": {
+        "opus": { "$ref": "#/$defs/variant" },
+        "sonnet": { "$ref": "#/$defs/variant" },
+        "haiku": { "$ref": "#/$defs/variant" },
+        "fallback_chain": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["opus", "sonnet", "haiku"] },
+          "description": "Ordered fallback preference"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": {
+            "type": "string",
+            "enum": ["prompt-validation", "structure-check", "integration", "performance"]
+          },
+          "input": { "type": "string" },
+          "expected_substring": { "type": "string" },
+          "models_to_test": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "composition": {
+      "type": "object",
+      "description": "Skill composition and persona configuration"
+    },
+
+    "docs": {
+      "type": "object",
+      "properties": {
+        "auto_generate_readme": { "type": "boolean" },
+        "sections_to_include": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "monitoring": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "track_metrics": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+
+    "changelog": {
+      "type": "object",
+      "description": "Version history. Keys are semver strings, values are description strings.",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+
+  "$defs": {
+    "variant": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "prompt_file": { "type": "string" },
+        "description": { "type": "string" },
+        "cost_factor": { "type": "number" },
+        "latency_baseline_ms": { "type": "number" }
+      }
+    }
+  }
+}
