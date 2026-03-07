@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/schemas/probe-result.schema.json",
+  "title": "Capability Probe Result",
+  "description": "Output of the runtime capability probe. Records which capabilities are available on the current platform/surface.",
+  "type": "object",
+  "required": ["probe_version", "probed_at", "hostname", "results"],
+  "additionalProperties": false,
+  "properties": {
+    "probe_version": {
+      "type": "string",
+      "description": "Version of the probe script"
+    },
+    "probed_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the probe run"
+    },
+    "platform_hint": {
+      "type": "string",
+      "description": "Best guess at platform identity"
+    },
+    "surface_hint": {
+      "type": "string",
+      "description": "Best guess at surface type"
+    },
+    "hostname": {
+      "type": "string",
+      "description": "Machine hostname"
+    },
+    "results": {
+      "type": "object",
+      "description": "Per-capability probe results",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["status"],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["supported", "unsupported", "error"]
+          },
+          "latency_ms": {
+            "type": "number",
+            "description": "Time taken for the probe in milliseconds"
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message if status is error or unsupported"
+          }
+        }
+      }
+    },
+    "duration_ms": {
+      "type": "number",
+      "description": "Total probe duration in milliseconds"
+    }
+  }
+}
