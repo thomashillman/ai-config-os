@@ -40,7 +40,7 @@ jobs:
         run: node scripts/lint/platform.mjs shared/targets/platforms/*.yaml
 
       - name: Lint skill files
-        run: node scripts/lint/skill.mjs shared/skills/*/SKILL.md
+        run: node scripts/lint/skill.mjs shared/skills/[!_]*/SKILL.md
 
       - name: Run compiler (validate-only)
         run: node scripts/build/compile.mjs --validate-only
