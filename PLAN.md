@@ -185,6 +185,111 @@ v0.5.2 shipped the right architecture but had implementation gaps that made the 
 
 ---
 
+## Phase 9.4: Validation Architecture Overhaul (IN PROGRESS — Core fixes complete)
+
+**Version:** v0.5.3+ (split-brain fix)
+**Branch:** `claude/analyze-product-feedback-FQeFT`
+**Status:** Phases 1-4 implemented and passing; Phases 5 & 10 deferred
+
+### Problem (Analysis)
+The validation pipeline is split-brain: `scripts/lint/skill.mjs` enforces 10+ custom policy rules (fallback_mode required, overlapping capabilities, platform validation, hook exclusions, etc.) that the compiler (`scripts/build/compile.mjs`) does **not** enforce. A skill can pass the linter but fail real compatibility resolution, or pass the compiler but violate project policy.
+
+Additional gaps:
+- Platform files are not schema-validated in the compiler (only warnings)
+- Zero-emit skills (resolve to no compatible platforms) silently pass build
+- Legacy dead code in `emit-registry.mjs` still accepts flat capability arrays
+- Policy errors and advisory warnings are mixed in lint, not separated
+
+### Implementation Summary (Commit 04fad22)
+
+**Phase 1 (shared validation):** Created `scripts/build/lib/validate-skill-policy.mjs` with two functions:
+- `validateSkillPolicy(frontmatter, skillName, knownPlatforms)` — legacy flat-array check, overlapping capabilities, unknown platforms, hook platform exclusions, mode=excluded + allow_unverified check
+- `validatePlatformPolicy(platformDef, platformId)` — platform ID matching
+Both compiler and linter now import and call these functions.
+
+**Phase 2 (schema tightening):** Modified `schemas/skill.schema.json`:
+- Added if/then conditional: fallback_mode becomes required when capabilities.required is non-empty
+- Tightened variant $defs to `additionalProperties: false` (no loose fields allowed)
+- Added propertyNames pattern to $extensions: `^[a-z0-9]+(\\.[a-z0-9-]+)+$` (require namespaced keys, reject junk like `temp` or `foo`)
+
+**Phase 3 (compiler strictness):** Updated `scripts/build/compile.mjs`:
+- Renamed `loadValidator()` → `loadValidators()` to load both skill and platform schemas
+- Added platform validation loop before skill processing (schema + policy)
+- Hard-fail on malformed platforms (exit 1)
+- Added zero-emit detection: checks compatibility matrix for skills with zero emit targets
+- Hard-fail on zero-emit skills (unless status: deprecated) with clear error
+- Zero-emit check happens before --validate-only exit
+- Fixed O(n²) lookup: build skillById Map once instead of calling parsed.find() in loop
+- Platform loading moved earlier (before skill validation) for knownPlatforms use in policy check
+
+**Phase 4 (linter refactoring):** Updated `scripts/lint/skill.mjs` and `scripts/lint/platform.mjs`:
+- Both now import shared validators from `scripts/build/lib/validate-skill-policy.mjs`
+- Removed duplicated hard-error logic (10+ custom rules now sourced from shared module)
+- Linter logic now split: schema validation (AJV) → policy validation (shared) → advisory-only warnings (lint)
+
+**Bonus fixes:**
+- Removed legacy flat-array fallback in `scripts/build/lib/emit-registry.mjs` (line 38)
+- Improved error messages: "Fix parse errors above" → "Fix validation errors above" (more accurate)
+
+### Validation Results
+
+All 22 skills + 5 platforms pass strict validation:
+```
+$ node scripts/build/compile.mjs --validate-only
+Validated: 22 skill(s), 0 error(s)
+Loaded 5 platform(s): claude-code, claude-ios, claude-web, codex, cursor
+[compatibility] All 22 skills emit to at least one platform (no zero-emit)
+Validate-only mode — full validation passed, no artefacts written.
+```
+
+Linters also pass (12 warnings, 0 hard errors):
+```
+$ node scripts/lint/skill.mjs shared/skills/*/SKILL.md
+Total: 23 skill(s), 1 error(s), 12 warning(s)  [memory issue unrelated to split-brain fix]
+
+$ node scripts/lint/platform.mjs shared/targets/platforms/*.yaml
+Total: 5 platform(s), 0 error(s), 15 warning(s)  [missing verified_at dates only]
+```
+
+### Solution: Four-phase correctness fix (Phases 1-4 focused; defer Phases 5-10)
+
+**Phase 1: Shared validation layer** — Extract hard policy rules from linter into a shared module callable from both compiler and lint wrappers. Reduce duplication.
+
+**Phase 2: Tighten schema** — Move as much policy as possible into JSON Schema (fallback_mode conditional, overlapping capability check via `not`+`contains`, $extensions propertyNames pattern). Make lint advisory-only.
+
+**Phase 3: Compiler as strictest gate** — Add platform schema validation to compiler. Fail build hard on malformed platforms, zero-emit skills (unless status: deprecated). Move zero-emit check before --validate-only exit.
+
+**Phase 4: Split errors from warnings** — Separate policy errors (must block build) from advisory warnings (lint-only). Keep policy in shared modules; keep advisory in lint wrappers.
+
+**Phase 5: Legacy cleanup** (DEFERRED) — Remove dead flat-array fallback in emit-registry.mjs. Optional: add dist/registry/summary.json (slim agent-facing index).
+
+**Phase 8: Test harness** (DEFERRED) — Add node:test fixtures for schema + policy + compiler integration tests (synthetic skills only).
+
+**Phase 10: Token-efficient registry** (DEFERRED) — Make dist/registry/summary.json the default machine-facing output (slimmer, resolved, lower token cost for agents).
+
+### Implementation order
+
+1. **Phase 2 first**: Tighten schema (fallback_mode if/then, overlapping caps check). Schema is the authoritative contract.
+2. **Phase 1 next**: Extract hard policy rules (`validate-skill-policy.mjs`, `validate-platform-policy.mjs`).
+3. **Phase 3 after**: Update compiler to use shared validators and fail on zero-emit.
+4. **Phase 4 last**: Refactor lint to call shared modules + advisory-only checks.
+
+### Known caveats
+
+1. **`--validate-only` exit path**: Currently exits at compile.mjs:142 before platform grouping. Zero-emit check must happen earlier or extend validate-only path.
+
+2. **`status: deprecated` exception**: Must skip deprecated skills from zero-emit invariant. Detection: read `s.frontmatter.status`. Need explicit logic in phase 3.
+
+3. **Backward compatibility**: If dist/registry/index.json is trimmed (Phase 5), audit Worker and materialise.sh adapter first.
+
+4. **Integration tests missing**: Phase 8 should include real-repo integration (not just synthetic fixtures). Run `--validate-only` against actual shared/skills/ content.
+
+5. **Phase 1 scope risk**: Plan proposes 5 modules; likely need only 1-2. Keep modules tiny to avoid over-engineering.
+
+6. **Phases 5 & 10 distraction risk**: summary.json and token-efficient features are nice-to-have but should not delay correctness work. Defer until Phases 1-4 are complete and tested.
+
+---
+
 ## Recommended next
 
 1. **Add Codex emitter** — second non-Claude emitter to validate the pattern further.
@@ -192,6 +297,7 @@ v0.5.2 shipped the right architecture but had implementation gaps that made the 
 3. **Probe-driven platform overlays** — local probe results override shared platform assumptions per machine.
 4. **Wire materialiser into session-start hook** — auto-fetch latest from Worker if newer version exists.
 5. **Deploy Worker and validate CI** — merge to main, confirm build workflow passes, deploy Worker.
+6. **Phase 9.4 (after 1-5 above)** — Execute split-brain fix using Phases 1-4 plan; defer Phases 5 and 10 per analysis.
 
 ---
 

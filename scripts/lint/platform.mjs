@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
+import { validatePlatformPolicy } from '../build/lib/validate-skill-policy.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../..');
@@ -45,10 +46,9 @@ function lintPlatform(filePath) {
     }
   }
 
-  // Filename must match id
-  if (data.id && data.id !== platformId) {
-    errors.push(`Platform id '${data.id}' does not match filename '${platformId}.yaml'.`);
-  }
+  // Hard policy validation
+  const { errors: policyErrors } = validatePlatformPolicy(data, platformId);
+  errors.push(...policyErrors);
 
   // Check for stale evidence (>90 days)
   if (data.capabilities) {

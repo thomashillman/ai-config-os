@@ -20,6 +20,9 @@ import { emitCursor } from './lib/emit-cursor.mjs';
 import { emitRegistry } from './lib/emit-registry.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
 import { resolveAll } from './lib/resolve-compatibility.mjs';
+import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
+import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -28,6 +31,7 @@ const SCHEMA_PATH = join(ROOT, 'schemas', 'skill.schema.json');
 const DIST_DIR = join(ROOT, 'dist');
 
 const VALIDATE_ONLY = process.argv.includes('--validate-only');
+const PLATFORM_SCHEMA_PATH = join(ROOT, 'schemas', 'platform.schema.json');
 
 // Build version: semver + ISO timestamp slug
 const buildVersion = (() => {
@@ -36,13 +40,19 @@ const buildVersion = (() => {
 })();
 const builtAt = new Date().toISOString();
 
-async function loadValidator() {
+async function loadValidators() {
   const { default: Ajv } = await import('ajv/dist/2020.js');
   const { default: addFormats } = await import('ajv-formats');
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
-  const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
-  return ajv.compile(schema);
+
+  const skillSchema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
+  const skillValidator = ajv.compile(skillSchema);
+
+  const platformSchema = JSON.parse(readFileSync(PLATFORM_SCHEMA_PATH, 'utf8'));
+  const platformValidator = ajv.compile(platformSchema);
+
+  return { skillValidator, platformValidator };
 }
 
 function scanSkills() {
@@ -67,14 +77,50 @@ async function main() {
   console.log(`  build: ${buildVersion}`);
   console.log(`  mode:  ${VALIDATE_ONLY ? 'validate-only' : 'full build'}\n`);
 
-  const validate = await loadValidator();
+  const { skillValidator, platformValidator } = await loadValidators();
 
   const skillEntries = scanSkills();
   console.log(`Found ${skillEntries.length} skill(s)\n`);
 
   const parsed = [];
-  let parseErrors = 0;
+  let fatalErrors = 0;
 
+  // Load platforms first for policy validation
+  const platforms = loadPlatforms(ROOT);
+  const knownPlatforms = new Set(platforms.keys());
+
+  // Validate all platform definitions
+  console.log('[platforms]');
+  for (const [platformId, platformDef] of platforms) {
+    const valid = platformValidator(platformDef);
+    if (!valid) {
+      console.error(`  [error] ${platformId}: schema validation failed:`);
+      for (const e of platformValidator.errors || []) {
+        console.error(`          ${e.instancePath || '(root)'}: ${e.message}`);
+      }
+      fatalErrors++;
+      continue;
+    }
+
+    const { errors: policyErrors } = validatePlatformPolicy(platformDef, platformId);
+    if (policyErrors.length > 0) {
+      for (const err of policyErrors) {
+        console.error(`  [error] ${platformId}: ${err}`);
+      }
+      fatalErrors++;
+      continue;
+    }
+
+    console.log(`  [ok]   ${platformId}`);
+  }
+
+  if (fatalErrors > 0) {
+    console.error(`\nBuild failed: fix platform validation errors above.`);
+    process.exit(1);
+  }
+
+  // Validate all skills
+  console.log('\n[skills]');
   for (const { skillName, skillDir, skillMdPath } of skillEntries) {
     let skill;
     try {
@@ -83,46 +129,84 @@ async function main() {
       skill.skillDir = skillDir;
     } catch (err) {
       console.error(`  [error] ${skillName}: parse failed - ${err.message}`);
-      parseErrors++;
+      fatalErrors++;
       continue;
     }
 
-    const valid = validate(skill.frontmatter);
+    const valid = skillValidator(skill.frontmatter);
     if (!valid) {
       console.error(`  [error] ${skillName}: schema validation failed:`);
-      for (const e of validate.errors || []) {
+      for (const e of skillValidator.errors || []) {
         console.error(`          ${e.instancePath || '(root)'}: ${e.message}`);
       }
-      parseErrors++;
+      fatalErrors++;
       continue;
     }
+
+    const { errors: policyErrors } = validateSkillPolicy(
+      skill.frontmatter,
+      skillName,
+      knownPlatforms
+    );
+    if (policyErrors.length > 0) {
+      for (const err of policyErrors) {
+        console.error(`  [error] ${skillName}: ${err}`);
+      }
+      fatalErrors++;
+      continue;
+    }
+
     console.log(`  [ok]   ${skillName} v${skill.frontmatter.version || '?'}`);
     parsed.push(skill);
   }
 
-  console.log(`\nParsed: ${parsed.length}  errors: ${parseErrors}`);
+  console.log(`\nValidated: ${parsed.length} skill(s), ${fatalErrors} error(s)`);
 
-  if (parseErrors > 0) {
-    console.error('\nBuild failed: fix parse errors above.');
+  if (fatalErrors > 0) {
+    console.error('\nBuild failed: fix validation errors above.');
     process.exit(1);
   }
 
-  // Load platform definitions
-  const platforms = loadPlatforms(ROOT);
+  // Platforms already loaded and validated above
   console.log(`\nLoaded ${platforms.size} platform(s): ${[...platforms.keys()].join(', ')}`);
 
   // Resolve compatibility matrix
   const compatMatrix = resolveAll(parsed, platforms);
 
-  // Log compatibility summary
+  // Log compatibility summary and check for zero-emit skills
   console.log('\n[compatibility]');
+  let zeroEmitSkills = [];
   for (const [skillId, platResults] of compatMatrix) {
     const statuses = [];
+    let hasEmit = false;
     for (const [pid, result] of platResults) {
       statuses.push(`${pid}:${result.status}`);
+      if (result.emit) hasEmit = true;
     }
+
+    // Check for zero-emit (skip if deprecated)
+    const skill = parsed.find(s => s.skillName === skillId);
+    if (skill && !hasEmit && skill.frontmatter.status !== 'deprecated') {
+      zeroEmitSkills.push(skillId);
+    }
+
     console.log(`  ${skillId}: ${statuses.join(', ')}`);
   }
+
+  // Hard-fail on zero-emit skills
+  if (zeroEmitSkills.length > 0) {
+    console.error(`\n[error] The following skills have zero compatible platforms (excluding deprecated):`);
+    for (const skillId of zeroEmitSkills) {
+      console.error(`  - ${skillId}: check capabilities.required vs all platform definitions`);
+    }
+    console.error(
+      '\nBuild failed: all non-deprecated skills must resolve to at least one platform.'
+    );
+    process.exit(1);
+  }
+
+  // Build skill map once (avoid O(n²) lookup)
+  const skillById = new Map(parsed.map(s => [s.skillName, s]));
 
   // Group skills by platform based on compatibility (emit=true)
   const platformSkills = {};
@@ -130,7 +214,7 @@ async function main() {
     for (const [pid, result] of platResults) {
       if (result.emit) {
         if (!platformSkills[pid]) platformSkills[pid] = [];
-        const skill = parsed.find(s => s.skillName === skillId);
+        const skill = skillById.get(skillId);
         if (skill) platformSkills[pid].push(skill);
       }
     }
