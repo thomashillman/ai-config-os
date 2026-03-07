@@ -59,8 +59,12 @@ export function validateSkillPolicy(frontmatter, skillName, knownPlatforms = new
       errors.push(`Hook skill must have explicit 'platforms' block with exclusions for non-hook surfaces.`);
     } else {
       for (const pid of nonHookPlatforms) {
-        if (frontmatter.platforms[pid] && frontmatter.platforms[pid].mode !== 'excluded') {
-          errors.push(`Hook skill should exclude platform '${pid}' (no hook surface).`);
+        const override = frontmatter.platforms[pid];
+        if (!override || override.mode !== 'excluded') {
+          errors.push(
+            `Hook skill must explicitly exclude platform '${pid}' (no hook surface). ` +
+            `Add '${pid}: { mode: excluded }' to platforms block.`
+          );
         }
       }
     }
