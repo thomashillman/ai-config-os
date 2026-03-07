@@ -1,140 +1,121 @@
 ---
-# Identity
-skill: code-review
-description: |
-  Perform structured code review with severity levels and actionable feedback.
-  Use when reviewing pull requests, code changes, or implementation details.
+skill: "code-review"
+description: "Perform structured code review with severity levels and actionable feedback.
 
-# Type & Status
-type: prompt
-status: stable
-
-# Feature 1: Dependencies & Metadata
+  Use when reviewing pull requests, code changes, or implementation details.\n"
+type: "prompt"
+status: "stable"
 inputs:
-  - name: diff
-    type: string
-    description: Code diff or changed file content
+  - name: "diff"
+    type: "string"
+    description: "Code diff or changed file content"
     required: true
-  - name: context
-    type: string
-    description: Project context, architecture, or coding standards
+  - name: "context"
+    type: "string"
+    description: "Project context, architecture, or coding standards"
     required: false
-  - name: review_type
-    type: string
-    description: Type of review (full, security, performance, style, logic)
+  - name: "review_type"
+    type: "string"
+    description: "Type of review (full, security, performance, style, logic)"
     required: false
-
 outputs:
-  - name: review
-    type: object
-    description: Structured review with issues, severity levels, and suggestions
-
+  - name: "review"
+    type: "object"
+    description: "Structured review with issues, severity levels, and suggestions"
 dependencies:
   skills: []
   apis: []
   models:
-    - opus
-    - sonnet
-    - haiku
-
+    - "opus"
+    - "sonnet"
+    - "haiku"
 examples:
   - input: "Review this Python function for bugs and performance"
     output: "Found 2 critical issues, 3 warnings. Performance improvements suggested."
-    expected_model: sonnet
-
-# Feature 2: Multi-Model Variants
+    expected_model: "sonnet"
 variants:
   opus:
-    prompt_file: prompts/detailed.md
-    description: Thorough analysis with deep dive into logic, security, and patterns
-    cost_factor: 3.0
+    prompt_file: "prompts/detailed.md"
+    description: "Thorough analysis with deep dive into logic, security, and patterns"
+    cost_factor: 3
     latency_baseline_ms: 2000
-
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default variant; balanced coverage of issues and suggestions
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Default variant; balanced coverage of issues and suggestions"
+    cost_factor: 1
     latency_baseline_ms: 600
-
   haiku:
-    prompt_file: prompts/brief.md
-    description: Quick scan; highlights critical issues only
+    prompt_file: "prompts/brief.md"
+    description: "Quick scan; highlights critical issues only"
     cost_factor: 0.3
     latency_baseline_ms: 200
-
   fallback_chain:
-    - sonnet
-    - opus
-    - haiku
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "opus"
+    - "haiku"
 tests:
-  - id: test-basic-review
-    type: prompt-validation
+  - id: "test-basic-review"
+    type: "prompt-validation"
     input: "Review this code for bugs: def add(a, b): return a + b"
     expected_substring: "logic"
     models_to_test:
-      - sonnet
-      - opus
-
-  - id: test-security-review
-    type: prompt-validation
+      - "sonnet"
+      - "opus"
+  - id: "test-security-review"
+    type: "prompt-validation"
     input: "Security review: using eval() on user input"
     expected_substring: "injection"
     models_to_test:
-      - sonnet
-
-  - id: test-performance-review
-    type: prompt-validation
+      - "sonnet"
+  - id: "test-performance-review"
+    type: "prompt-validation"
     input: "Performance review for nested loop iterating n^2 times"
     expected_not_null: true
-
-# Feature 4: Skill Composition
 composition:
   personas:
-    - name: code-reviewer
-      description: Critical code quality persona
+    - name: "code-reviewer"
+      description: "Critical code quality persona"
       skills:
-        - code-review
-        - commit-conventions
-
-# Feature 5: Auto-Generated Documentation
+        - "code-review"
+        - "commit-conventions"
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - examples
-    - variants
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "examples"
+    - "variants"
   help_text: "Review code changes for {review_type} issues and provide structured feedback."
   keywords:
-    - code-review
-    - quality
-    - security
-    - performance
-    - bugs
-
-# Feature 6: Performance Monitoring
+    - "code-review"
+    - "quality"
+    - "security"
+    - "performance"
+    - "bugs"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
+    - "latency"
+    - "token_count"
+    - "cost"
+    - "variant_selected"
   alert_threshold_latency_ms: 5000
   public_metrics: false
-
-# Versioning
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release with structured review framework"
-
+  1.0.0: "Initial release with structured review framework"
 tags:
-  - code-quality
-  - review
-  - feedback
+  - "code-quality"
+  - "review"
+  - "feedback"
+capabilities:
+  required: []
+  optional:
+    - "fs.read"
+    - "git.read"
+  fallback_mode: "prompt-only"
+  fallback_notes: "Can review pasted code or diffs."
 ---
 
 # code-review

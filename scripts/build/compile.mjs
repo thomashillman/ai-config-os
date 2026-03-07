@@ -17,6 +17,8 @@ import { fileURLToPath } from 'url';
 import { parseSkill } from './lib/parse-skill.mjs';
 import { emitClaudeCode } from './lib/emit-claude-code.mjs';
 import { emitRegistry } from './lib/emit-registry.mjs';
+import { loadPlatforms } from './lib/load-platforms.mjs';
+import { resolveAll } from './lib/resolve-compatibility.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -110,28 +112,46 @@ async function main() {
     return;
   }
 
-  // Group by platform
+  // Load platform definitions
+  const platforms = loadPlatforms(ROOT);
+  console.log(`\nLoaded ${platforms.size} platform(s): ${[...platforms.keys()].join(', ')}`);
+
+  // Resolve compatibility matrix
+  const compatMatrix = resolveAll(parsed, platforms);
+
+  // Log compatibility summary
+  console.log('\n[compatibility]');
+  for (const [skillId, platResults] of compatMatrix) {
+    const statuses = [];
+    for (const [pid, result] of platResults) {
+      statuses.push(`${pid}:${result.status}`);
+    }
+    console.log(`  ${skillId}: ${statuses.join(', ')}`);
+  }
+
+  // Group skills by platform based on compatibility (emit=true)
   const platformSkills = {};
-  for (const skill of parsed) {
-    const platforms = skill.frontmatter.platforms || {};
-    for (const platformId of Object.keys(platforms)) {
-      if (!platformSkills[platformId]) platformSkills[platformId] = [];
-      platformSkills[platformId].push(skill);
+  for (const [skillId, platResults] of compatMatrix) {
+    for (const [pid, result] of platResults) {
+      if (result.emit) {
+        if (!platformSkills[pid]) platformSkills[pid] = [];
+        const skill = parsed.find(s => s.skillName === skillId);
+        if (skill) platformSkills[pid].push(skill);
+      }
     }
   }
 
-  // Skills without platforms: block default to claude-code
-  const noPlatform = parsed.filter(
-    s => !s.frontmatter.platforms || Object.keys(s.frontmatter.platforms).length === 0
+  // Enforce: all skills must have capabilities.required (migration complete)
+  const noCaps = parsed.filter(
+    s => !s.frontmatter.capabilities || !Array.isArray(s.frontmatter.capabilities?.required)
   );
-  if (noPlatform.length > 0) {
-    console.log(`\n  ${noPlatform.length} skill(s) without platforms: - defaulting to claude-code`);
-    if (!platformSkills['claude-code']) platformSkills['claude-code'] = [];
-    for (const s of noPlatform) {
-      if (!platformSkills['claude-code'].includes(s)) {
-        platformSkills['claude-code'].push(s);
-      }
+  if (noCaps.length > 0) {
+    console.error(`\n  [error] ${noCaps.length} skill(s) missing capabilities.required:`);
+    for (const s of noCaps) {
+      console.error(`    - ${s.skillName}`);
     }
+    console.error('\n  All skills must declare capabilities.required (can be empty []).');
+    process.exit(1);
   }
 
   const emittedPlatforms = Object.keys(platformSkills);
@@ -144,12 +164,12 @@ async function main() {
     if (platformId === 'claude-code') {
       emitClaudeCode(parsed, { distDir: platformDist, buildVersion, builtAt });
     } else {
-      console.log(`  [${platformId}] emitter not yet implemented - skipping`);
+      console.log(`  [${platformId}] emitter not yet implemented — skipping (${skills.length} skill(s))`);
     }
   }
 
   console.log('\n[registry]');
-  emitRegistry(parsed, emittedPlatforms, { distDir: DIST_DIR, buildVersion, builtAt });
+  emitRegistry(parsed, emittedPlatforms, { distDir: DIST_DIR, buildVersion, builtAt, compatMatrix });
 
   console.log('\nBuild complete.\n');
 }

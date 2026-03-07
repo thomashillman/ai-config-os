@@ -1,111 +1,99 @@
 ---
-# Identity & Description
-skill: commit-conventions
-description: |
-  Surfaces the Conventional Commits prefix rules used in this repo and helps draft well-formed commit messages.
-  Use when writing or reviewing a git commit message, or when unsure which prefix applies to a change.
+skill: "commit-conventions"
+description: "Surfaces the Conventional Commits prefix rules used in this repo and helps draft well-formed commit messages.
 
-# Type & Status
-type: prompt
-status: stable
-
-# Feature 1: Dependencies & Metadata
+  Use when writing or reviewing a git commit message, or when unsure which prefix applies to a change.\n"
+type: "prompt"
+status: "stable"
 inputs:
-  - name: context
-    type: string
-    description: Description of the change being committed (files changed, intent, scope)
+  - name: "context"
+    type: "string"
+    description: "Description of the change being committed (files changed, intent, scope)"
     required: false
-
 outputs:
-  - name: commit_message
-    type: string
-    description: A well-formed commit message following Conventional Commits
-
+  - name: "commit_message"
+    type: "string"
+    description: "A well-formed commit message following Conventional Commits"
 dependencies:
   skills: []
   apis: []
   models:
-    - sonnet
-
+    - "sonnet"
 examples:
   - input: "Added a new script that creates skill directories and bumps the plugin version"
     output: "feat: add ops/new-skill.sh scaffold script"
-    expected_model: sonnet
+    expected_model: "sonnet"
   - input: "Fixed a broken symlink in the core-skills plugin"
     output: "fix: repair broken symlink for session-start-hook"
-    expected_model: haiku
-
-# Feature 2: Multi-Model Variants
+    expected_model: "haiku"
 variants:
   opus:
-    prompt_file: prompts/detailed.md
-    description: Explains the rationale behind each prefix choice and suggests scope annotations
-    cost_factor: 3.0
+    prompt_file: "prompts/detailed.md"
+    description: "Explains the rationale behind each prefix choice and suggests scope annotations"
+    cost_factor: 3
     latency_baseline_ms: 800
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; picks the correct prefix and drafts the message concisely
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Default; picks the correct prefix and drafts the message concisely"
+    cost_factor: 1
     latency_baseline_ms: 300
   haiku:
-    prompt_file: prompts/brief.md
-    description: Returns only the commit message line, no explanation
+    prompt_file: "prompts/brief.md"
+    description: "Returns only the commit message line, no explanation"
     cost_factor: 0.3
     latency_baseline_ms: 150
   fallback_chain:
-    - sonnet
-    - haiku
-    - opus
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "haiku"
+    - "opus"
 tests:
-  - id: test-feat-prefix
-    type: prompt-validation
+  - id: "test-feat-prefix"
+    type: "prompt-validation"
     input: "Added dark mode toggle to settings page"
     expected_substring: "feat:"
     models_to_test:
-      - sonnet
-  - id: test-fix-prefix
-    type: prompt-validation
+      - "sonnet"
+  - id: "test-fix-prefix"
+    type: "prompt-validation"
     input: "Fixed null pointer in auth middleware"
     expected_substring: "fix:"
     models_to_test:
-      - sonnet
-  - id: test-docs-prefix
-    type: prompt-validation
+      - "sonnet"
+  - id: "test-docs-prefix"
+    type: "prompt-validation"
     input: "Updated README with installation instructions"
     expected_substring: "docs:"
     models_to_test:
-      - haiku
-
-# Feature 5: Auto-Generated Documentation
+      - "haiku"
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - examples
-
-# Feature 6: Performance Monitoring
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "examples"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
+    - "latency"
+    - "token_count"
+    - "cost"
+    - "variant_selected"
   alert_threshold_latency_ms: 1000
   public_metrics: false
-
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release"
-
+  1.0.0: "Initial release"
 tags:
-  - git
-  - conventions
-  - core
+  - "git"
+  - "conventions"
+  - "core"
+capabilities:
+  required: []
+  optional:
+    - "git.read"
+  fallback_mode: "prompt-only"
+  fallback_notes: "Can draft from pasted commit intent."
 ---
 
 # commit-conventions

@@ -1,104 +1,98 @@
 ---
-# Identity
-skill: changelog
-description: Generate structured changelog entries from git history, grouping commits by conventional prefix and flagging breaking changes.
-type: workflow-blueprint
-status: stable
-
-# Feature 1: Dependencies & Metadata
+skill: "changelog"
+description: "Generate structured changelog entries from git history, grouping commits by conventional prefix and flagging breaking changes."
+type: "workflow-blueprint"
+status: "stable"
 inputs:
-  - name: since_ref
-    type: string
-    description: Git reference (tag or commit hash) to start changelog from, e.g. "v0.3.0"
+  - name: "since_ref"
+    type: "string"
+    description: "Git reference (tag or commit hash) to start changelog from, e.g. \"v0.3.0\""
     required: true
-  - name: version
-    type: string
-    description: Target version string for the changelog entry (e.g. "1.0.0")
+  - name: "version"
+    type: "string"
+    description: "Target version string for the changelog entry (e.g. \"1.0.0\")"
     required: true
-
 outputs:
-  - name: changelog_entry
-    type: string
-    description: Formatted markdown changelog entry with grouped commits and breaking change flags
-
+  - name: "changelog_entry"
+    type: "string"
+    description: "Formatted markdown changelog entry with grouped commits and breaking change flags"
 dependencies:
   skills:
-    - name: commit-conventions
+    - name: "commit-conventions"
       version: "^1.0"
       optional: false
   apis: []
   models:
-    - sonnet
-    - opus
-    - haiku
-
-# Feature 2: Multi-Model Variants
+    - "sonnet"
+    - "opus"
+    - "haiku"
 variants:
   opus:
-    prompt_file: prompts/detailed.md
-    description: Detailed changelog with migration notes and guidance
-    cost_factor: 3.0
+    prompt_file: "prompts/detailed.md"
+    description: "Detailed changelog with migration notes and guidance"
+    cost_factor: 3
     latency_baseline_ms: 1000
   sonnet:
-    prompt_file: prompts/standard.md
-    description: Standard changelog entry (default)
-    cost_factor: 1.0
+    prompt_file: "prompts/standard.md"
+    description: "Standard changelog entry (default)"
+    cost_factor: 1
     latency_baseline_ms: 400
   haiku:
-    prompt_file: prompts/one-liner.md
-    description: Minimal one-liner per feature
+    prompt_file: "prompts/one-liner.md"
+    description: "Minimal one-liner per feature"
     cost_factor: 0.3
     latency_baseline_ms: 150
   fallback_chain:
-    - sonnet
-    - haiku
-    - opus
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "haiku"
+    - "opus"
 tests:
-  - id: test-basic-entry
-    type: prompt-validation
-    input: '{"since_ref": "v0.2.0", "version": "0.3.0"}'
+  - id: "test-basic-entry"
+    type: "prompt-validation"
+    input: "{\"since_ref\": \"v0.2.0\", \"version\": \"0.3.0\"}"
     expected_substring: "feat:"
     models_to_test:
-      - sonnet
-  - id: test-breaking-change
-    type: prompt-validation
-    input: '{"since_ref": "v0.3.0", "version": "1.0.0"}'
+      - "sonnet"
+  - id: "test-breaking-change"
+    type: "prompt-validation"
+    input: "{\"since_ref\": \"v0.3.0\", \"version\": \"1.0.0\"}"
     expected_substring: "BREAKING CHANGE"
     models_to_test:
-      - sonnet
-
-# Feature 4: Skill Composition
+      - "sonnet"
 composition:
   personas: []
-
-# Feature 5: Auto-Generated Documentation
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - instructions
-
-# Feature 6: Performance Monitoring
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "instructions"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
-
+    - "latency"
+    - "token_count"
+    - "cost"
+    - "variant_selected"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release with support for conventional commit grouping and breaking change detection"
-
+  1.0.0: "Initial release with support for conventional commit grouping and breaking change detection"
 tags:
-  - core
-  - workflow
-  - documentation
+  - "core"
+  - "workflow"
+  - "documentation"
+capabilities:
+  required:
+    - "git.read"
+  optional:
+    - "fs.read"
+  fallback_mode: "manual"
+  fallback_notes: "Can generate from pasted commit history."
+platforms:
+  claude-ios:
+    mode: "degraded"
+    notes: "Prompt-only from pasted history"
 ---
 
 ## When to use

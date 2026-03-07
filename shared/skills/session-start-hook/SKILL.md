@@ -1,10 +1,10 @@
 ---
-skill: session-start-hook
-description: |
-  Validates Claude Code plugin structure at session start in remote environments.
-  Catches broken symlinks or missing version bumps before any agent work begins.
-type: hook
-status: stable
+skill: "session-start-hook"
+description: "Validates Claude Code plugin structure at session start in remote environments.
+
+  Catches broken symlinks or missing version bumps before any agent work begins.\n"
+type: "hook"
+status: "stable"
 inputs: []
 outputs: []
 dependencies:
@@ -12,8 +12,8 @@ dependencies:
   apis: []
   models: []
 tests:
-  - id: test-structure-check
-    type: structure-check
+  - id: "test-structure-check"
+    type: "structure-check"
     input: ""
     expected_not_null: true
 docs:
@@ -22,11 +22,31 @@ monitoring:
   enabled: false
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release"
+  1.0.0: "Initial release"
 tags:
-  - hook
-  - validation
-  - core
+  - "hook"
+  - "validation"
+  - "core"
+capabilities:
+  required:
+    - "fs.read"
+    - "shell.exec"
+  optional: []
+  fallback_mode: "none"
+  fallback_notes: ""
+platforms:
+  claude-web:
+    mode: "excluded"
+    notes: "No hook surface"
+  claude-ios:
+    mode: "excluded"
+    notes: "No hook surface"
+  cursor:
+    mode: "excluded"
+    notes: "No hook surface"
+  codex:
+    mode: "excluded"
+    notes: "No hook packaging in v0.5.2"
 ---
 
 # session-start-hook

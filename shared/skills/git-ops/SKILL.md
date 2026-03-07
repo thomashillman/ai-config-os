@@ -1,95 +1,95 @@
 ---
-# Identity & Description
-skill: git-ops
-description: |
-  Guards and guides git operations for this repo, especially version bumping.
-  Ensures single-source-of-truth for monotonically-incrementing values like plugin.json.
+skill: "git-ops"
+description: "Guards and guides git operations for this repo, especially version bumping.
 
-# Type & Status
-type: hook
-status: stable
-
-# Feature 1: Dependencies & Metadata
+  Ensures single-source-of-truth for monotonically-incrementing values like plugin.json.\n"
+type: "hook"
+status: "stable"
 inputs:
-  - name: operation
-    type: string
+  - name: "operation"
+    type: "string"
     description: "Git operation being performed: bump-version, rebase-session, etc."
     required: true
-  - name: file
-    type: string
+  - name: "file"
+    type: "string"
     description: "File being modified (e.g., plugins/core-skills/.claude-plugin/plugin.json)"
     required: false
-  - name: new_value
-    type: string
+  - name: "new_value"
+    type: "string"
     description: "New value being set (e.g., version string)"
     required: false
-
 outputs:
-  - name: guard_result
-    type: object
+  - name: "guard_result"
+    type: "object"
     description: "Approval, computed value, or warning; { allowed: bool, value?: string, warning?: string }"
-
 dependencies:
   skills: []
   apis: []
   models:
-    - sonnet
-
+    - "sonnet"
 examples:
   - input: "operation: bump-version, file: plugin.json, new_value: 0.3.2"
     output: "{ allowed: true, value: '0.3.2', warning: null }"
-    expected_model: sonnet
-
-# Feature 2: Multi-Model Variants (single variant)
+    expected_model: "sonnet"
 variants:
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Guard logic for git operations
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Guard logic for git operations"
+    cost_factor: 1
     latency_baseline_ms: 300
-
   fallback_chain:
-    - sonnet
-
-# Feature 3: Skill Testing
+    - "sonnet"
 tests:
-  - id: test-version-bump-guard
-    type: structure-check
+  - id: "test-version-bump-guard"
+    type: "structure-check"
     input: "operation: bump-version, file: plugin.json"
     expected_substring: "origin/main"
     models_to_test:
-      - sonnet
-
-# Feature 4: (none)
+      - "sonnet"
 composition: {}
-
-# Feature 5: Auto-Generated Documentation
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - examples
+    - "description"
+    - "examples"
   help_text: "Guard git operations and validate version bumps"
   keywords:
-    - git
-    - version
-    - guard
-    - plugin.json
-
-# Feature 6: Performance Monitoring
+    - "git"
+    - "version"
+    - "guard"
+    - "plugin.json"
 monitoring:
   enabled: false
   track_metrics: []
-
-# Versioning
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release"
-
+  1.0.0: "Initial release"
 tags:
-  - utility
-  - core
-  - guards
+  - "utility"
+  - "core"
+  - "guards"
+capabilities:
+  required:
+    - "git.read"
+  optional:
+    - "git.write"
+    - "fs.read"
+    - "shell.exec"
+  fallback_mode: "manual"
+  fallback_notes: "Can advise steps from pasted repo state."
+platforms:
+  claude-web:
+    mode: "excluded"
+    notes: "No hook surface"
+  claude-ios:
+    mode: "excluded"
+    notes: "No hook surface"
+  cursor:
+    mode: "excluded"
+    notes: "No hook surface"
+  codex:
+    mode: "excluded"
+    notes: "No hook packaging in v0.5.2"
 ---
 
 # git-ops

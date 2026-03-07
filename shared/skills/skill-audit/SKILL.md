@@ -1,90 +1,79 @@
 ---
-# Identity
-skill: skill-audit
-description: Audit skill definitions for completeness, variant coverage, test presence, and dependency resolution.
-type: agent
-status: experimental
-
-# Feature 1: Dependencies & Metadata
+skill: "skill-audit"
+description: "Audit skill definitions for completeness, variant coverage, test presence, and dependency resolution."
+type: "agent"
+status: "experimental"
 inputs:
-  - name: scope
-    type: string
-    description: Audit scope (all, or specific skill name); default all
+  - name: "scope"
+    type: "string"
+    description: "Audit scope (all, or specific skill name); default all"
     required: false
-
 outputs:
-  - name: audit_report
-    type: object
-    description: Per-skill health scores, gaps list, ranked recommendations
-
+  - name: "audit_report"
+    type: "object"
+    description: "Per-skill health scores, gaps list, ranked recommendations"
 dependencies:
   skills: []
   apis: []
   models:
-    - opus
-    - sonnet
-
-# Feature 2: Multi-Model Variants
+    - "opus"
+    - "sonnet"
 variants:
   opus:
-    prompt_file: prompts/deep-analysis.md
-    description: Deep audit with prioritised recommendations and remediation steps
-    cost_factor: 3.0
+    prompt_file: "prompts/deep-analysis.md"
+    description: "Deep audit with prioritised recommendations and remediation steps"
+    cost_factor: 3
     latency_baseline_ms: 1200
   sonnet:
-    prompt_file: prompts/standard.md
-    description: Standard gap report (default)
-    cost_factor: 1.0
+    prompt_file: "prompts/standard.md"
+    description: "Standard gap report (default)"
+    cost_factor: 1
     latency_baseline_ms: 500
   fallback_chain:
-    - sonnet
-    - opus
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "opus"
 tests:
-  - id: test-full-audit
-    type: integration
-    input: '{"scope": "all"}'
+  - id: "test-full-audit"
+    type: "integration"
+    input: "{\"scope\": \"all\"}"
     expected_substring: "health_scores"
     models_to_test:
-      - sonnet
-  - id: test-single-skill
-    type: integration
-    input: '{"scope": "explain-code"}'
+      - "sonnet"
+  - id: "test-single-skill"
+    type: "integration"
+    input: "{\"scope\": \"explain-code\"}"
     expected_substring: "gaps"
     models_to_test:
-      - sonnet
-
-# Feature 4: Skill Composition
+      - "sonnet"
 composition:
   personas: []
-
-# Feature 5: Auto-Generated Documentation
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - instructions
-
-# Feature 6: Performance Monitoring
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "instructions"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
-
+    - "latency"
+    - "token_count"
+    - "cost"
+    - "variant_selected"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial experimental release with manifest validation and gap detection"
-
+  1.0.0: "Initial experimental release with manifest validation and gap detection"
 tags:
-  - core
-  - utility
-  - validation
+  - "core"
+  - "utility"
+  - "validation"
+capabilities:
+  required:
+    - "fs.read"
+  optional: []
+  fallback_mode: "manual"
+  fallback_notes: "Can audit pasted frontmatter manually."
 ---
 
 ## When to use

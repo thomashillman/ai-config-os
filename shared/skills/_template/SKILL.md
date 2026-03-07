@@ -9,6 +9,20 @@ description: |
 type: prompt  # or: hook, agent, workflow-blueprint
 status: stable  # or: experimental, deprecated
 
+# Capability Contract
+# Declare the MINIMUM capabilities this skill needs to be useful.
+# Do not list a capability as required if the skill can work from pasted input.
+capabilities:
+  required: []          # Capabilities the skill cannot function without
+  optional: []          # Capabilities that improve fidelity but aren't essential
+  fallback_mode: prompt-only  # none | manual | prompt-only
+  fallback_notes: This skill can operate from pasted input when local tools are unavailable.
+
+# Platform Overrides (optional — only add if needed)
+# Compatibility is computed from capabilities vs platform states.
+# Use platforms: only for packaging overrides, degradation notes, or exclusions.
+platforms: {}
+
 # Feature 1: Dependencies & Metadata
 inputs:
   - name: input_name
@@ -133,6 +147,16 @@ tags:
 One sentence: what this skill does and when to use it.
 
 Additional context (one paragraph max).
+
+## Capability contract
+
+Declare the minimum capabilities this skill needs to be useful.
+Do not list a capability as required if the skill can still work from pasted input.
+Use `platforms:` only for packaging overrides, degradation notes, or explicit exclusions.
+
+Available capabilities: `fs.read`, `fs.write`, `shell.exec`, `shell.long-running`,
+`git.read`, `git.write`, `network.http`, `browser.fetch`, `mcp.client`, `env.read`,
+`secrets.inject`, `ui.prompt-only`.
 
 ## When to use
 

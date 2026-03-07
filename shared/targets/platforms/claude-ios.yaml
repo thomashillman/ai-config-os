@@ -1,0 +1,58 @@
+id: claude-ios
+name: Claude iOS
+surface: mobile-app
+default_package: api
+
+capabilities:
+  fs.read:
+    status: unsupported
+    confidence: medium
+    source: inference
+  fs.write:
+    status: unsupported
+    confidence: medium
+    source: inference
+  shell.exec:
+    status: unsupported
+    confidence: medium
+    source: inference
+  shell.long-running:
+    status: unsupported
+    confidence: medium
+    source: inference
+  git.read:
+    status: unsupported
+    confidence: medium
+    source: inference
+  git.write:
+    status: unsupported
+    confidence: medium
+    source: inference
+  network.http:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: medium
+    source: vendor-doc
+  browser.fetch:
+    status: unsupported
+    confidence: medium
+    source: inference
+  mcp.client:
+    status: unsupported
+    confidence: medium
+    source: inference
+  env.read:
+    status: unsupported
+    confidence: medium
+    source: inference
+  secrets.inject:
+    status: unsupported
+    confidence: medium
+    source: inference
+  ui.prompt-only:
+    status: supported
+    verified_at: "2026-03-07"
+    confidence: high
+    source: vendor-doc
+
+notes: Mobile app. No local tool access expected. Prompt-only mode always available.

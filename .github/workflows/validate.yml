@@ -24,6 +24,14 @@ jobs:
           fi
           echo "All symlinks valid."
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node dependencies
+        run: npm install
+
       - name: Validate skill frontmatter
         run: |
           ERRORS=0

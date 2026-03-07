@@ -1,111 +1,101 @@
 ---
-# Identity & Description
-skill: memory
-description: |
-  Maintain persistent cross-session project context.
-  Persists decisions, patterns, known issues, and workarounds to `.memory/<project>.md`.
+skill: "memory"
+description: "Maintain persistent cross-session project context.
 
-# Type & Status
-type: prompt
-status: stable
-
-# Feature 1: Dependencies & Metadata
+  Persists decisions, patterns, known issues, and workarounds to `.memory/<project>.md`.\n"
+type: "prompt"
+status: "stable"
 inputs:
-  - name: action
-    type: string
-    description: '"read" (fetch context), "update" (add/modify), or "summarize" (periodic refresh)'
+  - name: "action"
+    type: "string"
+    description: "\"read\" (fetch context), \"update\" (add/modify), or \"summarize\" (periodic refresh)"
     required: true
-  - name: content
-    type: string
-    description: Context to store or update (for "update" action)
+  - name: "content"
+    type: "string"
+    description: "Context to store or update (for \"update\" action)"
     required: false
-  - name: key
-    type: string
-    description: Namespace within memory (e.g., "architecture", "known-bugs", "team-conventions")
+  - name: "key"
+    type: "string"
+    description: "Namespace within memory (e.g., \"architecture\", \"known-bugs\", \"team-conventions\")"
     required: false
-
 outputs:
-  - name: memory_content
-    type: string
-    description: Retrieved or updated project memory
-  - name: timestamp
-    type: string
-    description: Last updated timestamp
-
+  - name: "memory_content"
+    type: "string"
+    description: "Retrieved or updated project memory"
+  - name: "timestamp"
+    type: "string"
+    description: "Last updated timestamp"
 dependencies:
   skills: []
   apis: []
   models:
-    - sonnet
-
+    - "sonnet"
 examples:
-  - input: 'read action, key="architecture"'
+  - input: "read action, key=\"architecture\""
     output: "Fetches prior architectural decisions from .memory/<project>.md"
-    expected_model: sonnet
-
-# Feature 2: Multi-Model Variants
+    expected_model: "sonnet"
 variants:
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; reads and updates memory efficiently
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Default; reads and updates memory efficiently"
+    cost_factor: 1
     latency_baseline_ms: 300
-
   haiku:
-    prompt_file: prompts/brief.md
-    description: Quick memory reads (no synthesis)
+    prompt_file: "prompts/brief.md"
+    description: "Quick memory reads (no synthesis)"
     cost_factor: 0.3
     latency_baseline_ms: 150
-
   fallback_chain:
-    - sonnet
-    - haiku
-
-# Feature 3: Skill Testing
+    - "sonnet"
+    - "haiku"
 tests:
-  - id: test-read-memory
-    type: prompt-validation
-    input: 'read action for "architecture" key'
+  - id: "test-read-memory"
+    type: "prompt-validation"
+    input: "read action for \"architecture\" key"
     expected_substring: "memory"
     models_to_test:
-      - sonnet
-
-  - id: test-update-memory
-    type: prompt-validation
-    input: 'update action to store "Known issue: race condition in async module"'
+      - "sonnet"
+  - id: "test-update-memory"
+    type: "prompt-validation"
+    input: "update action to store \"Known issue: race condition in async module\""
     expected_substring: "updated"
     models_to_test:
-      - sonnet
-
-# Feature 5: Auto-Generated Documentation
+      - "sonnet"
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
-    - examples
+    - "description"
+    - "inputs"
+    - "outputs"
+    - "examples"
   keywords:
-    - persistence
-    - context
-    - project-knowledge
-    - cross-session
-
-# Feature 6: Performance Monitoring
+    - "persistence"
+    - "context"
+    - "project-knowledge"
+    - "cross-session"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - token_count
-    - action_type
-
+    - "latency"
+    - "token_count"
+    - "action_type"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release; persistent project memory"
-
+  1.0.0: "Initial release; persistent project memory"
 tags:
-  - core
-  - utility
+  - "core"
+  - "utility"
+capabilities:
+  required:
+    - "fs.read"
+    - "fs.write"
+  optional: []
+  fallback_mode: "manual"
+  fallback_notes: "Can summarise memory for manual storage when persistence is unavailable."
+platforms:
+  claude-ios:
+    mode: "excluded"
+    notes: "No filesystem access"
 ---
 
 # Memory

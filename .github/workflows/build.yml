@@ -5,14 +5,18 @@ on:
     branches: [main]
     paths:
       - 'shared/skills/**'
+      - 'shared/targets/**'
       - 'schemas/**'
       - 'scripts/build/**'
+      - 'scripts/lint/**'
       - 'package.json'
   pull_request:
     paths:
       - 'shared/skills/**'
+      - 'shared/targets/**'
       - 'schemas/**'
       - 'scripts/build/**'
+      - 'scripts/lint/**'
       - 'package.json'
 
 jobs:
@@ -31,6 +35,12 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Lint platform files
+        run: node scripts/lint/platform.mjs shared/targets/platforms/*.yaml
+
+      - name: Lint skill files
+        run: node scripts/lint/skill.mjs shared/skills/*/SKILL.md
 
       - name: Run compiler (validate-only)
         run: node scripts/build/compile.mjs --validate-only
@@ -51,7 +61,12 @@ jobs:
           assert 'version' in d, 'Missing version'
           assert 'skills' in d, 'Missing skills'
           assert len(d['skills']) > 0, 'No skills in registry'
+          # v0.5.2: verify compatibility matrix exists
+          for skill in d['skills']:
+              assert 'compatibility' in skill, f'Missing compatibility for {skill[\"id\"]}'
+              assert len(skill['compatibility']) > 0, f'Empty compatibility for {skill[\"id\"]}'
           print(f'Registry OK: {len(d[\"skills\"])} skill(s), platforms: {d[\"platforms\"]}')
+          print(f'All skills have compatibility matrix ✓')
           "
 
       - name: Validate claude-code output

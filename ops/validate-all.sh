@@ -72,6 +72,15 @@ else
   # Not incremented: sync failure is a warning in CI, not a hard block
 fi
 
+# Step 8: Capability probe (non-blocking)
+echo "Step 8: Running capability probe..."
+if ./ops/capability-probe.sh --quiet > /tmp/val-probe.out 2>&1; then
+  echo "  ✓ Pass"
+else
+  echo "  ✗ Fail (non-blocking)"
+  # Not incremented: probe failure is informational only
+fi
+
 echo ""
 if [ "$failed" -eq 0 ]; then
   echo "==> All validation stages passed! ✓"

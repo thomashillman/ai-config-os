@@ -4,12 +4,16 @@
 
 ## Structure
 - `shared/skills/` — canonical skill definitions (author here)
-- `shared/targets/clients.yaml` — reference doc for known platforms (not schema-enforced)
+- `shared/targets/platforms/` — platform capability definitions (v0.5.2+)
+- `shared/targets/clients.yaml` — DEPRECATED: use platforms/ directory instead
 - `plugins/core-skills/skills/` — symlinks into shared/skills (never edit here directly)
 - `.claude-plugin/marketplace.json` — marketplace manifest
 - `plugins/core-skills/.claude-plugin/plugin.json` — plugin metadata (bump version on changes)
 - `schemas/skill.schema.json` — JSON Schema for skill package manifests
-- `scripts/build/` — compiler: validates skills, emits `dist/` artefacts
+- `schemas/platform.schema.json` — JSON Schema for platform capability definitions
+- `schemas/probe-result.schema.json` — JSON Schema for runtime probe output
+- `scripts/build/` — compiler: validates skills, resolves compatibility, emits `dist/` artefacts
+- `scripts/lint/` — Node-based linters for skills and platform files
 - `worker/` — Cloudflare Worker serving compiled skills via bearer-auth REST API
 - `runtime/` — desired-state tool management: config, adapters, sync, manifest, MCP server
 - `dashboard/` — React SPA: tool status, skill stats, context cost, config, audit, analytics

@@ -1,90 +1,83 @@
 ---
-skill: simplify
-description: |
-  Review code for opportunities to reduce complexity, remove duplication, eliminate overengineering.
-  Repo-native skill that complements the built-in simplify review.
+skill: "simplify"
+description: "Review code for opportunities to reduce complexity, remove duplication, eliminate overengineering.
 
-type: prompt
-status: stable
-
+  Repo-native skill that complements the built-in simplify review.\n"
+type: "prompt"
+status: "stable"
 inputs:
-  - name: code
-    type: string
-    description: Code snippet to simplify
+  - name: "code"
+    type: "string"
+    description: "Code snippet to simplify"
     required: true
-  - name: focus
-    type: string
-    description: '"logic" (algorithm complexity), "structure" (OOP design), "duplication", "overengineering"'
+  - name: "focus"
+    type: "string"
+    description: "\"logic\" (algorithm complexity), \"structure\" (OOP design), \"duplication\", \"overengineering\""
     required: false
-
 outputs:
-  - name: suggestions
-    type: string
-    description: Specific simplification opportunities with before/after examples
-  - name: simplicity_score
-    type: number
-    description: 1-10 simplicity assessment (higher = simpler)
-
+  - name: "suggestions"
+    type: "string"
+    description: "Specific simplification opportunities with before/after examples"
+  - name: "simplicity_score"
+    type: "number"
+    description: "1-10 simplicity assessment (higher = simpler)"
 dependencies:
   skills: []
   apis: []
   models:
-    - sonnet
-
+    - "sonnet"
 examples:
   - input: "Complex conditional with nested if-else-if chains"
     output: "Suggest switch statement, early returns, or lookup table"
-    expected_model: sonnet
-
+    expected_model: "sonnet"
 variants:
   sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; practical simplification guidance
-    cost_factor: 1.0
+    prompt_file: "prompts/balanced.md"
+    description: "Default; practical simplification guidance"
+    cost_factor: 1
     latency_baseline_ms: 300
-
   haiku:
-    prompt_file: prompts/brief.md
-    description: Quick wins only (obvious simplifications)
+    prompt_file: "prompts/brief.md"
+    description: "Quick wins only (obvious simplifications)"
     cost_factor: 0.3
     latency_baseline_ms: 150
-
   fallback_chain:
-    - sonnet
-    - haiku
-
+    - "sonnet"
+    - "haiku"
 tests:
-  - id: test-duplication
-    type: prompt-validation
+  - id: "test-duplication"
+    type: "prompt-validation"
     input: "Code with repeated patterns"
     expected_substring: "duplication"
     models_to_test:
-      - sonnet
-
+      - "sonnet"
 docs:
   auto_generate_readme: true
   sections_to_include:
-    - description
-    - inputs
-    - outputs
+    - "description"
+    - "inputs"
+    - "outputs"
   keywords:
-    - simplification
-    - refactoring
-    - overengineering
-
+    - "simplification"
+    - "refactoring"
+    - "overengineering"
 monitoring:
   enabled: true
   track_metrics:
-    - latency
-    - suggestion_count
-
+    - "latency"
+    - "suggestion_count"
 version: "1.0.0"
 changelog:
-  "1.0.0": "Initial release; code simplification guidance"
-
+  1.0.0: "Initial release; code simplification guidance"
 tags:
-  - code-quality
-  - refactoring
+  - "code-quality"
+  - "refactoring"
+capabilities:
+  required: []
+  optional:
+    - "fs.read"
+  fallback_mode: "prompt-only"
+  fallback_notes: "Can simplify pasted code."
 ---
 
 # Simplify

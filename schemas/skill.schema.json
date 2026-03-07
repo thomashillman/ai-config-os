@@ -90,34 +90,64 @@
     },
 
     "capabilities": {
-      "type": "array",
-      "description": "Platform-agnostic adapter hints. Skills declare WHAT they need; each platform maps this to its own permission model.",
-      "items": {
-        "type": "string",
-        "enum": ["filesystem", "network", "git", "shell", "mcp", "browser", "secrets"]
+      "type": "object",
+      "description": "Capability contract. Declares minimum requirements and degradation behaviour.",
+      "required": ["required"],
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "type": "array",
+          "description": "Capabilities the skill cannot function without. Empty means pure prompt — works everywhere.",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/capabilityId" }
+        },
+        "optional": {
+          "type": "array",
+          "description": "Capabilities that improve fidelity but are not essential.",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/capabilityId" }
+        },
+        "fallback_mode": {
+          "type": "string",
+          "enum": ["none", "manual", "prompt-only"],
+          "description": "How the skill degrades when required capabilities are absent. Required when required is non-empty."
+        },
+        "fallback_notes": {
+          "type": "string",
+          "description": "Human explanation of how degradation works"
+        }
       }
     },
 
     "platforms": {
       "type": "object",
-      "description": "Per-platform distribution mappings. Keys are platform IDs (e.g. claude-code, codex, cursor). A skill only appears in a platform's output if it declares that platform here.",
+      "description": "Thin packaging and compatibility overrides. Do not duplicate skill requirements here. Compatibility is computed from capabilities vs platform states.",
       "additionalProperties": {
         "type": "object",
-        "required": ["type"],
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
-          "type": {
+          "package": {
             "type": "string",
             "enum": ["skill", "plugin", "rules", "file", "api"],
-            "description": "How this skill is packaged for the platform"
+            "description": "Override the platform's default packaging format"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["native", "transformed", "degraded", "excluded"],
+            "description": "How this skill operates on this platform"
           },
           "entry": {
             "type": "string",
-            "description": "Relative entry path within the platform's output structure"
+            "description": "Override entry path for this platform"
           },
           "notes": {
             "type": "string",
             "description": "Platform-specific caveats or limitations"
+          },
+          "allow_unverified": {
+            "type": "boolean",
+            "default": false,
+            "description": "Allow emission even when platform capabilities are unknown"
           }
         }
       }
@@ -233,6 +263,23 @@
   },
 
   "$defs": {
+    "capabilityId": {
+      "type": "string",
+      "enum": [
+        "fs.read",
+        "fs.write",
+        "shell.exec",
+        "shell.long-running",
+        "git.read",
+        "git.write",
+        "network.http",
+        "browser.fetch",
+        "mcp.client",
+        "env.read",
+        "secrets.inject",
+        "ui.prompt-only"
+      ]
+    },
     "variant": {
       "type": "object",
       "additionalProperties": true,
