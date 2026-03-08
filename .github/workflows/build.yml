@@ -11,6 +11,8 @@ on:
       - 'scripts/build/**'
       - 'scripts/lint/**'
       - 'package.json'
+      - 'runtime/adapters/**'
+      - '.github/workflows/build.yml'
   pull_request:
     paths:
       - 'VERSION'
@@ -20,11 +22,17 @@ on:
       - 'scripts/build/**'
       - 'scripts/lint/**'
       - 'package.json'
+      - 'runtime/adapters/**'
+      - '.github/workflows/build.yml'
 
 jobs:
   build:
-    name: Compile skills and validate output
-    runs-on: ubuntu-latest
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Checkout
@@ -42,9 +50,11 @@ jobs:
         run: npm run version:check
 
       - name: Lint platform files
+        if: runner.os != 'Windows'
         run: node scripts/lint/platform.mjs shared/targets/platforms/*.yaml
 
       - name: Lint skill files
+        if: runner.os != 'Windows'
         run: node scripts/lint/skill.mjs shared/skills/[!_]*/SKILL.md
 
       - name: Run tests
@@ -57,12 +67,14 @@ jobs:
         run: node scripts/build/compile.mjs
 
       - name: Run compiler (release mode)
+        if: runner.os == 'Linux'
         run: node scripts/build/compile.mjs --release
         env:
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_RUN_ID: ${{ github.run_id }}
 
       - name: Validate Cursor output (strict)
+        if: runner.os == 'Linux'
         run: |
           if [ ! -f dist/clients/cursor/.cursorrules ]; then
             echo "ERROR: dist/clients/cursor/.cursorrules not found (Cursor artefact MUST be emitted)"
@@ -88,6 +100,7 @@ jobs:
           echo "Cursor output validation passed ✓"
 
       - name: Validate registry output
+        if: runner.os == 'Linux'
         run: |
           if [ ! -f dist/registry/index.json ]; then
             echo "ERROR: dist/registry/index.json not found"
@@ -109,6 +122,7 @@ jobs:
           "
 
       - name: Validate claude-code output
+        if: runner.os == 'Linux'
         run: |
           if [ ! -f dist/clients/claude-code/.claude-plugin/plugin.json ]; then
             echo "ERROR: plugin.json not found"
@@ -122,6 +136,7 @@ jobs:
           echo "claude-code output OK: ${SKILL_COUNT} skill(s)"
 
       - name: Upload dist as artefact
+        if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:
           name: dist-${{ github.sha }}

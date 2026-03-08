@@ -96,8 +96,8 @@ export function validatePathBoundary(untrustedPath, boundary) {
     return false;
   }
 
-  // Reject relative paths with traversal
-  if (untrustedPath.includes('/../') || untrustedPath.startsWith('../')) {
+  // Reject relative paths with traversal (both Unix / and Windows \)
+  if (/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(untrustedPath)) {
     return false;
   }
 

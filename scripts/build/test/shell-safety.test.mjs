@@ -168,5 +168,45 @@ test('shell-safety: escape wildcards in filenames', () => {
   // Brackets should not trigger glob expansion
 });
 
+// ─── Test 16: Windows-style backslash traversal ───
+
+test('shell-safety: reject Windows-style ..\\  traversal', () => {
+  assert.equal(
+    validatePathBoundary('..\\etc\\passwd', '/home/user'),
+    false,
+    'Should reject ..\\  at start'
+  );
+});
+
+// ─── Test 17: Embedded backslash traversal ───
+
+test('shell-safety: reject embedded backslash traversal', () => {
+  assert.equal(
+    validatePathBoundary('foo\\..\\..\\etc\\passwd', '/home/user'),
+    false,
+    'Should reject \\..\\  in middle of path'
+  );
+});
+
+// ─── Test 18: Mixed separator traversal ───
+
+test('shell-safety: reject mixed separator traversal', () => {
+  assert.equal(
+    validatePathBoundary('foo\\..\\/etc/passwd', '/home/user'),
+    false,
+    'Should reject mixed \\../ traversal'
+  );
+});
+
+// ─── Test 19: Valid relative path with backslash ───
+
+test('shell-safety: allow valid relative path with backslash', () => {
+  assert.equal(
+    validatePathBoundary('subdir\\file.txt', '/home/user'),
+    true,
+    'Should allow backslash paths that stay within boundary'
+  );
+});
+
 // All tests use functions imported from runtime/adapters/shell-safe.mjs
 // No local mocks or helpers. Every test validates production code behavior.
