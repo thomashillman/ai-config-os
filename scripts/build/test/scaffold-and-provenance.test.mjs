@@ -148,9 +148,35 @@ test('new-skill.mjs does not change VERSION, package.json, or plugin.json', () =
   }
 });
 
-// ─── 2. Unix-only: scaffold creates symlink ───
+// ─── 2. Portable mode: scaffold works without creating symlinks ───
 
-test('new-skill.mjs creates symlink on Unix', { skip: process.platform === 'win32' ? 'symlinks need Unix' : false }, () => {
+test('new-skill.mjs --no-link creates skill without symlinks (portable)', () => {
+  const fixture = createScaffoldFixture();
+
+  try {
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-portable-skill', '--no-link'], {
+      cwd: fixture,
+      encoding: 'utf8',
+    });
+
+    assert.equal(result.status, 0, `new-skill.mjs failed:\n${result.stdout}\n${result.stderr}`);
+
+    // Verify skill was created in shared/skills/
+    const skillDir = join(fixture, 'shared', 'skills', 'test-portable-skill');
+    assert.ok(existsSync(skillDir), 'Skill directory should exist in shared/skills/');
+    assert.ok(existsSync(join(skillDir, 'SKILL.md')), 'SKILL.md should exist');
+
+    // Verify NO symlink was created in plugins/ (portable mode)
+    const symlinkPath = join(fixture, 'plugins', 'core-skills', 'skills', 'test-portable-skill');
+    assert.ok(!existsSync(symlinkPath), 'Symlink must NOT exist when --no-link is used');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// ─── 2b. Unix-only: scaffold creates symlink (optional convenience) ───
+
+test('new-skill.mjs creates symlink on Unix (optional)', { skip: process.platform === 'win32' ? 'symlinks need Unix' : false }, () => {
   const fixture = createScaffoldFixture();
 
   try {
@@ -212,6 +238,31 @@ test('new-skill.mjs rejects duplicate skill name', () => {
       encoding: 'utf8',
     });
     assert.notEqual(result2.status, 0, 'Duplicate scaffold should fail');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// ─── 4b. Scaffold does not bump VERSION file ───
+
+test('new-skill.mjs does not change VERSION (version invariance)', () => {
+  const fixture = createScaffoldFixture();
+
+  try {
+    const versionBefore = readFileSync(join(fixture, 'VERSION'), 'utf8').trim();
+
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-version-skill', '--no-link'], {
+      cwd: fixture,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, 'Scaffold should succeed');
+
+    const versionAfter = readFileSync(join(fixture, 'VERSION'), 'utf8').trim();
+    assert.equal(
+      versionAfter,
+      versionBefore,
+      'VERSION file must not change during scaffold (version bump is separate)'
+    );
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }

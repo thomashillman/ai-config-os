@@ -43,6 +43,50 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 9.3: Close compatibility loop | ✅ Done | v0.5.3: Emitter wiring, validate-only pipeline, Cursor emitter, probe accuracy fixes |
 | Phase 9.4: Validation architecture overhaul | ✅ Done | v0.5.3+: Shared validation, schema tightening, compiler strictness, linter refactoring |
 | Phase 9.5: Delivery contract (PR 4) | ✅ Done | v0.5.3+: 28 tests protecting dist/ artifacts, documented in CLAUDE.md |
+| Phase 9.6: Portability contract (TDD) | ✅ Done | v0.6.0+: Materialiser core, canonical source contract, self-sufficiency tests, CI gates, docs updated |
+
+---
+
+## Phase 9.6: Portability Contract — TDD Implementation (COMPLETE ✅)
+
+**Version:** v0.6.0
+**Branch:** `claude/tdd-portability-contract-kRY5U`
+**Completion:** 2026-03-08
+
+### Summary
+
+Formalized and enforced the **portability contract**: emitted packages (`dist/`) are self-sufficient and work standalone without source-tree access. This is the foundation for distribution, caching, offline usage, and materialization on any system.
+
+**Key guarantees:**
+1. **Canonical source contract:** Compiler reads *only* from `shared/skills/` (verified by test)
+2. **Self-sufficiency contract:** Emitted packages contain complete skill copies + all referenced resources (prompts/, etc.), no symlinks or source references
+3. **Materialisation contract:** Packages can be extracted to any filesystem without source access; security checks prevent path traversal attacks
+4. **Determinism contract:** Same source always produces identical emitted packages (no build timestamps in SKILL.md)
+
+**Components added:**
+1. Test suite (4 new test files):
+   - `canonical-source-contract.test.mjs` — Compiler reads only from `shared/skills/`
+   - `materialisation-contract.test.mjs` — Emitted packages are complete and self-sufficient
+   - `source-change-flow.test.mjs` — Source changes produce predictable output changes
+   - `materialiser-core.test.mjs` — Materialiser validates paths, prevents escapes, security checks
+
+2. Implementation:
+   - `scripts/build/lib/materialise-client.mjs` — Node.js materialiser core (path validation, security, extraction)
+   - Enhanced `emit-claude-code.mjs` to copy all referenced resources (prompts/), not just SKILL.md
+   - Added code comments locking canonical source contract in compiler
+
+3. Documentation & CI:
+   - Updated `.github/workflows/build.yml` step names to explicitly document contract verification
+   - Extended `scripts/build/verify.mjs` to gate on portability contract tests
+   - Updated CLAUDE.md with Portability Contract section (v0.6.0+)
+   - Updated README.md with Architecture section and source → build → distribution flow
+
+**Bugs fixed during execution:**
+- Missing `readdirSync` import in test suite
+- Test regexes too strict for quoted YAML values
+- Materialiser security test mocking actual files instead of testing validation logic
+
+**Tests protected by portability contract:** 76 tests (across 4 test files)
 
 ---
 

@@ -25,7 +25,13 @@ import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from '
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
+
+// ─── Portability Contract: Canonical Source ───
+// The compiler reads ONLY from shared/skills/, never from plugins/core-skills/skills/.
+// This ensures emitted packages are self-sufficient and portable.
+// Symlinks in plugins/ are optional Unix authoring convenience, not part of the build contract.
 const SKILLS_DIR = join(ROOT, 'shared', 'skills');
+
 const SCHEMA_PATH = join(ROOT, 'schemas', 'skill.schema.json');
 const DIST_DIR = join(ROOT, 'dist');
 
@@ -53,6 +59,9 @@ async function loadValidators() {
 }
 
 function scanSkills() {
+  // Portability Contract: Deterministic Ordering
+  // scanSkills sorts directory entries to ensure reproducible builds.
+  // This guarantees that source changes produce identical emitted packages.
   const entries = readdirSync(SKILLS_DIR, { withFileTypes: true });
   const skills = [];
   for (const entry of entries) {
@@ -66,6 +75,8 @@ function scanSkills() {
     }
     skills.push({ skillName: entry.name, skillDir, skillMdPath });
   }
+  // Sort by skill name for deterministic output (reproducible builds)
+  skills.sort((a, b) => a.skillName.localeCompare(b.skillName));
   return skills;
 }
 

@@ -2,6 +2,12 @@
  * emit-claude-code.mjs
  * Emits claude-code platform artefacts for a set of skills.
  *
+ * Portability Contract: Emitted packages are self-sufficient.
+ * - All skill files are complete copies (not references) in dist/clients/claude-code/
+ * - All paths in plugin.json are relative to package root
+ * - No references to shared/skills/ or source tree
+ * - Result can be distributed, cached, and used independently
+ *
  * Output structure:
  *   dist/clients/claude-code/
  *     .claude-plugin/plugin.json

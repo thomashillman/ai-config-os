@@ -2,6 +2,11 @@
  * emit-cursor.mjs
  * Emits Cursor platform artefacts from compatibility-filtered skills.
  *
+ * Portability Contract: Cursor .cursorrules are self-contained documents.
+ * - All skill content is concatenated into a single file (no external references)
+ * - No file paths pointing to shared/skills/ or source tree
+ * - Degradation notes explain capability limitations inline
+ *
  * Output: dist/clients/cursor/.cursorrules
  *
  * Format: concatenated skill prompts with section headers.

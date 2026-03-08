@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-# materialise.sh - Fetch compiled skills from the ai-config-os Worker and cache locally.
+# materialise.sh - Fetch and materialize compiled skills packages.
 #
 # Usage:
-#   bash adapters/claude/materialise.sh            # fetch latest
+#   bash adapters/claude/materialise.sh fetch      # fetch from Worker and cache metadata
+#   bash adapters/claude/materialise.sh extract    # extract emitted package to cache
 #   bash adapters/claude/materialise.sh status     # show cache vs remote versions
 #   bash adapters/claude/materialise.sh help       # show this help
 #
 # Environment variables:
-#   AI_CONFIG_TOKEN   - Bearer token for the Worker API (required)
+#   AI_CONFIG_TOKEN   - Bearer token for the Worker API (optional for extract command)
 #   AI_CONFIG_WORKER  - Worker base URL (default: https://ai-config-os.workers.dev)
+#   AI_CONFIG_PACKAGE - Package path for extract command (default: ./dist/clients/claude-code/)
 #
 # Cache location: ~/.ai-config-os/cache/claude-code/
+#
+# Commands:
+#   fetch         Fetch skill metadata from remote Worker (requires AI_CONFIG_TOKEN)
+#   extract       Extract/materialize local emitted package (Node.js API)
+#   status        Compare cached vs remote versions
+#   help          Show this help text
 
 set -euo pipefail
 
@@ -104,23 +112,54 @@ cmd_fetch() {
   echo "${payload}" > "${CACHE_DIR}/latest.json"
 
   local version
-  version=$(echo "${payload}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('version','?'))" 2>/dev/null || echo "?")
+  version=$(echo "${payload}" | python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(d.get('version','?'))" 2>/dev/null || echo "?")
 
   local skill_count
-  skill_count=$(echo "${payload}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('skills',[])))" 2>/dev/null || echo "?")
+  skill_count=$(echo "${payload}" | python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(len(d.get('skills',[])))" 2>/dev/null || echo "?")
 
   echo "Cached version: ${version}"
   echo "Skills available: ${skill_count}"
   echo "Location: ${CACHE_DIR}/latest.json"
   echo ""
-  echo "Done. To apply skills locally, see adapters/claude/dev-test.sh or runtime/sync.sh."
+  echo "Done. To materialize skills locally, run: bash adapters/claude/materialise.sh extract"
+}
+
+cmd_extract() {
+  local package_path="${AI_CONFIG_PACKAGE:-./dist/clients/claude-code/}"
+
+  # Find the repo root
+  local repo_root
+  repo_root=$(git rev-parse --show-toplevel 2>/dev/null || echo ".")
+
+  # Resolve package path relative to repo root
+  local resolved_package
+  if [[ "${package_path}" == /* ]]; then
+    resolved_package="${package_path}"
+  else
+    resolved_package="${repo_root}/${package_path}"
+  fi
+
+  if [[ ! -d "${resolved_package}" ]]; then
+    die "Package not found: ${resolved_package}"
+  fi
+
+  # Delegate to Node materialiser CLI
+  local materialiser_cli="${repo_root}/scripts/build/materialise.mjs"
+  if [[ ! -f "${materialiser_cli}" ]]; then
+    die "Materialiser CLI not found: ${materialiser_cli}"
+  fi
+
+  # Materialize with verbose output
+  node "${materialiser_cli}" "${resolved_package}" --dest "${CACHE_DIR}" --verbose
 }
 
 # ── Dispatch ──────────────────────────────────────────────────────────────
 
 case "${CMD}" in
-  fetch|"")   cmd_fetch ;;
+  fetch)      cmd_fetch ;;
+  extract)    cmd_extract ;;
   status)     cmd_status ;;
   help|--help|-h) cmd_help ;;
-  *)          die "Unknown command: ${CMD}. Try: fetch, status, help" ;;
+  "")         cmd_fetch ;; # default: fetch
+  *)          die "Unknown command: ${CMD}. Try: fetch, extract, status, help" ;;
 esac
