@@ -9,7 +9,7 @@
  * - Cross-platform path handling
  */
 
-import { resolve, join, parse, isAbsolute, sep, relative } from 'node:path';
+import { resolve, join, isAbsolute, sep, relative } from 'node:path';
 import { existsSync, lstatSync } from 'node:fs';
 
 /**
@@ -207,13 +207,16 @@ export function isPathSafe(fullPath, boundary) {
     return false;
   }
 
-  // Walk every path component of the resolved path and reject any symlink.
-  // Use path.parse() to extract the root so that Unix (/), Windows drive
-  // (C:\), and UNC (\\server\share\) roots are all handled with one code path.
-  const { root } = parse(resolvedFullPath);
-  const relFromRoot = relative(root, resolvedFullPath);
-  const parts = relFromRoot.split(/[\\/]/).filter(Boolean);
-  let current = root;
+  // Walk only the path components WITHIN the boundary for symlink detection.
+  // The boundary itself is caller-trusted; checking ancestors of the boundary
+  // (e.g. /home on macOS, which is a system symlink to /System/Volumes/Data/home)
+  // would cause false negatives on legitimate child paths. Only symlinks
+  // introduced by user-controlled path segments inside the boundary matter.
+  const relFromBoundary = relative(resolvedBoundary, resolvedFullPath);
+  const parts = relFromBoundary === ''
+    ? []
+    : relFromBoundary.split(/[\\/]/).filter(Boolean);
+  let current = resolvedBoundary;
 
   for (const part of parts) {
     current = join(current, part);
