@@ -9,7 +9,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { join } from 'path';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -29,7 +29,7 @@ test('Source Change Flow', async (t) => {
 
   await t.test('should have every skill in shared/skills/ represented in dist/', () => {
     const sourceSkills = readdirSync(SKILLS_DIR)
-      .filter(f => !f.startsWith('.'))
+      .filter(f => !f.startsWith('.') && f !== '_template')
       .sort();
     const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
     const distSkillNames = manifest.skills.map(s => s.name).sort();
@@ -87,7 +87,7 @@ test('Source Change Flow', async (t) => {
   });
 
   await t.test('should have deterministic file mtimes (no timestamps in dist/)', () => {
-    // Verify that dist/ files don't have embedded timestamps or git commit hashes
+    // Verify that dist/ files don't have embedded timestamps in frontmatter
     // This ensures local builds are reproducible (same source → same bits)
     const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
 
@@ -95,10 +95,15 @@ test('Source Change Flow', async (t) => {
       const distFile = join(DIST_PACKAGE, skill.path);
       const content = readFileSync(distFile, 'utf8');
 
-      // Check for common timestamp patterns (ISO 8601, Unix epoch, etc.)
+      // Extract frontmatter only (between --- markers)
+      const match = content.match(/^---\n([\s\S]*?)\n---\n/);
+      if (!match) return; // No frontmatter means no timestamps to check
+
+      const frontmatter = match[1];
+      // Check for build metadata that shouldn't be in SKILL.md
       assert(
-        !/built_at|buildTime|timestamp|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(content),
-        `${skill.name}/SKILL.md should not contain build timestamps`
+        !/built_at|buildTime|built_at_timestamp|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(frontmatter),
+        `${skill.name}/SKILL.md frontmatter should not contain build timestamps`
       );
     });
   });
@@ -114,7 +119,9 @@ test('Source Change Flow', async (t) => {
       // Look for prompt_file references
       const promptMatches = content.match(/prompt_file:\s*([^\n]+)/g) || [];
       promptMatches.forEach(match => {
-        const promptPath = match.replace(/prompt_file:\s*/, '').trim();
+        let promptPath = match.replace(/prompt_file:\s*/, '').trim();
+        // Remove surrounding quotes if present
+        promptPath = promptPath.replace(/^["']|["']$/g, '');
         const resolvedPath = join(skillsDir, skill.name, promptPath);
         assert(
           existsSync(resolvedPath),

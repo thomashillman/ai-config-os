@@ -77,7 +77,7 @@ test('Package Materialisation Contract', async (t) => {
 
       // Verify it has required frontmatter fields
       assert(
-        /^---[\s\S]*?skill:\s*[\w-]+/.test(content),
+        /^---[\s\S]*?skill:\s*["']?[\w-]+["']?/.test(content),
         `${skill.name}/SKILL.md must have 'skill' field in frontmatter`
       );
       assert(
@@ -107,7 +107,9 @@ test('Package Materialisation Contract', async (t) => {
       const promptFileMatches = content.match(/prompt_file:\s*([^\n]+)/g);
       if (promptFileMatches) {
         promptFileMatches.forEach(match => {
-          const promptPath = match.replace(/prompt_file:\s*/, '').trim();
+          let promptPath = match.replace(/prompt_file:\s*/, '').trim();
+          // Remove surrounding quotes if present
+          promptPath = promptPath.replace(/^["']|["']$/g, '');
           const fullPath = join(skillsDir, skill.name, promptPath);
           assert(
             existsSync(fullPath),

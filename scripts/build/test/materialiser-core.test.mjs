@@ -362,8 +362,11 @@ test('Materialiser Core', async (t) => {
     const dest = mkdtempSync(join(tmpdir(), 'materialise-dest-'));
 
     try {
-      const metadata = readPackageMetadata(pkg);
-      metadata.skills[0].path = '../../etc/passwd'; // path traversal
+      // Modify the actual plugin.json file to contain path traversal
+      const pluginJsonPath = join(pkg, '.claude-plugin', 'plugin.json');
+      const metadata = JSON.parse(readFileSync(pluginJsonPath, 'utf8'));
+      metadata.skills[0].path = '../../etc/passwd'; // path traversal attack
+      writeFileSync(pluginJsonPath, JSON.stringify(metadata, null, 2));
 
       assert.throws(
         () => materializePackage(pkg, dest),
