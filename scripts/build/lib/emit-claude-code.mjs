@@ -59,8 +59,11 @@ function emitSkills(skills, distDir) {
 
     // Copy prompts/ dir if present
     const promptsSrc = join(skill.skillDir, 'prompts');
+    const promptsDest = join(skillOutDir, 'prompts');
     if (existsSync(promptsSrc)) {
-      cpSync(promptsSrc, join(skillOutDir, 'prompts'), { recursive: true });
+      // Ensure parent of destination exists, then copy
+      mkdirSync(dirname(promptsDest), { recursive: true });
+      cpSync(promptsSrc, promptsDest, { recursive: true });
     }
   }
   console.log(`  [claude-code] emitted ${skills.length} skill(s) to ${distDir}/skills/`);

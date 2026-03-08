@@ -158,15 +158,14 @@ test('release build has consistent provenance in claude-code, registry, and curs
   assert.equal(registryJson.build_id, 'prov-test-run', 'registry: build_id');
   assert.equal(registryJson.source_commit, 'prov-test-sha', 'registry: source_commit');
 
-  // Cursor .cursorrules
+  // Cursor .cursorrules (MUST exist)
   const cursorPath = join(REPO_ROOT, 'dist', 'clients', 'cursor', '.cursorrules');
-  if (existsSync(cursorPath)) {
-    const cursorContent = readFileSync(cursorPath, 'utf8');
-    assert.ok(cursorContent.includes(`# Version: ${expectedVersion}`), 'cursor: version header');
-    assert.ok(cursorContent.includes('# Built:'), 'cursor: Built line required');
-    assert.ok(cursorContent.includes('# Build ID: prov-test-run'), 'cursor: Build ID line');
-    assert.ok(cursorContent.includes('# Source Commit: prov-test-sha'), 'cursor: Source Commit line');
-  }
+  assert.ok(existsSync(cursorPath), 'Cursor .cursorrules MUST be emitted in release mode');
+  const cursorContent = readFileSync(cursorPath, 'utf8');
+  assert.ok(cursorContent.includes(`# Version: ${expectedVersion}`), 'cursor: version header');
+  assert.ok(cursorContent.includes('# Built:'), 'cursor: Built line required');
+  assert.ok(cursorContent.includes('# Build ID: prov-test-run'), 'cursor: Build ID line');
+  assert.ok(cursorContent.includes('# Source Commit: prov-test-sha'), 'cursor: Source Commit line');
 });
 
 // ─── 4. Local build has NO provenance in any emitted artefact ───
@@ -194,12 +193,11 @@ test('local build has no provenance in claude-code, registry, or cursor', () => 
   assert.equal(registryJson.build_id, undefined, 'registry: no build_id in local');
   assert.equal(registryJson.source_commit, undefined, 'registry: no source_commit in local');
 
-  // Cursor .cursorrules
+  // Cursor .cursorrules (MUST exist)
   const cursorPath = join(REPO_ROOT, 'dist', 'clients', 'cursor', '.cursorrules');
-  if (existsSync(cursorPath)) {
-    const cursorContent = readFileSync(cursorPath, 'utf8');
-    assert.ok(!cursorContent.includes('# Built:'), 'cursor: no Built line in local');
-    assert.ok(!cursorContent.includes('# Build ID:'), 'cursor: no Build ID line in local');
-    assert.ok(!cursorContent.includes('# Source Commit:'), 'cursor: no Source Commit line in local');
-  }
+  assert.ok(existsSync(cursorPath), 'Cursor .cursorrules MUST be emitted in local mode');
+  const cursorContent = readFileSync(cursorPath, 'utf8');
+  assert.ok(!cursorContent.includes('# Built:'), 'cursor: no Built line in local');
+  assert.ok(!cursorContent.includes('# Build ID:'), 'cursor: no Build ID line in local');
+  assert.ok(!cursorContent.includes('# Source Commit:'), 'cursor: no Source Commit line in local');
 });

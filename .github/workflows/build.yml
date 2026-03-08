@@ -56,6 +56,37 @@ jobs:
       - name: Run compiler (full build)
         run: node scripts/build/compile.mjs
 
+      - name: Run compiler (release mode)
+        run: node scripts/build/compile.mjs --release
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+
+      - name: Validate Cursor output (strict)
+        run: |
+          if [ ! -f dist/clients/cursor/.cursorrules ]; then
+            echo "ERROR: dist/clients/cursor/.cursorrules not found (Cursor artefact MUST be emitted)"
+            exit 1
+          fi
+          if [ ! -s dist/clients/cursor/.cursorrules ]; then
+            echo "ERROR: dist/clients/cursor/.cursorrules is empty"
+            exit 1
+          fi
+          # Verify expected header structure
+          if ! grep -q "# AI Config OS — Cursor Rules" dist/clients/cursor/.cursorrules; then
+            echo "ERROR: Missing AI Config OS header in Cursor output"
+            exit 1
+          fi
+          if ! grep -qE "# Version: [0-9]+\.[0-9]+\.[0-9]+" dist/clients/cursor/.cursorrules; then
+            echo "ERROR: Missing version header in Cursor output"
+            exit 1
+          fi
+          if ! grep -qE "# Skills: [0-9]+" dist/clients/cursor/.cursorrules; then
+            echo "ERROR: Missing skill count header in Cursor output"
+            exit 1
+          fi
+          echo "Cursor output validation passed ✓"
+
       - name: Validate registry output
         run: |
           if [ ! -f dist/registry/index.json ]; then
