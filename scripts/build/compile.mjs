@@ -25,7 +25,13 @@ import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from '
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
+
+// ─── Portability Contract: Canonical Source ───
+// The compiler reads ONLY from shared/skills/, never from plugins/core-skills/skills/.
+// This ensures emitted packages are self-sufficient and portable.
+// Symlinks in plugins/ are optional Unix authoring convenience, not part of the build contract.
 const SKILLS_DIR = join(ROOT, 'shared', 'skills');
+
 const SCHEMA_PATH = join(ROOT, 'schemas', 'skill.schema.json');
 const DIST_DIR = join(ROOT, 'dist');
 
