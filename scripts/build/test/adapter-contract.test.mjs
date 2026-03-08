@@ -276,7 +276,6 @@ function createMockAdapter() {
       const actions = config.tools.map((tool) => ({
         tool: tool.name,
         status: 'installed',
-        timestamp: Date.now(),
       }));
 
       return {
