@@ -32,7 +32,9 @@ MANIFEST="$REPO_ROOT/shared/manifest.md"
 if [ -f "$MANIFEST" ]; then
   # Insert a placeholder row into the skills table
   # Find the line before "## Plugins" section and insert before it
-  sed -i "/^## Plugins/i | \`$SKILL_NAME\` | TODO: fill description from SKILL.md | \`shared/skills/$SKILL_NAME/SKILL.md\` |" "$MANIFEST" 2>/dev/null || {
+  # Uses awk instead of sed -i for cross-platform compatibility (GNU vs BSD sed)
+  awk -v row="| \`$SKILL_NAME\` | TODO: fill description from SKILL.md | \`shared/skills/$SKILL_NAME/SKILL.md\` |" \
+    '/^## Plugins/ { print row } { print }' "$MANIFEST" > "${MANIFEST}.tmp" && mv "${MANIFEST}.tmp" "$MANIFEST" || {
     echo "WARNING: Could not auto-update manifest.md (check file permissions)"
   }
   echo "  → Added placeholder row to shared/manifest.md (update the description)"
