@@ -351,6 +351,40 @@ git push -u origin claude/<branch-name>
 
 Merging to main happens outside the agent session (via the repo owner's GitHub UI or equivalent). Do not waste turns attempting `gh pr create`, REST API calls, or direct main pushes after the first failure.
 
+## Common CI Pitfalls to Avoid
+
+When building for multi-platform CI (Windows, macOS, Linux), avoid these mistakes:
+
+### 1. Shell glob patterns in npm scripts
+**Problem:** `npm test` with `node --test scripts/build/test/*.test.mjs` fails on Windows CMD (doesn't expand globs).
+**Solution:** Use Node.js `glob()` in a dedicated test runner script instead.
+```json
+"test": "node scripts/build/test/run-tests.mjs"
+```
+Create `run-tests.mjs` using `import { globSync } from 'glob'` to discover test files on all platforms.
+
+### 2. Platform-specific code in test suites run on all OSes
+**Problem:** Tests using `execFileSync("bash", ...)` or depending on `jq`/`yq` fail on Windows or minimal CI images.
+**Solution:** Test Node.js code across all platforms. Keep bash script testing local-only.
+- Don't test shell adapters in multi-platform CI
+- Focus CI on portable Node.js code
+- Document local testing procedures for shell scripts
+
+### 3. Build artifacts not available to tests
+**Problem:** Tests fail because pretest build didn't complete or dist/ was cleaned up.
+**Solution:**
+- Ensure `pretest` hook runs before tests (already in package.json: `"pretest": "node scripts/build/compile.mjs"`)
+- Make tests independent of build artifacts when possible
+- If tests need dist/, verify the pretest step completes before tests start
+
+### 4. Platform-specific path separators in config
+**Problem:** Test code assumes forward slashes; fails on Windows with backslashes.
+**Solution:** Use `path.join()` and normalize paths early in tests.
+```javascript
+import { join, normalize } from 'path';
+const safePath = normalize(rawPath); // Converts to platform-native separators
+```
+
 ## Git Commit Conventions
 
 Use [Conventional Commits](https://www.conventionalcommits.org/):
