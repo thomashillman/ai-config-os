@@ -8,7 +8,11 @@ on:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -75,10 +79,16 @@ jobs:
             echo "::warning::Structural files (ops/, adapters/, plugins/) changed but README.md was not updated. Check the directory table."
           fi
 
-      - name: Install runtime dependencies
+      - name: Install runtime dependencies (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq jq yq || true
+
+      - name: Install runtime dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install jq yq 2>/dev/null || true
 
       - name: Validate tool registry
         run: bash runtime/validate-registry.sh

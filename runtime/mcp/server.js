@@ -12,6 +12,7 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import { validateName, validateNumber } from "./validators.mjs";
+import { isCommandNameSafe } from "../adapters/shell-safe.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -150,6 +151,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     case "mcp_add": {
       validateName(args.name);
+      if (!isCommandNameSafe(args.command)) {
+        return { content: [{ type: "text", text: "Invalid command: must be a simple command name (alphanumeric, dash, underscore)" }], isError: true };
+      }
       const result = runScript(
         "runtime/adapters/mcp-adapter.sh",
         ["add", args.name, args.command, ...(args.args || [])]

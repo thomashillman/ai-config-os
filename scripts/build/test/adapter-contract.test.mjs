@@ -1,9 +1,12 @@
 /**
  * adapter-contract.test.mjs
  *
- * Tests the RuntimeAdapter interface contract. Ensures all adapters
- * (MCP, CLI, file) implement required methods with consistent error
- * handling patterns and async/sync boundaries.
+ * Tests the RuntimeAdapter interface contract definition using a reference
+ * mock. Validates the expected method signatures, return shapes, error
+ * structures, and async boundaries that all adapters must follow.
+ *
+ * For tests exercising real adapter code (validators, shell scripts),
+ * see adapter-real.test.mjs.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

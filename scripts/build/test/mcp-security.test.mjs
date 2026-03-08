@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 
 // Import validators (standalone module, no heavy MCP deps)
 import { validateName, validateNumber } from '../../../runtime/mcp/validators.mjs';
+import { isCommandNameSafe } from '../../../runtime/adapters/shell-safe.mjs';
 
 // ---------------------------------------------------------------------------
 // validateName
@@ -48,6 +49,48 @@ describe('validateName — accepts valid names', () => {
   for (const input of valid) {
     test(`accepts: ${input}`, () => {
       assert.equal(validateName(input), input);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// isCommandNameSafe — validates MCP server command names
+// ---------------------------------------------------------------------------
+
+describe('isCommandNameSafe — rejects unsafe command values', () => {
+  const unsafe = [
+    '/bin/sh',
+    'cmd;whoami',
+    'node --eval',
+    'npx && rm',
+    'python -c "import os"',
+    '../bin/node',
+    'cmd.exe',
+    '',
+  ];
+
+  for (const input of unsafe) {
+    test(`rejects: ${JSON.stringify(input)}`, () => {
+      assert.equal(isCommandNameSafe(input), false);
+    });
+  }
+});
+
+describe('isCommandNameSafe — accepts valid command names', () => {
+  const valid = [
+    'npx',
+    'node',
+    'python3',
+    'uvx',
+    'bash',
+    'deno',
+    'mcp-server',
+    'my_tool',
+  ];
+
+  for (const input of valid) {
+    test(`accepts: ${input}`, () => {
+      assert.equal(isCommandNameSafe(input), true);
     });
   }
 });
