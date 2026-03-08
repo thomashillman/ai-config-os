@@ -24,7 +24,7 @@ Before you begin, ensure you have:
 
 - **Claude Code** (required for plugin installation and testing)
 - **Node.js 18+** (required by MCP server and dashboard)
-- **jq** (required by skill authoring script: `ops/new-skill.sh`)
+- **jq** (optional; used by some adapter scripts)
 - **yq** (required by config merger: `brew install yq` / `snap install yq`)
 - **git** (for cloning and version control)
 
@@ -56,7 +56,7 @@ bash adapters/claude/dev-test.sh
 This script:
 - Validates plugin structure
 - Checks skill metadata
-- Ensures symlinks are correct
+- Validates skill structure and source integrity
 - Confirms frontmatter syntax
 
 You should see "All validation stages passed ✓" before proceeding.
@@ -102,8 +102,8 @@ Each skill's metadata tells Claude Code what inputs it needs and what it will pr
 Create a new skill in five minutes:
 
 ```bash
-# 1. Generate scaffold (creates directory, symlink, and updates marketplace)
-ops/new-skill.sh my-skill
+# 1. Generate scaffold (creates directory, updates manifest; symlink on Unix)
+node scripts/build/new-skill.mjs my-skill
 
 # 2. Edit the skill (use shared/skills/_template/SKILL.md as a guide)
 vim shared/skills/my-skill/SKILL.md
@@ -193,14 +193,14 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `schemas/` | JSON Schemas for skill package manifests and related structures |
 | `scripts/build/` | Compiler that validates skills and emits `dist/` artefacts |
 | `worker/` | Cloudflare Worker serving compiled skills via bearer-auth REST API |
-| `plugins/core-skills/` | Claude Code plugin (contains only symlinks to `shared/skills/`) |
+| `plugins/core-skills/` | Claude Code plugin (optional local links to `shared/skills/` on Unix) |
 | `runtime/config/` | Desired-state configuration (global, machine, project overrides) |
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
 | `runtime/mcp/` | MCP server exposing runtime operations as Claude Code tools |
 | `dashboard/` | React SPA for runtime visibility and control |
 | `ops/` | Developer scripts (new-skill, lint, validate, docs generator) |
 | `.claude/hooks/` | Startup and post-tool hooks for Claude Code |
-| `.github/workflows/` | CI validation (structure, metadata, symlinks, docs, build) |
+| `.github/workflows/` | CI validation (structure, metadata, source integrity, docs, build) |
 
 ---
 

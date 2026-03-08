@@ -20,7 +20,9 @@
 - `dashboard/` — React SPA: tool status, skill stats, context cost, config, audit, analytics
 
 ## Creating a new skill
-Run `ops/new-skill.sh <skill-name>` — this creates the skill directory, symlink, and manifest entry. It does **not** change `VERSION`, `package.json`, or `plugin.json`. Release version bumps are a separate, explicit action (edit `VERSION`, then `npm run version:sync`).
+Run `node scripts/build/new-skill.mjs <skill-name>` — this creates the skill directory, updates the manifest, and optionally creates a convenience symlink on Unix. Use `--no-link` to skip symlink creation. The Unix wrapper `ops/new-skill.sh` delegates to this command. It does **not** change `VERSION`, `package.json`, or `plugin.json`. Release version bumps are a separate, explicit action (edit `VERSION`, then `npm run version:sync`).
+
+**Portability contract:** `shared/skills/` is the canonical source. The compiler reads directly from it. Symlinks under `plugins/core-skills/skills/` are optional authoring convenience on Unix, not part of the build or distribution contract.
 
 ## Testing locally
 Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
@@ -68,8 +70,8 @@ Token efficiency is paramount. **Unnecessary token wastage is forbidden.** Prefe
 ## Key rules
 - Always author skills in `shared/skills/`, never directly in `plugins/`
 - Only bump version in the root `VERSION` file; run `npm run version:sync` to mirror it, then `npm run version:check` before committing
-- `ops/new-skill.sh` must not mutate release-version mirrors (`VERSION`, `package.json`, `plugin.json`)
-- Symlinks must use relative paths: `../../../shared/skills/<name>`
+- The scaffold command (`scripts/build/new-skill.mjs`) must not mutate release-version mirrors (`VERSION`, `package.json`, `plugin.json`)
+- Symlinks are optional Unix convenience; if created, they must use relative paths: `../../../shared/skills/<name>`
 - Run `claude plugin validate .` before committing
 - Start new skills from `shared/skills/_template/SKILL.md` (Phase 2: enhanced with full frontmatter)
 
