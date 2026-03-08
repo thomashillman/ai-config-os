@@ -15,29 +15,34 @@ import { join, dirname } from 'path';
  * @param {object[]} skills - Pre-filtered skills for claude-code (from compatibility resolution)
  * @param {object} opts
  * @param {string} opts.distDir - e.g. dist/clients/claude-code
- * @param {string} opts.buildVersion - build version string
- * @param {string} opts.builtAt - ISO timestamp
+ * @param {string} opts.releaseVersion - release version from VERSION file
+ * @param {object|null} [opts.provenance] - optional provenance (release mode only)
+ * @param {string} [opts.provenance.builtAt]
+ * @param {string} [opts.provenance.buildId]
+ * @param {string} [opts.provenance.sourceCommit]
  */
-export function emitClaudeCode(skills, { distDir, buildVersion, builtAt }) {
-  // Skills are pre-filtered by the compiler's compatibility resolution.
-  // The emitter's job is packaging, not filtering.
+export function emitClaudeCode(skills, { distDir, releaseVersion, provenance }) {
   emitSkills(skills, distDir);
 
-  // Generate plugin.json
   const pluginJsonPath = join(distDir, '.claude-plugin', 'plugin.json');
   mkdirSync(dirname(pluginJsonPath), { recursive: true });
 
   const pluginJson = {
     name: 'core-skills',
-    version: buildVersion,
+    version: releaseVersion,
     description: 'Core AI Config OS skills',
-    built_at: builtAt,
     skills: skills.map(s => ({
       name: s.skillName,
       version: s.frontmatter.version || '1.0.0',
       path: `skills/${s.skillName}/SKILL.md`,
     })),
   };
+
+  if (provenance) {
+    if (provenance.builtAt) pluginJson.built_at = provenance.builtAt;
+    if (provenance.buildId) pluginJson.build_id = provenance.buildId;
+    if (provenance.sourceCommit) pluginJson.source_commit = provenance.sourceCommit;
+  }
 
   writeFileSync(pluginJsonPath, JSON.stringify(pluginJson, null, 2) + '\n');
   console.log(`  [claude-code] plugin.json → ${pluginJsonPath}`);

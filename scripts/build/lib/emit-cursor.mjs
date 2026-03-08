@@ -14,19 +14,19 @@ import { join, dirname } from 'path';
  * @param {object[]} skills - Pre-filtered skills for cursor (from compatibility resolution)
  * @param {object} opts
  * @param {string} opts.distDir - e.g. dist/clients/cursor
- * @param {string} opts.buildVersion - build version string
- * @param {string} opts.builtAt - ISO timestamp
+ * @param {string} opts.releaseVersion - release version from VERSION file
+ * @param {object|null} [opts.provenance] - optional provenance (release mode only)
  * @param {Map<string, Map<string, object>>} opts.compatMatrix - full compatibility matrix
  */
-export function emitCursor(skills, { distDir, buildVersion, builtAt, compatMatrix }) {
+export function emitCursor(skills, { distDir, releaseVersion, provenance, compatMatrix }) {
   mkdirSync(distDir, { recursive: true });
 
   const sections = [];
 
   // Header
   sections.push(`# AI Config OS — Cursor Rules`);
-  sections.push(`# Generated: ${builtAt}`);
-  sections.push(`# Build: ${buildVersion}`);
+  sections.push(`# Version: ${releaseVersion}`);
+  if (provenance?.builtAt) sections.push(`# Built: ${provenance.builtAt}`);
   sections.push(`# Skills: ${skills.length}`);
   sections.push('');
 

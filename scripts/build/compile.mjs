@@ -21,6 +21,7 @@ import { emitRegistry } from './lib/emit-registry.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
 import { resolveAll } from './lib/resolve-compatibility.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
+import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -31,12 +32,10 @@ const DIST_DIR = join(ROOT, 'dist');
 const VALIDATE_ONLY = process.argv.includes('--validate-only');
 const PLATFORM_SCHEMA_PATH = join(ROOT, 'schemas', 'platform.schema.json');
 
-// Build version: semver + ISO timestamp slug
-const buildVersion = (() => {
-  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  return `1.0.0-build.${ts}`;
-})();
-const builtAt = new Date().toISOString();
+// Release version from VERSION file; provenance only in release mode
+const releaseVersion = validateReleaseVersion(readReleaseVersion(ROOT));
+const releaseMode = process.argv.includes('--release') || process.env.AI_CONFIG_RELEASE === '1';
+const provenance = getBuildProvenance({ releaseMode, cwd: ROOT });
 
 async function loadValidators() {
   const { default: Ajv } = await import('ajv/dist/2020.js');
@@ -72,8 +71,8 @@ function scanSkills() {
 
 async function main() {
   console.log('\nai-config-os compiler');
-  console.log(`  build: ${buildVersion}`);
-  console.log(`  mode:  ${VALIDATE_ONLY ? 'validate-only' : 'full build'}\n`);
+  console.log(`  version: ${releaseVersion}${releaseMode ? ' (release)' : ''}`);
+  console.log(`  mode:    ${VALIDATE_ONLY ? 'validate-only' : 'full build'}\n`);
 
   const { skillValidator, platformValidator } = await loadValidators();
 
@@ -240,16 +239,16 @@ async function main() {
     console.log(`\n[platform: ${platformId}]`);
 
     if (platformId === 'claude-code') {
-      emitClaudeCode(skills, { distDir: platformDist, buildVersion, builtAt });
+      emitClaudeCode(skills, { distDir: platformDist, releaseVersion, provenance });
     } else if (platformId === 'cursor') {
-      emitCursor(skills, { distDir: platformDist, buildVersion, builtAt, compatMatrix });
+      emitCursor(skills, { distDir: platformDist, releaseVersion, provenance, compatMatrix });
     } else {
       console.log(`  [${platformId}] emitter not yet implemented — skipping (${skills.length} skill(s))`);
     }
   }
 
   console.log('\n[registry]');
-  emitRegistry(parsed, emittedPlatforms, { distDir: DIST_DIR, buildVersion, builtAt, compatMatrix });
+  emitRegistry(parsed, emittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix });
 
   console.log('\nBuild complete.\n');
 }
