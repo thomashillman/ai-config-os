@@ -2,10 +2,11 @@
  * scaffold-and-provenance.test.mjs
  *
  * Tests that:
- * 1. ops/new-skill.sh does not mutate release-version mirrors
- * 2. Version parity holds after scaffolding
- * 3. Release-mode provenance is consistent across all emitted artefacts
- * 4. Local-mode builds have no provenance in any emitted artefact
+ * 1. new-skill.mjs does not mutate release-version mirrors (portable)
+ * 2. new-skill.mjs creates symlinks on Unix (Unix-only)
+ * 3. Version parity holds after scaffolding
+ * 4. Release-mode provenance is consistent across all emitted artefacts
+ * 5. Local-mode builds have no provenance in any emitted artefact
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,7 +22,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
-const NEW_SKILL_SH = join(REPO_ROOT, 'ops', 'new-skill.sh');
+const NEW_SKILL_MJS = resolve(__dirname, '..', 'new-skill.mjs');
 const COMPILE_MJS = resolve(__dirname, '..', 'compile.mjs');
 const CHECK_MJS = resolve(__dirname, '..', 'check-version-parity.mjs');
 
@@ -59,6 +60,34 @@ function createScaffoldFixture() {
   // Create plugins/core-skills/skills/ directory
   mkdirSync(join(tmp, 'plugins', 'core-skills', 'skills'), { recursive: true });
 
+  // Copy the lint script and its dependencies so post-scaffold lint works
+  const lintDir = join(tmp, 'scripts', 'lint');
+  mkdirSync(lintDir, { recursive: true });
+  if (existsSync(join(REPO_ROOT, 'scripts', 'lint', 'skill.mjs'))) {
+    copyFileSync(join(REPO_ROOT, 'scripts', 'lint', 'skill.mjs'), join(lintDir, 'skill.mjs'));
+  }
+
+  // Copy schemas needed by linter
+  const schemasDir = join(tmp, 'schemas');
+  mkdirSync(schemasDir, { recursive: true });
+  if (existsSync(join(REPO_ROOT, 'schemas', 'skill.schema.json'))) {
+    copyFileSync(join(REPO_ROOT, 'schemas', 'skill.schema.json'), join(schemasDir, 'skill.schema.json'));
+  }
+
+  // Copy build lib needed by linter
+  const buildLibDir = join(tmp, 'scripts', 'build', 'lib');
+  mkdirSync(buildLibDir, { recursive: true });
+  if (existsSync(join(REPO_ROOT, 'scripts', 'build', 'lib', 'validate-skill-policy.mjs'))) {
+    copyFileSync(
+      join(REPO_ROOT, 'scripts', 'build', 'lib', 'validate-skill-policy.mjs'),
+      join(buildLibDir, 'validate-skill-policy.mjs')
+    );
+  }
+
+  // Copy platform targets needed by linter
+  const platformsDir = join(tmp, 'shared', 'targets', 'platforms');
+  mkdirSync(platformsDir, { recursive: true });
+
   // Create a minimal manifest.md
   const manifestContent = `# Manifest\n\n## Skills\n\n| Skill | Description | Path |\n|---|---|---|\n\n## Plugins\n`;
   writeFileSync(join(tmp, 'shared', 'manifest.md'), manifestContent);
@@ -70,9 +99,9 @@ function createScaffoldFixture() {
   return tmp;
 }
 
-// ─── 1. ops/new-skill.sh must not mutate release-version mirrors ───
+// ─── 1. Portable: scaffold does not mutate release-version mirrors ───
 
-test('ops/new-skill.sh does not change VERSION, package.json, or plugin.json', () => {
+test('new-skill.mjs does not change VERSION, package.json, or plugin.json', () => {
   const fixture = createScaffoldFixture();
 
   try {
@@ -82,22 +111,23 @@ test('ops/new-skill.sh does not change VERSION, package.json, or plugin.json', (
       join(fixture, 'plugins', 'core-skills', '.claude-plugin', 'plugin.json'), 'utf8'
     );
 
-    // Run new-skill.sh from the real repo against the fixture
-    const result = spawnSync('bash', [NEW_SKILL_SH, 'test-scaffold-skill'], {
+    // Run new-skill.mjs with --no-link for portable test
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-scaffold-skill', '--no-link'], {
       cwd: fixture,
       encoding: 'utf8',
     });
 
-    assert.equal(result.status, 0, `new-skill.sh failed:\n${result.stdout}\n${result.stderr}`);
+    assert.equal(result.status, 0, `new-skill.mjs failed:\n${result.stdout}\n${result.stderr}`);
 
     // Verify scaffold artefacts were created
     const skillDir = join(fixture, 'shared', 'skills', 'test-scaffold-skill');
     assert.ok(existsSync(skillDir), 'Skill directory should exist');
     assert.ok(existsSync(join(skillDir, 'SKILL.md')), 'SKILL.md should exist');
 
-    const symlinkPath = join(fixture, 'plugins', 'core-skills', 'skills', 'test-scaffold-skill');
-    assert.ok(existsSync(symlinkPath), 'Symlink should exist');
-    assert.ok(lstatSync(symlinkPath).isSymbolicLink(), 'Should be a symlink');
+    // Verify template expansion worked
+    const skillContent = readFileSync(join(skillDir, 'SKILL.md'), 'utf8');
+    assert.ok(skillContent.includes('skill: test-scaffold-skill'), 'SKILL.md should have skill name in frontmatter');
+    assert.ok(!skillContent.includes('{{SKILL_NAME}}'), 'Template placeholders should be replaced');
 
     // Assert manifest was updated
     const manifest = readFileSync(join(fixture, 'shared', 'manifest.md'), 'utf8');
@@ -118,7 +148,76 @@ test('ops/new-skill.sh does not change VERSION, package.json, or plugin.json', (
   }
 });
 
-// ─── 2. Version parity holds in real repo (unaffected by scaffold) ───
+// ─── 2. Unix-only: scaffold creates symlink ───
+
+test('new-skill.mjs creates symlink on Unix', { skip: process.platform === 'win32' ? 'symlinks need Unix' : false }, () => {
+  const fixture = createScaffoldFixture();
+
+  try {
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-link-skill'], {
+      cwd: fixture,
+      encoding: 'utf8',
+    });
+
+    assert.equal(result.status, 0, `new-skill.mjs failed:\n${result.stdout}\n${result.stderr}`);
+
+    // Verify symlink was created
+    const symlinkPath = join(fixture, 'plugins', 'core-skills', 'skills', 'test-link-skill');
+    assert.ok(existsSync(symlinkPath), 'Symlink should exist');
+    assert.ok(lstatSync(symlinkPath).isSymbolicLink(), 'Should be a symlink');
+
+    // Verify symlink target resolves to the canonical source
+    const skillDir = join(fixture, 'shared', 'skills', 'test-link-skill');
+    assert.ok(existsSync(join(symlinkPath, 'SKILL.md')), 'Symlink should resolve to skill with SKILL.md');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// ─── 3. Scaffold rejects invalid skill names ───
+
+test('new-skill.mjs rejects invalid skill names', () => {
+  const fixture = createScaffoldFixture();
+
+  try {
+    const invalidNames = ['My Skill', 'UPPERCASE', 'has.dots', '123-starts-with-digit', 'has_underscores'];
+    for (const name of invalidNames) {
+      const result = spawnSync(process.execPath, [NEW_SKILL_MJS, name, '--no-link'], {
+        cwd: fixture,
+        encoding: 'utf8',
+      });
+      assert.notEqual(result.status, 0, `Should reject invalid name: '${name}'`);
+    }
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// ─── 4. Scaffold rejects duplicate skill names ───
+
+test('new-skill.mjs rejects duplicate skill name', () => {
+  const fixture = createScaffoldFixture();
+
+  try {
+    // First scaffold succeeds
+    const result1 = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-dup-skill', '--no-link'], {
+      cwd: fixture,
+      encoding: 'utf8',
+    });
+    assert.equal(result1.status, 0, 'First scaffold should succeed');
+
+    // Second scaffold with same name fails
+    const result2 = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-dup-skill', '--no-link'], {
+      cwd: fixture,
+      encoding: 'utf8',
+    });
+    assert.notEqual(result2.status, 0, 'Duplicate scaffold should fail');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
+// ─── 5. Version parity holds in real repo (unaffected by scaffold) ───
 
 test('version parity check passes', () => {
   const result = spawnSync(process.execPath, [CHECK_MJS], {
@@ -128,7 +227,7 @@ test('version parity check passes', () => {
   assert.equal(result.status, 0, `Parity check failed:\n${result.stdout}\n${result.stderr}`);
 });
 
-// ─── 3. Release-mode provenance is consistent across ALL emitted artefacts ───
+// ─── 6. Release-mode provenance is consistent across ALL emitted artefacts ───
 
 test('release build has consistent provenance in claude-code, registry, and cursor', () => {
   const result = spawnSync(process.execPath, [COMPILE_MJS, '--release'], {
@@ -168,7 +267,7 @@ test('release build has consistent provenance in claude-code, registry, and curs
   assert.ok(cursorContent.includes('# Source Commit: prov-test-sha'), 'cursor: Source Commit line');
 });
 
-// ─── 4. Local build has NO provenance in any emitted artefact ───
+// ─── 7. Local build has NO provenance in any emitted artefact ───
 
 test('local build has no provenance in claude-code, registry, or cursor', () => {
   const result = spawnSync(process.execPath, [COMPILE_MJS], {

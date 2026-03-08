@@ -1,0 +1,154 @@
+#!/usr/bin/env node
+/**
+ * new-skill.mjs — Portable Node.js scaffold for new skills.
+ *
+ * Creates a new skill in shared/skills/<name>/, updates shared/manifest.md,
+ * and optionally creates a convenience symlink under plugins/core-skills/skills/.
+ *
+ * Usage:
+ *   node scripts/build/new-skill.mjs <skill-name>
+ *   node scripts/build/new-skill.mjs <skill-name> --no-link
+ *
+ * Replaces ops/new-skill.sh as the authoritative scaffold implementation.
+ * The shell script is kept as a thin Unix wrapper.
+ */
+import { readFileSync, writeFileSync, mkdirSync, existsSync, symlinkSync } from 'fs';
+import { join, resolve, dirname, relative } from 'path';
+import { fileURLToPath } from 'url';
+import { spawnSync } from 'child_process';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ─── Resolve repo root ───
+
+function findRepoRoot() {
+  // If we're in a git repo, use git rev-parse
+  const result = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  if (result.status === 0 && result.stdout.trim()) {
+    return result.stdout.trim();
+  }
+  // Fallback: two levels up from scripts/build/
+  return resolve(__dirname, '..', '..');
+}
+
+const REPO_ROOT = findRepoRoot();
+
+// ─── Parse arguments ───
+
+const args = process.argv.slice(2);
+const flags = new Set(args.filter(a => a.startsWith('--')));
+const positional = args.filter(a => !a.startsWith('--'));
+
+const skillName = positional[0];
+const noLink = flags.has('--no-link');
+
+if (!skillName) {
+  console.error('Usage: new-skill.mjs <skill-name> [--no-link]');
+  process.exit(1);
+}
+
+// ─── Validate skill name ───
+
+if (!/^[a-z][a-z0-9-]*$/.test(skillName)) {
+  console.error(`Error: skill name must be kebab-case (lowercase letters, digits, hyphens), got '${skillName}'`);
+  process.exit(1);
+}
+
+// ─── Paths ───
+
+const sharedDir = join(REPO_ROOT, 'shared', 'skills', skillName);
+const pluginDir = join(REPO_ROOT, 'plugins', 'core-skills', 'skills', skillName);
+const templatePath = join(REPO_ROOT, 'shared', 'skills', '_template', 'SKILL.md');
+const manifestPath = join(REPO_ROOT, 'shared', 'manifest.md');
+
+// ─── Check for existing skill ───
+
+if (existsSync(sharedDir)) {
+  console.error(`Error: skill '${skillName}' already exists at ${sharedDir}`);
+  process.exit(1);
+}
+
+// ─── Check template exists ───
+
+if (!existsSync(templatePath)) {
+  console.error(`Error: template not found at ${templatePath}`);
+  process.exit(1);
+}
+
+// ─── 1. Create skill from template ───
+
+mkdirSync(sharedDir, { recursive: true });
+const template = readFileSync(templatePath, 'utf8');
+const skillContent = template.replaceAll('{{SKILL_NAME}}', skillName);
+writeFileSync(join(sharedDir, 'SKILL.md'), skillContent);
+
+console.log(`Created skill '${skillName}'`);
+console.log(`  \u2192 ${sharedDir}/SKILL.md (edit this)`);
+
+// ─── 2. Optionally create symlink (Unix only, unless --no-link) ───
+
+if (!noLink && process.platform !== 'win32') {
+  mkdirSync(dirname(pluginDir), { recursive: true });
+  const target = relative(dirname(pluginDir), sharedDir);
+  try {
+    symlinkSync(target, pluginDir);
+    console.log(`  \u2192 ${pluginDir} (symlink)`);
+  } catch (err) {
+    console.log(`  WARNING: Could not create symlink: ${err.message}`);
+  }
+} else if (noLink) {
+  console.log('  (symlink skipped: --no-link)');
+} else {
+  console.log('  (symlink skipped: not supported on this platform)');
+}
+
+// ─── 3. Update manifest.md ───
+
+if (existsSync(manifestPath)) {
+  const manifest = readFileSync(manifestPath, 'utf8');
+  const row = `| \`${skillName}\` | TODO: fill description from SKILL.md | \`shared/skills/${skillName}/SKILL.md\` |`;
+  const pluginsHeading = '## Plugins';
+  const idx = manifest.indexOf(pluginsHeading);
+
+  if (idx !== -1) {
+    const updated = manifest.slice(0, idx) + row + '\n' + manifest.slice(idx);
+    writeFileSync(manifestPath, updated);
+    console.log('  \u2192 Added placeholder row to shared/manifest.md (update the description)');
+  } else {
+    console.log('  WARNING: Could not find "## Plugins" section in manifest.md');
+  }
+} else {
+  console.log('  WARNING: shared/manifest.md not found');
+}
+
+// ─── 4. Post-scaffold lint ───
+
+console.log('');
+const lintScript = join(REPO_ROOT, 'scripts', 'lint', 'skill.mjs');
+if (existsSync(lintScript)) {
+  const lintResult = spawnSync(process.execPath, [lintScript, join(sharedDir, 'SKILL.md')], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  if (lintResult.status === 0) {
+    console.log('Frontmatter lint: OK');
+  } else {
+    console.log('WARNING: Frontmatter has issues. Edit SKILL.md or run:');
+    console.log(`  node scripts/lint/skill.mjs shared/skills/${skillName}/SKILL.md`);
+  }
+}
+
+// ─── 5. Next steps ───
+
+console.log('');
+console.log('Next steps:');
+console.log(`  1. Edit ${sharedDir}/SKILL.md`);
+console.log('  2. Review the placeholder row in shared/manifest.md');
+console.log('  3. Run: bash adapters/claude/dev-test.sh');
+console.log('');
+console.log('Note: this script does not change the release version.');
+console.log('To bump the release: edit VERSION, then run npm run version:sync.');
