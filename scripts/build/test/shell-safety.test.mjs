@@ -1,12 +1,20 @@
 /**
  * shell-safety.test.mjs
  *
- * Tests the runtime shell boundary layer for injection attacks, quote escaping,
- * path traversal, and symlink attacks. Ensures runtime adapters can execute
- * safely in constrained environments.
+ * Tests the runtime/adapters/shell-safe.mjs module directly.
+ * Validates command injection prevention, quote escaping, path traversal blocking,
+ * and symlink attack prevention. These are real production tests against the
+ * shell-safe module, not local mocks.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  shellEscape,
+  sanitizePath,
+  validatePathBoundary
+} from '../../../runtime/adapters/shell-safe.mjs';
 
 // ─── Test 1: Command injection attempt with command substitution ───
 
@@ -160,48 +168,5 @@ test('shell-safety: escape wildcards in filenames', () => {
   // Brackets should not trigger glob expansion
 });
 
-// ─── Helper functions (minimal implementations for testing) ───
-
-function shellEscape(str) {
-  if (typeof str !== 'string') return '';
-
-  // Remove null bytes
-  str = str.replace(/\x00/g, '');
-
-  // Wrap in single quotes and escape any single quotes
-  return "'" + str.replace(/'/g, "'\\''") + "'";
-}
-
-function sanitizePath(path) {
-  if (typeof path !== 'string') return '';
-
-  // Remove null bytes
-  path = path.replace(/\x00/g, '');
-
-  // Remove leading traversal
-  while (path.startsWith('../')) {
-    path = path.slice(3);
-  }
-
-  // Optionally resolve to prevent traversal
-  // This is a simple implementation; real code would use path.normalize()
-  return path;
-}
-
-function validatePathBoundary(untrustedPath, boundary) {
-  if (typeof untrustedPath !== 'string' || typeof boundary !== 'string') {
-    return false;
-  }
-
-  // Reject absolute paths that don't start with boundary
-  if (untrustedPath.startsWith('/') && !untrustedPath.startsWith(boundary)) {
-    return false;
-  }
-
-  // Reject relative paths that traverse up out of boundary
-  if (untrustedPath.includes('/../') || untrustedPath.startsWith('../')) {
-    return false;
-  }
-
-  return true;
-}
+// All tests use functions imported from runtime/adapters/shell-safe.mjs
+// No local mocks or helpers. Every test validates production code behavior.
