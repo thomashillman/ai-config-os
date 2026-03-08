@@ -16,6 +16,22 @@ This is for you if you spend time in Claude Code, Cursor, or other agent IDEs, a
 
 ---
 
+## Architecture: Source → Build → Distribution
+
+AI Config OS follows a clean **portability contract**:
+
+1. **Source:** Skills are authored once in `shared/skills/` as self-contained SKILL.md files with full metadata
+2. **Build:** The compiler reads only from source, validates skills, and emits **self-sufficient packages** to `dist/clients/<platform>/`
+3. **Distribution:** Emitted packages are complete and independent—no symlinks, no source-tree references, no external dependencies
+4. **Materialisation:** Packages can be extracted (cached, archived, offline) and materialized on any system without source access
+
+This architecture ensures:
+- **Portability:** Same skill package works in CI, on your laptop, or an air-gapped device
+- **Determinism:** Same source always produces identical emitted packages (no timestamps in build output)
+- **Scalability:** Packages can be distributed via Worker, S3, package manager, or Git without modification
+
+---
+
 ## Getting started
 
 ### Prerequisites
@@ -186,21 +202,24 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 
 | Path | What goes here |
 |------|----------------|
-| `shared/skills/` | **Write skills here.** Each skill is a folder with SKILL.md (metadata + prompts) and optional subdirectories (prompts/, tests/) |
+| **`shared/skills/`** | **Canonical source.** Write skills here. Each skill is a folder with SKILL.md (metadata + prompts) and optional subdirectories (prompts/, tests/). Compiler reads *only* from this directory. |
+| **`dist/clients/`** | **Emitted packages (self-sufficient, source-independent).** Each platform (claude-code, cursor) has a complete package: plugin.json + skill copies + resources (prompts/, etc.). These packages work standalone without source access. |
+| **`dist/registry/`** | Cross-platform skill registry (index.json) with compatibility matrix. Single source of truth for what skills are available and which platforms support them. |
 | `shared/workflows/` | Skill compositions: named collections of skills executed in sequence |
-| `shared/targets/` | Platform reference docs (clients.yaml — known distribution targets) |
+| `shared/targets/` | Platform reference docs (capability definitions for v0.5.2+) |
 | `shared/lib/` | Shared utility libraries (YAML parser, analytics, config merger) |
 | `schemas/` | JSON Schemas for skill package manifests and related structures |
 | `scripts/build/` | Compiler that validates skills and emits `dist/` artefacts |
+| `scripts/build/lib/materialise-client.mjs` | Materialiser: extracts emitted packages without source access (portability contract) |
 | `worker/` | Cloudflare Worker serving compiled skills via bearer-auth REST API |
-| `plugins/core-skills/` | Claude Code plugin (optional local links to `shared/skills/` on Unix) |
+| `plugins/core-skills/` | Claude Code plugin (optional local symlinks to `shared/skills/` on Unix only) |
 | `runtime/config/` | Desired-state configuration (global, machine, project overrides) |
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
 | `runtime/mcp/` | MCP server exposing runtime operations as Claude Code tools |
 | `dashboard/` | React SPA for runtime visibility and control |
 | `ops/` | Developer scripts (new-skill, lint, validate, docs generator) |
 | `.claude/hooks/` | Startup and post-tool hooks for Claude Code |
-| `.github/workflows/` | CI validation (structure, metadata, source integrity, docs, build) |
+| `.github/workflows/` | CI validation (structure, metadata, source integrity, docs, build, portability contracts) |
 
 ---
 
