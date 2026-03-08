@@ -26,8 +26,9 @@ function isContainedIn(resolved, resolvedBoundary) {
   if (resolved === resolvedBoundary) {
     return true;
   }
-  return resolved.startsWith(resolvedBoundary + '/') ||
-         resolved.startsWith(resolvedBoundary + '\\');
+  // Use platform-specific separator to prevent false matches
+  // (e.g., /safe/base-evil would not match /safe/base + '/')
+  return resolved.startsWith(resolvedBoundary + sep);
 }
 
 /**
