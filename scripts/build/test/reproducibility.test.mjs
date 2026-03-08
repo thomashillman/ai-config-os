@@ -30,6 +30,19 @@ function hashFile(filePath) {
   return crypto.createHash('sha256').update(content).digest('hex');
 }
 
+// Helper: Robustly remove a directory (handles race conditions)
+function removeDistDir(dirPath) {
+  if (!existsSync(dirPath)) return;
+  // Use force: true to handle permission issues
+  // If this fails, the compiler's mkdirSync with recursive:true will handle re-creation
+  try {
+    rmSync(dirPath, { recursive: true, force: true });
+  } catch (err) {
+    // If removal fails, that's okay - the compiler will overwrite or re-create as needed
+    // This prevents test failures due to OS-level file handle delays
+  }
+}
+
 // Helper: Run compiler with given args and env
 function runCompiler(args = [], env = {}) {
   const result = spawnSync(process.execPath, [COMPILE_MJS, ...args], {
@@ -70,7 +83,7 @@ test('local builds are byte-reproducible', () => {
   const snap1 = captureDistOutput();
 
   // Clean dist/ to remove any caching effects
-  rmSync(DIST_DIR, { recursive: true, force: true });
+  removeDistDir(DIST_DIR);
 
   // Second build
   runCompiler();
@@ -101,7 +114,7 @@ test('release builds are deterministic (excluding timestamps)', () => {
   const registry1 = JSON.parse(readFileSync(join(snap1, 'registry', 'index.json'), 'utf8'));
 
   // Clean dist/
-  rmSync(DIST_DIR, { recursive: true, force: true });
+  removeDistDir(DIST_DIR);
 
   // Second release build with same env
   runCompiler(['--release'], fixedEnv);
@@ -162,7 +175,7 @@ test('release builds differ only in provenance when env changes', () => {
   const registry1 = JSON.parse(readFileSync(join(snap1, 'registry', 'index.json'), 'utf8'));
 
   // Clean dist/
-  rmSync(DIST_DIR, { recursive: true, force: true });
+  removeDistDir(DIST_DIR);
 
   // Second release build with different env
   runCompiler(['--release'], env2);

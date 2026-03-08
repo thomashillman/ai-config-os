@@ -10,7 +10,7 @@
 //   node scripts/build/compile.mjs
 //   node scripts/build/compile.mjs --validate-only
 
-import { readdirSync, existsSync, readFileSync } from 'fs';
+import { readdirSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -233,6 +233,10 @@ async function main() {
 
   const emittedPlatforms = Object.keys(platformSkills);
   console.log(`\nEmitting for platforms: ${emittedPlatforms.join(', ') || '(none)'}`);
+
+  // Ensure dist directory structure exists before emitting
+  // (handles race conditions in tests where rmSync hasn't fully completed)
+  mkdirSync(DIST_DIR, { recursive: true });
 
   for (const [platformId, skills] of Object.entries(platformSkills)) {
     const platformDist = join(DIST_DIR, 'clients', platformId);
