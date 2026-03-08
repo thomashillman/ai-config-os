@@ -10,7 +10,7 @@
 //   node scripts/build/compile.mjs
 //   node scripts/build/compile.mjs --validate-only
 
-import { readdirSync, existsSync, readFileSync } from 'fs';
+import { readdirSync, existsSync, readFileSync, mkdirSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -35,7 +35,7 @@ const PLATFORM_SCHEMA_PATH = join(ROOT, 'schemas', 'platform.schema.json');
 // Release version from VERSION file; provenance only in release mode
 const releaseVersion = validateReleaseVersion(readReleaseVersion(ROOT));
 const releaseMode = process.argv.includes('--release') || process.env.AI_CONFIG_RELEASE === '1';
-const provenance = getBuildProvenance({ releaseMode, cwd: ROOT });
+// Note: provenance is calculated in main() to ensure current env is used
 
 async function loadValidators() {
   const { default: Ajv } = await import('ajv/dist/2020.js');
@@ -70,6 +70,9 @@ function scanSkills() {
 }
 
 async function main() {
+  // Calculate provenance at runtime so tests can override env variables
+  const provenance = getBuildProvenance({ releaseMode, cwd: ROOT });
+
   console.log('\nai-config-os compiler');
   console.log(`  version: ${releaseVersion}${releaseMode ? ' (release)' : ''}`);
   console.log(`  mode:    ${VALIDATE_ONLY ? 'validate-only' : 'full build'}\n`);
@@ -233,6 +236,10 @@ async function main() {
 
   const emittedPlatforms = Object.keys(platformSkills);
   console.log(`\nEmitting for platforms: ${emittedPlatforms.join(', ') || '(none)'}`);
+
+  // Ensure dist directory structure exists before emitting
+  // (handles race conditions in tests where rmSync hasn't fully completed)
+  mkdirSync(DIST_DIR, { recursive: true });
 
   for (const [platformId, skills] of Object.entries(platformSkills)) {
     const platformDist = join(DIST_DIR, 'clients', platformId);
