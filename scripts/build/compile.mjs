@@ -59,6 +59,9 @@ async function loadValidators() {
 }
 
 function scanSkills() {
+  // Portability Contract: Deterministic Ordering
+  // scanSkills sorts directory entries to ensure reproducible builds.
+  // This guarantees that source changes produce identical emitted packages.
   const entries = readdirSync(SKILLS_DIR, { withFileTypes: true });
   const skills = [];
   for (const entry of entries) {
@@ -72,6 +75,8 @@ function scanSkills() {
     }
     skills.push({ skillName: entry.name, skillDir, skillMdPath });
   }
+  // Sort by skill name for deterministic output (reproducible builds)
+  skills.sort((a, b) => a.skillName.localeCompare(b.skillName));
   return skills;
 }
 
