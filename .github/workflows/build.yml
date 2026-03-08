@@ -57,23 +57,23 @@ jobs:
         if: runner.os != 'Windows'
         run: node scripts/lint/skill.mjs shared/skills/[!_]*/SKILL.md
 
-      - name: Run tests
+      - name: Run test suite (including portability & delivery contracts)
         run: npm test
 
-      - name: Run compiler (validate-only)
+      - name: Validate compiler (canonical source contract)
         run: node scripts/build/compile.mjs --validate-only
 
-      - name: Run compiler (full build)
+      - name: Build emitted packages (self-sufficient packages contract)
         run: node scripts/build/compile.mjs
 
-      - name: Run compiler (release mode)
+      - name: Build with provenance (release mode)
         if: runner.os == 'Linux'
         run: node scripts/build/compile.mjs --release
         env:
           GITHUB_SHA: ${{ github.sha }}
           GITHUB_RUN_ID: ${{ github.run_id }}
 
-      - name: Validate Cursor output (strict)
+      - name: Validate self-sufficiency (Cursor output)
         if: runner.os == 'Linux'
         run: |
           if [ ! -f dist/clients/cursor/.cursorrules ]; then
@@ -99,7 +99,7 @@ jobs:
           fi
           echo "Cursor output validation passed ✓"
 
-      - name: Validate registry output
+      - name: Validate self-sufficiency (Registry)
         if: runner.os == 'Linux'
         run: |
           if [ ! -f dist/registry/index.json ]; then
@@ -121,7 +121,7 @@ jobs:
           print(f'All skills have compatibility matrix ✓')
           "
 
-      - name: Validate claude-code output
+      - name: Validate self-sufficiency (claude-code package)
         if: runner.os == 'Linux'
         run: |
           if [ ! -f dist/clients/claude-code/.claude-plugin/plugin.json ]; then
