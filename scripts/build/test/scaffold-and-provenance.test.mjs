@@ -243,6 +243,31 @@ test('new-skill.mjs rejects duplicate skill name', () => {
   }
 });
 
+// ─── 4b. Scaffold does not bump VERSION file ───
+
+test('new-skill.mjs does not change VERSION (version invariance)', () => {
+  const fixture = createScaffoldFixture();
+
+  try {
+    const versionBefore = readFileSync(join(fixture, 'VERSION'), 'utf8').trim();
+
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-version-skill', '--no-link'], {
+      cwd: fixture,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, 'Scaffold should succeed');
+
+    const versionAfter = readFileSync(join(fixture, 'VERSION'), 'utf8').trim();
+    assert.equal(
+      versionAfter,
+      versionBefore,
+      'VERSION file must not change during scaffold (version bump is separate)'
+    );
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+});
+
 // ─── 5. Version parity holds in real repo (unaffected by scaffold) ───
 
 test('version parity check passes', () => {

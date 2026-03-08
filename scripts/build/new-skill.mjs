@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, symlinkSync } from 
 import { join, resolve, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
+import { extractDescription, updateManifestWithSkill } from './lib/manifest-update.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -114,17 +115,12 @@ if (!noLink && process.platform !== 'win32') {
 // ─── 3. Update manifest.md ───
 
 if (existsSync(manifestPath)) {
-  const manifest = readFileSync(manifestPath, 'utf8');
-  const row = `| \`${skillName}\` | TODO: fill description from SKILL.md | \`shared/skills/${skillName}/SKILL.md\` |`;
-  const pluginsHeading = '## Plugins';
-  const idx = manifest.indexOf(pluginsHeading);
-
-  if (idx !== -1) {
-    const updated = manifest.slice(0, idx) + row + '\n' + manifest.slice(idx);
-    writeFileSync(manifestPath, updated);
-    console.log('  \u2192 Added placeholder row to shared/manifest.md (update the description)');
-  } else {
-    console.log('  WARNING: Could not find "## Plugins" section in manifest.md');
+  try {
+    const description = extractDescription(skillContent);
+    updateManifestWithSkill(manifestPath, skillName, description);
+    console.log('  \u2192 Updated shared/manifest.md with skill entry');
+  } catch (err) {
+    console.log(`  WARNING: Could not update manifest: ${err.message}`);
   }
 } else {
   console.log('  WARNING: shared/manifest.md not found');
