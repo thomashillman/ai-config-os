@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 // Import validators (standalone module, no heavy MCP deps)
 import { validateName, validateNumber } from '../../../runtime/mcp/validators.mjs';
 import { isCommandNameSafe } from '../../../runtime/adapters/shell-safe.mjs';
+import { resolveRepoScriptPath } from '../../../runtime/mcp/path-utils.mjs';
 
 // ---------------------------------------------------------------------------
 // validateName
@@ -93,6 +94,55 @@ describe('isCommandNameSafe — accepts valid command names', () => {
       assert.equal(isCommandNameSafe(input), true);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// resolveRepoScriptPath — repo-root script boundary guard
+// ---------------------------------------------------------------------------
+
+describe('resolveRepoScriptPath — accepts scripts inside repo root', () => {
+  const repoRoot = '/home/user/project';
+
+  test('normal in-repo path is accepted', () => {
+    const result = resolveRepoScriptPath('runtime/sync.sh', repoRoot);
+    assert.ok(result !== null, 'Should return a resolved path');
+    assert.ok(result.startsWith(repoRoot), 'Resolved path should be inside repoRoot');
+  });
+
+  test('logically equivalent path with redundant segments is accepted', () => {
+    const result = resolveRepoScriptPath('runtime/../runtime/sync.sh', repoRoot);
+    assert.ok(result !== null, 'Path normalising back inside boundary should be accepted');
+  });
+});
+
+describe('resolveRepoScriptPath — rejects scripts that escape repo root', () => {
+  const repoRoot = '/home/user/project';
+
+  test('../outside.sh is rejected', () => {
+    assert.equal(
+      resolveRepoScriptPath('../outside.sh', repoRoot),
+      null,
+      'Traversal outside repo root must be rejected'
+    );
+  });
+
+  test('sibling-prefix path is rejected', () => {
+    // /home/user/project-evil/script.sh starts with the repo root string
+    // but is not inside it; the boundary check must catch this.
+    assert.equal(
+      resolveRepoScriptPath('/home/user/project-evil/script.sh', repoRoot),
+      null,
+      'Sibling path with shared prefix must be rejected'
+    );
+  });
+
+  test('path containing null byte is rejected', () => {
+    assert.equal(
+      resolveRepoScriptPath('runtime/sync\x00.sh', repoRoot),
+      null,
+      'Null byte in script path must be rejected'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
