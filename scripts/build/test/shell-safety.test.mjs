@@ -8,7 +8,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolve, dirname, sep } from 'node:path';
+import { resolve, join, dirname, sep } from 'node:path';
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
+import { tmpdir, platform } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
   shellEscape,
@@ -304,6 +306,69 @@ test('shell-safety: validatePathBoundary allows exact boundary', () => {
 test('shell-safety: resolveSafePath rejects null bytes', () => {
   const result = resolveSafePath('file\x00.txt', '/home/user');
   assert.equal(result, null, 'Path with null bytes must return null');
+});
+
+// ─── Test 29: isPathSafe accepts child path when boundary has trailing separator ───
+
+test('shell-safety: isPathSafe accepts child when boundary has trailing separator', () => {
+  // isPathSafe must resolve() the boundary before comparison so a trailing
+  // slash does not cause a false negative.
+  const boundary = resolve('/home/user/project') + sep;   // non-canonical input
+  const child    = resolve('/home/user/project/sub/file.txt');
+  assert.equal(
+    isPathSafe(child, boundary),
+    true,
+    'Boundary with trailing separator should still accept contained child paths'
+  );
+});
+
+// ─── Test 30: isPathSafe accepts logically identical paths containing . segments ───
+
+test('shell-safety: isPathSafe accepts path with . segments matching boundary', () => {
+  // resolve() on both sides must collapse . segments before containment check.
+  const boundary = resolve('/home/user/project');
+  const withDots  = '/home/user/project/sub/../file.txt';  // non-canonical form
+  assert.equal(
+    isPathSafe(withDots, boundary),
+    true,
+    'Path with . segments that resolves inside boundary should be accepted'
+  );
+});
+
+// ─── Test 31: isPathSafe rejects any symlink encountered in the path ───
+
+test('shell-safety: isPathSafe rejects symlink in path (filesystem-backed)', { skip: false }, () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'shell-safe-sym-'));
+  try {
+    // Create: tmp/real.txt  and  tmp/sub/link.txt -> tmp/real.txt
+    writeFileSync(join(tmp, 'real.txt'), 'data');
+    mkdirSync(join(tmp, 'sub'));
+
+    // Try to create symlink; skip test gracefully if not supported (e.g., Windows without admin)
+    let symlinkCreated = false;
+    try {
+      symlinkSync(join(tmp, 'real.txt'), join(tmp, 'sub', 'link.txt'));
+      symlinkCreated = true;
+    } catch (err) {
+      if (err.code === 'EACCES' || err.code === 'EPERM') {
+        // Symlink creation not allowed in this environment (e.g., Windows CI without admin)
+        // Skip this specific assertion gracefully
+        return;
+      }
+      throw err;
+    }
+
+    if (symlinkCreated) {
+      // The path passes through sub/link.txt which is a symlink — must be rejected.
+      assert.equal(
+        isPathSafe(join(tmp, 'sub', 'link.txt'), tmp),
+        false,
+        'Any symlink in the path must be rejected'
+      );
+    }
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 });
 
 // All tests use functions imported from runtime/adapters/shell-safe.mjs

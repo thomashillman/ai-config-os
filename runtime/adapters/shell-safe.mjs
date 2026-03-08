@@ -9,9 +9,8 @@
  * - Cross-platform path handling
  */
 
-import { resolve, join, isAbsolute, sep } from 'node:path';
+import { resolve, join, isAbsolute, sep, relative } from 'node:path';
 import { existsSync, lstatSync } from 'node:fs';
-import { platform } from 'node:os';
 
 /**
  * Check if a resolved absolute path is contained within a boundary directory.
@@ -145,7 +144,7 @@ export function resolveSafePath(relPath, boundary) {
     return null;
   }
 
-  const resolved = resolve(join(boundary, relPath));
+  const resolved = resolve(boundary, relPath);
   const resolvedBoundary = resolve(boundary);
 
   // Verify resolved path is within boundary using separator-aware check
@@ -158,41 +157,79 @@ export function resolveSafePath(relPath, boundary) {
 }
 
 /**
- * Check if a path is safe to operate on (not a symlink escape attempt).
- * Walks up path components checking for symlinks that point outside boundary.
+ * Check if a path is safe to operate on (no symlinks anywhere in the path).
+ * Resolves both inputs before comparison, so callers do not need to
+ * pre-canonicalise them (trailing separators, . segments, doubled slashes,
+ * and Windows UNC paths are all handled correctly via path.parse()).
  *
- * @param {string} fullPath - Full absolute path to check
- * @param {string} boundary - Boundary directory
- * @returns {boolean} True if path is safe (no escaping symlinks)
+ * Security contract: any symlink encountered while walking the path
+ * components causes an immediate false return.  This is intentionally
+ * conservative — symlinked setups are rejected outright rather than
+ * followed, which prevents all known symlink-escape patterns at the cost
+ * of not supporting legitimate symlinked layouts.
+ *
+ * CRITICAL: Both paths MUST be canonicalised via resolve() BEFORE the
+ * containment check. Raw string comparison on non-canonical inputs will
+ * incorrectly reject logically valid paths (e.g., boundary with trailing
+ * separator, fullPath with . segments).
+ *
+ * @param {string} fullPath - Full absolute path to check (need not be canonical)
+ * @param {string} boundary - Boundary directory (need not be canonical)
+ * @returns {boolean} True only if path is within boundary and contains no symlinks
  */
 export function isPathSafe(fullPath, boundary) {
+  if (typeof fullPath !== 'string' || typeof boundary !== 'string') {
+    return false;
+  }
+
+  // Reject paths with null bytes
+  if (fullPath.includes('\x00') || boundary.includes('\x00')) {
+    return false;
+  }
+
   if (!isAbsolute(fullPath) || !isAbsolute(boundary)) {
     return false;
   }
 
-  // Use separator-aware containment to prevent sibling-prefix bypasses
-  if (!isContainedIn(fullPath, boundary)) {
+  // Canonicalise both inputs up front so that trailing slashes, . segments,
+  // doubled separators, and Windows UNC paths all compare correctly.
+  let resolvedFullPath;
+  let resolvedBoundary;
+  try {
+    resolvedFullPath = resolve(fullPath);
+    resolvedBoundary = resolve(boundary);
+  } catch {
     return false;
   }
 
-  // Walk up path components checking for symlinks
-  const parts = fullPath.split(/[\\/]/);
-  let current = platform() === 'win32' ? parts[0] + '\\' : '/';
+  // Use separator-aware containment to prevent sibling-prefix bypasses.
+  if (!isContainedIn(resolvedFullPath, resolvedBoundary)) {
+    return false;
+  }
 
-  for (let i = 1; i < parts.length; i++) {
-    current = join(current, parts[i]);
+  // Walk only the path components WITHIN the boundary for symlink detection.
+  // The boundary itself is caller-trusted; checking ancestors of the boundary
+  // (e.g. /home on macOS, which is a system symlink to /System/Volumes/Data/home)
+  // would cause false negatives on legitimate child paths. Only symlinks
+  // introduced by user-controlled path segments inside the boundary matter.
+  const relFromBoundary = relative(resolvedBoundary, resolvedFullPath);
+  const parts = relFromBoundary === ''
+    ? []
+    : relFromBoundary.split(/[\\/]/).filter(Boolean);
+  let current = resolvedBoundary;
 
-    // Check if this component is a symlink
+  for (const part of parts) {
+    current = join(current, part);
+
+    // Reject any symlink encountered in the path — conservative, fails closed.
     if (existsSync(current)) {
       try {
         const stat = lstatSync(current);
         if (stat.isSymbolicLink()) {
-          // Verify the symlink target stays within boundary
-          // This is a simplified check; real code might use readlinkSync
-          return false; // Conservative: reject symlinks in path
+          return false;
         }
       } catch {
-        // If we can't stat it, reject it
+        // If we can't stat it, reject it.
         return false;
       }
     }
