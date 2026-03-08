@@ -8,7 +8,8 @@
 - `shared/targets/clients.yaml` — DEPRECATED: use platforms/ directory instead
 - `plugins/core-skills/skills/` — symlinks into shared/skills (never edit here directly)
 - `.claude-plugin/marketplace.json` — marketplace manifest
-- `plugins/core-skills/.claude-plugin/plugin.json` — plugin metadata (bump version on changes)
+- `VERSION` — canonical release version (only file humans edit for version bumps)
+- `plugins/core-skills/.claude-plugin/plugin.json` — plugin metadata (mirrors VERSION; do not edit version by hand)
 - `schemas/skill.schema.json` — JSON Schema for skill package manifests
 - `schemas/platform.schema.json` — JSON Schema for platform capability definitions
 - `schemas/probe-result.schema.json` — JSON Schema for runtime probe output
@@ -19,7 +20,7 @@
 - `dashboard/` — React SPA: tool status, skill stats, context cost, config, audit, analytics
 
 ## Creating a new skill
-Run `ops/new-skill.sh <skill-name>` — this creates the skill directory, symlink, manifest entry, and bumps the plugin version.
+Run `ops/new-skill.sh <skill-name>` — this creates the skill directory, symlink, and manifest entry.
 
 ## Testing locally
 Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
@@ -35,7 +36,7 @@ Token efficiency is paramount. **Unnecessary token wastage is forbidden.** Prefe
 
 ## Key rules
 - Always author skills in `shared/skills/`, never directly in `plugins/`
-- Bump `version` in `plugins/core-skills/.claude-plugin/plugin.json` after any skill change
+- Only bump version in the root `VERSION` file; run `npm run version:sync` to mirror it, then `npm run version:check` before committing
 - Symlinks must use relative paths: `../../../shared/skills/<name>`
 - Run `claude plugin validate .` before committing
 - Start new skills from `shared/skills/_template/SKILL.md` (Phase 2: enhanced with full frontmatter)
@@ -56,20 +57,16 @@ Before doing any work on a `claude/` branch:
    - Skip if: branch has been reviewed, 5+ commits with likely conflicts, or deliberately cut from a historical tag
    - Use the `git-ops` skill to validate before rebasing
 
-3. **When bumping `plugin.json` version, derive from `origin/main` at bump-time**
+3. **When bumping the release version, edit only the `VERSION` file**
    ```sh
-   # Read canonical version, don't trust the working tree
-   git show origin/main:plugins/core-skills/.claude-plugin/plugin.json | jq -r '.version'
+   # Edit VERSION, then sync derived files
+   npm run version:sync
+   npm run version:check
    ```
-   - Parse that version and increment the patch component (unless major/minor bump needed)
-   - Never read the working tree's version as the base; it reflects an older merge-base
+   - `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` are derived — never edit their versions by hand
+   - The parity check will fail in CI if any file is out of sync
 
-4. **If another `claude/` branch is known to be open and also touching `plugin.json`**
-   - Flag the conflict to the user rather than guessing the version
-   - Use the `git-ops` skill's race-condition detection
-   - Recommendation: coordinate with the other session or escalate to user
-
-The `git-ops` skill automates these checks. Use it whenever bumping versions or rebasing.
+The `git-ops` skill automates rebasing checks. Use it when rebasing.
 
 ## Phase 2: Enhanced SKILL.md Frontmatter
 
@@ -215,7 +212,10 @@ Skills are compiled and distributed via a GitHub-authored, CI-built, Cloudflare-
 npm install                            # first time only
 node scripts/build/compile.mjs         # validate + resolve compatibility + emit dist/
 node scripts/build/compile.mjs --validate-only  # full validation pipeline, no file output
+node scripts/build/compile.mjs --release        # emit with provenance (CI/release only)
 ```
+
+The compiler reads the release version from the root `VERSION` file. Local builds are deterministic — no timestamps or git metadata are injected. Provenance (built_at, build_id, source_commit) is only added in release mode (`--release` flag or `AI_CONFIG_RELEASE=1` env var).
 
 Output: `dist/clients/<platform>/` (claude-code, cursor) + `dist/registry/index.json`
 

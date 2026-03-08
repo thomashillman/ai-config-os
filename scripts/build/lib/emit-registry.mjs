@@ -10,17 +10,17 @@ import { join, dirname } from 'path';
  * @param {string[]} platforms - Platform IDs that were emitted
  * @param {object} opts
  * @param {string} opts.distDir - Root dist/ directory
- * @param {string} opts.buildVersion
- * @param {string} opts.builtAt
+ * @param {string} opts.releaseVersion - release version from VERSION file
+ * @param {object|null} [opts.provenance] - optional provenance (release mode only)
  * @param {Map<string, Map<string, object>>} [opts.compatMatrix] - Compatibility matrix
  */
-export function emitRegistry(skills, platforms, { distDir, buildVersion, builtAt, compatMatrix }) {
+export function emitRegistry(skills, platforms, { distDir, releaseVersion, provenance, compatMatrix }) {
   const indexPath = join(distDir, 'registry', 'index.json');
   mkdirSync(dirname(indexPath), { recursive: true });
 
   const index = {
-    version: buildVersion,
-    built_at: builtAt,
+    version: releaseVersion,
+    ...(provenance?.builtAt ? { built_at: provenance.builtAt } : {}),
     skill_count: skills.length,
     platform_count: platforms.length,
     platforms,

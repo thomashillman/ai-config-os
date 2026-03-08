@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - 'VERSION'
       - 'shared/skills/**'
       - 'shared/targets/**'
       - 'schemas/**'
@@ -12,6 +13,7 @@ on:
       - 'package.json'
   pull_request:
     paths:
+      - 'VERSION'
       - 'shared/skills/**'
       - 'shared/targets/**'
       - 'schemas/**'
@@ -35,6 +37,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Check version parity
+        run: npm run version:check
 
       - name: Lint platform files
         run: node scripts/lint/platform.mjs shared/targets/platforms/*.yaml
