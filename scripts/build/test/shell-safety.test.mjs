@@ -8,12 +8,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   shellEscape,
   sanitizePath,
-  validatePathBoundary
+  validatePathBoundary,
+  resolveSafePath,
+  isPathSafe
 } from '../../../runtime/adapters/shell-safe.mjs';
 
 // ─── Test 1: Command injection attempt with command substitution ───
@@ -206,6 +208,102 @@ test('shell-safety: allow valid relative path with backslash', () => {
     true,
     'Should allow backslash paths that stay within boundary'
   );
+});
+
+// ─── Test 20: validatePathBoundary sibling-prefix bypass ───
+
+test('shell-safety: reject sibling-prefix path', () => {
+  // Use resolve() to get platform-specific absolute paths
+  const boundary = resolve('/home/user');
+  const sibling = resolve('/home/user-evil/file.txt');
+
+  assert.equal(
+    validatePathBoundary(sibling, boundary),
+    false,
+    'Sibling path with shared prefix must be rejected'
+  );
+});
+
+// ─── Test 21: resolveSafePath sibling-prefix bypass ───
+
+test('shell-safety: resolveSafePath rejects sibling-prefix path', () => {
+  const boundary = resolve('/home/user');
+  const sibling = resolve('/home/user-evil/file.txt');
+  const result = resolveSafePath(sibling, boundary);
+  assert.equal(result, null, 'Sibling path with shared prefix must return null');
+});
+
+// ─── Test 22: resolveSafePath allows valid child paths ───
+
+test('shell-safety: resolveSafePath allows child paths', () => {
+  const boundary = resolve('/home/user');
+  const result = resolveSafePath('subdir/file.txt', boundary);
+  assert.ok(result !== null, 'Valid child path should resolve');
+  // Check that result is contained within boundary by comparing resolved paths
+  const expectedPrefix = boundary + sep;
+  assert.ok(result.startsWith(expectedPrefix), `Resolved path ${result} should start with ${expectedPrefix}`);
+});
+
+// ─── Test 23: resolveSafePath rejects traversal ───
+
+test('shell-safety: resolveSafePath rejects traversal', () => {
+  const boundary = resolve('/home/user');
+  const result = resolveSafePath('../../etc/passwd', boundary);
+  assert.equal(result, null, 'Traversal path must return null');
+});
+
+// ─── Test 24: isPathSafe rejects sibling-prefix paths ───
+
+test('shell-safety: isPathSafe rejects sibling-prefix path', () => {
+  const boundary = resolve('/home/user');
+  const sibling = resolve('/home/user-evil/file.txt');
+  assert.equal(
+    isPathSafe(sibling, boundary),
+    false,
+    'Sibling path with shared prefix must be rejected'
+  );
+});
+
+// ─── Test 25: isPathSafe allows exact boundary ───
+
+test('shell-safety: isPathSafe allows exact boundary path', () => {
+  // Use the test file's own directory, which definitely exists
+  const boundary = dirname(fileURLToPath(import.meta.url));
+  assert.equal(
+    isPathSafe(boundary, boundary),
+    true,
+    'Exact boundary path should be allowed'
+  );
+});
+
+// ─── Test 26: isPathSafe rejects path outside boundary ───
+
+test('shell-safety: isPathSafe rejects path outside boundary', () => {
+  const boundary = resolve('/home/user');
+  const outside = resolve('/etc/passwd');
+  assert.equal(
+    isPathSafe(outside, boundary),
+    false,
+    'Path outside boundary must be rejected'
+  );
+});
+
+// ─── Test 27: validatePathBoundary allows exact boundary ───
+
+test('shell-safety: validatePathBoundary allows exact boundary', () => {
+  const boundary = resolve('/home/user');
+  assert.equal(
+    validatePathBoundary(boundary, boundary),
+    true,
+    'Exact boundary path should be allowed'
+  );
+});
+
+// ─── Test 28: resolveSafePath rejects null bytes ───
+
+test('shell-safety: resolveSafePath rejects null bytes', () => {
+  const result = resolveSafePath('file\x00.txt', '/home/user');
+  assert.equal(result, null, 'Path with null bytes must return null');
 });
 
 // All tests use functions imported from runtime/adapters/shell-safe.mjs

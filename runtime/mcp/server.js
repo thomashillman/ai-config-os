@@ -12,14 +12,20 @@ import express from "express";
 import cors from "cors";
 import fs from "fs";
 import { validateName, validateNumber } from "./validators.mjs";
-import { isCommandNameSafe } from "../adapters/shell-safe.mjs";
+import { isCommandNameSafe, validatePathBoundary } from "../adapters/shell-safe.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
 
 function runScript(script, args = []) {
+  // Validate script path stays within repository root
+  const scriptPath = path.resolve(REPO_ROOT, script);
+  if (!validatePathBoundary(scriptPath, REPO_ROOT)) {
+    return { success: false, output: "Script path escapes repository root", error: "Path validation failed" };
+  }
+
   try {
-    const result = execFileSync("bash", [path.join(REPO_ROOT, script), ...args], {
+    const result = execFileSync("bash", [scriptPath, ...args], {
       encoding: "utf8",
       timeout: 30000,
       cwd: REPO_ROOT,

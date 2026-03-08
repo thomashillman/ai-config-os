@@ -9,9 +9,27 @@
  * - Cross-platform path handling
  */
 
-import { resolve, join, isAbsolute } from 'node:path';
+import { resolve, join, isAbsolute, sep } from 'node:path';
 import { existsSync, lstatSync } from 'node:fs';
 import { platform } from 'node:os';
+
+/**
+ * Check if a resolved absolute path is contained within a boundary directory.
+ * Uses separator-aware comparison to prevent sibling-prefix bypasses
+ * (e.g. /safe/base-evil should not match boundary /safe/base).
+ *
+ * @param {string} resolved - Resolved absolute path
+ * @param {string} resolvedBoundary - Resolved absolute boundary path
+ * @returns {boolean} True if resolved is exactly the boundary or a child of it
+ */
+function isContainedIn(resolved, resolvedBoundary) {
+  if (resolved === resolvedBoundary) {
+    return true;
+  }
+  // Use platform-specific separator to prevent false matches
+  // (e.g., /safe/base-evil would not match /safe/base + '/')
+  return resolved.startsWith(resolvedBoundary + sep);
+}
 
 /**
  * Escape a string for safe use in shell commands.
@@ -100,38 +118,11 @@ export function validatePathBoundary(untrustedPath, boundary) {
   if (/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(untrustedPath)) {
     return false;
   }
-  // For absolute paths, use path-aware comparison (not string prefix)
-  if (isAbsolute(untrustedPath)) {
-    try {
-      const resolved = resolve(boundary, untrustedPath);
-      const resolvedBoundary = resolve(boundary);
-
-      // Path-aware comparison: ensure resolved path starts with boundary + separator
-      // This prevents /safe/base-evil from passing when boundary is /safe/base
-      if (resolved === resolvedBoundary) {
-        return true; // The exact boundary path is allowed
-      }
-
-      // Check if resolved is inside boundary by path, not string prefix
-      return resolved.startsWith(resolvedBoundary + '/') ||
-             resolved.startsWith(resolvedBoundary + '\\');
-    } catch (err) {
-      // If path resolution fails, reject for safety
-      return false;
-    }
-  }
-
-  // For relative paths, validate they don't escape when resolved
+  // Resolve both paths and use separator-aware containment check
   try {
     const resolved = resolve(boundary, untrustedPath);
     const resolvedBoundary = resolve(boundary);
-
-    if (resolved === resolvedBoundary) {
-      return true;
-    }
-
-    return resolved.startsWith(resolvedBoundary + '/') ||
-           resolved.startsWith(resolvedBoundary + '\\');
+    return isContainedIn(resolved, resolvedBoundary);
   } catch (err) {
     return false;
   }
@@ -155,10 +146,11 @@ export function resolveSafePath(relPath, boundary) {
   }
 
   const resolved = resolve(join(boundary, relPath));
+  const resolvedBoundary = resolve(boundary);
 
-  // Verify resolved path actually starts with boundary
+  // Verify resolved path is within boundary using separator-aware check
   // (resolving may have escaped via symlinks)
-  if (!resolved.startsWith(boundary)) {
+  if (!isContainedIn(resolved, resolvedBoundary)) {
     return null;
   }
 
@@ -178,7 +170,8 @@ export function isPathSafe(fullPath, boundary) {
     return false;
   }
 
-  if (!fullPath.startsWith(boundary)) {
+  // Use separator-aware containment to prevent sibling-prefix bypasses
+  if (!isContainedIn(fullPath, boundary)) {
     return false;
   }
 
