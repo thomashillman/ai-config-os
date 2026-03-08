@@ -100,7 +100,6 @@ export function validatePathBoundary(untrustedPath, boundary) {
   if (/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(untrustedPath)) {
     return false;
   }
-
   // For absolute paths, use path-aware comparison (not string prefix)
   if (isAbsolute(untrustedPath)) {
     try {
