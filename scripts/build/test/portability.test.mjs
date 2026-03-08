@@ -217,6 +217,7 @@ function isAbsolutePath(path) {
   // Check for Unix absolute path
   return path.startsWith('/');
 }
+
 function createEnvGetter(env) {
   return (key) => {
     if (platform() === 'win32') {
