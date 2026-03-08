@@ -1,13 +1,18 @@
 /**
  * portability.test.mjs
  *
- * Tests runtime layer portability across Windows, macOS, and Linux.
- * Covers path separators, line endings, environment variables, and
- * file permission assumptions.
+ * Tests runtime/adapters/shell-safe.mjs portability features across
+ * Windows, macOS, and Linux. Covers path separators, line endings, and
+ * environment variable handling. These are real production tests against
+ * the shell-safe module, not local simulations.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { platform } from 'node:os';
+import {
+  normalizePath,
+  normalizeLineEndings
+} from '../../../runtime/adapters/shell-safe.mjs';
 
 // ─── Test 1: Path separator normalization (/ vs \) ───
 
@@ -197,11 +202,7 @@ test('portability: handle missing environment variables gracefully', () => {
   assert.ok(missing === undefined || missing === '', 'Should handle missing var');
 });
 
-// ─── Helper functions ───
-
-function normalizePath(path) {
-  return path.replace(/\\/g, '/');
-}
+// ─── Test infrastructure helpers (not production code, used by tests) ───
 
 function pathJoin(...parts) {
   const sep = platform() === 'win32' ? '\\' : '/';
@@ -215,10 +216,6 @@ function isAbsolutePath(path) {
   }
   // Check for Unix absolute path
   return path.startsWith('/');
-}
-
-function normalizeLineEndings(text) {
-  return text.replace(/\r\n/g, '\n');
 }
 
 function createEnvGetter(env) {

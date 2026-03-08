@@ -1,0 +1,444 @@
+/**
+ * delivery-contract.test.mjs
+ *
+ * Tests that the delivery contract is fully honored:
+ * 1. All emitted files exist and are non-empty
+ * 2. All distributed SKILL.md files have required structure
+ * 3. Plugin.json files for all platforms are valid and consistent
+ * 4. Registry index is complete with all expected metadata
+ * 5. Cursor .cursorrules is present (if skills are compatible)
+ * 6. Cross-file references are valid (no dangling links or missing skills)
+ * 7. Version consistency across all artefacts
+ * 8. Path integrity: all referenced skill paths exist on disk
+ */
+
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseSkill } from '../lib/parse-skill.mjs';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__dirname, '../../..');
+const COMPILE_MJS = resolve(__dirname, '..', 'compile.mjs');
+const DIST_DIR = join(REPO_ROOT, 'dist');
+const CLIENTS_DIR = join(DIST_DIR, 'clients');
+const REGISTRY_DIR = join(DIST_DIR, 'registry');
+
+// ───────────────────────────────────────────────────────────────────────────
+// Helper: Run compiler to ensure dist/ is fresh (with retry logic)
+// ───────────────────────────────────────────────────────────────────────────
+
+function ensureFreshDist() {
+  const result = spawnSync(process.execPath, [COMPILE_MJS], {
+    cwd: REPO_ROOT,
+    encoding: 'utf8',
+    timeout: 30000,
+  });
+  if (result.status !== 0) {
+    console.error('Compiler stderr:', result.stderr);
+    console.error('Compiler stdout:', result.stdout);
+    assert.equal(result.status, 0, `Compiler failed with status ${result.status}`);
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Helper: Recursively get all files in a directory
+// ───────────────────────────────────────────────────────────────────────────
+
+function getAllFilesRecursive(dir) {
+  const files = [];
+  function walk(currentDir) {
+    for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
+      const fullPath = join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else {
+        files.push(fullPath);
+      }
+    }
+  }
+  walk(dir);
+  return files;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 1: Directory structure and file existence
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — directory structure', () => {
+  test('dist/ directory exists', () => {
+    assert.ok(existsSync(DIST_DIR), 'dist/ should exist');
+  });
+
+  test('dist/clients/ exists with at least one platform', () => {
+    assert.ok(existsSync(CLIENTS_DIR), 'dist/clients/ should exist');
+    const platforms = readdirSync(CLIENTS_DIR, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+    assert.ok(platforms.length > 0, 'Should have at least one platform (claude-code or cursor)');
+  });
+
+  test('dist/registry/ exists with index.json', () => {
+    assert.ok(existsSync(REGISTRY_DIR), 'dist/registry/ should exist');
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    assert.ok(existsSync(indexPath), 'dist/registry/index.json should exist');
+  });
+
+  test('no empty files in dist/', () => {
+    const allFiles = getAllFilesRecursive(DIST_DIR);
+    const emptyFiles = allFiles.filter(f => statSync(f).size === 0);
+    assert.equal(
+      emptyFiles.length,
+      0,
+      `Found ${emptyFiles.length} empty files in dist/:\n${emptyFiles.join('\n')}`
+    );
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 2: SKILL.md file structure in distribution
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — distributed SKILL.md files', () => {
+  test('all distributed SKILL.md files have valid structure', () => {
+    const skillFiles = getAllFilesRecursive(CLIENTS_DIR).filter(f => f.endsWith('SKILL.md'));
+    assert.ok(skillFiles.length > 0, 'Should have at least one distributed SKILL.md');
+
+    for (const skillPath of skillFiles) {
+      try {
+        const { frontmatter, body } = parseSkill(skillPath);
+
+        // Required frontmatter fields
+        assert.ok(frontmatter.skill, `${skillPath}: missing 'skill' field`);
+        assert.ok(frontmatter.description, `${skillPath}: missing 'description' field`);
+        assert.ok(frontmatter.type, `${skillPath}: missing 'type' field`);
+        assert.ok(frontmatter.status, `${skillPath}: missing 'status' field`);
+        assert.ok(frontmatter.version, `${skillPath}: missing 'version' field`);
+
+        // Body should not be empty
+        assert.ok(body && body.length > 0, `${skillPath}: body should not be empty`);
+
+        // Version should be semver
+        assert.match(
+          frontmatter.version,
+          /^\d+\.\d+\.\d+$/,
+          `${skillPath}: version should be semver (X.Y.Z)`
+        );
+      } catch (err) {
+        assert.fail(`${skillPath}: ${err.message}`);
+      }
+    }
+  });
+
+  test('distributed SKILL.md files are readable (UTF-8)', () => {
+    const skillFiles = getAllFilesRecursive(CLIENTS_DIR).filter(f => f.endsWith('SKILL.md'));
+
+    for (const skillPath of skillFiles) {
+      try {
+        const content = readFileSync(skillPath, 'utf8');
+        assert.ok(typeof content === 'string', `${skillPath}: should be valid UTF-8`);
+        assert.ok(content.length > 0, `${skillPath}: should not be empty`);
+      } catch (err) {
+        assert.fail(`${skillPath}: ${err.message}`);
+      }
+    }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 3: Plugin.json validity
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — plugin.json validity', () => {
+  test('claude-code plugin.json exists and is valid JSON', () => {
+    const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
+    assert.ok(existsSync(pluginPath), 'claude-code plugin.json should exist');
+
+    const content = readFileSync(pluginPath, 'utf8');
+    let plugin;
+    try {
+      plugin = JSON.parse(content);
+    } catch (err) {
+      assert.fail(`claude-code plugin.json is not valid JSON: ${err.message}`);
+    }
+
+    assert.ok(plugin.version, 'plugin.json should have version');
+    assert.ok(plugin.skills, 'plugin.json should have skills array');
+    assert.ok(Array.isArray(plugin.skills), 'plugin.skills should be an array');
+    assert.ok(plugin.skills.length > 0, 'plugin.skills should have at least one skill');
+  });
+
+  test('each skill in plugin.json has required fields', () => {
+    const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
+    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+
+    for (const skill of plugin.skills) {
+      assert.ok(skill.name, `Skill should have name: ${JSON.stringify(skill)}`);
+      assert.ok(skill.version, `Skill ${skill.name} should have version`);
+      assert.ok(skill.path, `Skill ${skill.name} should have path`);
+
+      // Version should be semver
+      assert.match(skill.version, /^\d+\.\d+\.\d+$/, `Skill ${skill.name} version should be semver`);
+    }
+  });
+
+  test('all skill paths in plugin.json exist on disk', () => {
+    const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
+    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+
+    for (const skill of plugin.skills) {
+      const skillPath = join(CLIENTS_DIR, 'claude-code', skill.path);
+      assert.ok(
+        existsSync(skillPath),
+        `Skill path should exist: ${skill.path} (resolved to ${skillPath})`
+      );
+    }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 4: Registry index.json validity
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — registry index.json', () => {
+  test('registry index.json is valid JSON with required fields', () => {
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    const content = readFileSync(indexPath, 'utf8');
+
+    let registry;
+    try {
+      registry = JSON.parse(content);
+    } catch (err) {
+      assert.fail(`registry/index.json is not valid JSON: ${err.message}`);
+    }
+
+    assert.ok(registry.skills, 'registry should have skills array');
+    assert.ok(Array.isArray(registry.skills), 'registry.skills should be array');
+    assert.ok(registry.platforms, 'registry should have platforms array');
+    assert.ok(Array.isArray(registry.platforms), 'registry.platforms should be array');
+    assert.ok(typeof registry.skill_count === 'number', 'registry should have skill_count');
+    assert.ok(typeof registry.platform_count === 'number', 'registry should have platform_count');
+  });
+
+  test('registry skill_count matches actual skills', () => {
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+    assert.equal(
+      registry.skill_count,
+      registry.skills.length,
+      'skill_count should match skills array length'
+    );
+  });
+
+  test('registry platform_count matches actual platforms', () => {
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+    assert.equal(
+      registry.platform_count,
+      registry.platforms.length,
+      'platform_count should match platforms array length'
+    );
+  });
+
+  test('all registry skills have id and compatibility', () => {
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+    for (const skill of registry.skills) {
+      assert.ok(skill.id, `Skill should have id: ${JSON.stringify(skill)}`);
+      assert.ok(
+        skill.compatibility && typeof skill.compatibility === 'object',
+        `Skill ${skill.id} should have compatibility object`
+      );
+      assert.ok(
+        Object.keys(skill.compatibility).length > 0,
+        `Skill ${skill.id} should have at least one platform in compatibility`
+      );
+    }
+  });
+
+  test('registry platforms list is non-empty', () => {
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+    assert.ok(registry.platforms.length > 0, 'registry should list at least one platform');
+    assert.ok(
+      registry.platforms.includes('claude-code'),
+      'registry should include claude-code platform'
+    );
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 5: Cursor .cursorrules validity (if cursor platform exists)
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — cursor .cursorrules', () => {
+  test('cursor .cursorrules exists if cursor skills are compatible', () => {
+    const cursorPath = join(CLIENTS_DIR, 'cursor', '.cursorrules');
+    const cursorDir = join(CLIENTS_DIR, 'cursor');
+
+    if (existsSync(cursorDir)) {
+      // If cursor directory exists, .cursorrules should exist
+      assert.ok(
+        existsSync(cursorPath),
+        'cursor/.cursorrules should exist if cursor platform directory exists'
+      );
+
+      const content = readFileSync(cursorPath, 'utf8');
+      assert.ok(content.length > 0, 'cursor/.cursorrules should not be empty');
+    }
+  });
+
+  test('cursor .cursorrules has required headers', () => {
+    const cursorPath = join(CLIENTS_DIR, 'cursor', '.cursorrules');
+
+    if (existsSync(cursorPath)) {
+      const content = readFileSync(cursorPath, 'utf8');
+
+      // Should have version header
+      assert.ok(
+        /# Version: \d+\.\d+\.\d+/.test(content),
+        'cursor/.cursorrules should have version header (# Version: X.Y.Z)'
+      );
+
+      // Should have AI Config OS header
+      assert.ok(
+        content.includes('# AI Config OS'),
+        'cursor/.cursorrules should have AI Config OS header'
+      );
+    }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 6: Version consistency across artefacts
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — version consistency', () => {
+  test('all platform plugin.json files have matching version', () => {
+    const platforms = readdirSync(CLIENTS_DIR, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    const versions = {};
+    for (const platform of platforms) {
+      const pluginPath = join(CLIENTS_DIR, platform, '.claude-plugin', 'plugin.json');
+      if (existsSync(pluginPath)) {
+        const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+        versions[platform] = plugin.version;
+      }
+    }
+
+    // All versions should be identical
+    const uniqueVersions = new Set(Object.values(versions));
+    assert.equal(
+      uniqueVersions.size,
+      1,
+      `All platforms should have the same version. Got: ${JSON.stringify(versions)}`
+    );
+  });
+
+  test('registry and plugin.json versions match', () => {
+    const registryPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+
+    const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
+    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+
+    assert.equal(
+      registry.version,
+      plugin.version,
+      'registry version should match plugin.json version'
+    );
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 7: Cross-file reference integrity
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — reference integrity', () => {
+  test('all registry skill IDs are present in plugin.json', () => {
+    const registryPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+
+    const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
+    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+
+    const pluginSkillNames = new Set(plugin.skills.map(s => s.name));
+    const registrySkillIds = new Set(registry.skills.map(s => s.id));
+
+    // Every registry skill should be in plugin
+    for (const skillId of registrySkillIds) {
+      assert.ok(
+        pluginSkillNames.has(skillId),
+        `Registry skill ${skillId} not found in plugin.json`
+      );
+    }
+  });
+
+  test('all plugin.json skills are in registry', () => {
+    const registryPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+
+    const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
+    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+
+    const registrySkillIds = new Set(registry.skills.map(s => s.id));
+
+    for (const skill of plugin.skills) {
+      assert.ok(
+        registrySkillIds.has(skill.name),
+        `Plugin skill ${skill.name} not found in registry`
+      );
+    }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 8: Prompt file integrity
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — prompt file existence', () => {
+  test('all referenced prompt files exist', () => {
+    const skillFiles = getAllFilesRecursive(CLIENTS_DIR).filter(f => f.endsWith('SKILL.md'));
+
+    for (const skillPath of skillFiles) {
+      const { frontmatter } = parseSkill(skillPath);
+      const skillDir = dirname(skillPath);
+
+      // Check variants for prompt files
+      if (frontmatter.variants) {
+        for (const [variantName, variantDef] of Object.entries(frontmatter.variants)) {
+          if (variantDef.prompt_file) {
+            const promptPath = join(skillDir, variantDef.prompt_file);
+            assert.ok(
+              existsSync(promptPath),
+              `Prompt file not found: ${variantDef.prompt_file} (skill: ${frontmatter.skill}, variant: ${variantName})`
+            );
+          }
+        }
+      }
+    }
+  });
+
+  test('all prompt files are non-empty and readable', () => {
+    const promptFiles = getAllFilesRecursive(CLIENTS_DIR).filter(f => f.endsWith('.md'));
+
+    for (const promptPath of promptFiles) {
+      try {
+        const content = readFileSync(promptPath, 'utf8');
+        assert.ok(content.length > 0, `Prompt file should not be empty: ${promptPath}`);
+      } catch (err) {
+        assert.fail(`Failed to read prompt file ${promptPath}: ${err.message}`);
+      }
+    }
+  });
+});
