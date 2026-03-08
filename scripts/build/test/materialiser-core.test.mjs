@@ -278,4 +278,101 @@ test('Materialiser Core', async (t) => {
     assert.deepEqual(err.context.skill, 'test-skill');
     assert.deepEqual(err.context.path, '/invalid/path');
   });
+
+  // ─── Security Tests: Path Traversal & Symlink Attacks ───
+
+  await t.test('Security: should reject Windows-style absolute paths', () => {
+    const pkg = createTestPackage();
+
+    try {
+      const metadata = readPackageMetadata(pkg);
+      metadata.skills[0].path = 'C:\\Windows\\System32\\bad'; // Windows absolute path
+
+      assert.throws(
+        () => validatePackageContents(pkg, metadata),
+        MaterialiserError,
+        'Should reject Windows absolute paths'
+      );
+    } finally {
+      rmSync(pkg, { recursive: true, force: true });
+    }
+  });
+
+  await t.test('Security: should reject paths with null bytes', () => {
+    const pkg = createTestPackage();
+
+    try {
+      const metadata = readPackageMetadata(pkg);
+      metadata.skills[0].path = 'skills/skill\0/SKILL.md'; // null byte attack
+
+      assert.throws(
+        () => validatePackageContents(pkg, metadata),
+        MaterialiserError,
+        'Should reject paths with null bytes'
+      );
+    } finally {
+      rmSync(pkg, { recursive: true, force: true });
+    }
+  });
+
+  await t.test('Security: should reject complex path traversal patterns', () => {
+    const pkg = createTestPackage();
+
+    try {
+      const metadata = readPackageMetadata(pkg);
+      const attacks = [
+        'skills/../../../etc/passwd',
+        '..\\..\\..\\windows\\system32',
+        'skills/./../../bad',
+        './../../../etc/passwd',
+      ];
+
+      for (const path of attacks) {
+        metadata.skills[0].path = path;
+        assert.throws(
+          () => validatePackageContents(pkg, metadata),
+          MaterialiserError,
+          `Should reject path traversal: ${path}`
+        );
+      }
+    } finally {
+      rmSync(pkg, { recursive: true, force: true });
+    }
+  });
+
+  await t.test('Security: should reject directories when files expected', () => {
+    const pkg = createTestPackage();
+
+    try {
+      const metadata = readPackageMetadata(pkg);
+      metadata.skills[0].path = 'skills/skill-one'; // directory, not file
+
+      assert.throws(
+        () => validatePackageContents(pkg, metadata),
+        MaterialiserError,
+        'Should reject directory paths'
+      );
+    } finally {
+      rmSync(pkg, { recursive: true, force: true });
+    }
+  });
+
+  await t.test('Security: materializePackage should refuse to extract from untrusted packages', () => {
+    const pkg = createTestPackage();
+    const dest = mkdtempSync(join(tmpdir(), 'materialise-dest-'));
+
+    try {
+      const metadata = readPackageMetadata(pkg);
+      metadata.skills[0].path = '../../etc/passwd'; // path traversal
+
+      assert.throws(
+        () => materializePackage(pkg, dest),
+        MaterialiserError,
+        'Should refuse extraction with path traversal in metadata'
+      );
+    } finally {
+      rmSync(pkg, { recursive: true, force: true });
+      rmSync(dest, { recursive: true, force: true });
+    }
+  });
 });
