@@ -88,19 +88,25 @@ writeFileSync(join(sharedDir, 'SKILL.md'), skillContent);
 console.log(`Created skill '${skillName}'`);
 console.log(`  \u2192 ${sharedDir}/SKILL.md (edit this)`);
 
-// ─── 2. Optionally create symlink (Unix only, unless --no-link) ───
+// ─── 2. Optionally create symlink (Unix only, convenience feature) ───
+//
+// Portability contract: skills are created in shared/skills/ regardless of platform.
+// Symlinks are an optional authoring convenience on Unix; they are NOT part of
+// the build contract (compiler reads only shared/skills/).
+// The --no-link flag explicitly skips symlink creation (portable mode, default on Windows).
 
 if (!noLink && process.platform !== 'win32') {
+  // Unix and not --no-link: create convenience symlink
   mkdirSync(dirname(pluginDir), { recursive: true });
   const target = relative(dirname(pluginDir), sharedDir);
   try {
     symlinkSync(target, pluginDir);
-    console.log(`  \u2192 ${pluginDir} (symlink)`);
+    console.log(`  \u2192 ${pluginDir} (symlink) [optional convenience]`);
   } catch (err) {
     console.log(`  WARNING: Could not create symlink: ${err.message}`);
   }
 } else if (noLink) {
-  console.log('  (symlink skipped: --no-link)');
+  console.log('  (symlink skipped: --no-link / portable mode)');
 } else {
   console.log('  (symlink skipped: not supported on this platform)');
 }
