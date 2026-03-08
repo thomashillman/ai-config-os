@@ -35,7 +35,7 @@ const PLATFORM_SCHEMA_PATH = join(ROOT, 'schemas', 'platform.schema.json');
 // Release version from VERSION file; provenance only in release mode
 const releaseVersion = validateReleaseVersion(readReleaseVersion(ROOT));
 const releaseMode = process.argv.includes('--release') || process.env.AI_CONFIG_RELEASE === '1';
-const provenance = getBuildProvenance({ releaseMode, cwd: ROOT });
+// Note: provenance is calculated in main() to ensure current env is used
 
 async function loadValidators() {
   const { default: Ajv } = await import('ajv/dist/2020.js');
@@ -70,6 +70,9 @@ function scanSkills() {
 }
 
 async function main() {
+  // Calculate provenance at runtime so tests can override env variables
+  const provenance = getBuildProvenance({ releaseMode, cwd: ROOT });
+
   console.log('\nai-config-os compiler');
   console.log(`  version: ${releaseVersion}${releaseMode ? ' (release)' : ''}`);
   console.log(`  mode:    ${VALIDATE_ONLY ? 'validate-only' : 'full build'}\n`);
