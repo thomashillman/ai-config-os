@@ -1,28 +1,59 @@
 # AI Config OS
 
-**Purpose:** Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents. All skill authoring happens in `shared/skills/`; `plugins/` contains only symlinks.
+**Purpose:** Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents. Skills are authored once in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed or materialised without requiring source-tree access.
 
 ## Structure
-- `shared/skills/` — canonical skill definitions (author here)
+
+### Source & Distribution (Portability Contract)
+- **`shared/skills/`** — canonical skill definitions (author here). Compiler reads only from this directory.
+- **`dist/clients/<platform>/`** — emitted packages (claude-code, cursor). Each package is **self-sufficient**: contains complete skill copies and required resources (prompts/). No symlinks, no references to source tree.
+- **`dist/registry/index.json`** — cross-platform skill registry with compatibility matrix
+
+### Metadata & Configuration
 - `shared/targets/platforms/` — platform capability definitions (v0.5.2+)
 - `shared/targets/clients.yaml` — DEPRECATED: use platforms/ directory instead
-- `plugins/core-skills/skills/` — symlinks into shared/skills (never edit here directly)
-- `.claude-plugin/marketplace.json` — marketplace manifest
 - `VERSION` — canonical release version (only file humans edit for version bumps)
-- `plugins/core-skills/.claude-plugin/plugin.json` — plugin metadata (mirrors VERSION; do not edit version by hand)
+- `.claude-plugin/marketplace.json` — marketplace manifest
 - `schemas/skill.schema.json` — JSON Schema for skill package manifests
 - `schemas/platform.schema.json` — JSON Schema for platform capability definitions
 - `schemas/probe-result.schema.json` — JSON Schema for runtime probe output
+
+### Tools & Runtime
 - `scripts/build/` — compiler: validates skills, resolves compatibility, emits `dist/` artefacts
 - `scripts/lint/` — Node-based linters for skills and platform files
+- `scripts/build/lib/materialise-client.mjs` — extracts emitted packages (works from `dist/` alone, no source access)
+- `adapters/claude/materialise.sh` — shell wrapper for client-side package materialization
 - `worker/` — Cloudflare Worker serving compiled skills via bearer-auth REST API
 - `runtime/` — desired-state tool management: config, adapters, sync, manifest, MCP server
 - `dashboard/` — React SPA: tool status, skill stats, context cost, config, audit, analytics
 
+### Development Convenience (Unix Only)
+- `plugins/core-skills/skills/` — optional symlinks into shared/skills (never edit here directly). Created with `node scripts/build/new-skill.mjs` (with default --link flag). Use `--no-link` to skip on platforms without symlink support.
+
 ## Creating a new skill
 Run `node scripts/build/new-skill.mjs <skill-name>` — this creates the skill directory, updates the manifest, and optionally creates a convenience symlink on Unix. Use `--no-link` to skip symlink creation. The Unix wrapper `ops/new-skill.sh` delegates to this command. It does **not** change `VERSION`, `package.json`, or `plugin.json`. Release version bumps are a separate, explicit action (edit `VERSION`, then `npm run version:sync`).
 
-**Portability contract:** `shared/skills/` is the canonical source. The compiler reads directly from it. Symlinks under `plugins/core-skills/skills/` are optional authoring convenience on Unix, not part of the build or distribution contract.
+## Portability Contract (v0.6.0+)
+
+The **portability contract** guarantees that skills authored in source are emitted as self-sufficient packages that do not require source-tree access:
+
+**Definition:**
+1. **Canonical source:** `shared/skills/` is the only source of truth. Compiler reads directly from it.
+2. **Self-sufficient packages:** `dist/clients/<platform>/` contains complete skill copies (SKILL.md, prompts/, etc.). No relative references to source tree.
+3. **Materialisation:** Emitted packages can be extracted and used on any system (CI, cache, offline) without access to source code.
+4. **No symlink dependency:** Symlinks in `plugins/core-skills/skills/` are optional authoring convenience on Unix only. All builds work with `--no-link` flag.
+
+**Protected by automated tests:**
+- Canonical source contract: compiler reads only from `shared/skills/`
+- Materialisation contract: emitted packages extract without source access
+- Source-to-output flow: changes to source produce predictable, deterministic changes in emitted packages
+- Determinism: identical source → identical bytes in `dist/` (no timestamps in SKILL.md)
+
+**When you see a portability contract failure:**
+1. Check test suite: `npm test -- scripts/build/test/materialisation-contract.test.mjs`
+2. Verify emitted package has all referenced resources (prompts/, etc.)
+3. Ensure no source-tree paths are embedded in emitted files
+4. Run `bash adapters/claude/materialise.sh` to test extraction locally
 
 ## Testing locally
 Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
