@@ -11,7 +11,7 @@ Core principle: **share knowledge, not runtime wiring**.
 
 ---
 
-## Current state — updated 2026-03-07
+## Current state — updated 2026-03-08
 
 | Area | Status | Notes |
 |---|---|---|
@@ -40,6 +40,9 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 8: Runtime integration | ✅ Done | v0.5.0: Three-tier config, tool registry, adapters, sync engine, manifest, MCP server, React dashboard, ops/CI updates |
 | Phase 9.1: Distribution first slice | ✅ Done | v0.5.1: skill schema, compiler, Cloudflare Worker, CI build workflow, materialiser adapter |
 | Phase 9.2: Capability-driven compatibility | ✅ Done | v0.5.2: platform registry, capability contracts, compatibility resolver, runtime probe, Node linter |
+| Phase 9.3: Close compatibility loop | ✅ Done | v0.5.3: Emitter wiring, validate-only pipeline, Cursor emitter, probe accuracy fixes |
+| Phase 9.4: Validation architecture overhaul | ✅ Done | v0.5.3+: Shared validation, schema tightening, compiler strictness, linter refactoring |
+| Phase 9.5: Delivery contract (PR 4) | ✅ Done | v0.5.3+: 28 tests protecting dist/ artifacts, documented in CLAUDE.md |
 
 ---
 
