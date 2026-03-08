@@ -19,14 +19,8 @@ sed "s/{{SKILL_NAME}}/$SKILL_NAME/g" "$REPO_ROOT/shared/skills/_template/SKILL.m
 mkdir -p "$(dirname "$PLUGIN_DIR")"
 ln -s "../../../shared/skills/$SKILL_NAME" "$PLUGIN_DIR"
 
-# 3. Bump patch version
-PLUGIN_JSON="$REPO_ROOT/plugins/core-skills/.claude-plugin/plugin.json"
-if command -v jq &>/dev/null; then
-  CURRENT=$(jq -r '.version' "$PLUGIN_JSON")
-  NEXT=$(echo "$CURRENT" | awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}')
-  jq --arg v "$NEXT" '.version = $v' "$PLUGIN_JSON" > "$PLUGIN_JSON.tmp" && mv "$PLUGIN_JSON.tmp" "$PLUGIN_JSON"
-  echo "Bumped plugin version: $CURRENT → $NEXT"
-fi
+# Note: release versioning is controlled via VERSION + npm run version:sync.
+# Scaffolding a skill must NOT mutate VERSION, package.json, or plugin.json.
 
 echo "Created skill '$SKILL_NAME'"
 echo "  → $SHARED_DIR/SKILL.md (edit this)"
@@ -54,4 +48,10 @@ else
 fi
 
 echo ""
-echo "Next: edit SKILL.md, review manifest.md row, then run adapters/claude/dev-test.sh"
+echo "Next steps:"
+echo "  1. Edit $SHARED_DIR/SKILL.md"
+echo "  2. Review the placeholder row in shared/manifest.md"
+echo "  3. Run: bash adapters/claude/dev-test.sh"
+echo ""
+echo "Note: this script does not change the release version."
+echo "To bump the release: edit VERSION, then run npm run version:sync."
