@@ -4,6 +4,7 @@
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { resolve, sep } from 'node:path';
 
 // Import validators (standalone module, no heavy MCP deps)
 import { validateName, validateNumber } from '../../../runtime/mcp/validators.mjs';
@@ -106,7 +107,12 @@ describe('resolveRepoScriptPath — accepts scripts inside repo root', () => {
   test('normal in-repo path is accepted', () => {
     const result = resolveRepoScriptPath('runtime/sync.sh', repoRoot);
     assert.ok(result !== null, 'Should return a resolved path');
-    assert.ok(result.startsWith(repoRoot), 'Resolved path should be inside repoRoot');
+    // Use resolve() for platform-safe comparison (Windows resolves / to drive-root)
+    const resolvedRoot = resolve(repoRoot);
+    assert.ok(
+      result.startsWith(resolvedRoot + sep) || result === resolvedRoot,
+      `Resolved path ${result} should be inside ${resolvedRoot}`
+    );
   });
 
   test('logically equivalent path with redundant segments is accepted', () => {
