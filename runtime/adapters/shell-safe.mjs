@@ -9,7 +9,7 @@
  * - Cross-platform path handling
  */
 
-import { resolve, join, parse, isAbsolute, sep } from 'node:path';
+import { resolve, join, parse, isAbsolute, sep, relative } from 'node:path';
 import { existsSync, lstatSync } from 'node:fs';
 
 /**
@@ -168,19 +168,39 @@ export function resolveSafePath(relPath, boundary) {
  * followed, which prevents all known symlink-escape patterns at the cost
  * of not supporting legitimate symlinked layouts.
  *
+ * CRITICAL: Both paths MUST be canonicalised via resolve() BEFORE the
+ * containment check. Raw string comparison on non-canonical inputs will
+ * incorrectly reject logically valid paths (e.g., boundary with trailing
+ * separator, fullPath with . segments).
+ *
  * @param {string} fullPath - Full absolute path to check (need not be canonical)
  * @param {string} boundary - Boundary directory (need not be canonical)
  * @returns {boolean} True only if path is within boundary and contains no symlinks
  */
 export function isPathSafe(fullPath, boundary) {
+  if (typeof fullPath !== 'string' || typeof boundary !== 'string') {
+    return false;
+  }
+
+  // Reject paths with null bytes
+  if (fullPath.includes('\x00') || boundary.includes('\x00')) {
+    return false;
+  }
+
   if (!isAbsolute(fullPath) || !isAbsolute(boundary)) {
     return false;
   }
 
-  // Canonicalise both inputs so that trailing slashes, . segments,
+  // Canonicalise both inputs up front so that trailing slashes, . segments,
   // doubled separators, and Windows UNC paths all compare correctly.
-  const resolvedFullPath = resolve(fullPath);
-  const resolvedBoundary = resolve(boundary);
+  let resolvedFullPath;
+  let resolvedBoundary;
+  try {
+    resolvedFullPath = resolve(fullPath);
+    resolvedBoundary = resolve(boundary);
+  } catch {
+    return false;
+  }
 
   // Use separator-aware containment to prevent sibling-prefix bypasses.
   if (!isContainedIn(resolvedFullPath, resolvedBoundary)) {
@@ -191,10 +211,11 @@ export function isPathSafe(fullPath, boundary) {
   // Use path.parse() to extract the root so that Unix (/), Windows drive
   // (C:\), and UNC (\\server\share\) roots are all handled with one code path.
   const { root } = parse(resolvedFullPath);
-  const remainder = resolvedFullPath.slice(root.length).split(/[\\/]/).filter(Boolean);
+  const relFromRoot = relative(root, resolvedFullPath);
+  const parts = relFromRoot.split(/[\\/]/).filter(Boolean);
   let current = root;
 
-  for (const part of remainder) {
+  for (const part of parts) {
     current = join(current, part);
 
     // Reject any symlink encountered in the path — conservative, fails closed.
