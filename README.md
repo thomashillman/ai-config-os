@@ -299,6 +299,7 @@ bash ops/runtime-status.sh      # Check overall health
 **Plugin version mismatch:**
 - The root `VERSION` file is the single source of truth for the release version
 - Run `npm run version:sync` to mirror it into `package.json` and `plugin.json`, then `npm run version:check` to verify parity
+- Note: `ops/new-skill.sh` does not change the release version — if you expected a version bump after scaffolding a skill, that is a separate step
 
 ---
 
@@ -308,8 +309,9 @@ The root `VERSION` file is the canonical release version. All other version refe
 
 - `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` mirror `VERSION` (run `npm run version:sync` after editing)
 - Skill versions stay in each skill's YAML frontmatter (independent of the release version)
+- Creating or editing a skill does not bump the release version — release version bumps are explicit and separate
 - `dist/` artefacts use the release version from `VERSION`
-- Release provenance (built_at, build_id, source_commit) is only added in release mode (`--release` flag)
+- Local builds are deterministic and contain no provenance; release builds (`--release`) add consistent provenance (built_at, build_id, source_commit) to all emitted artefacts
 
 To bump the version: edit `VERSION`, run `npm run version:sync`, commit all three changed files.
 

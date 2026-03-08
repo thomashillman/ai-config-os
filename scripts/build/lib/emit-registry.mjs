@@ -20,7 +20,10 @@ export function emitRegistry(skills, platforms, { distDir, releaseVersion, prove
 
   const index = {
     version: releaseVersion,
+    // Provenance: consistent with emit-claude-code.mjs — all three fields in release mode
     ...(provenance?.builtAt ? { built_at: provenance.builtAt } : {}),
+    ...(provenance?.buildId ? { build_id: provenance.buildId } : {}),
+    ...(provenance?.sourceCommit ? { source_commit: provenance.sourceCommit } : {}),
     skill_count: skills.length,
     platform_count: platforms.length,
     platforms,

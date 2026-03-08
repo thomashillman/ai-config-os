@@ -26,7 +26,10 @@ export function emitCursor(skills, { distDir, releaseVersion, provenance, compat
   // Header
   sections.push(`# AI Config OS — Cursor Rules`);
   sections.push(`# Version: ${releaseVersion}`);
+  // Provenance: consistent with emit-claude-code.mjs — all three fields in release mode
   if (provenance?.builtAt) sections.push(`# Built: ${provenance.builtAt}`);
+  if (provenance?.buildId) sections.push(`# Build ID: ${provenance.buildId}`);
+  if (provenance?.sourceCommit) sections.push(`# Source Commit: ${provenance.sourceCommit}`);
   sections.push(`# Skills: ${skills.length}`);
   sections.push('');
 
