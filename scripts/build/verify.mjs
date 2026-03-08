@@ -61,7 +61,8 @@ if (existsSync(platformsDir)) {
 }
 
 // ─── 4. Full test suite ───
-run('Test suite', process.execPath, [join(REPO_ROOT, 'scripts', 'build', 'test', 'run-tests.mjs')]);
+// Includes: canonical source contract, portability contract, materialisation contract, delivery contract
+run('Test suite (portability & delivery contracts)', process.execPath, [join(REPO_ROOT, 'scripts', 'build', 'test', 'run-tests.mjs')]);
 
 // ─── Result ───
 console.log('');
