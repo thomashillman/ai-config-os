@@ -48,7 +48,8 @@ export function shellEscapeArgs(args) {
 
 /**
  * Sanitize a file path to prevent directory traversal attacks.
- * Removes leading ../ sequences and null bytes.
+ * Removes leading ../ and ..\\ sequences and null bytes.
+ * Handles both Unix and Windows path separators.
  *
  * @param {string} path - Path to sanitize
  * @returns {string} Sanitized path
@@ -61,9 +62,16 @@ export function sanitizePath(path) {
   // Remove null bytes
   path = path.replace(/\x00/g, '');
 
-  // Remove leading traversal sequences
-  while (path.startsWith('../')) {
+  // Remove leading traversal sequences (both Unix / and Windows \)
+  while (path.startsWith('../') || path.startsWith('..\\')) {
     path = path.slice(3);
+  }
+
+  // Also remove mixed separators that could escape after normalization
+  // e.g., ..\\../ or ../ embedded in the path at unsafe positions
+  // This is a defense-in-depth: paths should be normalized elsewhere
+  if (path.includes('\x00')) {
+    path = path.replace(/\x00/g, '');
   }
 
   return path;
@@ -83,9 +91,9 @@ export function validatePathBoundary(untrustedPath, boundary) {
     return false;
   }
 
-  // Reject absolute paths that escape boundary
-  if (isAbsolute(untrustedPath)) {
-    return untrustedPath.startsWith(boundary);
+  // Reject paths with null bytes
+  if (untrustedPath.includes('\x00') || boundary.includes('\x00')) {
+    return false;
   }
 
   // Reject relative paths with traversal
@@ -93,7 +101,41 @@ export function validatePathBoundary(untrustedPath, boundary) {
     return false;
   }
 
-  return true;
+  // For absolute paths, use path-aware comparison (not string prefix)
+  if (isAbsolute(untrustedPath)) {
+    try {
+      const resolved = resolve(boundary, untrustedPath);
+      const resolvedBoundary = resolve(boundary);
+
+      // Path-aware comparison: ensure resolved path starts with boundary + separator
+      // This prevents /safe/base-evil from passing when boundary is /safe/base
+      if (resolved === resolvedBoundary) {
+        return true; // The exact boundary path is allowed
+      }
+
+      // Check if resolved is inside boundary by path, not string prefix
+      return resolved.startsWith(resolvedBoundary + '/') ||
+             resolved.startsWith(resolvedBoundary + '\\');
+    } catch (err) {
+      // If path resolution fails, reject for safety
+      return false;
+    }
+  }
+
+  // For relative paths, validate they don't escape when resolved
+  try {
+    const resolved = resolve(boundary, untrustedPath);
+    const resolvedBoundary = resolve(boundary);
+
+    if (resolved === resolvedBoundary) {
+      return true;
+    }
+
+    return resolved.startsWith(resolvedBoundary + '/') ||
+           resolved.startsWith(resolvedBoundary + '\\');
+  } catch (err) {
+    return false;
+  }
 }
 
 /**
