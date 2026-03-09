@@ -4,9 +4,14 @@ compatibility_date = "2024-09-23"
 
 # Set AUTH_TOKEN via: wrangler secret put AUTH_TOKEN
 # Set AUTH_TOKEN_NEXT via: wrangler secret put AUTH_TOKEN_NEXT (for rotation)
+# Set EXECUTOR_SHARED_SECRET via: wrangler secret put EXECUTOR_SHARED_SECRET
 
 [vars]
 ENVIRONMENT = "production"
+EXECUTOR_PROXY_URL = "https://remote-executor.example.com"
+EXECUTOR_TIMEOUT_MS = "10000"
+# Optional public key material for downstream signature verification context.
+EXECUTOR_SIGNATURE_PUBLIC_KEY = ""
 
 [[kv_namespaces]]
 binding = "MANIFEST_KV"

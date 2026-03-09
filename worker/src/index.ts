@@ -16,6 +16,7 @@
  *   GET /v1/effective-contract/preview
  *   GET /v1/client/:client/latest
  *   GET /v1/skill/:skillId
+ *   POST /v1/execute
  *
  * Auth: Authorization: Bearer <token> on all endpoints.
  * Tokens: AUTH_TOKEN (primary), AUTH_TOKEN_NEXT (rotation staging).
@@ -31,9 +32,19 @@ export interface Env {
   AUTH_TOKEN: string;
   AUTH_TOKEN_NEXT?: string;
   ENVIRONMENT?: string;
-  MANIFEST_POINTERS?: KVNamespace;
-  MANIFEST_ARTIFACTS?: R2Bucket;
+  EXECUTOR_PROXY_URL: string;
+  EXECUTOR_SHARED_SECRET: string;
+  EXECUTOR_SIGNATURE_PUBLIC_KEY?: string;
+  EXECUTOR_TIMEOUT_MS?: string;
 }
+
+type ExecutePayload = {
+  request_id?: string;
+  tool: string;
+  args?: string[];
+  timeout_ms?: number;
+  metadata?: Record<string, unknown>;
+};
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -73,52 +84,60 @@ function notFound(message: string): Response {
   return jsonResponse({ error: 'Not Found', message }, 404);
 }
 
-function notFoundWithCode(code: string, message: string): Response {
-  return jsonResponse({ error: 'Not Found', code, message }, 404);
+function parseTimeoutMs(raw: string | undefined): number {
+  const parsed = Number(raw ?? '10000');
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return 10000;
+  }
+  return Math.min(parsed, 120000);
 }
 
-async function readLatestVersion(env: Env): Promise<string | Response> {
-  if (!env.MANIFEST_POINTERS) {
-    return notFoundWithCode('POINTER_NAMESPACE_MISSING', 'Manifest pointer namespace is not configured');
+function validateExecutePayload(payload: unknown): { ok: true; value: ExecutePayload } | { ok: false; error: string } {
+  if (typeof payload !== 'object' || payload === null) {
+    return { ok: false, error: 'Payload must be a JSON object' };
   }
 
-  const pointerRaw = await env.MANIFEST_POINTERS.get('manifest:latest');
-  if (!pointerRaw) {
-    return notFoundWithCode('LATEST_POINTER_MISSING', "KV key 'manifest:latest' was not found");
+  const data = payload as Record<string, unknown>;
+
+  if (typeof data.tool !== 'string' || data.tool.trim().length === 0) {
+    return { ok: false, error: "Field 'tool' must be a non-empty string" };
   }
 
-  try {
-    const pointer = JSON.parse(pointerRaw) as { version?: string };
-    if (!pointer.version) {
-      return notFoundWithCode(
-        'LATEST_POINTER_INVALID',
-        "KV key 'manifest:latest' is missing a 'version' field"
-      );
-    }
-
-    return pointer.version;
-  } catch {
-    return notFoundWithCode('LATEST_POINTER_INVALID', "KV key 'manifest:latest' contains invalid JSON");
-  }
-}
-
-async function readArtifactJson(env: Env, key: string): Promise<any | Response> {
-  if (!env.MANIFEST_ARTIFACTS) {
-    return notFoundWithCode('ARTIFACT_BUCKET_MISSING', 'Manifest artifacts bucket is not configured');
+  if (
+    data.args !== undefined
+    && (!Array.isArray(data.args) || data.args.some((arg) => typeof arg !== 'string'))
+  ) {
+    return { ok: false, error: "Field 'args' must be an array of strings" };
   }
 
-  const obj = await env.MANIFEST_ARTIFACTS.get(key);
-  if (!obj) {
-    return notFoundWithCode('ARTIFACT_MISSING', `R2 key '${key}' was not found`);
+  if (
+    data.timeout_ms !== undefined
+    && (!Number.isInteger(data.timeout_ms) || Number(data.timeout_ms) <= 0)
+  ) {
+    return { ok: false, error: "Field 'timeout_ms' must be a positive integer" };
   }
 
-  const artifactText = await obj.text();
-
-  try {
-    return JSON.parse(artifactText);
-  } catch {
-    return notFoundWithCode('ARTIFACT_INVALID_JSON', `R2 key '${key}' does not contain valid JSON`);
+  if (data.request_id !== undefined && typeof data.request_id !== 'string') {
+    return { ok: false, error: "Field 'request_id' must be a string" };
   }
+
+  if (
+    data.metadata !== undefined
+    && (typeof data.metadata !== 'object' || data.metadata === null || Array.isArray(data.metadata))
+  ) {
+    return { ok: false, error: "Field 'metadata' must be an object" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      request_id: data.request_id as string | undefined,
+      tool: data.tool,
+      args: data.args as string[] | undefined,
+      timeout_ms: data.timeout_ms as number | undefined,
+      metadata: data.metadata as Record<string, unknown> | undefined,
+    },
+  };
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────
@@ -215,10 +234,6 @@ function handleClientLatest(client: string): Response {
 
   const registry = REGISTRY_JSON as any;
 
-  // Build artefact map: plugin.json + skill SKILL.md content
-  // Skills content is not bundled as separate static imports (too many files).
-  // Instead, we return the plugin.json and skill listing; clients fetch
-  // individual skills via /v1/skill/:skillId if needed.
   const response = {
     version: registry.version,
     built_at: registry.built_at,
@@ -245,81 +260,112 @@ function handleSkill(skillId: string): Response {
   });
 }
 
+async function handleExecute(request: Request, env: Env): Promise<Response> {
+  if (!env.EXECUTOR_PROXY_URL || !env.EXECUTOR_SHARED_SECRET) {
+    return jsonResponse({ error: 'Executor proxy is not configured' }, 500);
+  }
+
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON body' }, 400);
+  }
+
+  const validation = validateExecutePayload(payload);
+  if (!validation.ok) {
+    return jsonResponse({ error: validation.error }, 400);
+  }
+
+  const timeoutMs = parseTimeoutMs(env.EXECUTOR_TIMEOUT_MS);
+  const forwardedSignature = request.headers.get('X-Request-Signature') ?? '';
+
+  try {
+    const response = await fetch(`${env.EXECUTOR_PROXY_URL.replace(/\/$/, '')}/v1/execute`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Executor-Shared-Secret': env.EXECUTOR_SHARED_SECRET,
+        'X-Request-Signature': forwardedSignature,
+        ...(env.EXECUTOR_SIGNATURE_PUBLIC_KEY
+          ? { 'X-Executor-Signature-Public-Key': env.EXECUTOR_SIGNATURE_PUBLIC_KEY }
+          : {}),
+      },
+      body: JSON.stringify(validation.value),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+
+    const responseBody: Record<string, unknown> = await response
+      .json()
+      .then((body) => (typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}))
+      .catch(() => ({}));
+
+    return jsonResponse({
+      ok: response.ok,
+      status: response.status,
+      result: responseBody.result ?? null,
+      error: response.ok
+        ? null
+        : (responseBody.error ?? { code: 'UPSTREAM_ERROR', message: 'Executor returned an error' }),
+      request_id: validation.value.request_id ?? null,
+    }, response.ok ? 200 : response.status);
+  } catch {
+    return jsonResponse({
+      ok: false,
+      status: 504,
+      error: { code: 'UPSTREAM_TIMEOUT', message: 'Executor request timed out or failed' },
+      request_id: validation.value.request_id ?? null,
+    }, 504);
+  }
+}
+
 // ── Router ────────────────────────────────────────────────────────────────
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // CORS preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Authorization',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Signature',
         },
       });
-    }
-
-    if (request.method !== 'GET') {
-      return jsonResponse({ error: 'Method Not Allowed' }, 405);
     }
 
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Auth guard (all endpoints)
     if (!isAuthorized(request, env)) {
       return unauthorizedResponse();
     }
 
-    // Routes
-    if (path === '/v1/health') {
-      return handleHealth(env);
+    if (request.method === 'GET') {
+      if (path === '/v1/health') {
+        return handleHealth(env);
+      }
+
+      if (path === '/v1/manifest/latest') {
+        return handleManifestLatest();
+      }
+
+      const clientMatch = path.match(/^\/v1\/client\/([^/]+)\/latest$/);
+      if (clientMatch) {
+        return handleClientLatest(clientMatch[1]);
+      }
+
+      const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);
+      if (skillMatch) {
+        return handleSkill(skillMatch[1]);
+      }
     }
 
-    if (path === '/v1/manifest/latest') {
-      return handleManifestLatest(env);
+    if (request.method === 'POST' && path === '/v1/execute') {
+      return handleExecute(request, env);
     }
 
-    if (path === '/v1/outcomes/latest') {
-      return handleLatestArtifact(env, 'outcomes.json');
-    }
-
-    if (path === '/v1/routes/latest') {
-      return handleLatestArtifact(env, 'routes.json');
-    }
-
-    if (path === '/v1/tools/latest') {
-      return handleLatestArtifact(env, 'tools.json');
-    }
-
-    if (path === '/v1/effective-contract/preview') {
-      return handleEffectiveContractPreview(env);
-    }
-
-    const outcomesVersionMatch = path.match(/^\/v1\/outcomes\/([^/]+)$/);
-    if (outcomesVersionMatch) {
-      return handleVersionedArtifact(env, outcomesVersionMatch[1], 'outcomes.json');
-    }
-
-    const routesVersionMatch = path.match(/^\/v1\/routes\/([^/]+)$/);
-    if (routesVersionMatch) {
-      return handleVersionedArtifact(env, routesVersionMatch[1], 'routes.json');
-    }
-
-    const toolsVersionMatch = path.match(/^\/v1\/tools\/([^/]+)$/);
-    if (toolsVersionMatch) {
-      return handleVersionedArtifact(env, toolsVersionMatch[1], 'tools.json');
-    }
-
-    const clientMatch = path.match(/^\/v1\/client\/([^/]+)\/latest$/);
-    if (clientMatch) {
-      return handleClientLatest(clientMatch[1]);
-    }
-
-    const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);
-    if (skillMatch) {
-      return handleSkill(skillMatch[1]);
+    if (request.method !== 'GET' && request.method !== 'POST') {
+      return jsonResponse({ error: 'Method Not Allowed' }, 405);
     }
 
     return notFound(`Unknown route: ${path}`);
