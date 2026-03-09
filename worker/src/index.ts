@@ -19,8 +19,6 @@
 import REGISTRY_JSON from '../../dist/registry/index.json';
 // @ts-ignore - generated at build time
 import CLAUDE_CODE_PLUGIN_JSON from '../../dist/clients/claude-code/.claude-plugin/plugin.json';
-// @ts-ignore - shared runtime validator is JS-first
-import { validateContract } from '../../shared/contracts/validate.mjs';
 
 export interface Env {
   AUTH_TOKEN: string;
@@ -78,8 +76,7 @@ function handleHealth(env: Env): Response {
 }
 
 function handleManifestLatest(): Response {
-  const validated = validateContract('manifest', REGISTRY_JSON);
-  return jsonResponse(validated);
+  return jsonResponse(REGISTRY_JSON);
 }
 
 function handleClientLatest(client: string): Response {
