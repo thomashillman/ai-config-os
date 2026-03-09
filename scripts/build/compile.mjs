@@ -18,6 +18,7 @@ import { parseSkill } from './lib/parse-skill.mjs';
 import { emitClaudeCode } from './lib/emit-claude-code.mjs';
 import { emitCursor } from './lib/emit-cursor.mjs';
 import { emitRegistry } from './lib/emit-registry.mjs';
+import { emitRuntime } from './lib/emit-runtime.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
 import { resolveAll, validateOutcomeCompatibility } from './lib/resolve-compatibility.mjs';
 import { selectEmittedPlatforms } from './lib/select-emitted-platforms.mjs';
@@ -345,6 +346,13 @@ async function main() {
 
   console.log('\n[registry]');
   emitRegistry(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix });
+
+  console.log('\n[runtime]');
+  emitRuntime(parsed, actuallyEmittedPlatforms, {
+    distDir: DIST_DIR,
+    releaseVersion,
+    provenance,
+  });
 
   console.log('\nBuild complete.\n');
 }

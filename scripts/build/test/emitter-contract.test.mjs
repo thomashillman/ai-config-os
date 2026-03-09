@@ -9,6 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
@@ -17,6 +18,15 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const COMPILE_MJS = resolve(__dirname, '..', 'compile.mjs');
+
+
+function hashManifestWithSelfHashPlaceholder(manifestDoc) {
+  const clone = { ...manifestDoc };
+  clone.artifactHashes = { ...manifestDoc.artifactHashes };
+  clone.artifactHashes[manifestDoc.documents.manifest] = '__SELF_HASH_PLACEHOLDER__';
+
+  return createHash('sha256').update(JSON.stringify(clone, null, 2) + '\n').digest('hex');
+}
 
 // Helper: Run compiler and return emitted artefacts
 function runCompilerAndReadArtefacts() {
@@ -200,5 +210,80 @@ test('claude-code plugin.json has correct version and structure', () => {
     assert.ok(skill.version, 'Each skill should have version');
     assert.ok(skill.path, 'Each skill should have path');
     assert.ok(skill.path.includes(skill.name), 'Skill path should include skill name');
+  }
+});
+
+
+// ─── Test 8: Runtime manifest and companion docs are emitted with valid hashes ───
+
+test('runtime docs are emitted with deterministic artifact hashes', () => {
+  runCompilerAndReadArtefacts();
+
+  const runtimeDir = join(REPO_ROOT, 'dist', 'runtime');
+  const manifestPath = join(runtimeDir, 'manifest.json');
+  const outcomesPath = join(runtimeDir, 'outcomes.json');
+  const routesPath = join(runtimeDir, 'routes.json');
+  const toolRegistryPath = join(runtimeDir, 'tool-registry.json');
+
+  assert.ok(existsSync(manifestPath), 'runtime manifest.json must exist');
+  assert.ok(existsSync(outcomesPath), 'runtime outcomes.json must exist');
+  assert.ok(existsSync(routesPath), 'runtime routes.json must exist');
+  assert.ok(existsSync(toolRegistryPath), 'runtime tool-registry.json must exist');
+
+  const runtimeManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  assert.equal(runtimeManifest.schemaVersion, 1, 'runtime manifest schemaVersion should be 1');
+  assert.ok(runtimeManifest.documents, 'runtime manifest should contain documents mapping');
+  assert.ok(runtimeManifest.artifactHashes, 'runtime manifest should contain artifactHashes');
+
+  const docPaths = [
+    runtimeManifest.documents.manifest,
+    runtimeManifest.documents.outcomes,
+    runtimeManifest.documents.routes,
+    runtimeManifest.documents.toolRegistry,
+  ];
+
+  for (const relativePath of docPaths) {
+    assert.ok(typeof relativePath === 'string' && relativePath.length > 0, 'document path should be non-empty');
+    const absolutePath = join(REPO_ROOT, 'dist', relativePath);
+    assert.ok(existsSync(absolutePath), `document should exist: ${relativePath}`);
+
+    if (relativePath === runtimeManifest.documents.manifest) {
+      assert.equal(
+        runtimeManifest.artifactHashAlgorithm,
+        'sha256',
+        'runtime manifest should declare sha256 algorithm'
+      );
+      assert.equal(
+        runtimeManifest.artifactHashScope,
+        'manifest-with-self-hash-placeholder',
+        'runtime manifest should declare self-hash scope'
+      );
+
+      const expectedManifestHash = hashManifestWithSelfHashPlaceholder(runtimeManifest);
+      assert.equal(
+        runtimeManifest.artifactHashes[relativePath],
+        expectedManifestHash,
+        'manifest artifact hash should match normalized manifest content'
+      );
+    } else {
+      const expectedHash = createHash('sha256').update(readFileSync(absolutePath)).digest('hex');
+      assert.equal(
+        runtimeManifest.artifactHashes[relativePath],
+        expectedHash,
+        `artifact hash should match for ${relativePath}`
+      );
+    }
+  }
+
+  for (const bundlePath of runtimeManifest.bundles || []) {
+    const absolutePath = join(REPO_ROOT, 'dist', bundlePath);
+    assert.ok(existsSync(absolutePath), `bundle should exist: ${bundlePath}`);
+
+    const expectedHash = createHash('sha256').update(readFileSync(absolutePath)).digest('hex');
+    assert.equal(
+      runtimeManifest.artifactHashes[bundlePath],
+      expectedHash,
+      `artifact hash should match for ${bundlePath}`
+    );
   }
 });
