@@ -160,7 +160,7 @@ test('handler unknown tool returns isError true with helpful message', async () 
   const result = await handler({ params: { name: 'does_not_exist', arguments: {} } });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /Unknown tool/);
+  assert.match(result.content[0].text, /Unknown tool id/);
   assert.match(result.content[0].text, /does_not_exist/);
 });
 
@@ -185,7 +185,7 @@ test('handler mcp_add with invalid name returns tool error', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /Invalid name/);
+  assert.match(result.content[0].text, /Invalid MCP server name/);
 });
 
 test('handler mcp_add with unsafe command returns tool error', async () => {
@@ -207,7 +207,7 @@ test('handler mcp_add with unsafe command returns tool error', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /Invalid command/);
+  assert.match(result.content[0].text, /Invalid command name/);
 });
 
 test('handler script failure becomes MCP error response with full context', async () => {
@@ -358,6 +358,47 @@ test('handler mcp_add passes args array to script', async () => {
   assert.deepEqual(capturedArgs, ['add', 'myserver', 'node', 'server.js', '--flag']);
 });
 
+
+test('handler rejects additional properties with structured validation error', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  const handler = createCallToolHandler({
+    runScript: () => ({ success: true, output: 'ok', error: null }),
+    validateName: () => {},
+    isCommandNameSafe: () => true,
+    toToolResponse,
+    toolError,
+  });
+
+  const result = await handler({
+    params: { name: 'sync_tools', arguments: { dry_run: true, extra: true } }
+  });
+
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /"tool":"sync_tools"/);
+});
+
+test('handler rejects missing required arguments with field path', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  const handler = createCallToolHandler({
+    runScript: () => ({ success: true, output: 'ok', error: null }),
+    validateName: () => {},
+    isCommandNameSafe: () => true,
+    toToolResponse,
+    toolError,
+  });
+
+  const result = await handler({
+    params: { name: 'mcp_add', arguments: { command: 'node' } }
+  });
+
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /"field":"\/name"/);
+});
+
 test('handler success response uses toToolResponse', async () => {
   const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
   const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
@@ -422,53 +463,25 @@ test('assertRuntimePrereqsWith checks bash using expected invocation', async () 
 
 // --- Slice 1: Handler error semantics uniformity tests ---
 
-test('handler context_cost returns tool error when validateNumber throws', async () => {
+test('handler context_cost returns structured validation error on non-number threshold', async () => {
   const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
   const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
-  const fakeDeps = {
+  const handler = createCallToolHandler({
     runScript: () => ({ success: true, output: 'ok', error: null }),
     validateName: () => {},
-    validateNumber: () => {
-      throw new Error('threshold must be numeric');
-    },
     isCommandNameSafe: () => true,
     toToolResponse,
     toolError,
-  };
-
-  const handler = createCallToolHandler(fakeDeps);
-  const result = await handler({
-    params: { name: 'context_cost', arguments: { threshold: 'bad' } }
   });
 
-  assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /threshold must be numeric/);
-});
-
-test('handler context_cost does not reject promise on numeric validation failure', async () => {
-  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
-  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
-
-  const fakeDeps = {
-    runScript: () => ({ success: true, output: 'ok', error: null }),
-    validateName: () => {},
-    validateNumber: () => {
-      throw new Error('bad threshold');
-    },
-    isCommandNameSafe: () => true,
-    toToolResponse,
-    toolError,
-  };
-
-  const handler = createCallToolHandler(fakeDeps);
-
-  // This should not reject; if it does, the test will fail
   const result = await handler({
     params: { name: 'context_cost', arguments: { threshold: 'oops' } }
   });
 
   assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /"tool":"context_cost"/);
+  assert.match(result.content[0].text, /"field":"\/threshold"/);
 });
 
 test('handler context_cost success path passes validated threshold to script', async () => {
@@ -477,26 +490,19 @@ test('handler context_cost success path passes validated threshold to script', a
 
   let capturedThreshold = null;
 
-  const fakeDeps = {
+  const handler = createCallToolHandler({
     runScript: (script, args) => {
-      // Capture the threshold passed to the script
       if (args && args.length > 1) {
         capturedThreshold = parseInt(args[1], 10);
       }
       return { success: true, output: 'ok', error: null };
     },
     validateName: () => {},
-    validateNumber: (input, defaultValue) => {
-      if (input === undefined) return defaultValue;
-      if (typeof input !== 'number') throw new Error('threshold must be numeric');
-      return input;
-    },
     isCommandNameSafe: () => true,
     toToolResponse,
     toolError,
-  };
+  });
 
-  const handler = createCallToolHandler(fakeDeps);
   await handler({
     params: { name: 'context_cost', arguments: { threshold: 5000 } }
   });

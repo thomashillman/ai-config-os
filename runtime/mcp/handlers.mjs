@@ -7,13 +7,43 @@ import { MCP_TOOL_MAP } from './tool-definitions.mjs';
  * Accepts dependencies for injection, enabling unit testing without server startup.
  */
 
+import Ajv from 'ajv';
+import { TOOL_REGISTRY } from './tool-registry.mjs';
+
+const ajv = new Ajv({
+  allErrors: true,
+  strict: true,
+  coerceTypes: false,
+  useDefaults: false,
+  removeAdditional: false,
+});
+
+const compiledSchemas = Object.fromEntries(
+  Object.entries(TOOL_REGISTRY).map(([toolName, config]) => [toolName, ajv.compile(config.schema)])
+);
+
+function formatValidationError(tool, errors) {
+  const first = errors?.[0] ?? {};
+  const missing = first.keyword === 'required' ? first.params?.missingProperty : '';
+  const normalizedPath = first.instancePath || '';
+  const field = missing
+    ? `${normalizedPath}/${missing}`.replace(/\/+/g, '/')
+    : (normalizedPath || '/');
+
+  return {
+    type: 'validation_error',
+    tool,
+    field,
+    message: first.message || 'Invalid arguments',
+  };
+}
+
 /**
  * Create a CallTool request handler with injected dependencies.
  *
  * @param {object} deps - injected dependencies
  * @param {Function} deps.runScript - execute a script
  * @param {Function} deps.validateName - validate MCP server name
- * @param {Function} deps.validateNumber - validate and coerce numeric arguments
  * @param {Function} deps.isCommandNameSafe - check if command is safe to execute
  * @param {Function} deps.toToolResponse - shape a result object into MCP response
  * @param {Function} deps.toolError - create an MCP error response
@@ -23,7 +53,6 @@ export function createCallToolHandler(deps) {
   const {
     runScript,
     validateName,
-    validateNumber,
     isCommandNameSafe,
     toToolResponse,
     toolError,
@@ -31,86 +60,47 @@ export function createCallToolHandler(deps) {
   } = deps;
 
   return async function handleCallTool(request) {
-    const { name, arguments: args } = request.params;
-    const capabilityProfile = getCapabilityProfile ? await getCapabilityProfile() : null;
+    const { name, arguments: rawArgs } = request.params;
+    const entry = TOOL_REGISTRY[name];
 
-    if (!MCP_TOOL_MAP.has(name)) {
-      return toolError(`Unknown tool: ${name}`);
+    if (!entry) {
+      return toolError(JSON.stringify({
+        type: 'validation_error',
+        tool: name,
+        field: '/name',
+        message: 'Unknown tool id',
+      }));
     }
 
-    if (!MCP_TOOL_MAP.has(name)) {
-      return toolError(`Unknown tool: ${name}`);
+    const args = rawArgs ?? {};
+    const validateArgs = compiledSchemas[name];
+    if (!validateArgs(args)) {
+      return toolError(JSON.stringify(formatValidationError(name, validateArgs.errors)));
     }
 
-    switch (name) {
-      case 'sync_tools': {
-        const result = runScript('runtime/sync.sh', args?.dry_run ? ['--dry-run'] : []);
-        return toToolResponse(result, capabilityProfile);
+    if (name === 'mcp_add' || name === 'mcp_remove') {
+      try {
+        validateName(args.name);
+      } catch {
+        return toolError(JSON.stringify({
+          type: 'validation_error',
+          tool: name,
+          field: '/name',
+          message: 'Invalid MCP server name',
+        }));
       }
-
-      case 'list_tools': {
-        const result = runScript('runtime/manifest.sh', ['status']);
-        return toToolResponse(result, capabilityProfile);
-      }
-
-      case 'get_config': {
-        const result = runScript('shared/lib/config-merger.sh');
-        return toToolResponse(result, capabilityProfile);
-      }
-
-      case 'skill_stats': {
-        const result = runScript('ops/skill-stats.sh');
-        return toToolResponse(result, capabilityProfile);
-      }
-
-      case 'context_cost': {
-        try {
-          const threshold = validateNumber(args?.threshold, 2000);
-          const result = runScript('ops/context-cost.sh', ['--threshold', String(threshold)]);
-          return toToolResponse(result, capabilityProfile);
-        } catch (err) {
-          return toolError(err.message || 'Invalid arguments', capabilityProfile);
-        }
-      }
-
-      case 'validate_all': {
-        const result = runScript('ops/validate-all.sh');
-        return toToolResponse(result, capabilityProfile);
-      }
-
-      case 'mcp_list': {
-        const result = runScript('runtime/adapters/mcp-adapter.sh', ['list']);
-        return toToolResponse(result, capabilityProfile);
-      }
-
-      case 'mcp_add': {
-        try {
-          validateName(args?.name);
-          if (!isCommandNameSafe(args?.command)) {
-            return toolError('Invalid command: must be a simple command name (alphanumeric, dash, underscore)', capabilityProfile);
-          }
-          const result = runScript(
-            'runtime/adapters/mcp-adapter.sh',
-            ['add', args.name, args.command, ...(Array.isArray(args?.args) ? args.args : [])]
-          );
-          return toToolResponse(result, capabilityProfile);
-        } catch (err) {
-          return toolError(err.message || 'Invalid arguments', capabilityProfile);
-        }
-      }
-
-      case 'mcp_remove': {
-        try {
-          validateName(args?.name);
-          const result = runScript('runtime/adapters/mcp-adapter.sh', ['remove', args.name]);
-          return toToolResponse(result, capabilityProfile);
-        } catch (err) {
-          return toolError(err.message || 'Invalid arguments', capabilityProfile);
-        }
-      }
-
-      default:
-        return toolError(`Unknown tool: ${name}`, capabilityProfile);
     }
+
+    if (name === 'mcp_add' && !isCommandNameSafe(args.command)) {
+      return toolError(JSON.stringify({
+        type: 'validation_error',
+        tool: name,
+        field: '/command',
+        message: 'Invalid command name',
+      }));
+    }
+
+    const result = entry.run({ runScript }, args);
+    return toToolResponse(result);
   };
 }

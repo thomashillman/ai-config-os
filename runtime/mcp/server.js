@@ -18,7 +18,7 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
-import { MCP_TOOL_DEFINITIONS } from "./tool-definitions.mjs";
+import { getToolList } from "./tool-registry.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -78,17 +78,12 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: MCP_TOOL_DEFINITIONS.map(({ name, description, inputSchema }) => ({
-    name,
-    description,
-    inputSchema,
-  })),
+  tools: getToolList(),
 }));
 
 const handleCallTool = createCallToolHandler({
   runScript,
   validateName,
-  validateNumber,
   isCommandNameSafe,
   toToolResponse,
   toolError,
