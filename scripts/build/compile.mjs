@@ -20,6 +20,7 @@ import { emitCursor } from './lib/emit-cursor.mjs';
 import { emitRegistry } from './lib/emit-registry.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
 import { resolveAll } from './lib/resolve-compatibility.mjs';
+import { selectEmittedPlatforms } from './lib/select-emitted-platforms.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
 import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
 
@@ -252,9 +253,13 @@ async function main() {
   rmSync(DIST_DIR, { recursive: true, force: true });
   mkdirSync(DIST_DIR, { recursive: true });
 
-  // Track platforms that were actually emitted (had a real emitter), separate from
-  // compatible platforms. The registry must only claim platforms with distributable artefacts.
-  const actuallyEmittedPlatforms = [];
+  // Use pure helper to select platforms that have real emitters.
+  // The registry must only claim platforms with distributable artefacts.
+  const emitterRegistry = {
+    'claude-code': true,
+    'cursor': true,
+  };
+  const actuallyEmittedPlatforms = selectEmittedPlatforms(platformSkills, emitterRegistry);
 
   for (const [platformId, skills] of Object.entries(platformSkills)) {
     const platformDist = join(DIST_DIR, 'clients', platformId);
@@ -262,10 +267,8 @@ async function main() {
 
     if (platformId === 'claude-code') {
       emitClaudeCode(skills, { distDir: platformDist, releaseVersion, provenance });
-      actuallyEmittedPlatforms.push(platformId);
     } else if (platformId === 'cursor') {
       emitCursor(skills, { distDir: platformDist, releaseVersion, provenance, compatMatrix });
-      actuallyEmittedPlatforms.push(platformId);
     } else {
       console.log(`  [${platformId}] emitter not yet implemented — skipping (${skills.length} skill(s))`);
     }

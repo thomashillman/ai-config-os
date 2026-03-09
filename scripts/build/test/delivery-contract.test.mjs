@@ -29,6 +29,104 @@ const CLIENTS_DIR = join(DIST_DIR, 'clients');
 const REGISTRY_DIR = join(DIST_DIR, 'registry');
 
 // ───────────────────────────────────────────────────────────────────────────
+// Slice 3: Build truthfulness — platform selection logic
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('selectEmittedPlatforms — pure platform selection logic', () => {
+  test('selectEmittedPlatforms excludes compatible platforms with no emitter', async () => {
+    const { selectEmittedPlatforms } = await import('../lib/select-emitted-platforms.mjs');
+
+    const platformSkills = {
+      'claude-code': [{ skillName: 'a' }],
+      'cursor': [{ skillName: 'b' }],
+      'future-client': [{ skillName: 'c' }],
+    };
+
+    const emitterRegistry = {
+      'claude-code': true,
+      'cursor': true,
+    };
+
+    const emitted = selectEmittedPlatforms(platformSkills, emitterRegistry);
+
+    assert.deepEqual(emitted.sort(), ['claude-code', 'cursor']);
+    assert.ok(!emitted.includes('future-client'), 'future-client should not be in emitted list');
+  });
+
+  test('selectEmittedPlatforms returns deterministic order', async () => {
+    const { selectEmittedPlatforms } = await import('../lib/select-emitted-platforms.mjs');
+
+    const platformSkills = {
+      'b': [{}],
+      'a': [{}],
+      'c': [{}],
+    };
+
+    const emitterRegistry = {
+      'a': true,
+      'c': true,
+    };
+
+    const emitted = selectEmittedPlatforms(platformSkills, emitterRegistry);
+
+    // selectEmittedPlatforms returns keys in iteration order, which is insertion order
+    // in modern JS. The exact order is not guaranteed, but it should be consistent.
+    assert.deepEqual(new Set(emitted), new Set(['a', 'c']));
+  });
+
+  test('selectEmittedPlatforms handles empty emitterRegistry', async () => {
+    const { selectEmittedPlatforms } = await import('../lib/select-emitted-platforms.mjs');
+
+    const platformSkills = {
+      'a': [{ skillName: 'skill1' }],
+      'b': [{ skillName: 'skill2' }],
+    };
+
+    const emitterRegistry = {};
+
+    const emitted = selectEmittedPlatforms(platformSkills, emitterRegistry);
+
+    assert.deepEqual(emitted, []);
+  });
+
+  test('selectEmittedPlatforms handles empty platformSkills', async () => {
+    const { selectEmittedPlatforms } = await import('../lib/select-emitted-platforms.mjs');
+
+    const platformSkills = {};
+
+    const emitterRegistry = {
+      'claude-code': true,
+      'cursor': true,
+    };
+
+    const emitted = selectEmittedPlatforms(platformSkills, emitterRegistry);
+
+    assert.deepEqual(emitted, []);
+  });
+
+  test('registry contains only emitted platforms, not all compatible ones', async () => {
+    ensureFreshDist();
+
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    const indexContent = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+    // Registry should only list platforms with actual emitters
+    assert.ok(Array.isArray(indexContent.platforms), 'registry.platforms should be an array');
+
+    // Both claude-code and cursor should be present (they have emitters)
+    const registryPlatforms = indexContent.platforms;
+    assert.ok(registryPlatforms.includes('claude-code'), 'claude-code should be in registry');
+    assert.ok(registryPlatforms.includes('cursor'), 'cursor should be in registry');
+
+    // Unimplemented platforms should NOT be in registry
+    // (codex, claude-ios, claude-web exist in the repo but have no emitters)
+    assert.ok(!registryPlatforms.includes('codex'), 'codex should not be in registry (no emitter)');
+    assert.ok(!registryPlatforms.includes('claude-ios'), 'claude-ios should not be in registry (no emitter)');
+    assert.ok(!registryPlatforms.includes('claude-web'), 'claude-web should not be in registry (no emitter)');
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // Helper: Run compiler to ensure dist/ is fresh (with retry logic)
 // ───────────────────────────────────────────────────────────────────────────
 
