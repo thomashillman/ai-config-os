@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/route-definition.schema.json",
+  "title": "RouteDefinition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "method", "path", "outcome_id"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"] },
+    "path": { "type": "string", "pattern": "^/" },
+    "outcome_id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "auth_required": { "type": "boolean", "default": true }
+  }
+}
