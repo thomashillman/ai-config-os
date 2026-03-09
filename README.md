@@ -217,13 +217,21 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
 | `runtime/mcp/` | MCP server exposing runtime operations as Claude Code tools |
 | `dashboard/` | React SPA for runtime visibility and control |
-| `ops/` | Developer scripts (new-skill, lint, validate, docs generator) |
+| `ops/` | Developer scripts (new-skill, merge-open-prs, lint, validate, docs generator) |
 | `.claude/hooks/` | Startup and post-tool hooks for Claude Code |
 | `.github/workflows/` | CI validation (structure, metadata, source integrity, docs, build, portability contracts) |
 
 ---
 
 ## Examples: Common tasks
+
+### Example 0: Merge all open PRs (sequentially)
+
+```bash
+bash ops/merge-open-prs.sh
+```
+
+This attempts to merge each open PR in order using GitHub CLI. If a merge fails due to conflicts, it rebases the PR branch on `origin/main`, pushes, and retries.
 
 ### Example 1: Create a security-focused skill
 
