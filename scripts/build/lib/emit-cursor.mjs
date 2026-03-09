@@ -51,10 +51,19 @@ export function emitCursor(skills, { distDir, releaseVersion, provenance, compat
       sections.push(`# ${fm.description.trim().split('\n')[0]}`);
     }
 
-    // Add degradation note if applicable
-    if (compat?.mode === 'degraded') {
+    // Add limitation note for any non-native/non-supported compatibility result
+    const hasLimitation = compat && (compat.mode !== 'native' || compat.status !== 'supported');
+    if (hasLimitation) {
+      const limitationReason =
+        compat.notes ||
+        (compat.status === 'unverified'
+          ? 'Capability support is unverified for Cursor.'
+          : compat.status === 'excluded'
+            ? 'This skill is excluded for Cursor due to unsupported capability requirements.'
+            : 'Some capabilities may not be available in Cursor.');
+
       sections.push('');
-      sections.push(`# ⚠ DEGRADED: ${compat.notes || 'Some capabilities may not be available in Cursor.'}`);
+      sections.push(`# ⚠ LIMITATION (${compat.status}/${compat.mode}): ${limitationReason}`);
       if (fm.capabilities?.fallback_notes) {
         sections.push(`# Fallback: ${fm.capabilities.fallback_notes}`);
       }
