@@ -10,7 +10,7 @@
 //   node scripts/build/compile.mjs
 //   node scripts/build/compile.mjs --validate-only
 
-import { readdirSync, existsSync, readFileSync, mkdirSync } from 'fs';
+import { readdirSync, existsSync, readFileSync, mkdirSync, rmSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -245,12 +245,16 @@ async function main() {
     return;
   }
 
-  const emittedPlatforms = Object.keys(platformSkills);
-  console.log(`\nEmitting for platforms: ${emittedPlatforms.join(', ') || '(none)'}`);
+  const compatiblePlatforms = Object.keys(platformSkills);
+  console.log(`\nEmitting for platforms: ${compatiblePlatforms.join(', ') || '(none)'}`);
 
-  // Ensure dist directory structure exists before emitting
-  // (handles race conditions in tests where rmSync hasn't fully completed)
+  // Clean dist/ before emitting to guarantee no stale artefacts from removed or renamed skills.
+  rmSync(DIST_DIR, { recursive: true, force: true });
   mkdirSync(DIST_DIR, { recursive: true });
+
+  // Track platforms that were actually emitted (had a real emitter), separate from
+  // compatible platforms. The registry must only claim platforms with distributable artefacts.
+  const actuallyEmittedPlatforms = [];
 
   for (const [platformId, skills] of Object.entries(platformSkills)) {
     const platformDist = join(DIST_DIR, 'clients', platformId);
@@ -258,15 +262,17 @@ async function main() {
 
     if (platformId === 'claude-code') {
       emitClaudeCode(skills, { distDir: platformDist, releaseVersion, provenance });
+      actuallyEmittedPlatforms.push(platformId);
     } else if (platformId === 'cursor') {
       emitCursor(skills, { distDir: platformDist, releaseVersion, provenance, compatMatrix });
+      actuallyEmittedPlatforms.push(platformId);
     } else {
       console.log(`  [${platformId}] emitter not yet implemented — skipping (${skills.length} skill(s))`);
     }
   }
 
   console.log('\n[registry]');
-  emitRegistry(parsed, emittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix });
+  emitRegistry(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix });
 
   console.log('\nBuild complete.\n');
 }

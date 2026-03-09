@@ -337,7 +337,7 @@ test('shell-safety: isPathSafe accepts path with . segments matching boundary', 
 
 // ─── Test 31: isPathSafe rejects any symlink encountered in the path ───
 
-test('shell-safety: isPathSafe rejects symlink in path (filesystem-backed)', { skip: false }, () => {
+test('shell-safety: isPathSafe rejects symlink in path (filesystem-backed)', (t) => {
   const tmp = mkdtempSync(join(tmpdir(), 'shell-safe-sym-'));
   try {
     // Create: tmp/real.txt  and  tmp/sub/link.txt -> tmp/real.txt
@@ -345,27 +345,22 @@ test('shell-safety: isPathSafe rejects symlink in path (filesystem-backed)', { s
     mkdirSync(join(tmp, 'sub'));
 
     // Try to create symlink; skip test gracefully if not supported (e.g., Windows without admin)
-    let symlinkCreated = false;
     try {
       symlinkSync(join(tmp, 'real.txt'), join(tmp, 'sub', 'link.txt'));
-      symlinkCreated = true;
     } catch (err) {
-      if (err.code === 'EACCES' || err.code === 'EPERM') {
-        // Symlink creation not allowed in this environment (e.g., Windows CI without admin)
-        // Skip this specific assertion gracefully
+      if (err.code === 'EACCES' || err.code === 'EPERM' || err.code === 'ENOTSUP') {
+        t.skip('symlink creation not permitted on this platform');
         return;
       }
       throw err;
     }
 
-    if (symlinkCreated) {
-      // The path passes through sub/link.txt which is a symlink — must be rejected.
-      assert.equal(
-        isPathSafe(join(tmp, 'sub', 'link.txt'), tmp),
-        false,
-        'Any symlink in the path must be rejected'
-      );
-    }
+    // The path passes through sub/link.txt which is a symlink — must be rejected.
+    assert.equal(
+      isPathSafe(join(tmp, 'sub', 'link.txt'), tmp),
+      false,
+      'Any symlink in the path must be rejected'
+    );
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
