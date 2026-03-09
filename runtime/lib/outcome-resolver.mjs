@@ -18,12 +18,12 @@ const TOOL_OUTCOME_MAP = {
 
 const OUTCOME_ROUTES = {
   'runtime.sync-tools': [
-    { id: 'runtime.sync.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    { id: 'runtime.manifest.sh', channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
+    { id: 'runtime/sync.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    { id: 'runtime/manifest.sh', channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
   ],
   'runtime.list-tools': [
-    { id: 'runtime.manifest.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    { id: 'runtime.sync.sh --dry-run', channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
+    { id: 'runtime/manifest.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    { id: 'runtime/sync.sh --dry-run', channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
   ],
   'runtime.get-config': [
     { id: 'shared/lib/config-merger.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },

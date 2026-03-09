@@ -504,7 +504,9 @@ test('resolveEffectiveOutcomeContract returns preferred route for known tool', a
 
   assert.equal(contract.outcomeId, 'runtime.list-tools');
   assert.ok(contract.preferredRoute);
+  assert.equal(contract.preferredRoute.id, 'runtime/manifest.sh');
   assert.equal(Array.isArray(contract.availableRoutes), true);
+  assert.equal(contract.availableRoutes[1].id, 'runtime/sync.sh --dry-run');
 });
 
 test('handler resolve_outcome_contract returns contract JSON', async () => {
