@@ -187,3 +187,46 @@ test('server.js does not hardcode a version string', () => {
     'server.js must not contain a hardcoded semver version string'
   );
 });
+
+// --- Slice 1: Runtime version validation ---
+
+test('getReleaseVersionFromRoot rejects invalid semver in VERSION', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'version-root-'));
+  try {
+    writeFileSync(join(tmp, 'VERSION'), 'not-semver\n');
+    const { getReleaseVersionFromRoot } = await import('../../../runtime/lib/release-version.mjs');
+
+    assert.throws(
+      () => getReleaseVersionFromRoot(tmp),
+      /Invalid release version/,
+      'runtime helper must validate VERSION with same rules as build path'
+    );
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('getReleaseVersionFromRoot rejects various malformed versions', async () => {
+  const { getReleaseVersionFromRoot } = await import('../../../runtime/lib/release-version.mjs');
+  const testCases = ['1.0', 'v1.0.0', '1.0.0-beta', '', 'abc'];
+
+  for (const malformed of testCases) {
+    const tmp = mkdtempSync(join(tmpdir(), 'version-root-'));
+    try {
+      writeFileSync(join(tmp, 'VERSION'), `${malformed}\n`);
+      assert.throws(
+        () => getReleaseVersionFromRoot(tmp),
+        /Invalid release version/,
+        `Should reject "${malformed}"`
+      );
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
+  }
+});
+
+test('getReleaseVersion matches build validation and returns validated semver', async () => {
+  const { getReleaseVersion } = await import('../../../runtime/lib/release-version.mjs');
+  const expected = validateReleaseVersion(readReleaseVersion(REPO_ROOT));
+  assert.equal(getReleaseVersion(), expected);
+});
