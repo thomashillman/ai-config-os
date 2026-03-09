@@ -219,6 +219,7 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `runtime/config/` | Desired-state configuration (global, machine, project overrides) |
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
 | `runtime/mcp/` | MCP server exposing runtime operations as Claude Code tools |
+| `runtime/remote-executor/` | HTTP service that executes proxied tool requests from the worker |
 | `dashboard/` | React SPA for runtime visibility and control |
 | `ops/` | Developer scripts (new-skill, lint, validate, docs generator) |
 | `.claude/hooks/` | Startup and post-tool hooks for Claude Code |
