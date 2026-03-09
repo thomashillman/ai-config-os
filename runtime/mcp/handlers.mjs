@@ -52,9 +52,13 @@ export function createCallToolHandler(deps) {
       }
 
       case 'context_cost': {
-        const threshold = validateNumber(args?.threshold, 2000);
-        const result = runScript('ops/context-cost.sh', ['--threshold', String(threshold)]);
-        return toToolResponse(result);
+        try {
+          const threshold = validateNumber(args?.threshold, 2000);
+          const result = runScript('ops/context-cost.sh', ['--threshold', String(threshold)]);
+          return toToolResponse(result);
+        } catch (err) {
+          return toolError(err.message || 'Invalid arguments');
+        }
       }
 
       case 'validate_all': {

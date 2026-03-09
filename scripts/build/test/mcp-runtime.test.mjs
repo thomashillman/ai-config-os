@@ -360,3 +360,87 @@ test('handler success response uses toToolResponse', async () => {
   assert.equal(result.isError, undefined);
   assert.equal(result.content[0].text, 'operation successful');
 });
+
+// --- Slice 1: Handler error semantics uniformity tests ---
+
+test('handler context_cost returns tool error when validateNumber throws', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  const fakeDeps = {
+    runScript: () => ({ success: true, output: 'ok', error: null }),
+    validateName: () => {},
+    validateNumber: () => {
+      throw new Error('threshold must be numeric');
+    },
+    isCommandNameSafe: () => true,
+    toToolResponse,
+    toolError,
+  };
+
+  const handler = createCallToolHandler(fakeDeps);
+  const result = await handler({
+    params: { name: 'context_cost', arguments: { threshold: 'bad' } }
+  });
+
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /threshold must be numeric/);
+});
+
+test('handler context_cost does not reject promise on numeric validation failure', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  const fakeDeps = {
+    runScript: () => ({ success: true, output: 'ok', error: null }),
+    validateName: () => {},
+    validateNumber: () => {
+      throw new Error('bad threshold');
+    },
+    isCommandNameSafe: () => true,
+    toToolResponse,
+    toolError,
+  };
+
+  const handler = createCallToolHandler(fakeDeps);
+
+  // This should not reject; if it does, the test will fail
+  const result = await handler({
+    params: { name: 'context_cost', arguments: { threshold: 'oops' } }
+  });
+
+  assert.equal(result.isError, true);
+});
+
+test('handler context_cost success path passes validated threshold to script', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  let capturedThreshold = null;
+
+  const fakeDeps = {
+    runScript: (script, args) => {
+      // Capture the threshold passed to the script
+      if (args && args.length > 1) {
+        capturedThreshold = parseInt(args[1], 10);
+      }
+      return { success: true, output: 'ok', error: null };
+    },
+    validateName: () => {},
+    validateNumber: (input, defaultValue) => {
+      if (input === undefined) return defaultValue;
+      if (typeof input !== 'number') throw new Error('threshold must be numeric');
+      return input;
+    },
+    isCommandNameSafe: () => true,
+    toToolResponse,
+    toolError,
+  };
+
+  const handler = createCallToolHandler(fakeDeps);
+  await handler({
+    params: { name: 'context_cost', arguments: { threshold: 5000 } }
+  });
+
+  assert.equal(capturedThreshold, 5000);
+});
