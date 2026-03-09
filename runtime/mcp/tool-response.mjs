@@ -18,19 +18,16 @@ import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
  * @param {string|null} result.error - stderr content or error message
  * @returns {object} MCP-formatted tool response
  */
-export function toToolResponse(result) {
-  const status = result.success ? 'Full' : 'Degraded';
-  const selectedRoute = result.success ? 'local-runtime-script' : 'manual-equivalent-workflow';
+export function toToolResponse(result, effectiveOutcomeContract = null) {
+  const contractPrefix = effectiveOutcomeContract
+    ? `EffectiveOutcomeContract:
+${JSON.stringify(effectiveOutcomeContract, null, 2)}
+
+`
+    : '';
 
   if (result.success) {
-    return {
-      content: [{ type: 'text', text: result.output ?? '' }],
-      structuredContent: {
-        status,
-        selectedRoute,
-        output: result.output ?? '',
-      },
-    };
+    return { content: [{ type: 'text', text: `${contractPrefix}${result.output ?? ''}` }] };
   }
 
   // On failure: combine stderr and stdout to preserve diagnostic context.
@@ -38,22 +35,8 @@ export function toToolResponse(result) {
   if (result.error) parts.push(result.error);
   if (result.output) parts.push(result.output);
 
-  const text = parts.length > 0 ? parts.join('\n\n') : 'Unknown error';
-  const nonFullContract = {
-    status,
-    missingCapabilities: [
-      'local-runtime-script-execution',
-    ],
-    selectedRoute,
-    requiredUserInput: [
-      'Inspect the error details and confirm whether to run the equivalent route manually.',
-    ],
-    guidanceEquivalentRoute:
-      'Run the corresponding runtime script directly in a shell (for example via npm scripts or the repo script path) and capture the output.',
-    guidanceFullWorkflowHigherCapabilityEnvironment:
-      'Re-run this MCP tool in an environment with full local runtime script execution enabled so the complete workflow can run end-to-end.',
-    output: text,
-  };
+  const textBody = parts.length > 0 ? parts.join('\n\n') : 'Unknown error';
+  const text = `${contractPrefix}${textBody}`;
 
   return attachCapabilityProfile({
     content: [{ type: 'text', text }],

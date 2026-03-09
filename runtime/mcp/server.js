@@ -18,7 +18,7 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
-import { MCP_TOOL_DEFINITIONS } from "./tool-definitions.mjs";
+import { resolveEffectiveOutcomeContract } from "../lib/outcome-resolver.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -78,11 +78,88 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: MCP_TOOL_DEFINITIONS.map(({ name, description, inputSchema }) => ({
-    name,
-    description,
-    inputSchema,
-  })),
+  tools: [
+    {
+      name: "resolve_outcome_contract",
+      description: "Resolve EffectiveOutcomeContract for a target tool before execution",
+      inputSchema: {
+        type: "object",
+        required: ["tool_name"],
+        properties: {
+          tool_name: { type: "string", description: "Tool name to resolve" }
+        }
+      }
+    },
+    {
+      name: "sync_tools",
+      description: "Sync desired tool config to live Claude Code environment",
+      inputSchema: {
+        type: "object",
+        properties: {
+          dry_run: { type: "boolean", description: "Preview changes without applying", default: false }
+        }
+      }
+    },
+    {
+      name: "list_tools",
+      description: "List installed tools and their status from the runtime manifest",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "get_config",
+      description: "Get the merged runtime config (global + machine + project)",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "skill_stats",
+      description: "Get a summary table of all skills with type, status, variants, and test count",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "context_cost",
+      description: "Analyse token footprint of all skills",
+      inputSchema: {
+        type: "object",
+        properties: {
+          threshold: { type: "number", description: "Token threshold for warnings", default: 2000 }
+        }
+      }
+    },
+    {
+      name: "validate_all",
+      description: "Run the full validation suite (dependencies, variants, structure tests, docs, plugin)",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "mcp_list",
+      description: "List MCP servers currently configured in ~/.claude/mcp.json",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "mcp_add",
+      description: "Add an MCP server entry",
+      inputSchema: {
+        type: "object",
+        required: ["name", "command"],
+        properties: {
+          name: { type: "string", description: "MCP server name" },
+          command: { type: "string", description: "Command to run the server" },
+          args: { type: "array", items: { type: "string" }, description: "Command arguments" }
+        }
+      }
+    },
+    {
+      name: "mcp_remove",
+      description: "Remove an MCP server entry",
+      inputSchema: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", description: "MCP server name to remove" }
+        }
+      }
+    }
+  ]
 }));
 
 const handleCallTool = createCallToolHandler({
@@ -90,6 +167,7 @@ const handleCallTool = createCallToolHandler({
   validateName,
   validateNumber,
   isCommandNameSafe,
+  resolveEffectiveOutcomeContract,
   toToolResponse,
   toolError,
   getCapabilityProfile: () => capabilityProfileResolver.getProfile(),
@@ -103,6 +181,20 @@ function startDashboardApi() {
   app.use(cors({ origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:4242"] }));
   app.use(express.json({ limit: "10kb" }));
 
+  function executeWithOutcomeContract(toolName, run) {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({
+      toolName,
+      executionChannel: 'dashboard',
+    });
+
+    const result = run();
+
+    return {
+      ...result,
+      effectiveOutcomeContract,
+    };
+  }
+
   // Dashboard data endpoints
   function respondWithOutcome(res, result) {
     const capabilityProfile = capabilityProfileResolver.getCachedProfile();
@@ -110,45 +202,46 @@ function startDashboardApi() {
   }
 
   app.get("/api/manifest", (req, res) => {
-    const result = runScript("runtime/manifest.sh", ["status"]);
-    res.json(buildApiResponse(result, "manifest-status"));
+    const response = executeWithOutcomeContract('list_tools', () => runScript("runtime/manifest.sh", ["status"]));
+    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
   });
 
   app.get("/api/skill-stats", (req, res) => {
-    const result = runScript("ops/skill-stats.sh");
-    res.json(buildApiResponse(result, "skill-stats"));
+    const response = executeWithOutcomeContract('skill_stats', () => runScript("ops/skill-stats.sh"));
+    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
   });
 
   app.get("/api/context-cost", (req, res) => {
     const threshold = validateNumber(req.query.threshold, 2000);
-    const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-    res.json(buildApiResponse(result, "context-cost"));
+    const response = executeWithOutcomeContract('context_cost', () => runScript("ops/context-cost.sh", ["--threshold", String(threshold)]));
+    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
   });
 
   app.get("/api/config", (req, res) => {
-    const result = runScript("shared/lib/config-merger.sh");
-    res.json(buildApiResponse(result, "merged-config"));
+    const response = executeWithOutcomeContract('get_config', () => runScript("shared/lib/config-merger.sh"));
+    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
   });
 
   app.get("/api/analytics", (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
     const metricsFile = `${REPO_ROOT}/.claude/metrics.jsonl`;
     try {
       const lines = fs.readFileSync(metricsFile, "utf8").trim().split("\n").filter(Boolean);
       const metrics = lines.map(l => JSON.parse(l));
-      res.json({ metrics, success: true, status: "Full", selectedRoute: "analytics-metrics" });
+      res.json({ metrics, success: true, effectiveOutcomeContract });
     } catch {
-      res.json({ metrics: [], success: true, note: "No metrics collected yet", status: "Full", selectedRoute: "analytics-metrics" });
+      res.json({ metrics: [], success: true, note: "No metrics collected yet", effectiveOutcomeContract });
     }
   });
 
   app.post("/api/sync", (req, res) => {
-    const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
-    res.json(buildApiResponse(result, req.body?.dry_run ? "sync-tools-dry-run" : "sync-tools"));
+    const response = executeWithOutcomeContract('sync_tools', () => runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []));
+    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
   });
 
   app.get("/api/validate-all", (req, res) => {
-    const result = runScript("ops/validate-all.sh");
-    res.json(buildApiResponse(result, "validate-all"));
+    const response = executeWithOutcomeContract('validate_all', () => runScript("ops/validate-all.sh"));
+    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
   });
 
   const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;
