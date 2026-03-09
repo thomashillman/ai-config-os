@@ -99,6 +99,26 @@ describe('validateSkillPolicy — capability rules', () => {
     const { errors } = validateSkillPolicy(fm, 'x');
     assert.ok(errors.some(e => e.includes('allow_unverified')));
   });
+  test('unknown tool dependency with registeredTools set → error', () => {
+    const fm = {
+      type: 'prompt',
+      capabilities: { required: [], optional: [] },
+      dependencies: { tools: ['ghost-tool'] },
+    };
+    const { errors } = validateSkillPolicy(fm, 'x', new Set(), new Set(['codex', 'cursor']));
+    assert.ok(errors.some(e => e.includes('Unknown tool dependency')));
+  });
+
+  test('known tool dependency with registeredTools set → no errors', () => {
+    const fm = {
+      type: 'prompt',
+      capabilities: { required: [], optional: [] },
+      dependencies: { tools: ['codex'] },
+    };
+    const { errors } = validateSkillPolicy(fm, 'x', new Set(), new Set(['codex', 'cursor']));
+    assert.equal(errors.some(e => e.includes('Unknown tool dependency')), false);
+  });
+
 });
 
 // ---------------------------------------------------------------------------

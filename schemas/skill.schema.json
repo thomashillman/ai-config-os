@@ -73,6 +73,11 @@
             }
           }
         },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "description": "Runtime tool IDs this skill expects (validated against runtime/tool-registry.yaml at compile time)"
+        },
         "apis": {
           "type": "array",
           "items": { "type": "string" },

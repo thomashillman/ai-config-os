@@ -9,9 +9,10 @@
  * @param {object} frontmatter - Parsed skill frontmatter
  * @param {string} skillName - Skill name (for error messages)
  * @param {Set<string>} [knownPlatforms] - Known platform IDs (optional)
+ * @param {Set<string>} [registeredTools] - Tool IDs from runtime registry (optional)
  * @returns {object} { errors: string[], warnings: string[] }
  */
-export function validateSkillPolicy(frontmatter, skillName, knownPlatforms = new Set()) {
+export function validateSkillPolicy(frontmatter, skillName, knownPlatforms = new Set(), registeredTools = new Set()) {
   const errors = [];
   const warnings = [];
 
@@ -70,6 +71,17 @@ export function validateSkillPolicy(frontmatter, skillName, knownPlatforms = new
     }
   }
 
+
+  // 5. Validate declared tool dependencies against runtime tool registry
+  const declaredTools = frontmatter?.dependencies?.tools;
+  if (Array.isArray(declaredTools)) {
+    for (const toolId of declaredTools) {
+      if (registeredTools.size > 0 && !registeredTools.has(toolId)) {
+        errors.push(`Unknown tool dependency '${toolId}'. Registered tools: ${[...registeredTools].join(', ')}`);
+      }
+    }
+  }
+
   return { errors, warnings };
 }
 
@@ -89,6 +101,8 @@ export function validatePlatformPolicy(platformDef, platformId) {
       `Platform id '${platformDef.id}' does not match filename '${platformId}.yaml'.`
     );
   }
+
+
 
   return { errors, warnings };
 }
