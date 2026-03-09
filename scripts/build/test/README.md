@@ -1,6 +1,6 @@
 # Test Suite Documentation
 
-This directory contains 22 automated test suites (including worker-executor integration coverage) that protect the AI Config OS architecture and guarantee portability, deliverability, and reproducibility.
+This directory contains 24 automated test suites that protect the AI Config OS architecture and guarantee portability, deliverability, and reproducibility.
 
 ## Contract-Level Tests (Guardrails)
 
@@ -125,6 +125,28 @@ These suites verify specific implementation components work correctly:
 **Files:** `adapter-contract.test.mjs`, `adapter-real.test.mjs`
 **Purpose:** Verify platform adapters (materialise.sh, etc.) work correctly.
 
+### 18. Resolver Selection Contract
+**File:** `resolver-selection-contract.test.mjs`
+**Purpose:** Verify emitter selection is deterministic and only includes compatible platforms that have concrete emitters.
+**Guarantees:**
+- Platform emission selection excludes non-emittable platforms
+- Resolver output remains deterministic (stable ordering)
+
+### 19. Sync Loop Version/ETag Contract
+**File:** `sync-loop-etag-version-contract.test.mjs`
+**Purpose:** Verify sync/fetch loop keeps using the canonical `latest` endpoint and persists version-bearing metadata into local cache.
+**Guarantees:**
+- Fetch path uses `/v1/client/claude-code/latest`
+- Sync cache persists worker payload in `latest.json`
+- Version reads are sourced from cached payload metadata
+
+### 20. Worker Version Pointer Consistency Contract
+**File:** `worker-version-pointer-consistency-contract.test.mjs`
+**Purpose:** Verify worker responses consistently point to `dist/registry/index.json` version values (single source of truth).
+**Guarantees:**
+- `/v1/health` exposes registry-derived version
+- Worker payload version fields are not hardcoded and remain registry-backed
+
 ---
 
 
@@ -186,7 +208,7 @@ scripts/build/test/
 All tests run on every push to main and every PR:
 - **Platform:** Ubuntu, macOS, Windows
 - **Node version:** 20+
-- **Coverage:** Comprehensive cross-platform test coverage, including worker-executor integration scenarios
+- **Coverage:** 325 tests, 24 suites, cross-platform
 
 Tests must pass before merging to main. Broken tests block CI/CD.
 
