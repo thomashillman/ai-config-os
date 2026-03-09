@@ -34,7 +34,6 @@ export interface Env {
   ENVIRONMENT?: string;
   EXECUTOR_PROXY_URL: string;
   EXECUTOR_SHARED_SECRET: string;
-  EXECUTOR_SIGNATURE_PUBLIC_KEY?: string;
   EXECUTOR_TIMEOUT_MS?: string;
 }
 
@@ -287,9 +286,6 @@ async function handleExecute(request: Request, env: Env): Promise<Response> {
         'Content-Type': 'application/json',
         'X-Executor-Shared-Secret': env.EXECUTOR_SHARED_SECRET,
         'X-Request-Signature': forwardedSignature,
-        ...(env.EXECUTOR_SIGNATURE_PUBLIC_KEY
-          ? { 'X-Executor-Signature-Public-Key': env.EXECUTOR_SIGNATURE_PUBLIC_KEY }
-          : {}),
       },
       body: JSON.stringify(validation.value),
       signal: AbortSignal.timeout(timeoutMs),
