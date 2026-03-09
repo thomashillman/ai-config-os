@@ -24,6 +24,17 @@ export interface Env {
   AUTH_TOKEN: string;
   AUTH_TOKEN_NEXT?: string;
   ENVIRONMENT?: string;
+  /** KV pointer/meta store.
+   * Key conventions:
+   * - manifest:latest -> current version string
+   * - manifest:{version}:outcomes
+   * - manifest:{version}:routes
+   * - manifest:{version}:tools
+   * - manifest:{version}:effective_contract (optional)
+   */
+  MANIFEST_KV: KVNamespace;
+  /** Immutable artefacts, addressed by manifest version/object key. */
+  ARTEFACTS_R2: R2Bucket;
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
