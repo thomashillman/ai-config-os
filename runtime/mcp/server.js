@@ -18,7 +18,7 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
-import { MCP_TOOL_DEFINITIONS } from "./tool-definitions.mjs";
+import { verifySignedRequest } from "../../shared/contracts/request-signature.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -100,8 +100,44 @@ server.setRequestHandler(CallToolRequestSchema, handleCallTool);
 // Dashboard API server (Express)
 function startDashboardApi() {
   const app = express();
+  const signingSecret = process.env.SIGNING_SECRET || "";
+
   app.use(cors({ origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:4242"] }));
-  app.use(express.json({ limit: "10kb" }));
+  app.use(express.json({
+    limit: "10kb",
+    verify: (req, _res, buf) => {
+      req.rawBody = buf.toString("utf8");
+    },
+  }));
+
+  app.use("/api", async (req, res, next) => {
+    try {
+      const canonicalPath = req.originalUrl.split("?")[0];
+      const result = await verifySignedRequest({
+        method: req.method,
+        path: canonicalPath,
+        headers: new Headers(req.headers),
+        body: req.rawBody || "",
+        secret: signingSecret,
+      });
+
+      if (!result.ok) {
+        res.status(result.error.status).json({ error: result.error });
+        return;
+      }
+
+      next();
+    } catch (error) {
+      res.status(401).json({
+        error: {
+          status: 401,
+          code: "signature_verification_error",
+          message: error.message || "Failed to verify request signature",
+          details: {},
+        },
+      });
+    }
+  });
 
   // Dashboard data endpoints
   function respondWithOutcome(res, result) {

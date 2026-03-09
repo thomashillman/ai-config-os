@@ -17,8 +17,8 @@
  *   GET /v1/client/:client/latest
  *   GET /v1/skill/:skillId
  *
- * Auth: Authorization: Bearer <token> on all endpoints.
- * Tokens: AUTH_TOKEN (primary), AUTH_TOKEN_NEXT (rotation staging).
+ * Auth: signed headers (timestamp, nonce, body SHA-256, HMAC signature) on all endpoints.
+ * Secret: SIGNING_SECRET.
  */
 
 // Bundled at deploy time by wrangler from dist/
@@ -26,35 +26,26 @@
 import REGISTRY_JSON from '../../dist/registry/index.json';
 // @ts-ignore - generated at build time
 import CLAUDE_CODE_PLUGIN_JSON from '../../dist/clients/claude-code/.claude-plugin/plugin.json';
+// @ts-ignore - shared ESM utility imported as runtime JS
+import { InMemoryNonceStore, verifySignedRequest } from '../../shared/contracts/request-signature.mjs';
 
 export interface Env {
-  AUTH_TOKEN: string;
-  AUTH_TOKEN_NEXT?: string;
+  SIGNING_SECRET: string;
   ENVIRONMENT?: string;
   MANIFEST_POINTERS?: KVNamespace;
   MANIFEST_ARTIFACTS?: R2Bucket;
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
+const nonceStore = new InMemoryNonceStore();
 
-function isAuthorized(request: Request, env: Env): boolean {
-  const authHeader = request.headers.get('Authorization') ?? '';
-  if (!authHeader.startsWith('Bearer ')) return false;
-  const token = authHeader.slice(7).trim();
-  if (!token) return false;
-  if (token === env.AUTH_TOKEN) return true;
-  if (env.AUTH_TOKEN_NEXT && token === env.AUTH_TOKEN_NEXT) return true;
-  return false;
-}
-
-function unauthorizedResponse(): Response {
+function authFailureResponse(error: any): Response {
   return new Response(
-    JSON.stringify({ error: 'Unauthorized', hint: 'Provide a valid Bearer token' }),
+    JSON.stringify({ error }),
     {
-      status: 401,
+      status: error.status,
       headers: {
         'Content-Type': 'application/json',
-        'WWW-Authenticate': 'Bearer realm="ai-config-os"',
       },
     }
   );
@@ -255,7 +246,7 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Authorization',
+          'Access-Control-Allow-Headers': 'X-AIOS-Timestamp, X-AIOS-Nonce, X-AIOS-Body-SHA256, X-AIOS-Signature',
         },
       });
     }
@@ -267,9 +258,17 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Auth guard (all endpoints)
-    if (!isAuthorized(request, env)) {
-      return unauthorizedResponse();
+    // Signature verification (all endpoints)
+    const verification = await verifySignedRequest({
+      method: request.method,
+      path,
+      headers: request.headers,
+      body: '',
+      secret: env.SIGNING_SECRET,
+      nonceStore,
+    });
+    if (!verification.ok) {
+      return authFailureResponse(verification.error);
     }
 
     // Routes
