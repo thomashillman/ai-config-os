@@ -7,6 +7,8 @@ import { MCP_TOOL_MAP } from './tool-definitions.mjs';
  * Accepts dependencies for injection, enabling unit testing without server startup.
  */
 
+import { assertToolInvocationPayload } from '../../packages/contracts/index.js';
+
 /**
  * Create a CallTool request handler with injected dependencies.
  *
@@ -38,14 +40,15 @@ export function createCallToolHandler(deps) {
       return toolError(`Unknown tool: ${name}`);
     }
 
-    if (!MCP_TOOL_MAP.has(name)) {
-      return toolError(`Unknown tool: ${name}`);
-    }
+    const invocation = assertToolInvocationPayload({
+      toolName: name,
+      args: args && typeof args === 'object' ? args : {},
+    });
 
-    switch (name) {
+    switch (invocation.toolName) {
       case 'sync_tools': {
-        const result = runScript('runtime/sync.sh', args?.dry_run ? ['--dry-run'] : []);
-        return toToolResponse(result, capabilityProfile);
+        const result = runScript('runtime/sync.sh', invocation.args?.dry_run ? ['--dry-run'] : []);
+        return toToolResponse(result);
       }
 
       case 'list_tools': {
@@ -65,7 +68,7 @@ export function createCallToolHandler(deps) {
 
       case 'context_cost': {
         try {
-          const threshold = validateNumber(args?.threshold, 2000);
+          const threshold = validateNumber(invocation.args?.threshold, 2000);
           const result = runScript('ops/context-cost.sh', ['--threshold', String(threshold)]);
           return toToolResponse(result, capabilityProfile);
         } catch (err) {
@@ -85,13 +88,13 @@ export function createCallToolHandler(deps) {
 
       case 'mcp_add': {
         try {
-          validateName(args?.name);
-          if (!isCommandNameSafe(args?.command)) {
-            return toolError('Invalid command: must be a simple command name (alphanumeric, dash, underscore)', capabilityProfile);
+          validateName(invocation.args?.name);
+          if (!isCommandNameSafe(invocation.args?.command)) {
+            return toolError('Invalid command: must be a simple command name (alphanumeric, dash, underscore)');
           }
           const result = runScript(
             'runtime/adapters/mcp-adapter.sh',
-            ['add', args.name, args.command, ...(Array.isArray(args?.args) ? args.args : [])]
+            ['add', invocation.args.name, invocation.args.command, ...(Array.isArray(invocation.args?.args) ? invocation.args.args : [])]
           );
           return toToolResponse(result, capabilityProfile);
         } catch (err) {
@@ -101,9 +104,9 @@ export function createCallToolHandler(deps) {
 
       case 'mcp_remove': {
         try {
-          validateName(args?.name);
-          const result = runScript('runtime/adapters/mcp-adapter.sh', ['remove', args.name]);
-          return toToolResponse(result, capabilityProfile);
+          validateName(invocation.args?.name);
+          const result = runScript('runtime/adapters/mcp-adapter.sh', ['remove', invocation.args.name]);
+          return toToolResponse(result);
         } catch (err) {
           return toolError(err.message || 'Invalid arguments', capabilityProfile);
         }

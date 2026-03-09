@@ -18,7 +18,11 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
-import { MCP_TOOL_DEFINITIONS } from "./tool-definitions.mjs";
+import {
+  CONTRACT_VERSION,
+  assertExecutionResult,
+  makeErrorResponse,
+} from "../../packages/contracts/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -49,28 +53,53 @@ function buildApiResponse(result, selectedRoute) {
 }
 
 function runScript(script, args = []) {
+  const startedAt = new Date();
+  const startMs = Date.now();
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
   if (!scriptPath) {
-    return { success: false, output: "", error: "Script path escapes repository root" };
+    return assertExecutionResult({
+      ok: false,
+      stdout: '',
+      stderr: 'Script path escapes repository root',
+      exitCode: null,
+      startedAt: startedAt.toISOString(),
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startMs,
+      metadata: { contractVersion: CONTRACT_VERSION },
+    });
   }
 
   try {
-    const output = execFileSync("bash", [scriptPath, ...args], {
+    const stdout = execFileSync("bash", [scriptPath, ...args], {
       encoding: "utf8",
       timeout: 30000,
       cwd: REPO_ROOT,
     });
-    return { success: true, output, error: null };
+
+    return assertExecutionResult({
+      ok: true,
+      stdout,
+      stderr: '',
+      exitCode: 0,
+      startedAt: startedAt.toISOString(),
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startMs,
+      metadata: { contractVersion: CONTRACT_VERSION },
+    });
   } catch (err) {
-    return {
-      success: false,
-      output: String(err.stdout || ""),
-      error: String(err.stderr || err.message || "Unknown process error"),
-    };
+    return assertExecutionResult({
+      ok: false,
+      stdout: String(err.stdout || ""),
+      stderr: String(err.stderr || err.message || "Unknown process error"),
+      exitCode: typeof err.status === 'number' ? err.status : null,
+      startedAt: startedAt.toISOString(),
+      finishedAt: new Date().toISOString(),
+      durationMs: Date.now() - startMs,
+      metadata: { contractVersion: CONTRACT_VERSION },
+    });
   }
 }
 
-const capabilityProfileResolver = createCapabilityProfileResolver();
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
@@ -111,23 +140,23 @@ function startDashboardApi() {
 
   app.get("/api/manifest", (req, res) => {
     const result = runScript("runtime/manifest.sh", ["status"]);
-    res.json(buildApiResponse(result, "manifest-status"));
+    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
   });
 
   app.get("/api/skill-stats", (req, res) => {
     const result = runScript("ops/skill-stats.sh");
-    res.json(buildApiResponse(result, "skill-stats"));
+    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
   });
 
   app.get("/api/context-cost", (req, res) => {
     const threshold = validateNumber(req.query.threshold, 2000);
     const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-    res.json(buildApiResponse(result, "context-cost"));
+    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
   });
 
   app.get("/api/config", (req, res) => {
     const result = runScript("shared/lib/config-merger.sh");
-    res.json(buildApiResponse(result, "merged-config"));
+    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
   });
 
   app.get("/api/analytics", (req, res) => {
@@ -135,20 +164,25 @@ function startDashboardApi() {
     try {
       const lines = fs.readFileSync(metricsFile, "utf8").trim().split("\n").filter(Boolean);
       const metrics = lines.map(l => JSON.parse(l));
-      res.json({ metrics, success: true, status: "Full", selectedRoute: "analytics-metrics" });
-    } catch {
-      res.json({ metrics: [], success: true, note: "No metrics collected yet", status: "Full", selectedRoute: "analytics-metrics" });
+      res.json({ metrics, success: true });
+    } catch (err) {
+      const errorResponse = makeErrorResponse({
+        code: "METRICS_UNAVAILABLE",
+        message: "No metrics collected yet",
+        details: String(err?.message || "Unknown error"),
+      });
+      res.json({ metrics: [], ok: true, note: errorResponse.error.message });
     }
   });
 
   app.post("/api/sync", (req, res) => {
     const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
-    res.json(buildApiResponse(result, req.body?.dry_run ? "sync-tools-dry-run" : "sync-tools"));
+    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
   });
 
   app.get("/api/validate-all", (req, res) => {
     const result = runScript("ops/validate-all.sh");
-    res.json(buildApiResponse(result, "validate-all"));
+    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
   });
 
   const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;

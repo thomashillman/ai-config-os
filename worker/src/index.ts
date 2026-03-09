@@ -26,6 +26,7 @@
 import REGISTRY_JSON from '../../dist/registry/index.json';
 // @ts-ignore - generated at build time
 import CLAUDE_CODE_PLUGIN_JSON from '../../dist/clients/claude-code/.claude-plugin/plugin.json';
+import { makeErrorResponse } from '../../packages/contracts/index.js';
 
 export interface Env {
   AUTH_TOKEN: string;
@@ -49,7 +50,11 @@ function isAuthorized(request: Request, env: Env): boolean {
 
 function unauthorizedResponse(): Response {
   return new Response(
-    JSON.stringify({ error: 'Unauthorized', hint: 'Provide a valid Bearer token' }),
+    JSON.stringify(makeErrorResponse({
+      code: 'UNAUTHORIZED',
+      message: 'Unauthorized',
+      details: { hint: 'Provide a valid Bearer token' },
+    })),
     {
       status: 401,
       headers: {
@@ -70,7 +75,7 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 function notFound(message: string): Response {
-  return jsonResponse({ error: 'Not Found', message }, 404);
+  return jsonResponse(makeErrorResponse({ code: 'NOT_FOUND', message, details: { status: 404 } }), 404);
 }
 
 function notFoundWithCode(code: string, message: string): Response {
@@ -261,7 +266,7 @@ export default {
     }
 
     if (request.method !== 'GET') {
-      return jsonResponse({ error: 'Method Not Allowed' }, 405);
+      return jsonResponse(makeErrorResponse({ code: 'METHOD_NOT_ALLOWED', message: 'Method Not Allowed', details: { method: request.method } }), 405);
     }
 
     const url = new URL(request.url);

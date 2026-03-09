@@ -7,36 +7,48 @@ import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
  * Ensures consistent error handling and diagnostic context preservation.
  */
 
+import {
+  assertExecutionResult,
+  makeErrorResponse,
+} from '../../packages/contracts/index.js';
+
+
+function normalizeExecutionResult(result) {
+  if (result && typeof result === 'object' && Object.prototype.hasOwnProperty.call(result, 'success')) {
+    const now = new Date().toISOString();
+    return {
+      ok: Boolean(result.success),
+      stdout: String(result.output ?? ''),
+      stderr: String(result.error ?? ''),
+      exitCode: result.success ? 0 : null,
+      startedAt: now,
+      finishedAt: now,
+      durationMs: 0,
+    };
+  }
+
+  return result;
+}
+
 /**
  * Convert a script execution result to an MCP tool response.
  * On success: returns output only.
  * On failure: preserves both stderr and stdout for full diagnostic context.
  *
  * @param {object} result
- * @param {boolean} result.success - whether the script succeeded
- * @param {string} result.output - stdout content
- * @param {string|null} result.error - stderr content or error message
  * @returns {object} MCP-formatted tool response
  */
 export function toToolResponse(result) {
-  const status = result.success ? 'Full' : 'Degraded';
-  const selectedRoute = result.success ? 'local-runtime-script' : 'manual-equivalent-workflow';
+  const executionResult = assertExecutionResult(normalizeExecutionResult(result));
 
-  if (result.success) {
-    return {
-      content: [{ type: 'text', text: result.output ?? '' }],
-      structuredContent: {
-        status,
-        selectedRoute,
-        output: result.output ?? '',
-      },
-    };
+  if (executionResult.ok) {
+    return { content: [{ type: 'text', text: executionResult.stdout ?? '' }] };
   }
 
   // On failure: combine stderr and stdout to preserve diagnostic context.
   const parts = [];
-  if (result.error) parts.push(result.error);
-  if (result.output) parts.push(result.output);
+  if (executionResult.stderr) parts.push(executionResult.stderr);
+  if (executionResult.stdout) parts.push(executionResult.stdout);
 
   const text = parts.length > 0 ? parts.join('\n\n') : 'Unknown error';
   const nonFullContract = {
@@ -69,25 +81,13 @@ export function toToolResponse(result) {
  * @returns {object} MCP-formatted error response
  */
 export function toolError(message) {
-  const text = String(message || 'Unknown error');
+  const errorResponse = makeErrorResponse({
+    code: 'MCP_TOOL_ERROR',
+    message: String(message || 'Unknown error'),
+  });
 
   return {
-    content: [{ type: 'text', text }],
-    structuredContent: {
-      status: 'Degraded',
-      missingCapabilities: [
-        'valid-tool-input',
-      ],
-      selectedRoute: 'manual-input-correction',
-      requiredUserInput: [
-        'Update the tool arguments and retry the request.',
-      ],
-      guidanceEquivalentRoute:
-        'Use the same tool with corrected arguments matching the declared schema.',
-      guidanceFullWorkflowHigherCapabilityEnvironment:
-        'After correcting the input, run the full MCP workflow in a higher-capability environment if additional execution permissions are required.',
-      output: text,
-    },
+    content: [{ type: 'text', text: errorResponse.error.message }],
     isError: true,
   }, capabilityProfile);
 }
