@@ -541,6 +541,29 @@ test('resolveEffectiveOutcomeContract uses runnable script paths in routes', asy
 
   const listContract = resolveEffectiveOutcomeContract({ toolName: 'list_tools', executionChannel: 'mcp' });
   assert.equal(listContract.preferredRoute.id, 'runtime/manifest.sh');
+
+  assert.equal(syncContract.fallbackRoutes[0].id, 'runtime/manifest.sh');
+  assert.equal(listContract.fallbackRoutes[0].id, 'runtime/sync.sh');
+  assert.deepEqual(listContract.fallbackRoutes[0].args, ['--dry-run']);
+});
+
+test('resolveEffectiveOutcomeContract keeps route id path-only and places flags in args', async () => {
+  const { resolveEffectiveOutcomeContract } = await import('../../../runtime/lib/outcome-resolver.mjs');
+
+  const mcpList = resolveEffectiveOutcomeContract({ toolName: 'mcp_list', executionChannel: 'mcp' });
+  assert.equal(mcpList.preferredRoute.id, 'runtime/adapters/mcp-adapter.sh');
+  assert.deepEqual(mcpList.preferredRoute.args, ['list']);
+  assert.equal(mcpList.preferredRoute.id.includes(' '), false);
+
+  const mcpAdd = resolveEffectiveOutcomeContract({ toolName: 'mcp_add', executionChannel: 'mcp' });
+  assert.equal(mcpAdd.preferredRoute.id, 'runtime/adapters/mcp-adapter.sh');
+  assert.deepEqual(mcpAdd.preferredRoute.args, ['add']);
+  assert.equal(mcpAdd.preferredRoute.id.includes(' '), false);
+
+  const mcpRemove = resolveEffectiveOutcomeContract({ toolName: 'mcp_remove', executionChannel: 'mcp' });
+  assert.equal(mcpRemove.preferredRoute.id, 'runtime/adapters/mcp-adapter.sh');
+  assert.deepEqual(mcpRemove.preferredRoute.args, ['remove']);
+  assert.equal(mcpRemove.preferredRoute.id.includes(' '), false);
 });
 
 test('resolveEffectiveOutcomeContract returns preferred route for known tool', async () => {

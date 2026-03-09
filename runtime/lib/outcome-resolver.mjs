@@ -23,7 +23,7 @@ const OUTCOME_ROUTES = {
   ],
   'runtime.list-tools': [
     { id: 'runtime/manifest.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    { id: 'runtime/sync.sh --dry-run', channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
+    { id: 'runtime/sync.sh', args: ['--dry-run'], channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
   ],
   'runtime.get-config': [
     { id: 'shared/lib/config-merger.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
@@ -38,13 +38,13 @@ const OUTCOME_ROUTES = {
     { id: 'ops/validate-all.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
   ],
   'runtime.mcp-list': [
-    { id: 'runtime/adapters/mcp-adapter.sh list', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    { id: 'runtime/adapters/mcp-adapter.sh', args: ['list'], channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
   ],
   'runtime.mcp-add': [
-    { id: 'runtime/adapters/mcp-adapter.sh add', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    { id: 'runtime/adapters/mcp-adapter.sh', args: ['add'], channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
   ],
   'runtime.mcp-remove': [
-    { id: 'runtime/adapters/mcp-adapter.sh remove', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    { id: 'runtime/adapters/mcp-adapter.sh', args: ['remove'], channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
   ],
 };
 
