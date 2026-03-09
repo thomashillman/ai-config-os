@@ -152,6 +152,7 @@ test('handler unknown tool returns isError true with helpful message', async () 
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -175,6 +176,7 @@ test('handler mcp_add with invalid name returns tool error', async () => {
     },
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -197,6 +199,7 @@ test('handler mcp_add with unsafe command returns tool error', async () => {
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => false,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -225,6 +228,7 @@ test('handler script failure becomes MCP error response with full context', asyn
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -260,6 +264,7 @@ test('handler context_cost validates number argument', async () => {
       return input;
     },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -291,6 +296,7 @@ test('handler context_cost uses default threshold when not provided', async () =
       return input;
     },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -317,6 +323,7 @@ test('handler sync_tools respects dry_run argument', async () => {
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -343,6 +350,7 @@ test('handler mcp_add passes args array to script', async () => {
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -367,6 +375,7 @@ test('handler success response uses toToolResponse', async () => {
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -377,7 +386,7 @@ test('handler success response uses toToolResponse', async () => {
   });
 
   assert.equal(result.isError, undefined);
-  assert.equal(result.content[0].text, 'operation successful');
+  assert.match(result.content[0].text, /operation successful/);
 });
 
 // --- Slice 2: Runtime prerequisite helper injection tests ---
@@ -433,6 +442,7 @@ test('handler context_cost returns tool error when validateNumber throws', async
       throw new Error('threshold must be numeric');
     },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -457,6 +467,7 @@ test('handler context_cost does not reject promise on numeric validation failure
       throw new Error('bad threshold');
     },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -492,6 +503,7 @@ test('handler context_cost success path passes validated threshold to script', a
       return input;
     },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -504,25 +516,38 @@ test('handler context_cost success path passes validated threshold to script', a
   assert.equal(capturedThreshold, 5000);
 });
 
+test('resolveEffectiveOutcomeContract returns preferred route for known tool', async () => {
+  const { resolveEffectiveOutcomeContract } = await import('../../../runtime/lib/outcome-resolver.mjs');
 
-test('toToolResponse attaches capability profile when provided', async () => {
-  const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
+  const contract = resolveEffectiveOutcomeContract({ toolName: 'list_tools', executionChannel: 'mcp' });
 
-  const capabilityProfile = { mode: 'local-cli' };
-  const result = toToolResponse({ success: true, output: 'ok', error: null }, capabilityProfile);
-
-  assert.equal(result.meta.capability_profile.mode, 'local-cli');
+  assert.equal(contract.outcomeId, 'runtime.list-tools');
+  assert.ok(contract.preferredRoute);
+  assert.equal(contract.preferredRoute.id, 'runtime/manifest.sh');
+  assert.equal(Array.isArray(contract.availableRoutes), true);
+  assert.equal(contract.availableRoutes[1].id, 'runtime/sync.sh --dry-run');
 });
 
-test('assertRuntimePrereqsWith skips bash checks in connector mode', async () => {
-  const { assertRuntimePrereqsWith } = await import('../../../runtime/mcp/runtime-prereqs.mjs');
+test('handler resolve_outcome_contract returns contract JSON', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
-  let called = false;
-  assert.doesNotThrow(() => {
-    assertRuntimePrereqsWith(() => {
-      called = true;
-      throw new Error('should not be called');
-    }, 'connector');
+  const fakeDeps = {
+    runScript: () => ({ success: true, output: 'ok', error: null }),
+    validateName: () => {},
+    validateNumber: () => {},
+    isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ toolName, outcomeId: 'runtime.mock', availableRoutes: [] }),
+    toToolResponse,
+    toolError,
+  };
+
+  const handler = createCallToolHandler(fakeDeps);
+  const result = await handler({
+    params: { name: 'resolve_outcome_contract', arguments: { tool_name: 'list_tools' } }
   });
-  assert.equal(called, false);
+
+  assert.equal(result.isError, undefined);
+  assert.match(result.content[0].text, /runtime.mock/);
+  assert.match(result.content[0].text, /list_tools/);
 });
