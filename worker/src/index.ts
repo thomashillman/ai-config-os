@@ -7,6 +7,13 @@
  * API surface:
  *   GET /v1/health
  *   GET /v1/manifest/latest
+ *   GET /v1/outcomes/latest
+ *   GET /v1/outcomes/:version
+ *   GET /v1/routes/latest
+ *   GET /v1/routes/:version
+ *   GET /v1/tools/latest
+ *   GET /v1/tools/:version
+ *   GET /v1/effective-contract/preview
  *   GET /v1/client/:client/latest
  *   GET /v1/skill/:skillId
  *
