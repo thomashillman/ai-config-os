@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/tool-definition.schema.json",
+  "title": "ToolDefinition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "description", "input_schema"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+    "description": { "type": "string" },
+    "input_schema": { "type": "object" },
+    "output_schema": { "type": "object" },
+    "tags": { "type": "array", "items": { "type": "string" } }
+  }
+}

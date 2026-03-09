@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/manifest.schema.json",
+  "title": "Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "skill_count", "platform_count", "platforms", "skills"],
+  "properties": {
+    "version": { "type": "string" },
+    "built_at": { "type": "string" },
+    "build_id": { "type": "string" },
+    "source_commit": { "type": "string" },
+    "skill_count": { "type": "integer", "minimum": 0 },
+    "platform_count": { "type": "integer", "minimum": 0 },
+    "platforms": { "type": "array", "items": { "type": "string" } },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["id", "version", "description", "type", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "version": { "type": "string" },
+          "description": { "type": "string" },
+          "type": { "type": "string" },
+          "status": { "type": "string" }
+        }
+      }
+    }
+  }
+}

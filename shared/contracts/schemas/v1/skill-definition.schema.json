@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/skill-definition.schema.json",
+  "title": "SkillDefinition",
+  "description": "Mapped from SKILL.md frontmatter.",
+  "allOf": [
+    { "$ref": "../../../../schemas/skill.schema.json" }
+  ]
+}

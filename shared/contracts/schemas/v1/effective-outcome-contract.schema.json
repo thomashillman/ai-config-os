@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/effective-outcome-contract.schema.json",
+  "title": "EffectiveOutcomeContract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["skill", "route", "outcome", "resolved_capabilities"],
+  "properties": {
+    "skill": { "$ref": "../../../../schemas/skill.schema.json" },
+    "route": { "$ref": "route-definition.schema.json" },
+    "outcome": { "$ref": "outcome-definition.schema.json" },
+    "resolved_capabilities": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "enum": ["supported", "unsupported", "unknown"] }
+    },
+    "degraded": { "type": "boolean" }
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/capability-profile.schema.json",
+  "title": "CapabilityProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "surface", "default_package", "capabilities"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "name": { "type": "string" },
+    "surface": { "type": "string" },
+    "default_package": { "type": "string", "enum": ["skill", "plugin", "rules", "file", "api"] },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string", "enum": ["supported", "unsupported", "unknown"] },
+          "verified_at": { "type": "string", "format": "date" },
+          "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+          "source": { "type": "string", "enum": ["vendor-doc", "manual-test", "probe", "inference"] }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

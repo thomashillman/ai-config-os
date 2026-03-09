@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/outcome-definition.schema.json",
+  "title": "OutcomeDefinition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "summary", "status"],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "summary": { "type": "string" },
+    "status": { "type": "string", "enum": ["planned", "in_progress", "completed", "failed"] },
+    "artifacts": { "type": "array", "items": { "type": "string" } },
+    "metadata": { "type": "object", "additionalProperties": true }
+  }
+}
