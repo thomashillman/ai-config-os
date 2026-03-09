@@ -36,3 +36,16 @@ test('repository contains no unresolved merge conflict markers in tracked files'
     `Unresolved merge conflict markers found in: ${offenders.join(', ')}`
   );
 });
+
+
+test('git index contains no unmerged paths', () => {
+  const unmerged = spawnSync('git', ['diff', '--name-only', '--diff-filter=U'], { encoding: 'utf8' });
+  assert.equal(unmerged.status, 0, `git diff --diff-filter=U failed: ${unmerged.stderr || 'unknown error'}`);
+
+  const files = unmerged.stdout
+    .split('\n')
+    .map((file) => file.trim())
+    .filter(Boolean);
+
+  assert.deepEqual(files, [], `Unmerged paths found in git index: ${files.join(', ')}`);
+});
