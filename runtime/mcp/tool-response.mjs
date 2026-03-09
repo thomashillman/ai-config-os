@@ -1,3 +1,5 @@
+import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
+
 /**
  * tool-response.mjs
  *
@@ -16,9 +18,9 @@
  * @param {string|null} result.error - stderr content or error message
  * @returns {object} MCP-formatted tool response
  */
-export function toToolResponse(result) {
+export function toToolResponse(result, capabilityProfile = null) {
   if (result.success) {
-    return { content: [{ type: 'text', text: result.output ?? '' }] };
+    return attachCapabilityProfile({ content: [{ type: 'text', text: result.output ?? '' }] }, capabilityProfile);
   }
 
   // On failure: combine stderr and stdout to preserve diagnostic context.
@@ -28,10 +30,10 @@ export function toToolResponse(result) {
 
   const text = parts.length > 0 ? parts.join('\n\n') : 'Unknown error';
 
-  return {
+  return attachCapabilityProfile({
     content: [{ type: 'text', text }],
     isError: true,
-  };
+  }, capabilityProfile);
 }
 
 /**
@@ -40,9 +42,10 @@ export function toToolResponse(result) {
  * @param {string} message - error message
  * @returns {object} MCP-formatted error response
  */
-export function toolError(message) {
-  return {
+export function toolError(message, capabilityProfile = null) {
+  return attachCapabilityProfile({
     content: [{ type: 'text', text: String(message || 'Unknown error') }],
     isError: true,
-  };
+  }, capabilityProfile);
 }
+

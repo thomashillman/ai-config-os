@@ -484,3 +484,26 @@ test('handler context_cost success path passes validated threshold to script', a
 
   assert.equal(capturedThreshold, 5000);
 });
+
+
+test('toToolResponse attaches capability profile when provided', async () => {
+  const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  const capabilityProfile = { mode: 'local-cli' };
+  const result = toToolResponse({ success: true, output: 'ok', error: null }, capabilityProfile);
+
+  assert.equal(result.meta.capability_profile.mode, 'local-cli');
+});
+
+test('assertRuntimePrereqsWith skips bash checks in connector mode', async () => {
+  const { assertRuntimePrereqsWith } = await import('../../../runtime/mcp/runtime-prereqs.mjs');
+
+  let called = false;
+  assert.doesNotThrow(() => {
+    assertRuntimePrereqsWith(() => {
+      called = true;
+      throw new Error('should not be called');
+    }, 'connector');
+  });
+  assert.equal(called, false);
+});

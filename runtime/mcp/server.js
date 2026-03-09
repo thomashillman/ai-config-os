@@ -18,6 +18,7 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
+import { createCapabilityProfileResolver } from "../lib/capability-profile.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -43,6 +44,8 @@ function runScript(script, args = []) {
     };
   }
 }
+
+const capabilityProfileResolver = createCapabilityProfileResolver();
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
@@ -130,6 +133,7 @@ const handleCallTool = createCallToolHandler({
   isCommandNameSafe,
   toToolResponse,
   toolError,
+  getCapabilityProfile: () => capabilityProfileResolver.getProfile(),
 });
 
 server.setRequestHandler(CallToolRequestSchema, handleCallTool);
@@ -141,25 +145,31 @@ function startDashboardApi() {
   app.use(express.json({ limit: "10kb" }));
 
   // Dashboard data endpoints
+
+  function respondWithOutcome(res, result) {
+    const capabilityProfile = capabilityProfileResolver.getCachedProfile();
+    res.json({ output: result.output, success: result.success, capability_profile: capabilityProfile || null });
+  }
+
   app.get("/api/manifest", (req, res) => {
     const result = runScript("runtime/manifest.sh", ["status"]);
-    res.json({ output: result.output, success: result.success });
+    respondWithOutcome(res, result);
   });
 
   app.get("/api/skill-stats", (req, res) => {
     const result = runScript("ops/skill-stats.sh");
-    res.json({ output: result.output, success: result.success });
+    respondWithOutcome(res, result);
   });
 
   app.get("/api/context-cost", (req, res) => {
     const threshold = validateNumber(req.query.threshold, 2000);
     const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-    res.json({ output: result.output, success: result.success });
+    respondWithOutcome(res, result);
   });
 
   app.get("/api/config", (req, res) => {
     const result = runScript("shared/lib/config-merger.sh");
-    res.json({ output: result.output, success: result.success });
+    respondWithOutcome(res, result);
   });
 
   app.get("/api/analytics", (req, res) => {
@@ -175,12 +185,12 @@ function startDashboardApi() {
 
   app.post("/api/sync", (req, res) => {
     const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
-    res.json({ output: result.output, success: result.success });
+    respondWithOutcome(res, result);
   });
 
   app.get("/api/validate-all", (req, res) => {
     const result = runScript("ops/validate-all.sh");
-    res.json({ output: result.output, success: result.success });
+    respondWithOutcome(res, result);
   });
 
   const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;
@@ -191,6 +201,7 @@ function startDashboardApi() {
 
 async function main() {
   assertRuntimePrereqs();
+  await capabilityProfileResolver.getProfile();
   startDashboardApi();
   const transport = new StdioServerTransport();
   await server.connect(transport);
