@@ -25,6 +25,8 @@ set -euo pipefail
 CACHE_DIR="${HOME}/.ai-config-os/cache/claude-code"
 WORKER_URL="${AI_CONFIG_WORKER:-https://ai-config-os.workers.dev}"
 CMD="${1:-fetch}"
+ETAG_FILE="${CACHE_DIR}/latest.etag"
+VERSION_FILE="${CACHE_DIR}/latest.version"
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -44,6 +46,20 @@ api_get() {
     "${WORKER_URL}${path}"
 }
 
+read_cached_version() {
+  if [[ -f "${VERSION_FILE}" ]]; then
+    cat "${VERSION_FILE}"
+    return
+  fi
+
+  if [[ -f "${CACHE_DIR}/latest.json" ]]; then
+    python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(d.get('version','?'))" 2>/dev/null || echo "?"
+    return
+  fi
+
+  echo "(none)"
+}
+
 # ── Commands ──────────────────────────────────────────────────────────────
 
 cmd_help() {
@@ -61,7 +77,7 @@ cmd_status() {
   local cached_version="(none)"
   local cached_at="(never)"
   if [[ -f "${CACHE_DIR}/latest.json" ]]; then
-    cached_version=$(python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(d.get('version','?'))" 2>/dev/null || echo "?")
+    cached_version=$(read_cached_version)
     cached_at=$(python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(d.get('built_at','?'))" 2>/dev/null || echo "?")
   fi
   echo "  Cached:  ${cached_version} (built ${cached_at})"
@@ -94,13 +110,28 @@ cmd_fetch() {
 
   echo "Fetching from ${WORKER_URL}..."
 
-  # Try remote; fall back to cache on failure
-  local payload
-  if ! payload=$(api_get /v1/client/claude-code/latest 2>&1); then
+  local if_none_match=()
+  if [[ -f "${ETAG_FILE}" ]]; then
+    if_none_match=(-H "If-None-Match: $(cat "${ETAG_FILE}")")
+  fi
+
+  local headers_file
+  headers_file=$(mktemp "${CACHE_DIR}/headers.XXXXXX")
+  local payload_file
+  payload_file=$(mktemp "${CACHE_DIR}/payload.XXXXXX")
+  trap 'rm -f "${headers_file}" "${payload_file}"' RETURN
+
+  if ! curl -sS --fail-with-body \
+    -H "Authorization: Bearer ${AI_CONFIG_TOKEN}" \
+    -H "Accept: application/json" \
+    "${if_none_match[@]}" \
+    -D "${headers_file}" \
+    -o "${payload_file}" \
+    "${WORKER_URL}/v1/client/claude-code/latest"; then
     if [[ -f "${CACHE_DIR}/latest.json" ]]; then
       echo "WARN: Worker unreachable. Using last-known-good cached version."
       local cached_version
-      cached_version=$(python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(d.get('version','?'))" 2>/dev/null || echo "?")
+      cached_version=$(read_cached_version)
       echo "  Cached version: ${cached_version}"
       exit 0
     else
@@ -108,14 +139,45 @@ cmd_fetch() {
     fi
   fi
 
-  # Write to cache
-  echo "${payload}" > "${CACHE_DIR}/latest.json"
+  local http_status
+  http_status=$(awk '/^HTTP/{code=$2} END{print code}' "${headers_file}")
+
+  if [[ "${http_status}" == "304" ]]; then
+    if [[ ! -f "${CACHE_DIR}/latest.json" ]]; then
+      die "Received 304 Not Modified but no cached payload exists."
+    fi
+
+    echo "Not modified (304)."
+    echo "Cached version: $(read_cached_version)"
+    return
+  fi
+
+  if [[ "${http_status}" != "200" ]]; then
+    die "Unexpected HTTP status: ${http_status}"
+  fi
+
+  local response_etag
+  response_etag=$(awk 'BEGIN{IGNORECASE=1} /^ETag:/{etag=$0; sub(/^[^:]+:[[:space:]]*/, "", etag); gsub(/\r$/, "", etag)} END{print etag}' "${headers_file}")
+  [[ -n "${response_etag}" ]] || die "Response missing ETag header"
 
   local version
-  version=$(echo "${payload}" | python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(d.get('version','?'))" 2>/dev/null || echo "?")
+  version=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('version','?'))" "${payload_file}" 2>/dev/null || echo "?")
+  [[ "${version}" != "?" ]] || die "Payload missing version field"
+
+  local latest_tmp="${CACHE_DIR}/latest.json.tmp"
+  local etag_tmp="${ETAG_FILE}.tmp"
+  local version_tmp="${VERSION_FILE}.tmp"
+
+  cp "${payload_file}" "${latest_tmp}"
+  printf '%s' "${response_etag}" > "${etag_tmp}"
+  printf '%s' "${version}" > "${version_tmp}"
+
+  mv "${latest_tmp}" "${CACHE_DIR}/latest.json"
+  mv "${version_tmp}" "${VERSION_FILE}"
+  mv "${etag_tmp}" "${ETAG_FILE}"
 
   local skill_count
-  skill_count=$(echo "${payload}" | python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(len(d.get('skills',[])))" 2>/dev/null || echo "?")
+  skill_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('skills',[])))" "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?")
 
   echo "Cached version: ${version}"
   echo "Skills available: ${skill_count}"
