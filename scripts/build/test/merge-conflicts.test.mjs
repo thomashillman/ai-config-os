@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { readFileSync, lstatSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const CONFLICT_MARKERS = ['<<<<<<< ', '=======', '>>>>>>> '];
+const CONFLICT_MARKERS = [
+  '<' + '<<<<<< ',
+  '='.repeat(7),
+  '>' + '>>>>>> ',
+];
 
 test('repository contains no unresolved merge conflict markers in tracked files', () => {
   const list = spawnSync('git', ['ls-files'], { encoding: 'utf8' });
