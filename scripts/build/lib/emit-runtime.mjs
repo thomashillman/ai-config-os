@@ -16,7 +16,7 @@ import { join } from 'path';
  * @property {string[]} bundles
  * @property {Record<string, string>} artifactHashes
  * @property {'sha256'} artifactHashAlgorithm
- * @property {'file'|'manifest-with-self-hash-placeholder'} artifactHashScope
+ * @property {'file'|'manifest-without-artifact-hashes'} artifactHashScope
  * @property {string} [built_at]
  * @property {string} [build_id]
  * @property {string} [source_commit]
@@ -120,13 +120,14 @@ export function emitRuntime(skills, platforms, { distDir, releaseVersion, proven
     bundles,
     artifactHashes,
     artifactHashAlgorithm: 'sha256',
-    artifactHashScope: 'manifest-with-self-hash-placeholder',
+    artifactHashScope: 'file',
     ...(provenance?.builtAt ? { built_at: provenance.builtAt } : {}),
     ...(provenance?.buildId ? { build_id: provenance.buildId } : {}),
     ...(provenance?.sourceCommit ? { source_commit: provenance.sourceCommit } : {}),
   };
 
-  artifactHashes[documents.manifest] = hashManifestWithSelfHashPlaceholder(manifestDoc);
+  artifactHashes[documents.manifest] = hashManifestWithoutArtifactHashes(manifestDoc);
+  manifestDoc.artifactHashScope = 'manifest-without-artifact-hashes';
 
   writeJson(manifestPath, manifestDoc);
 
@@ -146,10 +147,10 @@ function hashFile(path) {
   return hash.digest('hex');
 }
 
-function hashManifestWithSelfHashPlaceholder(manifestDoc) {
+function hashManifestWithoutArtifactHashes(manifestDoc) {
   const clone = { ...manifestDoc };
-  clone.artifactHashes = { ...manifestDoc.artifactHashes };
-  clone.artifactHashes[manifestDoc.documents.manifest] = '__SELF_HASH_PLACEHOLDER__';
+  delete clone.artifactHashes;
+  delete clone.artifactHashScope;
 
   const hash = createHash('sha256');
   hash.update(JSON.stringify(clone, null, 2) + '\n');

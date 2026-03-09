@@ -20,10 +20,10 @@ const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const COMPILE_MJS = resolve(__dirname, '..', 'compile.mjs');
 
 
-function hashManifestWithSelfHashPlaceholder(manifestDoc) {
+function hashManifestWithoutArtifactHashes(manifestDoc) {
   const clone = { ...manifestDoc };
-  clone.artifactHashes = { ...manifestDoc.artifactHashes };
-  clone.artifactHashes[manifestDoc.documents.manifest] = '__SELF_HASH_PLACEHOLDER__';
+  delete clone.artifactHashes;
+  delete clone.artifactHashScope;
 
   return createHash('sha256').update(JSON.stringify(clone, null, 2) + '\n').digest('hex');
 }
@@ -255,11 +255,11 @@ test('runtime docs are emitted with deterministic artifact hashes', () => {
       );
       assert.equal(
         runtimeManifest.artifactHashScope,
-        'manifest-with-self-hash-placeholder',
+        'manifest-without-artifact-hashes',
         'runtime manifest should declare self-hash scope'
       );
 
-      const expectedManifestHash = hashManifestWithSelfHashPlaceholder(runtimeManifest);
+      const expectedManifestHash = hashManifestWithoutArtifactHashes(runtimeManifest);
       assert.equal(
         runtimeManifest.artifactHashes[relativePath],
         expectedManifestHash,
