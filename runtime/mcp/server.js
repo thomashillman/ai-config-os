@@ -14,30 +14,63 @@ import fs from "fs";
 import { validateName, validateNumber } from "./validators.mjs";
 import { isCommandNameSafe } from "../adapters/shell-safe.mjs";
 import { resolveRepoScriptPath } from "./path-utils.mjs";
+import { getReleaseVersion } from "../lib/release-version.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
 
+// Fail fast with a clear message if bash is not available.
+// The MCP runtime execution path depends on bash; build/validate steps are cross-platform.
+function assertRuntimePrereqs() {
+  try {
+    execFileSync("bash", ["-lc", "command -v bash"], { encoding: "utf8", timeout: 5000 });
+  } catch {
+    throw new Error(
+      "ai-config-os runtime requires bash on PATH. " +
+      "Build and validation may be cross-platform, but MCP runtime execution is Unix-like only."
+    );
+  }
+}
+
 function runScript(script, args = []) {
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
   if (!scriptPath) {
-    return { success: false, output: "Script path escapes repository root", error: "Path validation failed" };
+    return { success: false, output: "", error: "Script path escapes repository root" };
   }
 
   try {
-    const result = execFileSync("bash", [scriptPath, ...args], {
+    const output = execFileSync("bash", [scriptPath, ...args], {
       encoding: "utf8",
       timeout: 30000,
       cwd: REPO_ROOT,
     });
-    return { success: true, output: result };
+    return { success: true, output, error: null };
   } catch (err) {
-    return { success: false, output: err.stdout || err.message, error: err.stderr };
+    return {
+      success: false,
+      output: String(err.stdout || ""),
+      error: String(err.stderr || err.message || "Unknown process error"),
+    };
   }
 }
 
+// Centralised MCP response shaping — all handlers use these so isError is never missing.
+function toToolResponse(result) {
+  if (result.success) {
+    return { content: [{ type: "text", text: result.output ?? "" }] };
+  }
+  return {
+    content: [{ type: "text", text: result.error || result.output || "Unknown error" }],
+    isError: true,
+  };
+}
+
+function toolError(message) {
+  return { content: [{ type: "text", text: message }], isError: true };
+}
+
 const server = new Server(
-  { name: "ai-config-os", version: "0.5.0" },
+  { name: "ai-config-os", version: getReleaseVersion() },
   { capabilities: { tools: {} } }
 );
 
@@ -121,60 +154,68 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   switch (name) {
     case "sync_tools": {
       const result = runScript("runtime/sync.sh", args?.dry_run ? ["--dry-run"] : []);
-      return { content: [{ type: "text", text: result.output }] };
+      return toToolResponse(result);
     }
 
     case "list_tools": {
       const result = runScript("runtime/manifest.sh", ["status"]);
-      return { content: [{ type: "text", text: result.output }] };
+      return toToolResponse(result);
     }
 
     case "get_config": {
       const result = runScript("shared/lib/config-merger.sh");
-      return { content: [{ type: "text", text: result.success ? result.output : result.error }] };
+      return toToolResponse(result);
     }
 
     case "skill_stats": {
       const result = runScript("ops/skill-stats.sh");
-      return { content: [{ type: "text", text: result.output }] };
+      return toToolResponse(result);
     }
 
     case "context_cost": {
       const threshold = validateNumber(args?.threshold, 2000);
       const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-      return { content: [{ type: "text", text: result.output }] };
+      return toToolResponse(result);
     }
 
     case "validate_all": {
       const result = runScript("ops/validate-all.sh");
-      return { content: [{ type: "text", text: result.output }] };
+      return toToolResponse(result);
     }
 
     case "mcp_list": {
       const result = runScript("runtime/adapters/mcp-adapter.sh", ["list"]);
-      return { content: [{ type: "text", text: result.output }] };
+      return toToolResponse(result);
     }
 
     case "mcp_add": {
-      validateName(args.name);
-      if (!isCommandNameSafe(args.command)) {
-        return { content: [{ type: "text", text: "Invalid command: must be a simple command name (alphanumeric, dash, underscore)" }], isError: true };
+      try {
+        validateName(args?.name);
+        if (!isCommandNameSafe(args?.command)) {
+          return toolError("Invalid command: must be a simple command name (alphanumeric, dash, underscore)");
+        }
+        const result = runScript(
+          "runtime/adapters/mcp-adapter.sh",
+          ["add", args.name, args.command, ...(Array.isArray(args?.args) ? args.args : [])]
+        );
+        return toToolResponse(result);
+      } catch (err) {
+        return toolError(err.message || "Invalid arguments");
       }
-      const result = runScript(
-        "runtime/adapters/mcp-adapter.sh",
-        ["add", args.name, args.command, ...(args.args || [])]
-      );
-      return { content: [{ type: "text", text: result.output }] };
     }
 
     case "mcp_remove": {
-      validateName(args.name);
-      const result = runScript("runtime/adapters/mcp-adapter.sh", ["remove", args.name]);
-      return { content: [{ type: "text", text: result.output }] };
+      try {
+        validateName(args?.name);
+        const result = runScript("runtime/adapters/mcp-adapter.sh", ["remove", args.name]);
+        return toToolResponse(result);
+      } catch (err) {
+        return toolError(err.message || "Invalid arguments");
+      }
     }
 
     default:
-      return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
+      return toolError(`Unknown tool: ${name}`);
   }
 });
 
@@ -234,6 +275,7 @@ function startDashboardApi() {
 }
 
 async function main() {
+  assertRuntimePrereqs();
   startDashboardApi();
   const transport = new StdioServerTransport();
   await server.connect(transport);

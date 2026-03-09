@@ -12,10 +12,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   readReleaseVersion,
@@ -167,4 +166,24 @@ test('version parity check passes when files are in sync', () => {
   });
   assert.equal(result.status, 0, `Parity check failed:\n${result.stdout}\n${result.stderr}`);
   assert.ok(result.stdout.includes('parity check passed'), 'Should report success');
+});
+
+// --- Case 6: Runtime version helper ---
+
+test('getReleaseVersion returns same value as readReleaseVersion', async () => {
+  const { getReleaseVersion } = await import('../../../runtime/lib/release-version.mjs');
+  const expected = readReleaseVersion(REPO_ROOT);
+  assert.equal(getReleaseVersion(), expected, 'getReleaseVersion() must match readReleaseVersion()');
+});
+
+test('server.js does not hardcode a version string', () => {
+  const serverSrc = readFileSync(join(REPO_ROOT, 'runtime', 'mcp', 'server.js'), 'utf8');
+  assert.ok(
+    serverSrc.includes('getReleaseVersion()'),
+    'server.js must call getReleaseVersion() dynamically'
+  );
+  assert.ok(
+    !/version:\s*["']\d+\.\d+\.\d+["']/.test(serverSrc),
+    'server.js must not contain a hardcoded semver version string'
+  );
 });
