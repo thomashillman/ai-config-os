@@ -5,6 +5,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { execFileSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
@@ -12,12 +13,12 @@ import cors from "cors";
 import fs from "fs";
 import { validateName, validateNumber } from "./validators.mjs";
 import { isCommandNameSafe } from "../adapters/shell-safe.mjs";
+import { resolveRepoScriptPath } from "./path-utils.mjs";
 import { getReleaseVersion } from "../lib/release-version.mjs";
-import { toolError } from "./tool-response.mjs";
+import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
-import { runScriptWithGuardrails, toBoundedToolResponse } from "./executor-runtime.mjs";
-import { createTunnelPolicy, tunnelGuardMiddleware } from "./tunnel-security.mjs";
+import { getToolList } from "./tool-registry.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -48,7 +49,25 @@ function buildApiResponse(result, selectedRoute) {
 }
 
 function runScript(script, args = []) {
-  return runScriptWithGuardrails(script, args, REPO_ROOT);
+  const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
+  if (!scriptPath) {
+    return { success: false, output: "", error: "Script path escapes repository root" };
+  }
+
+  try {
+    const output = execFileSync("bash", [scriptPath, ...args], {
+      encoding: "utf8",
+      timeout: 30000,
+      cwd: REPO_ROOT,
+    });
+    return { success: true, output, error: null };
+  } catch (err) {
+    return {
+      success: false,
+      output: String(err.stdout || ""),
+      error: String(err.stderr || err.message || "Unknown process error"),
+    };
+  }
 }
 
 const capabilityProfileResolver = createCapabilityProfileResolver();
@@ -59,19 +78,14 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: MCP_TOOL_DEFINITIONS.map(({ name, description, inputSchema }) => ({
-    name,
-    description,
-    inputSchema,
-  })),
+  tools: getToolList(),
 }));
 
 const handleCallTool = createCallToolHandler({
   runScript,
   validateName,
-  validateNumber,
   isCommandNameSafe,
-  toToolResponse: toBoundedToolResponse,
+  toToolResponse,
   toolError,
   getCapabilityProfile: () => capabilityProfileResolver.getProfile(),
 });
@@ -81,10 +95,8 @@ server.setRequestHandler(CallToolRequestSchema, handleCallTool);
 // Dashboard API server (Express)
 function startDashboardApi() {
   const app = express();
-  const tunnelPolicy = createTunnelPolicy();
   app.use(cors({ origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:4242"] }));
   app.use(express.json({ limit: "10kb" }));
-  app.use(tunnelGuardMiddleware(tunnelPolicy));
 
   // Dashboard data endpoints
   function respondWithOutcome(res, result) {
@@ -94,23 +106,23 @@ function startDashboardApi() {
 
   app.get("/api/manifest", (req, res) => {
     const result = runScript("runtime/manifest.sh", ["status"]);
-    res.json({ output: result.stdout, success: result.success, metadata: result.metadata });
+    res.json(buildApiResponse(result, "manifest-status"));
   });
 
   app.get("/api/skill-stats", (req, res) => {
     const result = runScript("ops/skill-stats.sh");
-    res.json({ output: result.stdout, success: result.success, metadata: result.metadata });
+    res.json(buildApiResponse(result, "skill-stats"));
   });
 
   app.get("/api/context-cost", (req, res) => {
     const threshold = validateNumber(req.query.threshold, 2000);
     const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-    res.json({ output: result.stdout, success: result.success, metadata: result.metadata });
+    res.json(buildApiResponse(result, "context-cost"));
   });
 
   app.get("/api/config", (req, res) => {
     const result = runScript("shared/lib/config-merger.sh");
-    res.json({ output: result.stdout, success: result.success, metadata: result.metadata });
+    res.json(buildApiResponse(result, "merged-config"));
   });
 
   app.get("/api/analytics", (req, res) => {
@@ -126,17 +138,17 @@ function startDashboardApi() {
 
   app.post("/api/sync", (req, res) => {
     const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
-    res.json({ output: result.stdout, success: result.success, metadata: result.metadata });
+    res.json(buildApiResponse(result, req.body?.dry_run ? "sync-tools-dry-run" : "sync-tools"));
   });
 
   app.get("/api/validate-all", (req, res) => {
     const result = runScript("ops/validate-all.sh");
-    res.json({ output: result.stdout, success: result.success, metadata: result.metadata });
+    res.json(buildApiResponse(result, "validate-all"));
   });
 
   const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;
-  app.listen(DASHBOARD_PORT, tunnelPolicy.host, () => {
-    console.error(`[ai-config-os dashboard API] Listening on http://${tunnelPolicy.host}:${DASHBOARD_PORT}`);
+  app.listen(DASHBOARD_PORT, () => {
+    console.error(`[ai-config-os dashboard API] Listening on http://localhost:${DASHBOARD_PORT}`);
   });
 }
 
