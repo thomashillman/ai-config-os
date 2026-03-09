@@ -18,6 +18,19 @@ const ADAPTER_TO_REQUIRED_CAPABILITIES = {
   shell: ['shell.exec'],
 };
 
+const CORE_TOOL_KEYS = new Set([
+  'id',
+  'name',
+  'description',
+  'adapter',
+  'executionClass',
+  'requiredCapabilities',
+  'inputSchema',
+  'outputSchema',
+  'limits',
+  'fallbackPolicy',
+]);
+
 /**
  * Canonical definition format for runtime tools.
  *
@@ -34,6 +47,16 @@ const ADAPTER_TO_REQUIRED_CAPABILITIES = {
  * @property {object} extensions
  */
 
+function extractAdapterExtensions(tool) {
+  const extensions = {};
+  for (const [key, value] of Object.entries(tool)) {
+    if (!CORE_TOOL_KEYS.has(key)) {
+      extensions[key] = value;
+    }
+  }
+  return extensions;
+}
+
 /**
  * @param {string} [registryPath]
  * @returns {ToolDefinition[]}
@@ -45,15 +68,14 @@ export function loadCanonicalToolDefinitions(registryPath = DEFAULT_REGISTRY_PAT
 
   return tools.map((tool) => {
     const adapter = tool.adapter;
-    const executionClass = ADAPTER_TO_EXECUTION_CLASS[adapter] ?? 'remote-privileged';
 
     return {
       id: tool.id,
       name: tool.name,
       description: tool.description || '',
-      executionClass,
-      requiredCapabilities: ADAPTER_TO_REQUIRED_CAPABILITIES[adapter] ?? [],
-      inputSchema: {
+      executionClass: tool.executionClass ?? ADAPTER_TO_EXECUTION_CLASS[adapter] ?? 'remote-privileged',
+      requiredCapabilities: tool.requiredCapabilities ?? ADAPTER_TO_REQUIRED_CAPABILITIES[adapter] ?? [],
+      inputSchema: tool.inputSchema ?? {
         type: 'object',
         additionalProperties: false,
         properties: {
@@ -68,7 +90,7 @@ export function loadCanonicalToolDefinitions(registryPath = DEFAULT_REGISTRY_PAT
         },
         required: ['action'],
       },
-      outputSchema: {
+      outputSchema: tool.outputSchema ?? {
         type: 'object',
         additionalProperties: false,
         properties: {
@@ -78,21 +100,17 @@ export function loadCanonicalToolDefinitions(registryPath = DEFAULT_REGISTRY_PAT
         },
         required: ['success', 'output', 'error'],
       },
-      limits: {
+      limits: tool.limits ?? {
         timeoutMs: 30_000,
         maxOutputBytes: 1_000_000,
       },
-      fallbackPolicy: {
+      fallbackPolicy: tool.fallbackPolicy ?? {
         mode: 'manual',
         notes: 'If adapter operations fail, report status and provide manual remediation steps.',
       },
       extensions: {
         adapter,
-        adapterConfig: {
-          cli_command: tool.cli_command,
-          install_script: tool.install_script,
-          paths: tool.paths,
-        },
+        ...extractAdapterExtensions(tool),
       },
     };
   });

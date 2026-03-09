@@ -19,7 +19,6 @@ import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
 import { MCP_TOOL_DEFINITIONS } from "./tool-definitions.mjs";
-import { createCapabilityProfileResolver } from "../lib/capability-profile.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
