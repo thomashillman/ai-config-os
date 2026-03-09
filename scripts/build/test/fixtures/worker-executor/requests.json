@@ -1,0 +1,27 @@
+{
+  "valid": {
+    "tool": "echo",
+    "args": { "text": "hello-world" },
+    "request_id": "req-valid-001"
+  },
+  "disallowed": {
+    "tool": "rm_all",
+    "args": {},
+    "request_id": "req-disallowed-001"
+  },
+  "schemaInvalid": {
+    "tool": "echo",
+    "args": { "text": 123 },
+    "request_id": "req-invalid-schema-001"
+  },
+  "timeout": {
+    "tool": "sleep",
+    "args": { "ms": 120 },
+    "request_id": "req-timeout-001"
+  },
+  "truncate": {
+    "tool": "large",
+    "args": { "size": 256 },
+    "request_id": "req-truncate-001"
+  }
+}

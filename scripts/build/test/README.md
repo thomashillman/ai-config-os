@@ -1,6 +1,6 @@
 # Test Suite Documentation
 
-This directory contains 21 automated test suites (262 total test cases) that protect the AI Config OS architecture and guarantee portability, deliverability, and reproducibility.
+This directory contains 22 automated test suites (including worker-executor integration coverage) that protect the AI Config OS architecture and guarantee portability, deliverability, and reproducibility.
 
 ## Contract-Level Tests (Guardrails)
 
@@ -127,6 +127,19 @@ These suites verify specific implementation components work correctly:
 
 ---
 
+
+### 18. Worker Executor Proxy Integration
+**File:** `worker-executor-integration.test.mjs`
+**Purpose:** End-to-end coverage for worker proxy behavior against a lightweight executor double.
+**Guarantees:**
+- Signed requests are verified before proxying
+- Tool allowlist checks are enforced
+- Tool argument schema checks reject invalid payloads
+- Proxy timeout handling returns a deterministic contract error
+- Large executor output is truncated consistently
+
+---
+
 ## Running Tests
 
 ### Run all tests
@@ -173,7 +186,7 @@ scripts/build/test/
 All tests run on every push to main and every PR:
 - **Platform:** Ubuntu, macOS, Windows
 - **Node version:** 20+
-- **Coverage:** 262 tests, 21 suites, cross-platform
+- **Coverage:** Comprehensive cross-platform test coverage, including worker-executor integration scenarios
 
 Tests must pass before merging to main. Broken tests block CI/CD.
 
