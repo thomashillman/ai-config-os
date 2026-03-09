@@ -73,10 +73,6 @@ function notFound(message: string): Response {
   return jsonResponse({ error: 'Not Found', message }, 404);
 }
 
-function internalError(message: string): Response {
-  return jsonResponse({ error: 'Internal Server Error', message }, 500);
-}
-
 async function resolveLatestVersion(env: Env): Promise<string> {
   const version = await env.MANIFEST_INDEX.get('manifest:latest');
 
@@ -115,14 +111,17 @@ async function handleManifestLatest(env: Env): Promise<Response> {
       manifest,
     });
   } catch (error) {
-    // Keep static bundle as fallback metadata source only.
-    const fallbackVersion = (REGISTRY_JSON as any).version;
-    console.error('Failed to resolve latest manifest from KV/R2', {
+    // Fall back to bundled manifest to preserve availability during KV/R2 issues.
+    const fallbackManifest = REGISTRY_JSON as any;
+    console.error('Failed to resolve latest manifest from KV/R2, serving bundled manifest', {
       error,
-      fallbackVersion,
+      fallbackVersion: fallbackManifest.version,
     });
 
-    return internalError('Failed to load latest manifest');
+    return jsonResponse({
+      version: fallbackManifest.version,
+      manifest: fallbackManifest,
+    });
   }
 }
 
