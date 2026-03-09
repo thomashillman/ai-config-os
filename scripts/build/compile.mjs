@@ -24,7 +24,7 @@ import { resolveAll, validateOutcomeCompatibility } from './lib/resolve-compatib
 import { selectEmittedPlatforms } from './lib/select-emitted-platforms.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
 import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
-import { loadRoutes, loadOutcomes } from './lib/load-definitions.mjs';
+import { registeredToolIds } from '../../runtime/tool-definitions.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -112,6 +112,7 @@ async function main() {
   // Load platforms first for policy validation
   const { platforms, errors: loadErrors } = loadPlatforms(ROOT);
   const knownPlatforms = new Set(platforms.keys());
+  const knownTools = registeredToolIds();
 
   // Validate all platform definitions
   console.log('[platforms]');
@@ -237,7 +238,8 @@ async function main() {
     const { errors: policyErrors } = validateSkillPolicy(
       skill.frontmatter,
       skillName,
-      knownPlatforms
+      knownPlatforms,
+      knownTools
     );
     if (policyErrors.length > 0) {
       for (const err of policyErrors) {
