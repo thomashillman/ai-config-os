@@ -504,25 +504,84 @@ test('handler context_cost success path passes validated threshold to script', a
   assert.equal(capturedThreshold, 5000);
 });
 
+test('handler run_script legacy route works when contract flag disabled', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
-test('toToolResponse attaches capability profile when provided', async () => {
-  const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
+  let captured = null;
+  const handler = createCallToolHandler({
+    runScript: (script, args) => {
+      captured = { script, args };
+      return { success: true, output: 'ok', error: null };
+    },
+    getFeatureFlags: () => ({
+      outcome_resolution_enabled: false,
+      effective_contract_required: false,
+      remote_executor_enabled: false,
+    }),
+    validateName: () => {},
+    validateNumber: () => {},
+    isCommandNameSafe: () => true,
+    toToolResponse,
+    toolError,
+  });
 
-  const capabilityProfile = { mode: 'local-cli' };
-  const result = toToolResponse({ success: true, output: 'ok', error: null }, capabilityProfile);
+  const result = await handler({
+    params: { name: 'run_script', arguments: { script: 'runtime/sync.sh', args: ['--dry-run'] } }
+  });
 
-  assert.equal(result.meta.capability_profile.mode, 'local-cli');
+  assert.equal(result.isError, undefined);
+  assert.deepEqual(captured, { script: 'runtime/sync.sh', args: ['--dry-run'] });
 });
 
-test('assertRuntimePrereqsWith skips bash checks in connector mode', async () => {
-  const { assertRuntimePrereqsWith } = await import('../../../runtime/mcp/runtime-prereqs.mjs');
+test('handler run_script is blocked when explicit contract flag enabled', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
-  let called = false;
-  assert.doesNotThrow(() => {
-    assertRuntimePrereqsWith(() => {
-      called = true;
-      throw new Error('should not be called');
-    }, 'connector');
+  const handler = createCallToolHandler({
+    runScript: () => ({ success: true, output: 'ok', error: null }),
+    getFeatureFlags: () => ({
+      outcome_resolution_enabled: true,
+      effective_contract_required: true,
+      remote_executor_enabled: false,
+    }),
+    validateName: () => {},
+    validateNumber: () => {},
+    isCommandNameSafe: () => true,
+    toToolResponse,
+    toolError,
   });
-  assert.equal(called, false);
+
+  const result = await handler({
+    params: { name: 'run_script', arguments: { script: 'runtime/sync.sh' } }
+  });
+
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /disabled/);
+});
+
+test('handler remote_exec is gated by manifest flag', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  const handler = createCallToolHandler({
+    runScript: () => ({ success: true, output: 'ok', error: null }),
+    getFeatureFlags: () => ({
+      outcome_resolution_enabled: true,
+      effective_contract_required: true,
+      remote_executor_enabled: false,
+    }),
+    validateName: () => {},
+    validateNumber: () => {},
+    isCommandNameSafe: () => true,
+    toToolResponse,
+    toolError,
+  });
+
+  const result = await handler({
+    params: { name: 'remote_exec', arguments: { command: 'echo', args: ['hello'] } }
+  });
+
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /remote_executor_enabled/);
 });

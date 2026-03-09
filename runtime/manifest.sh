@@ -51,6 +51,10 @@ created_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 last_synced: null
 device: "$(hostname 2>/dev/null || echo 'unknown')"
 tools: {}
+feature_flags:
+  outcome_resolution_enabled: false
+  effective_contract_required: false
+  remote_executor_enabled: false
 EOF
 )"
     echo "[ok] Manifest initialised at $MANIFEST"
@@ -93,6 +97,9 @@ EOF
     echo "==> Runtime manifest status"
     echo "Device: $(yq -r '.device' "$MANIFEST")"
     echo "Last synced: $(yq -r '.last_synced // "never"' "$MANIFEST")"
+    echo ""
+    echo "Feature flags:"
+    yq -r '.feature_flags | to_entries[] | "  \(.key): \(.value)"' "$MANIFEST" 2>/dev/null || true
     echo ""
     tool_count=$(yq '.tools | length' "$MANIFEST" 2>/dev/null || echo 0)
     if [ "$tool_count" -gt 0 ]; then

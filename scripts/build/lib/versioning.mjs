@@ -8,6 +8,11 @@ import { join } from 'path';
 import { execFileSync } from 'child_process';
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
+const FEATURE_FLAG_KEYS = [
+  'outcome_resolution_enabled',
+  'effective_contract_required',
+  'remote_executor_enabled',
+];
 
 /**
  * Read and trim the VERSION file from the repo root.
@@ -79,4 +84,29 @@ export function assertVersionParity(expectedVersion, actualVersion, fileLabel) {
       `Version mismatch in ${fileLabel}: expected "${expectedVersion}" (from VERSION), got "${actualVersion}"`
     );
   }
+}
+
+/**
+ * Validate manifest-controlled runtime feature flags.
+ * Any missing key defaults to false for safe rollout.
+ *
+ * @param {object} [flags] - raw manifest feature_flags object
+ * @returns {{ outcome_resolution_enabled: boolean, effective_contract_required: boolean, remote_executor_enabled: boolean }}
+ */
+export function validateManifestFeatureFlags(flags = {}) {
+  const normalized = {};
+
+  for (const key of FEATURE_FLAG_KEYS) {
+    const value = flags[key];
+    if (value === undefined || value === null) {
+      normalized[key] = false;
+      continue;
+    }
+    if (typeof value !== 'boolean') {
+      throw new Error(`Invalid manifest feature flag "${key}": expected boolean, got ${typeof value}`);
+    }
+    normalized[key] = value;
+  }
+
+  return normalized;
 }

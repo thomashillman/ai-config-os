@@ -22,6 +22,7 @@ import { MCP_TOOL_MAP } from './tool-definitions.mjs';
 export function createCallToolHandler(deps) {
   const {
     runScript,
+    getFeatureFlags,
     validateName,
     validateNumber,
     isCommandNameSafe,
@@ -30,12 +31,38 @@ export function createCallToolHandler(deps) {
     getCapabilityProfile,
   } = deps;
 
+  const readFlags = () => {
+    if (typeof getFeatureFlags !== 'function') {
+      return {
+        outcome_resolution_enabled: false,
+        effective_contract_required: false,
+        remote_executor_enabled: false,
+      };
+    }
+
+    return getFeatureFlags();
+  };
+
+  const legacyRouteExecutionAllowed = (flags) => !flags.effective_contract_required;
+
   return async function handleCallTool(request) {
     const { name, arguments: args } = request.params;
-    const capabilityProfile = getCapabilityProfile ? await getCapabilityProfile() : null;
+    const flags = readFlags();
 
-    if (!MCP_TOOL_MAP.has(name)) {
-      return toolError(`Unknown tool: ${name}`);
+    // Phase 2 dual-path: retain legacy route-less execution until explicit contract is enforced.
+    if (name === 'run_script') {
+      if (!legacyRouteExecutionAllowed(flags)) {
+        return toolError('Legacy route-less execution is disabled. Use an explicit tool route.');
+      }
+
+      const script = args?.script;
+      if (typeof script !== 'string' || script.length === 0) {
+        return toolError('Invalid arguments: run_script requires non-empty "script"');
+      }
+
+      const scriptArgs = Array.isArray(args?.args) ? args.args : [];
+      const result = runScript(script, scriptArgs);
+      return toToolResponse(result);
     }
 
     if (!MCP_TOOL_MAP.has(name)) {
@@ -43,6 +70,12 @@ export function createCallToolHandler(deps) {
     }
 
     switch (name) {
+      case 'manifest_feature_flags': {
+        return {
+          content: [{ type: 'text', text: JSON.stringify(flags, null, 2) }],
+        };
+      }
+
       case 'sync_tools': {
         const result = runScript('runtime/sync.sh', args?.dry_run ? ['--dry-run'] : []);
         return toToolResponse(result, capabilityProfile);
@@ -107,6 +140,21 @@ export function createCallToolHandler(deps) {
         } catch (err) {
           return toolError(err.message || 'Invalid arguments', capabilityProfile);
         }
+      }
+
+      case 'remote_exec': {
+        if (!flags.remote_executor_enabled) {
+          return toolError('remote_exec is disabled by manifest feature flag "remote_executor_enabled"');
+        }
+
+        const command = args?.command;
+        if (!isCommandNameSafe(command)) {
+          return toolError('Invalid command: must be a simple command name (alphanumeric, dash, underscore)');
+        }
+
+        const commandArgs = Array.isArray(args?.args) ? args.args : [];
+        const result = runScript(command, commandArgs);
+        return toToolResponse(result);
       }
 
       default:

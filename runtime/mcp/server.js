@@ -11,6 +11,7 @@ import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
+import YAML from "yaml";
 import { validateName, validateNumber } from "./validators.mjs";
 import { isCommandNameSafe } from "../adapters/shell-safe.mjs";
 import { resolveRepoScriptPath } from "./path-utils.mjs";
@@ -18,7 +19,7 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
-import { MCP_TOOL_DEFINITIONS } from "./tool-definitions.mjs";
+import { validateManifestFeatureFlags } from "../../scripts/build/lib/versioning.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -70,7 +71,16 @@ function runScript(script, args = []) {
   }
 }
 
-const capabilityProfileResolver = createCapabilityProfileResolver();
+function getFeatureFlags() {
+  const manifestPath = path.join(REPO_ROOT, "runtime", "manifest.yaml");
+  if (!fs.existsSync(manifestPath)) {
+    return validateManifestFeatureFlags({});
+  }
+
+  const manifestRaw = fs.readFileSync(manifestPath, "utf8");
+  const manifest = YAML.parse(manifestRaw) || {};
+  return validateManifestFeatureFlags(manifest.feature_flags || {});
+}
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
@@ -78,15 +88,111 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: MCP_TOOL_DEFINITIONS.map(({ name, description, inputSchema }) => ({
-    name,
-    description,
-    inputSchema,
-  })),
+  tools: [
+    {
+      name: "manifest_feature_flags",
+      description: "Show validated manifest-controlled MCP feature flags",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "sync_tools",
+      description: "Sync desired tool config to live Claude Code environment",
+      inputSchema: {
+        type: "object",
+        properties: {
+          dry_run: { type: "boolean", description: "Preview changes without applying", default: false }
+        }
+      }
+    },
+    {
+      name: "run_script",
+      description: "Legacy route-less script execution (disabled when explicit contract is enforced)",
+      inputSchema: {
+        type: "object",
+        required: ["script"],
+        properties: {
+          script: { type: "string", description: "Repository-relative script path" },
+          args: { type: "array", items: { type: "string" }, description: "Script arguments" }
+        }
+      }
+    },
+    {
+      name: "remote_exec",
+      description: "Execute a command through remote executor (feature-flag gated)",
+      inputSchema: {
+        type: "object",
+        required: ["command"],
+        properties: {
+          command: { type: "string", description: "Command name" },
+          args: { type: "array", items: { type: "string" }, description: "Command arguments" }
+        }
+      }
+    },
+    {
+      name: "list_tools",
+      description: "List installed tools and their status from the runtime manifest",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "get_config",
+      description: "Get the merged runtime config (global + machine + project)",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "skill_stats",
+      description: "Get a summary table of all skills with type, status, variants, and test count",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "context_cost",
+      description: "Analyse token footprint of all skills",
+      inputSchema: {
+        type: "object",
+        properties: {
+          threshold: { type: "number", description: "Token threshold for warnings", default: 2000 }
+        }
+      }
+    },
+    {
+      name: "validate_all",
+      description: "Run the full validation suite (dependencies, variants, structure tests, docs, plugin)",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "mcp_list",
+      description: "List MCP servers currently configured in ~/.claude/mcp.json",
+      inputSchema: { type: "object", properties: {} }
+    },
+    {
+      name: "mcp_add",
+      description: "Add an MCP server entry",
+      inputSchema: {
+        type: "object",
+        required: ["name", "command"],
+        properties: {
+          name: { type: "string", description: "MCP server name" },
+          command: { type: "string", description: "Command to run the server" },
+          args: { type: "array", items: { type: "string" }, description: "Command arguments" }
+        }
+      }
+    },
+    {
+      name: "mcp_remove",
+      description: "Remove an MCP server entry",
+      inputSchema: {
+        type: "object",
+        required: ["name"],
+        properties: {
+          name: { type: "string", description: "MCP server name to remove" }
+        }
+      }
+    }
+  ]
 }));
 
 const handleCallTool = createCallToolHandler({
   runScript,
+  getFeatureFlags,
   validateName,
   validateNumber,
   isCommandNameSafe,
