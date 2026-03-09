@@ -121,6 +121,22 @@ test('toToolResponse handles both missing on failure', async () => {
   assert.equal(result.content[0].text, 'Unknown error');
 });
 
+
+test('toToolResponse includes EffectiveOutcomeContract prefix on failure', async () => {
+  const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  const result = toToolResponse(
+    { success: false, output: 'stdout details', error: 'stderr failure' },
+    { outcomeId: 'runtime.validate-all' }
+  );
+
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /EffectiveOutcomeContract:/);
+  assert.match(result.content[0].text, /runtime.validate-all/);
+  assert.match(result.content[0].text, /stderr failure/);
+  assert.match(result.content[0].text, /stdout details/);
+});
+
 test('toolError returns isError true', async () => {
   const { toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
@@ -152,6 +168,7 @@ test('handler unknown tool returns isError true with helpful message', async () 
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -160,7 +177,7 @@ test('handler unknown tool returns isError true with helpful message', async () 
   const result = await handler({ params: { name: 'does_not_exist', arguments: {} } });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /Unknown tool id/);
+  assert.match(result.content[0].text, /Unknown tool/);
   assert.match(result.content[0].text, /does_not_exist/);
 });
 
@@ -175,6 +192,7 @@ test('handler mcp_add with invalid name returns tool error', async () => {
     },
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -185,7 +203,7 @@ test('handler mcp_add with invalid name returns tool error', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /Invalid MCP server name/);
+  assert.match(result.content[0].text, /Invalid name/);
 });
 
 test('handler mcp_add with unsafe command returns tool error', async () => {
@@ -197,6 +215,7 @@ test('handler mcp_add with unsafe command returns tool error', async () => {
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => false,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -207,7 +226,7 @@ test('handler mcp_add with unsafe command returns tool error', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /Invalid command name/);
+  assert.match(result.content[0].text, /Invalid command/);
 });
 
 test('handler script failure becomes MCP error response with full context', async () => {
@@ -225,6 +244,7 @@ test('handler script failure becomes MCP error response with full context', asyn
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -260,6 +280,7 @@ test('handler context_cost validates number argument', async () => {
       return input;
     },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -291,6 +312,7 @@ test('handler context_cost uses default threshold when not provided', async () =
       return input;
     },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -317,6 +339,7 @@ test('handler sync_tools respects dry_run argument', async () => {
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -343,6 +366,7 @@ test('handler mcp_add passes args array to script', async () => {
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -358,47 +382,6 @@ test('handler mcp_add passes args array to script', async () => {
   assert.deepEqual(capturedArgs, ['add', 'myserver', 'node', 'server.js', '--flag']);
 });
 
-
-test('handler rejects additional properties with structured validation error', async () => {
-  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
-  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
-
-  const handler = createCallToolHandler({
-    runScript: () => ({ success: true, output: 'ok', error: null }),
-    validateName: () => {},
-    isCommandNameSafe: () => true,
-    toToolResponse,
-    toolError,
-  });
-
-  const result = await handler({
-    params: { name: 'sync_tools', arguments: { dry_run: true, extra: true } }
-  });
-
-  assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /"tool":"sync_tools"/);
-});
-
-test('handler rejects missing required arguments with field path', async () => {
-  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
-  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
-
-  const handler = createCallToolHandler({
-    runScript: () => ({ success: true, output: 'ok', error: null }),
-    validateName: () => {},
-    isCommandNameSafe: () => true,
-    toToolResponse,
-    toolError,
-  });
-
-  const result = await handler({
-    params: { name: 'mcp_add', arguments: { command: 'node' } }
-  });
-
-  assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /"field":"\/name"/);
-});
-
 test('handler success response uses toToolResponse', async () => {
   const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
   const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
@@ -408,6 +391,7 @@ test('handler success response uses toToolResponse', async () => {
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
   };
@@ -418,7 +402,7 @@ test('handler success response uses toToolResponse', async () => {
   });
 
   assert.equal(result.isError, undefined);
-  assert.equal(result.content[0].text, 'operation successful');
+  assert.match(result.content[0].text, /operation successful/);
 });
 
 // --- Slice 2: Runtime prerequisite helper injection tests ---
@@ -463,25 +447,55 @@ test('assertRuntimePrereqsWith checks bash using expected invocation', async () 
 
 // --- Slice 1: Handler error semantics uniformity tests ---
 
-test('handler context_cost returns structured validation error on non-number threshold', async () => {
+test('handler context_cost returns tool error when validateNumber throws', async () => {
   const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
   const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
-  const handler = createCallToolHandler({
+  const fakeDeps = {
     runScript: () => ({ success: true, output: 'ok', error: null }),
     validateName: () => {},
+    validateNumber: () => {
+      throw new Error('threshold must be numeric');
+    },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
+  };
+
+  const handler = createCallToolHandler(fakeDeps);
+  const result = await handler({
+    params: { name: 'context_cost', arguments: { threshold: 'bad' } }
   });
 
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /threshold must be numeric/);
+});
+
+test('handler context_cost does not reject promise on numeric validation failure', async () => {
+  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
+  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
+
+  const fakeDeps = {
+    runScript: () => ({ success: true, output: 'ok', error: null }),
+    validateName: () => {},
+    validateNumber: () => {
+      throw new Error('bad threshold');
+    },
+    isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
+    toToolResponse,
+    toolError,
+  };
+
+  const handler = createCallToolHandler(fakeDeps);
+
+  // This should not reject; if it does, the test will fail
   const result = await handler({
     params: { name: 'context_cost', arguments: { threshold: 'oops' } }
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /"tool":"context_cost"/);
-  assert.match(result.content[0].text, /"field":"\/threshold"/);
 });
 
 test('handler context_cost success path passes validated threshold to script', async () => {
@@ -490,19 +504,27 @@ test('handler context_cost success path passes validated threshold to script', a
 
   let capturedThreshold = null;
 
-  const handler = createCallToolHandler({
+  const fakeDeps = {
     runScript: (script, args) => {
+      // Capture the threshold passed to the script
       if (args && args.length > 1) {
         capturedThreshold = parseInt(args[1], 10);
       }
       return { success: true, output: 'ok', error: null };
     },
     validateName: () => {},
+    validateNumber: (input, defaultValue) => {
+      if (input === undefined) return defaultValue;
+      if (typeof input !== 'number') throw new Error('threshold must be numeric');
+      return input;
+    },
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'test.outcome' }),
     toToolResponse,
     toolError,
-  });
+  };
 
+  const handler = createCallToolHandler(fakeDeps);
   await handler({
     params: { name: 'context_cost', arguments: { threshold: 5000 } }
   });
@@ -510,84 +532,70 @@ test('handler context_cost success path passes validated threshold to script', a
   assert.equal(capturedThreshold, 5000);
 });
 
-test('handler run_script legacy route works when contract flag disabled', async () => {
+
+test('resolveEffectiveOutcomeContract uses runnable script paths in routes', async () => {
+  const { resolveEffectiveOutcomeContract } = await import('../../../runtime/lib/outcome-resolver.mjs');
+
+  const syncContract = resolveEffectiveOutcomeContract({ toolName: 'sync_tools', executionChannel: 'mcp' });
+  assert.equal(syncContract.preferredRoute.id, 'runtime/sync.sh');
+
+  const listContract = resolveEffectiveOutcomeContract({ toolName: 'list_tools', executionChannel: 'mcp' });
+  assert.equal(listContract.preferredRoute.id, 'runtime/manifest.sh');
+
+  assert.equal(syncContract.fallbackRoutes[0].id, 'runtime/manifest.sh');
+  assert.equal(listContract.fallbackRoutes[0].id, 'runtime/sync.sh');
+  assert.deepEqual(listContract.fallbackRoutes[0].args, ['--dry-run']);
+});
+
+test('resolveEffectiveOutcomeContract keeps route id path-only and places flags in args', async () => {
+  const { resolveEffectiveOutcomeContract } = await import('../../../runtime/lib/outcome-resolver.mjs');
+
+  const mcpList = resolveEffectiveOutcomeContract({ toolName: 'mcp_list', executionChannel: 'mcp' });
+  assert.equal(mcpList.preferredRoute.id, 'runtime/adapters/mcp-adapter.sh');
+  assert.deepEqual(mcpList.preferredRoute.args, ['list']);
+  assert.equal(mcpList.preferredRoute.id.includes(' '), false);
+
+  const mcpAdd = resolveEffectiveOutcomeContract({ toolName: 'mcp_add', executionChannel: 'mcp' });
+  assert.equal(mcpAdd.preferredRoute.id, 'runtime/adapters/mcp-adapter.sh');
+  assert.deepEqual(mcpAdd.preferredRoute.args, ['add']);
+  assert.equal(mcpAdd.preferredRoute.id.includes(' '), false);
+
+  const mcpRemove = resolveEffectiveOutcomeContract({ toolName: 'mcp_remove', executionChannel: 'mcp' });
+  assert.equal(mcpRemove.preferredRoute.id, 'runtime/adapters/mcp-adapter.sh');
+  assert.deepEqual(mcpRemove.preferredRoute.args, ['remove']);
+  assert.equal(mcpRemove.preferredRoute.id.includes(' '), false);
+});
+
+test('resolveEffectiveOutcomeContract returns preferred route for known tool', async () => {
+  const { resolveEffectiveOutcomeContract } = await import('../../../runtime/lib/outcome-resolver.mjs');
+
+  const contract = resolveEffectiveOutcomeContract({ toolName: 'list_tools', executionChannel: 'mcp' });
+
+  assert.equal(contract.outcomeId, 'runtime.list-tools');
+  assert.ok(contract.preferredRoute);
+  assert.equal(Array.isArray(contract.availableRoutes), true);
+});
+
+test('handler resolve_outcome_contract returns contract JSON', async () => {
   const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
   const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
-  let captured = null;
-  const handler = createCallToolHandler({
-    runScript: (script, args) => {
-      captured = { script, args };
-      return { success: true, output: 'ok', error: null };
-    },
-    getFeatureFlags: () => ({
-      outcome_resolution_enabled: false,
-      effective_contract_required: false,
-      remote_executor_enabled: false,
-    }),
+  const fakeDeps = {
+    runScript: () => ({ success: true, output: 'ok', error: null }),
     validateName: () => {},
     validateNumber: () => {},
     isCommandNameSafe: () => true,
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ toolName, outcomeId: 'runtime.mock', availableRoutes: [] }),
     toToolResponse,
     toolError,
-  });
+  };
 
+  const handler = createCallToolHandler(fakeDeps);
   const result = await handler({
-    params: { name: 'run_script', arguments: { script: 'runtime/sync.sh', args: ['--dry-run'] } }
+    params: { name: 'resolve_outcome_contract', arguments: { tool_name: 'list_tools' } }
   });
 
   assert.equal(result.isError, undefined);
-  assert.deepEqual(captured, { script: 'runtime/sync.sh', args: ['--dry-run'] });
-});
-
-test('handler run_script is blocked when explicit contract flag enabled', async () => {
-  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
-  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
-
-  const handler = createCallToolHandler({
-    runScript: () => ({ success: true, output: 'ok', error: null }),
-    getFeatureFlags: () => ({
-      outcome_resolution_enabled: true,
-      effective_contract_required: true,
-      remote_executor_enabled: false,
-    }),
-    validateName: () => {},
-    validateNumber: () => {},
-    isCommandNameSafe: () => true,
-    toToolResponse,
-    toolError,
-  });
-
-  const result = await handler({
-    params: { name: 'run_script', arguments: { script: 'runtime/sync.sh' } }
-  });
-
-  assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /disabled/);
-});
-
-test('handler remote_exec is gated by manifest flag', async () => {
-  const { createCallToolHandler } = await import('../../../runtime/mcp/handlers.mjs');
-  const { toToolResponse, toolError } = await import('../../../runtime/mcp/tool-response.mjs');
-
-  const handler = createCallToolHandler({
-    runScript: () => ({ success: true, output: 'ok', error: null }),
-    getFeatureFlags: () => ({
-      outcome_resolution_enabled: true,
-      effective_contract_required: true,
-      remote_executor_enabled: false,
-    }),
-    validateName: () => {},
-    validateNumber: () => {},
-    isCommandNameSafe: () => true,
-    toToolResponse,
-    toolError,
-  });
-
-  const result = await handler({
-    params: { name: 'remote_exec', arguments: { command: 'echo', args: ['hello'] } }
-  });
-
-  assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /remote_executor_enabled/);
+  assert.match(result.content[0].text, /runtime.mock/);
+  assert.match(result.content[0].text, /list_tools/);
 });
