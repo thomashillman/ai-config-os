@@ -17,6 +17,7 @@ import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import YAML from 'yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../..');
@@ -42,34 +43,14 @@ function readJson(path) {
 }
 
 function parseToolRegistryIds(path) {
-  const yaml = readFileSync(path, 'utf8');
-  const lines = yaml.split(/\r?\n/);
-  const ids = [];
-  let inTools = false;
-
-  for (const line of lines) {
-    if (!inTools) {
-      if (/^tools:\s*$/.test(line)) {
-        inTools = true;
-      }
-      continue;
-    }
-
-    if (/^[^\s#][^:]*:\s*$/.test(line)) {
-      break;
-    }
-
-    const match = line.match(/^\s{2}([a-zA-Z0-9_-]+):\s*$/);
-    if (match) {
-      ids.push(match[1]);
-    }
-  }
-
-  return ids.sort();
+  const data = YAML.parse(readFileSync(path, 'utf8'));
+  const tools = Array.isArray(data?.tools) ? data.tools : [];
+  return tools.map(tool => tool.id).filter(Boolean).sort();
 }
 
 function assertUniqueIds(items, namespace, sourceLabel) {
   const seen = new Set();
+
   for (const item of items) {
     assert.ok(item && item.id, `${sourceLabel}: ${namespace} item missing id`);
     assert.ok(
@@ -91,9 +72,9 @@ function validateGraphReferences(graph, sourceLabel) {
   assertUniqueIds(tools, 'tools', sourceLabel);
   assertUniqueIds(skills, 'skills', sourceLabel);
 
-  const outcomeIds = new Set(outcomes.map(o => o.id));
-  const toolIds = new Set(tools.map(t => t.id));
-  const skillIds = new Set(skills.map(s => s.id));
+  const outcomeIds = new Set(outcomes.map(outcome => outcome.id));
+  const toolIds = new Set(tools.map(tool => tool.id));
+  const skillIds = new Set(skills.map(skill => skill.id));
 
   for (const route of routes) {
     assert.ok(route.outcomeId, `${sourceLabel}: routes.${route.id}.outcomeId missing`);
@@ -124,9 +105,9 @@ function validateGraphReferences(graph, sourceLabel) {
   }
 }
 
-function loadWorkflowGraphs(skillIds, toolIds) {
+function loadWorkflowGraph(skillIds, toolIds) {
   const workflowRoot = join(REPO_ROOT, 'shared', 'workflows');
-  if (!existsSync(workflowRoot)) return [];
+  if (!existsSync(workflowRoot)) return null;
 
   const files = [];
   for (const entry of readdirSync(workflowRoot, { withFileTypes: true })) {
@@ -134,6 +115,7 @@ function loadWorkflowGraphs(skillIds, toolIds) {
       files.push(join(workflowRoot, entry.name));
       continue;
     }
+
     if (entry.isDirectory()) {
       const nestedWorkflow = join(workflowRoot, entry.name, 'workflow.json');
       if (existsSync(nestedWorkflow)) {
@@ -144,54 +126,77 @@ function loadWorkflowGraphs(skillIds, toolIds) {
 
   files.sort();
 
-  return files.map(file => {
+  const routes = [];
+  const outcomes = [];
+
+  for (const file of files) {
     const workflow = readJson(file);
     const workflowId = workflow.name ?? workflow.workflow ?? file;
     const steps = Array.isArray(workflow.execution_flow) ? workflow.execution_flow : [];
 
-    const routes = [];
-    const outcomesById = new Map();
-
     for (const step of steps) {
-      const stepIndex = String(step.step ?? routes.length + 1);
-      const routeId = `step-${stepIndex}`;
-      const outcomeId = step.output_to ?? step.output_key;
-
-      if (!outcomeId) continue;
+      const stepId = String(step.step ?? routes.length + 1);
+      const routeId = `${workflowId}:step-${stepId}`;
+      const outcomeId = `${workflowId}:${step.output_to ?? step.output_key ?? `outcome-${stepId}`}`;
 
       routes.push({ id: routeId, outcomeId });
 
-      if (!outcomesById.has(outcomeId)) {
-        outcomesById.set(outcomeId, { id: outcomeId, refs: { tools: [], skills: [] } });
-      }
+      const refs = {
+        tools: [],
+        skills: typeof step.skill === 'string' && step.skill.length > 0 ? [step.skill] : [],
+      };
 
-      if (typeof step.skill === 'string' && step.skill.length > 0) {
-        outcomesById.get(outcomeId).refs.skills.push(step.skill);
-      }
+      outcomes.push({ id: outcomeId, refs });
     }
+  }
 
-    const outcomes = [...outcomesById.values()].map(outcome => ({
-      id: outcome.id,
-      refs: {
-        tools: [...new Set(outcome.refs.tools)].sort(),
-        skills: [...new Set(outcome.refs.skills)].sort(),
-      },
-    }));
-
-    return {
-      sourceLabel: `workflow:${workflowId}`,
-      graph: {
-        routes,
-        outcomes,
-        tools: toolIds.map(id => ({ id })),
-        skills: skillIds.map(id => ({ id })),
-      },
-    };
-  });
+  return {
+    sourceLabel: 'workflow-runtime',
+    graph: {
+      routes,
+      outcomes,
+      tools: toolIds.map(id => ({ id })),
+      skills: skillIds.map(id => ({ id })),
+    },
+  };
 }
 
-describe('graph reference contract — live artefacts and runtime workflow graphs', () => {
-  test('registry, plugin, and workflow-derived references resolve with no dangling IDs', () => {
+function loadMcpRuntimeGraph(skillIds, toolIds) {
+  const serverPath = join(REPO_ROOT, 'runtime', 'mcp', 'server.js');
+  const handlersPath = join(REPO_ROOT, 'runtime', 'mcp', 'handlers.mjs');
+
+  const serverSource = readFileSync(serverPath, 'utf8');
+  const handlersSource = readFileSync(handlersPath, 'utf8');
+
+  const routeIds = [...serverSource.matchAll(/name:\s*"([a-z_]+)"/g)]
+    .map(match => match[1])
+    .sort();
+
+  const outcomeIds = [...handlersSource.matchAll(/case\s+'([a-z_]+)'\s*:/g)]
+    .map(match => match[1])
+    .sort();
+
+  const outcomes = outcomeIds.map(id => ({
+    id,
+    refs: {
+      tools: id === 'sync_tools' || id === 'list_tools' ? [...toolIds] : [],
+      skills: [],
+    },
+  }));
+
+  return {
+    sourceLabel: 'mcp-runtime',
+    graph: {
+      routes: routeIds.map(id => ({ id, outcomeId: id })),
+      outcomes,
+      tools: toolIds.map(id => ({ id })),
+      skills: skillIds.map(id => ({ id })),
+    },
+  };
+}
+
+describe('graph reference contract — live artefacts and runtime modules', () => {
+  test('registry, plugin, workflows, and runtime route/outcome definitions resolve with no dangling IDs', () => {
     ensureFreshDist();
 
     const registry = readJson(join(REPO_ROOT, 'dist', 'registry', 'index.json'));
@@ -199,8 +204,8 @@ describe('graph reference contract — live artefacts and runtime workflow graph
       join(REPO_ROOT, 'dist', 'clients', 'claude-code', '.claude-plugin', 'plugin.json')
     );
 
-    const registrySkillIds = (registry.skills ?? []).map(s => s.id).sort();
-    const pluginSkillIds = (plugin.skills ?? []).map(s => s.name).sort();
+    const registrySkillIds = (registry.skills ?? []).map(skill => skill.id).sort();
+    const pluginSkillIds = (plugin.skills ?? []).map(skill => skill.name).sort();
     const toolIds = parseToolRegistryIds(join(REPO_ROOT, 'runtime', 'tool-registry.yaml'));
 
     assert.deepEqual(
@@ -209,12 +214,14 @@ describe('graph reference contract — live artefacts and runtime workflow graph
       'dist registry and plugin manifests should declare the same skill IDs'
     );
 
-    const workflowGraphs = loadWorkflowGraphs(registrySkillIds, toolIds);
-    assert.ok(workflowGraphs.length > 0, 'Expected at least one workflow graph to validate');
+    assert.ok(toolIds.length > 0, 'Expected runtime/tool-registry.yaml to declare at least one tool');
 
-    for (const { sourceLabel, graph } of workflowGraphs) {
-      validateGraphReferences(graph, sourceLabel);
-    }
+    const workflowGraph = loadWorkflowGraph(registrySkillIds, toolIds);
+    assert.ok(workflowGraph, 'Expected at least one workflow graph to validate');
+    validateGraphReferences(workflowGraph.graph, workflowGraph.sourceLabel);
+
+    const mcpGraph = loadMcpRuntimeGraph(registrySkillIds, toolIds);
+    validateGraphReferences(mcpGraph.graph, mcpGraph.sourceLabel);
   });
 });
 
@@ -224,8 +231,8 @@ describe('graph reference contract — error message diagnostics', () => {
       () => validateGraphReferences({
         routes: [{ id: 'r1', outcomeId: 'missing-outcome' }],
         outcomes: [{ id: 'ok-outcome', refs: { tools: [], skills: [] } }],
-        tools: [],
-        skills: [],
+        tools: [{ id: 't1' }],
+        skills: [{ id: 's1' }],
       }, 'fixture-route-outcome'),
       /fixture-route-outcome: routes\.r1\.outcomeId -> "missing-outcome"/
     );
@@ -237,7 +244,7 @@ describe('graph reference contract — error message diagnostics', () => {
         routes: [{ id: 'r1', outcomeId: 'o1' }],
         outcomes: [{ id: 'o1', refs: { tools: ['missing-tool'], skills: [] } }],
         tools: [{ id: 'existing-tool' }],
-        skills: [],
+        skills: [{ id: 's1' }],
       }, 'fixture-outcome-tool'),
       /fixture-outcome-tool: outcomes\.o1\.refs\.tools -> "missing-tool"/
     );
@@ -248,7 +255,7 @@ describe('graph reference contract — error message diagnostics', () => {
       () => validateGraphReferences({
         routes: [{ id: 'r1', outcomeId: 'o1' }],
         outcomes: [{ id: 'o1', refs: { tools: [], skills: ['missing-skill'] } }],
-        tools: [],
+        tools: [{ id: 't1' }],
         skills: [{ id: 'existing-skill' }],
       }, 'fixture-outcome-skill'),
       /fixture-outcome-skill: outcomes\.o1\.refs\.skills -> "missing-skill"/
@@ -259,9 +266,12 @@ describe('graph reference contract — error message diagnostics', () => {
     assert.throws(
       () => validateGraphReferences({
         routes: [{ id: 'r1', outcomeId: 'o1' }, { id: 'r1', outcomeId: 'o2' }],
-        outcomes: [{ id: 'o1', refs: { tools: [], skills: [] } }, { id: 'o2', refs: { tools: [], skills: [] } }],
-        tools: [],
-        skills: [],
+        outcomes: [
+          { id: 'o1', refs: { tools: [], skills: [] } },
+          { id: 'o2', refs: { tools: [], skills: [] } },
+        ],
+        tools: [{ id: 't1' }],
+        skills: [{ id: 's1' }],
       }, 'fixture-duplicate-route'),
       /fixture-duplicate-route: duplicate routes id at routes\.r1 -> "r1"/
     );
