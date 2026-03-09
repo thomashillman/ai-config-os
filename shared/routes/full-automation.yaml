@@ -1,0 +1,6 @@
+id: full-automation
+description: Automated route that can execute shell and write files.
+capabilities:
+  - shell.exec
+  - fs.write
+  - fs.read
