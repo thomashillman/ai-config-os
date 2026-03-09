@@ -82,7 +82,7 @@ You should see "All validation stages passed ✓" before proceeding.
 The optional visual dashboard shows your tool configuration, skills, and performance metrics:
 
 ```bash
-# Start the MCP server (serves both tools and API on port 4242)
+# Start the MCP server (serves tools + dashboard API on 127.0.0.1:4242 by default)
 bash runtime/mcp/start.sh &
 
 # In a new terminal, start the dashboard dev server
@@ -90,6 +90,9 @@ cd dashboard && npm run dev
 
 # Open http://localhost:5173 in your browser
 ```
+
+
+Security note: dashboard API requests are denied by default unless they originate from loopback or provide tunnel assertions (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS verification header). Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
 The dashboard provides six tabs:
 - **Tools:** Runtime status and sync for Claude Code, Cursor, Codex
