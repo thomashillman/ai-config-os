@@ -5,6 +5,7 @@
  * Ensures that required system tools are available.
  */
 import { execFileSync } from 'node:child_process';
+import { getRuntimeMode } from '../lib/capability-profile.mjs';
 
 /**
  * Assert that all runtime prerequisites are met, using an injected exec function.
@@ -13,7 +14,11 @@ import { execFileSync } from 'node:child_process';
  * @param {Function} execFn - function with signature (cmd, args, opts) => string
  * @throws {Error} if a required tool is missing
  */
-export function assertRuntimePrereqsWith(execFn) {
+export function assertRuntimePrereqsWith(execFn, runtimeMode = getRuntimeMode()) {
+  if (runtimeMode === 'web' || runtimeMode === 'mobile' || runtimeMode === 'connector') {
+    return;
+  }
+
   try {
     execFn('bash', ['-lc', 'command -v bash'], { encoding: 'utf8', timeout: 5000 });
   } catch {
