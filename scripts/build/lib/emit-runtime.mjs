@@ -16,7 +16,7 @@ import { join } from 'path';
  * @property {string[]} bundles
  * @property {Record<string, string>} artifactHashes
  * @property {'sha256'} artifactHashAlgorithm
- * @property {'file'|'manifest-without-artifact-hashes'} artifactHashScope
+ * @property {'file'|'manifest-with-self-hash-redacted'} artifactHashScope
  * @property {string} [built_at]
  * @property {string} [build_id]
  * @property {string} [source_commit]
@@ -126,8 +126,8 @@ export function emitRuntime(skills, platforms, { distDir, releaseVersion, proven
     ...(provenance?.sourceCommit ? { source_commit: provenance.sourceCommit } : {}),
   };
 
-  artifactHashes[documents.manifest] = hashManifestWithoutArtifactHashes(manifestDoc);
-  manifestDoc.artifactHashScope = 'manifest-without-artifact-hashes';
+  manifestDoc.artifactHashScope = 'manifest-with-self-hash-redacted';
+  artifactHashes[documents.manifest] = hashManifestWithRedactedSelfHash(manifestDoc, documents.manifest);
 
   writeJson(manifestPath, manifestDoc);
 
@@ -147,10 +147,14 @@ function hashFile(path) {
   return hash.digest('hex');
 }
 
-function hashManifestWithoutArtifactHashes(manifestDoc) {
-  const clone = { ...manifestDoc };
-  delete clone.artifactHashes;
-  delete clone.artifactHashScope;
+function hashManifestWithRedactedSelfHash(manifestDoc, manifestPath) {
+  const clone = {
+    ...manifestDoc,
+    artifactHashes: {
+      ...manifestDoc.artifactHashes,
+      [manifestPath]: '',
+    },
+  };
 
   const hash = createHash('sha256');
   hash.update(JSON.stringify(clone, null, 2) + '\n');
