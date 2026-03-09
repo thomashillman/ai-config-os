@@ -31,8 +31,8 @@ export interface Env {
   AUTH_TOKEN: string;
   AUTH_TOKEN_NEXT?: string;
   ENVIRONMENT?: string;
-  MANIFEST_POINTERS?: KVNamespace;
-  MANIFEST_ARTIFACTS?: R2Bucket;
+  MANIFEST_KV: KVNamespace;
+  ARTEFACTS_R2: R2Bucket;
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -73,52 +73,148 @@ function notFound(message: string): Response {
   return jsonResponse({ error: 'Not Found', message }, 404);
 }
 
-function notFoundWithCode(code: string, message: string): Response {
-  return jsonResponse({ error: 'Not Found', code, message }, 404);
+function unprocessableEntity(message: string, diagnostics?: Record<string, unknown>): Response {
+  return jsonResponse({ error: 'Unprocessable Entity', message, diagnostics }, 422);
 }
 
-async function readLatestVersion(env: Env): Promise<string | Response> {
-  if (!env.MANIFEST_POINTERS) {
-    return notFoundWithCode('POINTER_NAMESPACE_MISSING', 'Manifest pointer namespace is not configured');
+type ResolvedVersion = {
+  version: string;
+  source: 'query' | 'kv';
+  key?: string;
+};
+
+async function resolveVersion(url: URL, env: Env): Promise<ResolvedVersion | Response> {
+  const requestedVersion = url.searchParams.get('version')?.trim();
+  if (requestedVersion) {
+    return {
+      version: requestedVersion,
+      source: 'query',
+    };
   }
 
-  const pointerRaw = await env.MANIFEST_POINTERS.get('manifest:latest');
-  if (!pointerRaw) {
-    return notFoundWithCode('LATEST_POINTER_MISSING', "KV key 'manifest:latest' was not found");
+  const pointerKey = 'manifest:latest';
+  const latestVersion = (await env.MANIFEST_KV.get(pointerKey))?.trim();
+  if (!latestVersion) {
+    return notFound(`Latest manifest pointer '${pointerKey}' is missing`);
   }
 
-  try {
-    const pointer = JSON.parse(pointerRaw) as { version?: string };
-    if (!pointer.version) {
-      return notFoundWithCode(
-        'LATEST_POINTER_INVALID',
-        "KV key 'manifest:latest' is missing a 'version' field"
-      );
+  return {
+    version: latestVersion,
+    source: 'kv',
+    key: pointerKey,
+  };
+}
+
+type ArtifactFetchResult = {
+  name: 'outcomes' | 'routes' | 'tools' | 'contract_template';
+  key: string;
+  data: unknown;
+};
+
+async function fetchArtifactJson(
+  env: Env,
+  name: ArtifactFetchResult['name'],
+  keyCandidates: string[],
+  required: boolean
+): Promise<ArtifactFetchResult | { response: Response }> {
+  for (const key of keyCandidates) {
+    const object = await env.ARTEFACTS_R2.get(key);
+    if (!object) continue;
+
+    try {
+      const data = await object.json();
+      return { name, key, data };
+    } catch {
+      return {
+        response: unprocessableEntity(`Artifact '${name}' is not valid JSON`, { key }),
+      };
     }
-
-    return pointer.version;
-  } catch {
-    return notFoundWithCode('LATEST_POINTER_INVALID', "KV key 'manifest:latest' contains invalid JSON");
   }
+
+  if (!required) {
+    return {
+      name,
+      key: '',
+      data: null,
+    };
+  }
+
+  return {
+    response: notFound(
+      `Required artifact '${name}' was not found for any expected R2 key candidate`
+    ),
+  };
 }
 
-async function readArtifactJson(env: Env, key: string): Promise<any | Response> {
-  if (!env.MANIFEST_ARTIFACTS) {
-    return notFoundWithCode('ARTIFACT_BUCKET_MISSING', 'Manifest artifacts bucket is not configured');
+async function handleEffectiveContractPreview(url: URL, env: Env): Promise<Response> {
+  const resolvedVersion = await resolveVersion(url, env);
+  if (resolvedVersion instanceof Response) {
+    return resolvedVersion;
   }
 
-  const obj = await env.MANIFEST_ARTIFACTS.get(key);
-  if (!obj) {
-    return notFoundWithCode('ARTIFACT_MISSING', `R2 key '${key}' was not found`);
-  }
+  const version = resolvedVersion.version;
 
-  const artifactText = await obj.text();
+  const outcomes = await fetchArtifactJson(
+    env,
+    'outcomes',
+    [
+      `versions/${version}/outcomes.json`,
+      `${version}/outcomes.json`,
+      `outcomes/${version}.json`,
+    ],
+    true
+  );
+  if ('response' in outcomes) return outcomes.response;
 
-  try {
-    return JSON.parse(artifactText);
-  } catch {
-    return notFoundWithCode('ARTIFACT_INVALID_JSON', `R2 key '${key}' does not contain valid JSON`);
-  }
+  const routes = await fetchArtifactJson(
+    env,
+    'routes',
+    [`versions/${version}/routes.json`, `${version}/routes.json`, `routes/${version}.json`],
+    true
+  );
+  if ('response' in routes) return routes.response;
+
+  const tools = await fetchArtifactJson(
+    env,
+    'tools',
+    [`versions/${version}/tools.json`, `${version}/tools.json`, `tools/${version}.json`],
+    true
+  );
+  if ('response' in tools) return tools.response;
+
+  const contractTemplate = await fetchArtifactJson(
+    env,
+    'contract_template',
+    [
+      `versions/${version}/contract-template.json`,
+      `${version}/contract-template.json`,
+      `contracts/${version}.template.json`,
+    ],
+    false
+  );
+  if ('response' in contractTemplate) return contractTemplate.response;
+
+  const preview = {
+    contract_template: contractTemplate.data,
+    outcomes: outcomes.data,
+    routes: routes.data,
+    tools: tools.data,
+  };
+
+  return jsonResponse({
+    version,
+    provenance: {
+      version_source: resolvedVersion.source,
+      version_pointer_key: resolvedVersion.key ?? null,
+      source_keys: {
+        outcomes: outcomes.key,
+        routes: routes.key,
+        tools: tools.key,
+        contract_template: contractTemplate.key || null,
+      },
+    },
+    preview,
+  });
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────
@@ -320,6 +416,10 @@ export default {
     const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);
     if (skillMatch) {
       return handleSkill(skillMatch[1]);
+    }
+
+    if (path === '/v1/effective-contract/preview') {
+      return handleEffectiveContractPreview(url, env);
     }
 
     return notFound(`Unknown route: ${path}`);
