@@ -31,8 +31,8 @@ export interface Env {
   AUTH_TOKEN: string;
   AUTH_TOKEN_NEXT?: string;
   ENVIRONMENT?: string;
-  MANIFEST_INDEX: KVNamespace;
-  MANIFESTS_BUCKET: R2Bucket;
+  MANIFEST_KV: KVNamespace;
+  ARTEFACTS_R2: R2Bucket;
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -73,14 +73,148 @@ function notFound(message: string): Response {
   return jsonResponse({ error: 'Not Found', message }, 404);
 }
 
-async function resolveLatestVersion(env: Env): Promise<string> {
-  const version = await env.MANIFEST_INDEX.get('manifest:latest');
+function unprocessableEntity(message: string, diagnostics?: Record<string, unknown>): Response {
+  return jsonResponse({ error: 'Unprocessable Entity', message, diagnostics }, 422);
+}
 
-  if (!version) {
-    throw new Error('Missing KV entry: manifest:latest');
+type ResolvedVersion = {
+  version: string;
+  source: 'query' | 'kv';
+  key?: string;
+};
+
+async function resolveVersion(url: URL, env: Env): Promise<ResolvedVersion | Response> {
+  const requestedVersion = url.searchParams.get('version')?.trim();
+  if (requestedVersion) {
+    return {
+      version: requestedVersion,
+      source: 'query',
+    };
   }
 
-  return version.trim();
+  const pointerKey = 'manifest:latest';
+  const latestVersion = (await env.MANIFEST_KV.get(pointerKey))?.trim();
+  if (!latestVersion) {
+    return notFound(`Latest manifest pointer '${pointerKey}' is missing`);
+  }
+
+  return {
+    version: latestVersion,
+    source: 'kv',
+    key: pointerKey,
+  };
+}
+
+type ArtifactFetchResult = {
+  name: 'outcomes' | 'routes' | 'tools' | 'contract_template';
+  key: string;
+  data: unknown;
+};
+
+async function fetchArtifactJson(
+  env: Env,
+  name: ArtifactFetchResult['name'],
+  keyCandidates: string[],
+  required: boolean
+): Promise<ArtifactFetchResult | { response: Response }> {
+  for (const key of keyCandidates) {
+    const object = await env.ARTEFACTS_R2.get(key);
+    if (!object) continue;
+
+    try {
+      const data = await object.json();
+      return { name, key, data };
+    } catch {
+      return {
+        response: unprocessableEntity(`Artifact '${name}' is not valid JSON`, { key }),
+      };
+    }
+  }
+
+  if (!required) {
+    return {
+      name,
+      key: '',
+      data: null,
+    };
+  }
+
+  return {
+    response: notFound(
+      `Required artifact '${name}' was not found for any expected R2 key candidate`
+    ),
+  };
+}
+
+async function handleEffectiveContractPreview(url: URL, env: Env): Promise<Response> {
+  const resolvedVersion = await resolveVersion(url, env);
+  if (resolvedVersion instanceof Response) {
+    return resolvedVersion;
+  }
+
+  const version = resolvedVersion.version;
+
+  const outcomes = await fetchArtifactJson(
+    env,
+    'outcomes',
+    [
+      `versions/${version}/outcomes.json`,
+      `${version}/outcomes.json`,
+      `outcomes/${version}.json`,
+    ],
+    true
+  );
+  if ('response' in outcomes) return outcomes.response;
+
+  const routes = await fetchArtifactJson(
+    env,
+    'routes',
+    [`versions/${version}/routes.json`, `${version}/routes.json`, `routes/${version}.json`],
+    true
+  );
+  if ('response' in routes) return routes.response;
+
+  const tools = await fetchArtifactJson(
+    env,
+    'tools',
+    [`versions/${version}/tools.json`, `${version}/tools.json`, `tools/${version}.json`],
+    true
+  );
+  if ('response' in tools) return tools.response;
+
+  const contractTemplate = await fetchArtifactJson(
+    env,
+    'contract_template',
+    [
+      `versions/${version}/contract-template.json`,
+      `${version}/contract-template.json`,
+      `contracts/${version}.template.json`,
+    ],
+    false
+  );
+  if ('response' in contractTemplate) return contractTemplate.response;
+
+  const preview = {
+    contract_template: contractTemplate.data,
+    outcomes: outcomes.data,
+    routes: routes.data,
+    tools: tools.data,
+  };
+
+  return jsonResponse({
+    version,
+    provenance: {
+      version_source: resolvedVersion.source,
+      version_pointer_key: resolvedVersion.key ?? null,
+      source_keys: {
+        outcomes: outcomes.key,
+        routes: routes.key,
+        tools: tools.key,
+        contract_template: contractTemplate.key || null,
+      },
+    },
+    preview,
+  });
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────
@@ -95,34 +229,79 @@ function handleHealth(env: Env): Response {
 }
 
 async function handleManifestLatest(env: Env): Promise<Response> {
-  try {
-    const version = await resolveLatestVersion(env);
-    const manifestKey = `manifests/${version}/manifest.json`;
-    const manifestObject = await env.MANIFESTS_BUCKET.get(manifestKey);
-
-    if (!manifestObject) {
-      throw new Error(`Manifest object not found: ${manifestKey}`);
-    }
-
-    const manifest = await manifestObject.json();
-
-    return jsonResponse({
-      version,
-      manifest,
-    });
-  } catch (error) {
-    // Fall back to bundled manifest to preserve availability during KV/R2 issues.
-    const fallbackManifest = REGISTRY_JSON as any;
-    console.error('Failed to resolve latest manifest from KV/R2, serving bundled manifest', {
-      error,
-      fallbackVersion: fallbackManifest.version,
-    });
-
-    return jsonResponse({
-      version: fallbackManifest.version,
-      manifest: fallbackManifest,
-    });
+  if (!env.MANIFEST_POINTERS || !env.MANIFEST_ARTIFACTS) {
+    return jsonResponse(REGISTRY_JSON);
   }
+
+  const version = await readLatestVersion(env);
+  if (version instanceof Response) {
+    return version;
+  }
+
+  const key = `manifests/${version}/manifest.json`;
+  const manifest = await readArtifactJson(env, key);
+  if (manifest instanceof Response) {
+    return manifest;
+  }
+
+  return jsonResponse({
+    version,
+    key,
+    manifest,
+  });
+}
+
+async function handleVersionedArtifact(env: Env, version: string, artifactName: string): Promise<Response> {
+  const key = `manifests/${version}/${artifactName}`;
+  const artifact = await readArtifactJson(env, key);
+  if (artifact instanceof Response) {
+    return artifact;
+  }
+
+  return jsonResponse({ version, key, artifact });
+}
+
+async function handleLatestArtifact(env: Env, artifactName: string): Promise<Response> {
+  const version = await readLatestVersion(env);
+  if (version instanceof Response) {
+    return version;
+  }
+
+  return handleVersionedArtifact(env, version, artifactName);
+}
+
+async function handleEffectiveContractPreview(env: Env): Promise<Response> {
+  const version = await readLatestVersion(env);
+  if (version instanceof Response) {
+    return version;
+  }
+
+  const outcomesKey = `manifests/${version}/outcomes.json`;
+  const routesKey = `manifests/${version}/routes.json`;
+  const toolsKey = `manifests/${version}/tools.json`;
+
+  const outcomes = await readArtifactJson(env, outcomesKey);
+  if (outcomes instanceof Response) return outcomes;
+
+  const routes = await readArtifactJson(env, routesKey);
+  if (routes instanceof Response) return routes;
+
+  const tools = await readArtifactJson(env, toolsKey);
+  if (tools instanceof Response) return tools;
+
+  return jsonResponse({
+    version,
+    sources: {
+      outcomes: outcomesKey,
+      routes: routesKey,
+      tools: toolsKey,
+    },
+    effective_contract: {
+      outcomes,
+      routes,
+      tools,
+    },
+  });
 }
 
 function handleClientLatest(client: string): Response {
@@ -198,6 +377,37 @@ export default {
       return handleManifestLatest(env);
     }
 
+    if (path === '/v1/outcomes/latest') {
+      return handleLatestArtifact(env, 'outcomes.json');
+    }
+
+    if (path === '/v1/routes/latest') {
+      return handleLatestArtifact(env, 'routes.json');
+    }
+
+    if (path === '/v1/tools/latest') {
+      return handleLatestArtifact(env, 'tools.json');
+    }
+
+    if (path === '/v1/effective-contract/preview') {
+      return handleEffectiveContractPreview(env);
+    }
+
+    const outcomesVersionMatch = path.match(/^\/v1\/outcomes\/([^/]+)$/);
+    if (outcomesVersionMatch) {
+      return handleVersionedArtifact(env, outcomesVersionMatch[1], 'outcomes.json');
+    }
+
+    const routesVersionMatch = path.match(/^\/v1\/routes\/([^/]+)$/);
+    if (routesVersionMatch) {
+      return handleVersionedArtifact(env, routesVersionMatch[1], 'routes.json');
+    }
+
+    const toolsVersionMatch = path.match(/^\/v1\/tools\/([^/]+)$/);
+    if (toolsVersionMatch) {
+      return handleVersionedArtifact(env, toolsVersionMatch[1], 'tools.json');
+    }
+
     const clientMatch = path.match(/^\/v1\/client\/([^/]+)\/latest$/);
     if (clientMatch) {
       return handleClientLatest(clientMatch[1]);
@@ -206,6 +416,10 @@ export default {
     const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);
     if (skillMatch) {
       return handleSkill(skillMatch[1]);
+    }
+
+    if (path === '/v1/effective-contract/preview') {
+      return handleEffectiveContractPreview(url, env);
     }
 
     return notFound(`Unknown route: ${path}`);
