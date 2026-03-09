@@ -1,0 +1,5 @@
+id: manual-fallback
+description: Manual fallback route when execution capabilities are limited.
+capabilities:
+  - ui.prompt-only
+notes: Works on prompt-only interfaces.

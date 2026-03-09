@@ -1,0 +1,9 @@
+id: repository-audit
+description: Produce an actionable repository audit report.
+routes:
+  - full-automation
+  - manual-fallback
+capabilities:
+  - git.read
+  - ui.prompt-only
+notes: Prefer automation, fall back to guided prompt instructions.

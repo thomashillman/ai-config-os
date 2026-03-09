@@ -154,3 +154,68 @@ export function resolveAll(skills, platforms) {
 
   return matrix;
 }
+
+/**
+ * Validate outcomes against route definitions and known capability IDs.
+ *
+ * @param {Map<string, object>} outcomes - Outcome definitions keyed by id
+ * @param {Map<string, object>} routes - Route definitions keyed by id
+ * @param {Set<string>} knownCapabilityIds - Known capability IDs from schema
+ * @returns {{errors: string[]}}
+ */
+export function validateOutcomeCompatibility(outcomes, routes, knownCapabilityIds) {
+  const errors = [];
+  const invalidRoutes = new Set();
+
+  for (const [routeId, route] of routes) {
+    const unknownRouteCapabilities = (route.capabilities || []).filter(
+      capabilityId => !knownCapabilityIds.has(capabilityId)
+    );
+
+    if (unknownRouteCapabilities.length > 0) {
+      invalidRoutes.add(routeId);
+      errors.push(`route '${routeId}' references unknown capabilities: ${unknownRouteCapabilities.join(', ')}`);
+    }
+  }
+
+  for (const [outcomeId, outcome] of outcomes) {
+    const unknownOutcomeCapabilities = (outcome.capabilities || []).filter(
+      capabilityId => !knownCapabilityIds.has(capabilityId)
+    );
+
+    if (unknownOutcomeCapabilities.length > 0) {
+      errors.push(
+        `outcome '${outcomeId}' references unknown capabilities: ${unknownOutcomeCapabilities.join(', ')}`
+      );
+    }
+
+    const unknownRoutes = [];
+    let resolvableRouteCount = 0;
+
+    for (const routeId of outcome.routes || []) {
+      const route = routes.get(routeId);
+      if (!route) {
+        unknownRoutes.push(routeId);
+        continue;
+      }
+
+      if (invalidRoutes.has(routeId)) {
+        continue;
+      }
+
+      resolvableRouteCount += 1;
+    }
+
+    if (unknownRoutes.length > 0) {
+      errors.push(`outcome '${outcomeId}' references unknown routes: ${unknownRoutes.join(', ')}`);
+    }
+
+    if (resolvableRouteCount === 0) {
+      errors.push(
+        `outcome '${outcomeId}' has no resolvable route set (all routes are unknown or invalid)`
+      );
+    }
+  }
+
+  return { errors };
+}

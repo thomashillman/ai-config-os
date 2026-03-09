@@ -19,10 +19,11 @@ import { emitClaudeCode } from './lib/emit-claude-code.mjs';
 import { emitCursor } from './lib/emit-cursor.mjs';
 import { emitRegistry } from './lib/emit-registry.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
-import { resolveAll } from './lib/resolve-compatibility.mjs';
+import { resolveAll, validateOutcomeCompatibility } from './lib/resolve-compatibility.mjs';
 import { selectEmittedPlatforms } from './lib/select-emitted-platforms.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
 import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
+import { loadRoutes, loadOutcomes } from './lib/load-definitions.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -38,6 +39,10 @@ const DIST_DIR = join(ROOT, 'dist');
 
 const VALIDATE_ONLY = process.argv.includes('--validate-only');
 const PLATFORM_SCHEMA_PATH = join(ROOT, 'schemas', 'platform.schema.json');
+
+const OUTCOME_SCHEMA_PATH = join(ROOT, 'schemas', 'outcome.schema.json');
+const ROUTE_SCHEMA_PATH = join(ROOT, 'schemas', 'route.schema.json');
+
 
 // Release version from VERSION file; provenance only in release mode
 const releaseVersion = validateReleaseVersion(readReleaseVersion(ROOT));
@@ -56,7 +61,13 @@ async function loadValidators() {
   const platformSchema = JSON.parse(readFileSync(PLATFORM_SCHEMA_PATH, 'utf8'));
   const platformValidator = ajv.compile(platformSchema);
 
-  return { skillValidator, platformValidator };
+  const routeSchema = JSON.parse(readFileSync(ROUTE_SCHEMA_PATH, 'utf8'));
+  const routeValidator = ajv.compile(routeSchema);
+
+  const outcomeSchema = JSON.parse(readFileSync(OUTCOME_SCHEMA_PATH, 'utf8'));
+  const outcomeValidator = ajv.compile(outcomeSchema);
+
+  return { skillValidator, platformValidator, routeValidator, outcomeValidator, skillSchema };
 }
 
 function scanSkills() {
@@ -89,7 +100,7 @@ async function main() {
   console.log(`  version: ${releaseVersion}${releaseMode ? ' (release)' : ''}`);
   console.log(`  mode:    ${VALIDATE_ONLY ? 'validate-only' : 'full build'}\n`);
 
-  const { skillValidator, platformValidator } = await loadValidators();
+  const { skillValidator, platformValidator, routeValidator, outcomeValidator, skillSchema } = await loadValidators();
 
   const skillEntries = scanSkills();
   console.log(`Found ${skillEntries.length} skill(s)\n`);
@@ -137,6 +148,59 @@ async function main() {
 
   if (fatalErrors > 0) {
     console.error(`\nBuild failed: fix platform validation errors above.`);
+    process.exit(1);
+  }
+
+  const knownCapabilityIds = new Set(skillSchema.$defs?.capabilityId?.enum || []);
+
+  // Validate route and outcome definitions
+  console.log('\n[routes/outcomes]');
+  const { records: routes, errors: routeLoadErrors } = loadRoutes(ROOT);
+  const { records: outcomes, errors: outcomeLoadErrors } = loadOutcomes(ROOT);
+
+  for (const err of [...routeLoadErrors, ...outcomeLoadErrors]) {
+    console.error(`  [error] ${err}`);
+    fatalErrors++;
+  }
+
+  for (const [routeId, routeDef] of routes) {
+    const valid = routeValidator(routeDef);
+    if (!valid) {
+      console.error(`  [error] route ${routeId}: schema validation failed:`);
+      for (const e of routeValidator.errors || []) {
+        console.error(`          ${e.instancePath || '(root)'}: ${e.message}`);
+      }
+      fatalErrors++;
+      continue;
+    }
+    console.log(`  [ok]   route ${routeId}`);
+  }
+
+  for (const [outcomeId, outcomeDef] of outcomes) {
+    const valid = outcomeValidator(outcomeDef);
+    if (!valid) {
+      console.error(`  [error] outcome ${outcomeId}: schema validation failed:`);
+      for (const e of outcomeValidator.errors || []) {
+        console.error(`          ${e.instancePath || '(root)'}: ${e.message}`);
+      }
+      fatalErrors++;
+      continue;
+    }
+    console.log(`  [ok]   outcome ${outcomeId}`);
+  }
+
+  const { errors: outcomeCompatibilityErrors } = validateOutcomeCompatibility(
+    outcomes,
+    routes,
+    knownCapabilityIds
+  );
+  for (const err of outcomeCompatibilityErrors) {
+    console.error(`  [error] ${err}`);
+    fatalErrors++;
+  }
+
+  if (fatalErrors > 0) {
+    console.error('\nBuild failed: fix routes/outcomes validation errors above.');
     process.exit(1);
   }
 
