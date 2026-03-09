@@ -9,12 +9,12 @@ compatibility_date = "2024-09-23"
 ENVIRONMENT = "production"
 
 [[kv_namespaces]]
-binding = "MANIFEST_KV"
-id = "REPLACE_WITH_MANIFEST_KV_ID"
+binding = "MANIFEST_INDEX"
+id = "replace-with-kv-namespace-id"
 
 [[r2_buckets]]
-binding = "ARTEFACTS_R2"
-bucket_name = "ai-config-os-artefacts"
+binding = "MANIFESTS_BUCKET"
+bucket_name = "replace-with-r2-bucket-name"
 
 # The dist/ registry and client bundles are bundled into the worker at deploy time.
 # See scripts/build/compile.mjs to regenerate dist/ before deploying.
