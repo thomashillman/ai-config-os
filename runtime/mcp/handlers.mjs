@@ -1,3 +1,5 @@
+import { MCP_TOOL_MAP } from './tool-definitions.mjs';
+
 /**
  * handlers.mjs
  *
@@ -31,6 +33,10 @@ export function createCallToolHandler(deps) {
   return async function handleCallTool(request) {
     const { name, arguments: args } = request.params;
     const capabilityProfile = getCapabilityProfile ? await getCapabilityProfile() : null;
+
+    if (!MCP_TOOL_MAP.has(name)) {
+      return toolError(`Unknown tool: ${name}`);
+    }
 
     switch (name) {
       case 'sync_tools': {

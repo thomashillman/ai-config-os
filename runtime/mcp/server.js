@@ -18,6 +18,7 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
+import { MCP_TOOL_DEFINITIONS } from "./tool-definitions.mjs";
 import { createCapabilityProfileResolver } from "../lib/capability-profile.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -53,77 +54,11 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: "sync_tools",
-      description: "Sync desired tool config to live Claude Code environment",
-      inputSchema: {
-        type: "object",
-        properties: {
-          dry_run: { type: "boolean", description: "Preview changes without applying", default: false }
-        }
-      }
-    },
-    {
-      name: "list_tools",
-      description: "List installed tools and their status from the runtime manifest",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "get_config",
-      description: "Get the merged runtime config (global + machine + project)",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "skill_stats",
-      description: "Get a summary table of all skills with type, status, variants, and test count",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "context_cost",
-      description: "Analyse token footprint of all skills",
-      inputSchema: {
-        type: "object",
-        properties: {
-          threshold: { type: "number", description: "Token threshold for warnings", default: 2000 }
-        }
-      }
-    },
-    {
-      name: "validate_all",
-      description: "Run the full validation suite (dependencies, variants, structure tests, docs, plugin)",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "mcp_list",
-      description: "List MCP servers currently configured in ~/.claude/mcp.json",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "mcp_add",
-      description: "Add an MCP server entry",
-      inputSchema: {
-        type: "object",
-        required: ["name", "command"],
-        properties: {
-          name: { type: "string", description: "MCP server name" },
-          command: { type: "string", description: "Command to run the server" },
-          args: { type: "array", items: { type: "string" }, description: "Command arguments" }
-        }
-      }
-    },
-    {
-      name: "mcp_remove",
-      description: "Remove an MCP server entry",
-      inputSchema: {
-        type: "object",
-        required: ["name"],
-        properties: {
-          name: { type: "string", description: "MCP server name to remove" }
-        }
-      }
-    }
-  ]
+  tools: MCP_TOOL_DEFINITIONS.map(({ name, description, inputSchema }) => ({
+    name,
+    description,
+    inputSchema,
+  })),
 }));
 
 const handleCallTool = createCallToolHandler({
@@ -145,7 +80,6 @@ function startDashboardApi() {
   app.use(express.json({ limit: "10kb" }));
 
   // Dashboard data endpoints
-
   function respondWithOutcome(res, result) {
     const capabilityProfile = capabilityProfileResolver.getCachedProfile();
     res.json({ output: result.output, success: result.success, capability_profile: capabilityProfile || null });
