@@ -38,6 +38,10 @@ export function createCallToolHandler(deps) {
       return toolError(`Unknown tool: ${name}`);
     }
 
+    if (!MCP_TOOL_MAP.has(name)) {
+      return toolError(`Unknown tool: ${name}`);
+    }
+
     switch (name) {
       case 'sync_tools': {
         const result = runScript('runtime/sync.sh', args?.dry_run ? ['--dry-run'] : []);
