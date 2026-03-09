@@ -167,8 +167,18 @@ export function validateOutcomeCompatibility(outcomes, routes, knownCapabilityId
   const errors = [];
   const invalidRoutes = new Set();
 
+  const getStringArray = (value, fieldLabel) => {
+    if (value == null) return [];
+    if (!Array.isArray(value)) {
+      errors.push(`${fieldLabel} must be an array`);
+      return [];
+    }
+    return value.filter(item => typeof item === 'string');
+  };
+
   for (const [routeId, route] of routes) {
-    const unknownRouteCapabilities = (route.capabilities || []).filter(
+    const routeCapabilities = getStringArray(route.capabilities, `route '${routeId}'.capabilities`);
+    const unknownRouteCapabilities = routeCapabilities.filter(
       capabilityId => !knownCapabilityIds.has(capabilityId)
     );
 
@@ -179,7 +189,8 @@ export function validateOutcomeCompatibility(outcomes, routes, knownCapabilityId
   }
 
   for (const [outcomeId, outcome] of outcomes) {
-    const unknownOutcomeCapabilities = (outcome.capabilities || []).filter(
+    const outcomeCapabilities = getStringArray(outcome.capabilities, `outcome '${outcomeId}'.capabilities`);
+    const unknownOutcomeCapabilities = outcomeCapabilities.filter(
       capabilityId => !knownCapabilityIds.has(capabilityId)
     );
 
@@ -192,7 +203,9 @@ export function validateOutcomeCompatibility(outcomes, routes, knownCapabilityId
     const unknownRoutes = [];
     let resolvableRouteCount = 0;
 
-    for (const routeId of outcome.routes || []) {
+    const outcomeRoutes = getStringArray(outcome.routes, `outcome '${outcomeId}'.routes`);
+
+    for (const routeId of outcomeRoutes) {
       const route = routes.get(routeId);
       if (!route) {
         unknownRoutes.push(routeId);

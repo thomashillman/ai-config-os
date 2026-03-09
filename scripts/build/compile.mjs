@@ -189,6 +189,11 @@ async function main() {
     console.log(`  [ok]   outcome ${outcomeId}`);
   }
 
+  if (fatalErrors > 0) {
+    console.error('\nBuild failed: fix routes/outcomes validation errors above.');
+    process.exit(1);
+  }
+
   const { errors: outcomeCompatibilityErrors } = validateOutcomeCompatibility(
     outcomes,
     routes,
