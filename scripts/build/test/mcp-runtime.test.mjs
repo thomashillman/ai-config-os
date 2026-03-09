@@ -9,13 +9,18 @@ import assert from 'node:assert/strict';
 
 // --- Helper response shaping tests ---
 
-test('toToolResponse returns success payload unchanged', async () => {
+test('toToolResponse returns Full contract on success', async () => {
   const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
 
   const result = toToolResponse({ success: true, output: 'ok', error: null });
 
   assert.deepEqual(result, {
-    content: [{ type: 'text', text: 'ok' }]
+    content: [{ type: 'text', text: 'ok' }],
+    structuredContent: {
+      status: 'Full',
+      selectedRoute: 'local-runtime-script',
+      output: 'ok',
+    },
   });
 });
 
@@ -25,7 +30,12 @@ test('toToolResponse returns empty string for success with no output', async () 
   const result = toToolResponse({ success: true, output: '', error: null });
 
   assert.deepEqual(result, {
-    content: [{ type: 'text', text: '' }]
+    content: [{ type: 'text', text: '' }],
+    structuredContent: {
+      status: 'Full',
+      selectedRoute: 'local-runtime-script',
+      output: '',
+    },
   });
 });
 
@@ -35,7 +45,12 @@ test('toToolResponse returns null output as empty string on success', async () =
   const result = toToolResponse({ success: true, output: null, error: null });
 
   assert.deepEqual(result, {
-    content: [{ type: 'text', text: '' }]
+    content: [{ type: 'text', text: '' }],
+    structuredContent: {
+      status: 'Full',
+      selectedRoute: 'local-runtime-script',
+      output: '',
+    },
   });
 });
 
@@ -46,6 +61,8 @@ test('toToolResponse sets isError true on failure', async () => {
 
   assert.equal(result.isError, true);
   assert.equal(result.content[0].text, 'boom');
+  assert.equal(result.structuredContent.status, 'Degraded');
+  assert.ok(Array.isArray(result.structuredContent.missingCapabilities));
 });
 
 test('toToolResponse preserves both stderr and stdout on failure', async () => {
@@ -111,6 +128,8 @@ test('toolError returns isError true', async () => {
 
   assert.equal(result.isError, true);
   assert.equal(result.content[0].text, 'something went wrong');
+  assert.equal(result.structuredContent.status, 'Degraded');
+  assert.equal(result.structuredContent.selectedRoute, 'manual-input-correction');
 });
 
 test('toolError handles null message gracefully', async () => {

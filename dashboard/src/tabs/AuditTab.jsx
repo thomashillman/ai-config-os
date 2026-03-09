@@ -1,15 +1,16 @@
 import { useState } from "react"
+import ResponseContractPanel from "../components/ResponseContractPanel"
 
 export default function AuditTab({ api }) {
-  const [output, setOutput] = useState(null)
+  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
 
   const runAudit = async () => {
     setLoading(true)
     const result = await fetch(`${api}/validate-all`)
       .then(r => r.json())
-      .catch(() => ({ output: "Audit request failed", success: false }))
-    setOutput(result.output)
+      .catch(() => ({ output: "Audit request failed", success: false, status: "Degraded" }))
+    setData(result)
     setLoading(false)
   }
 
@@ -25,9 +26,10 @@ export default function AuditTab({ api }) {
           {loading ? "Running..." : "Run Audit"}
         </button>
       </div>
-      {output ? (
+      <ResponseContractPanel data={data} />
+      {data ? (
         <pre className="bg-gray-900 rounded p-4 text-xs text-gray-300 whitespace-pre-wrap overflow-auto max-h-96">
-          {output}
+          {data.output}
         </pre>
       ) : (
         <p className="text-gray-600 text-xs">Click Run Audit to validate all skills and config</p>

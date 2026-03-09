@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import ResponseContractPanel from "../components/ResponseContractPanel"
 
 function parseSkillStats(output) {
   const lines = output.split("\n").filter(Boolean)
@@ -22,12 +23,14 @@ const statusColour = (s) =>
 
 export default function SkillsTab({ api }) {
   const [skills, setSkills] = useState([])
+  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetch(`${api}/skill-stats`)
       .then(r => r.json())
       .then(d => {
+        setData(d)
         setSkills(parseSkillStats(d.output || ""))
         setLoading(false)
       })
@@ -37,6 +40,7 @@ export default function SkillsTab({ api }) {
   return (
     <div>
       <h2 className="text-gray-300 font-semibold mb-4">Skill Library ({skills.length} skills)</h2>
+      <ResponseContractPanel data={data} />
       {loading ? (
         <p className="text-gray-500">Loading...</p>
       ) : (
