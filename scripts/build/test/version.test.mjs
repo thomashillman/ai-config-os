@@ -21,6 +21,7 @@ import {
   validateReleaseVersion,
   getBuildProvenance,
   assertVersionParity,
+  validateManifestFeatureFlags,
 } from '../lib/versioning.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -74,6 +75,22 @@ test('assertVersionParity fails on mismatch', () => {
   assert.throws(
     () => assertVersionParity('1.0.0', '2.0.0', 'test-file'),
     /Version mismatch in test-file/
+  );
+});
+
+test('validateManifestFeatureFlags returns safe defaults for missing keys', () => {
+  const flags = validateManifestFeatureFlags({});
+  assert.deepEqual(flags, {
+    outcome_resolution_enabled: false,
+    effective_contract_required: false,
+    remote_executor_enabled: false,
+  });
+});
+
+test('validateManifestFeatureFlags rejects non-boolean values', () => {
+  assert.throws(
+    () => validateManifestFeatureFlags({ remote_executor_enabled: 'yes' }),
+    /expected boolean/
   );
 });
 

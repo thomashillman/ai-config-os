@@ -11,6 +11,7 @@ import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
 import fs from "fs";
+import YAML from "yaml";
 import { validateName, validateNumber } from "./validators.mjs";
 import { isCommandNameSafe } from "../adapters/shell-safe.mjs";
 import { resolveRepoScriptPath } from "./path-utils.mjs";
@@ -18,10 +19,35 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
-import { resolveEffectiveOutcomeContract } from "../lib/outcome-resolver.mjs";
+import { validateManifestFeatureFlags } from "../../scripts/build/lib/versioning.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
+
+function buildApiResponse(result, selectedRoute) {
+  const base = {
+    output: result.output,
+    success: result.success,
+    status: result.success ? "Full" : "Degraded",
+    selectedRoute,
+  };
+
+  if (result.success) {
+    return base;
+  }
+
+  return {
+    ...base,
+    missingCapabilities: ["local-runtime-script-execution"],
+    requiredUserInput: [
+      "Inspect the error details and confirm whether to run the equivalent route manually.",
+    ],
+    guidanceEquivalentRoute:
+      "Run the corresponding runtime script directly in a shell (for example via npm scripts or the repo script path) and capture the output.",
+    guidanceFullWorkflowHigherCapabilityEnvironment:
+      "Re-run this dashboard action in an environment with full local runtime script execution enabled so the complete workflow can run end-to-end.",
+  };
+}
 
 function runScript(script, args = []) {
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
@@ -45,7 +71,16 @@ function runScript(script, args = []) {
   }
 }
 
-const capabilityProfileResolver = createCapabilityProfileResolver();
+function getFeatureFlags() {
+  const manifestPath = path.join(REPO_ROOT, "runtime", "manifest.yaml");
+  if (!fs.existsSync(manifestPath)) {
+    return validateManifestFeatureFlags({});
+  }
+
+  const manifestRaw = fs.readFileSync(manifestPath, "utf8");
+  const manifest = YAML.parse(manifestRaw) || {};
+  return validateManifestFeatureFlags(manifest.feature_flags || {});
+}
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
@@ -55,15 +90,9 @@ const server = new Server(
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
-      name: "resolve_outcome_contract",
-      description: "Resolve EffectiveOutcomeContract for a target tool before execution",
-      inputSchema: {
-        type: "object",
-        required: ["tool_name"],
-        properties: {
-          tool_name: { type: "string", description: "Tool name to resolve" }
-        }
-      }
+      name: "manifest_feature_flags",
+      description: "Show validated manifest-controlled MCP feature flags",
+      inputSchema: { type: "object", properties: {} }
     },
     {
       name: "sync_tools",
@@ -72,6 +101,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: "object",
         properties: {
           dry_run: { type: "boolean", description: "Preview changes without applying", default: false }
+        }
+      }
+    },
+    {
+      name: "run_script",
+      description: "Legacy route-less script execution (disabled when explicit contract is enforced)",
+      inputSchema: {
+        type: "object",
+        required: ["script"],
+        properties: {
+          script: { type: "string", description: "Repository-relative script path" },
+          args: { type: "array", items: { type: "string" }, description: "Script arguments" }
+        }
+      }
+    },
+    {
+      name: "remote_exec",
+      description: "Execute a command through remote executor (feature-flag gated)",
+      inputSchema: {
+        type: "object",
+        required: ["command"],
+        properties: {
+          command: { type: "string", description: "Command name" },
+          args: { type: "array", items: { type: "string" }, description: "Command arguments" }
         }
       }
     },
@@ -139,10 +192,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 const handleCallTool = createCallToolHandler({
   runScript,
+  getFeatureFlags,
   validateName,
   validateNumber,
   isCommandNameSafe,
-  resolveEffectiveOutcomeContract,
   toToolResponse,
   toolError,
   getCapabilityProfile: () => capabilityProfileResolver.getProfile(),
@@ -156,20 +209,6 @@ function startDashboardApi() {
   app.use(cors({ origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:4242"] }));
   app.use(express.json({ limit: "10kb" }));
 
-  function executeWithOutcomeContract(toolName, run) {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({
-      toolName,
-      executionChannel: 'dashboard',
-    });
-
-    const result = run();
-
-    return {
-      ...result,
-      effectiveOutcomeContract,
-    };
-  }
-
   // Dashboard data endpoints
   function respondWithOutcome(res, result) {
     const capabilityProfile = capabilityProfileResolver.getCachedProfile();
@@ -177,46 +216,45 @@ function startDashboardApi() {
   }
 
   app.get("/api/manifest", (req, res) => {
-    const response = executeWithOutcomeContract('list_tools', () => runScript("runtime/manifest.sh", ["status"]));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
+    const result = runScript("runtime/manifest.sh", ["status"]);
+    res.json(buildApiResponse(result, "manifest-status"));
   });
 
   app.get("/api/skill-stats", (req, res) => {
-    const response = executeWithOutcomeContract('skill_stats', () => runScript("ops/skill-stats.sh"));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
+    const result = runScript("ops/skill-stats.sh");
+    res.json(buildApiResponse(result, "skill-stats"));
   });
 
   app.get("/api/context-cost", (req, res) => {
     const threshold = validateNumber(req.query.threshold, 2000);
-    const response = executeWithOutcomeContract('context_cost', () => runScript("ops/context-cost.sh", ["--threshold", String(threshold)]));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
+    const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
+    res.json(buildApiResponse(result, "context-cost"));
   });
 
   app.get("/api/config", (req, res) => {
-    const response = executeWithOutcomeContract('get_config', () => runScript("shared/lib/config-merger.sh"));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
+    const result = runScript("shared/lib/config-merger.sh");
+    res.json(buildApiResponse(result, "merged-config"));
   });
 
   app.get("/api/analytics", (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
     const metricsFile = `${REPO_ROOT}/.claude/metrics.jsonl`;
     try {
       const lines = fs.readFileSync(metricsFile, "utf8").trim().split("\n").filter(Boolean);
       const metrics = lines.map(l => JSON.parse(l));
-      res.json({ metrics, success: true, effectiveOutcomeContract });
+      res.json({ metrics, success: true, status: "Full", selectedRoute: "analytics-metrics" });
     } catch {
-      res.json({ metrics: [], success: true, note: "No metrics collected yet", effectiveOutcomeContract });
+      res.json({ metrics: [], success: true, note: "No metrics collected yet", status: "Full", selectedRoute: "analytics-metrics" });
     }
   });
 
   app.post("/api/sync", (req, res) => {
-    const response = executeWithOutcomeContract('sync_tools', () => runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
+    const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
+    res.json(buildApiResponse(result, req.body?.dry_run ? "sync-tools-dry-run" : "sync-tools"));
   });
 
   app.get("/api/validate-all", (req, res) => {
-    const response = executeWithOutcomeContract('validate_all', () => runScript("ops/validate-all.sh"));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
+    const result = runScript("ops/validate-all.sh");
+    res.json(buildApiResponse(result, "validate-all"));
   });
 
   const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;

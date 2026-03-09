@@ -45,6 +45,45 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 9.5: Delivery contract (PR 4) | ✅ Done | v0.5.3+: 28 tests protecting dist/ artifacts, documented in CLAUDE.md |
 | Phase 9.6: Portability contract (TDD) | ✅ Done | v0.6.0+: Materialiser core, canonical source contract, self-sufficiency tests, CI gates, docs updated |
 
+## Phase 9.7: Manifest-Controlled Runtime Feature Flags (IN PROGRESS)
+
+**Version:** v0.6.x
+**Branch:** current
+
+### Feature flags
+
+- `outcome_resolution_enabled`
+- `effective_contract_required`
+- `remote_executor_enabled`
+
+### Rollout plan
+
+1. **Read-only generation + validation**
+   - Add manifest flags with safe defaults (`false`)
+   - Validate types at load-time and surface hard errors for non-boolean values
+2. **Dual-path runtime (legacy + new)**
+   - Keep legacy route-less execution path (`run_script`) for compatibility while explicit routes continue to operate
+   - Introduce gated `remote_exec` route behind `remote_executor_enabled`
+3. **Enforce explicit contract**
+   - Flip `effective_contract_required=true` to block route-less execution
+   - Keep explicit tool routes as the only supported interface
+4. **Retire legacy route-less execution paths**
+   - Remove `run_script` handling and corresponding tool descriptor after one stable release with contract enforcement enabled
+
+### Migration criteria
+
+- `manifest_feature_flags` reports expected values in runtime environment
+- No automation depends on `run_script` for one full release cycle
+- Remote execution users have migrated to `remote_exec` with explicit opt-in
+- Release checklist includes explicit contract/rollback verification before Phase 3 enablement
+
+### Rollback criteria
+
+- If explicit-contract rollout breaks automation: set `effective_contract_required=false`
+- If remote executor causes instability: set `remote_executor_enabled=false`
+- If outcome formatting regressions appear: set `outcome_resolution_enabled=false`
+- Rollback must be possible via manifest-only change (no code deploy required)
+
 ---
 
 ## Phase 9.6: Portability Contract — TDD Implementation (COMPLETE ✅)

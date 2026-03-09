@@ -14,6 +14,9 @@ Validate release readiness and provide a structured checklist of all pre-release
 5. ✓ Commit message follows conventions
 6. ✓ Remote is up-to-date (no conflicts)
 7. ✓ Tag will be created: `v{version}`
+8. ✓ Manifest runtime feature flags validated (`outcome_resolution_enabled`, `effective_contract_required`, `remote_executor_enabled`)
+9. ✓ Migration criteria met before enabling explicit contract (no active `run_script` dependency)
+10. ✓ Rollback criteria documented and tested (manifest-only flag rollback path confirmed)
 
 ## Output Format
 ```
