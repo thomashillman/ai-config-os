@@ -18,9 +18,16 @@ import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
  * @param {string|null} result.error - stderr content or error message
  * @returns {object} MCP-formatted tool response
  */
-export function toToolResponse(result, capabilityProfile = null) {
+export function toToolResponse(result, effectiveOutcomeContract = null) {
+  const contractPrefix = effectiveOutcomeContract
+    ? `EffectiveOutcomeContract:
+${JSON.stringify(effectiveOutcomeContract, null, 2)}
+
+`
+    : '';
+
   if (result.success) {
-    return attachCapabilityProfile({ content: [{ type: 'text', text: result.output ?? '' }] }, capabilityProfile);
+    return { content: [{ type: 'text', text: `${contractPrefix}${result.output ?? ''}` }] };
   }
 
   // On failure: combine stderr and stdout to preserve diagnostic context.

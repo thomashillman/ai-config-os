@@ -15,6 +15,7 @@ import { MCP_TOOL_MAP } from './tool-definitions.mjs';
  * @param {Function} deps.validateName - validate MCP server name
  * @param {Function} deps.validateNumber - validate and coerce numeric arguments
  * @param {Function} deps.isCommandNameSafe - check if command is safe to execute
+ * @param {Function} deps.resolveEffectiveOutcomeContract - compute effective routing contract
  * @param {Function} deps.toToolResponse - shape a result object into MCP response
  * @param {Function} deps.toolError - create an MCP error response
  * @returns {Function} async handler(request) => response
@@ -25,6 +26,7 @@ export function createCallToolHandler(deps) {
     validateName,
     validateNumber,
     isCommandNameSafe,
+    resolveEffectiveOutcomeContract,
     toToolResponse,
     toolError,
     getCapabilityProfile,
@@ -32,10 +34,14 @@ export function createCallToolHandler(deps) {
 
   return async function handleCallTool(request) {
     const { name, arguments: args } = request.params;
-    const capabilityProfile = getCapabilityProfile ? await getCapabilityProfile() : null;
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: name, executionChannel: 'mcp' });
 
-    if (!MCP_TOOL_MAP.has(name)) {
-      return toolError(`Unknown tool: ${name}`);
+    if (name === 'resolve_outcome_contract') {
+      const targetToolName = args?.tool_name || '';
+      const contract = resolveEffectiveOutcomeContract({ toolName: targetToolName, executionChannel: 'mcp' });
+      return {
+        content: [{ type: 'text', text: JSON.stringify(contract, null, 2) }],
+      };
     }
 
     if (!MCP_TOOL_MAP.has(name)) {
@@ -45,29 +51,29 @@ export function createCallToolHandler(deps) {
     switch (name) {
       case 'sync_tools': {
         const result = runScript('runtime/sync.sh', args?.dry_run ? ['--dry-run'] : []);
-        return toToolResponse(result, capabilityProfile);
+        return toToolResponse(result, effectiveOutcomeContract);
       }
 
       case 'list_tools': {
         const result = runScript('runtime/manifest.sh', ['status']);
-        return toToolResponse(result, capabilityProfile);
+        return toToolResponse(result, effectiveOutcomeContract);
       }
 
       case 'get_config': {
         const result = runScript('shared/lib/config-merger.sh');
-        return toToolResponse(result, capabilityProfile);
+        return toToolResponse(result, effectiveOutcomeContract);
       }
 
       case 'skill_stats': {
         const result = runScript('ops/skill-stats.sh');
-        return toToolResponse(result, capabilityProfile);
+        return toToolResponse(result, effectiveOutcomeContract);
       }
 
       case 'context_cost': {
         try {
           const threshold = validateNumber(args?.threshold, 2000);
           const result = runScript('ops/context-cost.sh', ['--threshold', String(threshold)]);
-          return toToolResponse(result, capabilityProfile);
+          return toToolResponse(result, effectiveOutcomeContract);
         } catch (err) {
           return toolError(err.message || 'Invalid arguments', capabilityProfile);
         }
@@ -75,12 +81,12 @@ export function createCallToolHandler(deps) {
 
       case 'validate_all': {
         const result = runScript('ops/validate-all.sh');
-        return toToolResponse(result, capabilityProfile);
+        return toToolResponse(result, effectiveOutcomeContract);
       }
 
       case 'mcp_list': {
         const result = runScript('runtime/adapters/mcp-adapter.sh', ['list']);
-        return toToolResponse(result, capabilityProfile);
+        return toToolResponse(result, effectiveOutcomeContract);
       }
 
       case 'mcp_add': {
@@ -93,7 +99,7 @@ export function createCallToolHandler(deps) {
             'runtime/adapters/mcp-adapter.sh',
             ['add', args.name, args.command, ...(Array.isArray(args?.args) ? args.args : [])]
           );
-          return toToolResponse(result, capabilityProfile);
+          return toToolResponse(result, effectiveOutcomeContract);
         } catch (err) {
           return toolError(err.message || 'Invalid arguments', capabilityProfile);
         }
@@ -103,7 +109,7 @@ export function createCallToolHandler(deps) {
         try {
           validateName(args?.name);
           const result = runScript('runtime/adapters/mcp-adapter.sh', ['remove', args.name]);
-          return toToolResponse(result, capabilityProfile);
+          return toToolResponse(result, effectiveOutcomeContract);
         } catch (err) {
           return toolError(err.message || 'Invalid arguments', capabilityProfile);
         }
