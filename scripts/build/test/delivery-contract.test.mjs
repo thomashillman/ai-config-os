@@ -14,7 +14,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
@@ -440,5 +440,132 @@ describe('delivery contract — prompt file existence', () => {
         assert.fail(`Failed to read prompt file ${promptPath}: ${err.message}`);
       }
     }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 9: Build truthfulness contract
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — build truthfulness (Slice 4)', () => {
+  test('registry only lists platforms with actual emitted artefacts', () => {
+    const registryPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+
+    // All platforms in registry.platforms should have a dist/clients/<platform> directory
+    for (const platformId of registry.platforms) {
+      const platformDir = join(CLIENTS_DIR, platformId);
+      assert.ok(
+        existsSync(platformDir),
+        `Registry claims platform "${platformId}" but no dist/clients/${platformId} directory exists`
+      );
+
+      // Verify the platform directory is not empty
+      const files = getAllFilesRecursive(platformDir);
+      assert.ok(
+        files.length > 0,
+        `Registry claims platform "${platformId}" but dist/clients/${platformId} is empty`
+      );
+    }
+  });
+
+  test('all dist/clients/<platform> directories are listed in registry', () => {
+    const registryPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+
+    const emittedPlatforms = readdirSync(CLIENTS_DIR, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    const registryPlatforms = new Set(registry.platforms);
+
+    for (const platformId of emittedPlatforms) {
+      assert.ok(
+        registryPlatforms.has(platformId),
+        `dist/clients/${platformId} exists but is not listed in registry.platforms`
+      );
+    }
+  });
+
+  test('stale artefacts are removed on rebuild', () => {
+    // This test verifies that rebuilding removes old dist/ content.
+    // We create a marker file, rebuild, and verify it's gone.
+
+    // Create a marker file in an improbable location
+    const markerDir = join(DIST_DIR, '_test-marker-should-not-exist');
+    const markerFile = join(markerDir, 'test-file.txt');
+
+    try {
+      // Ensure dist/ exists (it should from previous tests)
+      if (!existsSync(DIST_DIR)) {
+        mkdirSync(DIST_DIR, { recursive: true });
+      }
+
+      // Create marker file
+      mkdirSync(markerDir, { recursive: true });
+      writeFileSync(markerFile, 'This file should be removed on rebuild\n');
+
+      assert.ok(
+        existsSync(markerFile),
+        'Marker file should exist before rebuild'
+      );
+
+      // Run compiler to rebuild dist/
+      const result = spawnSync(process.execPath, [COMPILE_MJS], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 30000,
+      });
+
+      assert.equal(result.status, 0, `Compiler failed: ${result.stderr}`);
+
+      // Verify marker file is gone
+      assert.ok(
+        !existsSync(markerFile),
+        'Marker file should be removed after rebuild (stale artefacts must not survive)'
+      );
+    } finally {
+      // Ensure cleanup even if test fails
+      try {
+        rmSync(markerDir, { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup errors
+      }
+    }
+  });
+
+  test('rebuild produces deterministic dist/ content', () => {
+    // Compile once
+    const result1 = spawnSync(process.execPath, [COMPILE_MJS], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30000,
+    });
+    assert.equal(result1.status, 0, `First compile failed: ${result1.stderr}`);
+
+    // Capture all files and their content
+    const files1 = getAllFilesRecursive(DIST_DIR);
+    const content1 = {};
+    for (const file of files1) {
+      content1[relative(DIST_DIR, file)] = readFileSync(file, 'utf8');
+    }
+
+    // Compile again
+    const result2 = spawnSync(process.execPath, [COMPILE_MJS], {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      timeout: 30000,
+    });
+    assert.equal(result2.status, 0, `Second compile failed: ${result2.stderr}`);
+
+    // Capture files again
+    const files2 = getAllFilesRecursive(DIST_DIR);
+    const content2 = {};
+    for (const file of files2) {
+      content2[relative(DIST_DIR, file)] = readFileSync(file, 'utf8');
+    }
+
+    // Compare
+    assert.deepEqual(content1, content2, 'Rebuild should produce identical dist/ content');
   });
 });

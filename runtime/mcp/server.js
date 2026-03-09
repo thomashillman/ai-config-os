@@ -15,22 +15,12 @@ import { validateName, validateNumber } from "./validators.mjs";
 import { isCommandNameSafe } from "../adapters/shell-safe.mjs";
 import { resolveRepoScriptPath } from "./path-utils.mjs";
 import { getReleaseVersion } from "../lib/release-version.mjs";
+import { toToolResponse, toolError } from "./tool-response.mjs";
+import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
+import { createCallToolHandler } from "./handlers.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
-
-// Fail fast with a clear message if bash is not available.
-// The MCP runtime execution path depends on bash; build/validate steps are cross-platform.
-function assertRuntimePrereqs() {
-  try {
-    execFileSync("bash", ["-lc", "command -v bash"], { encoding: "utf8", timeout: 5000 });
-  } catch {
-    throw new Error(
-      "ai-config-os runtime requires bash on PATH. " +
-      "Build and validation may be cross-platform, but MCP runtime execution is Unix-like only."
-    );
-  }
-}
 
 function runScript(script, args = []) {
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
@@ -52,21 +42,6 @@ function runScript(script, args = []) {
       error: String(err.stderr || err.message || "Unknown process error"),
     };
   }
-}
-
-// Centralised MCP response shaping — all handlers use these so isError is never missing.
-function toToolResponse(result) {
-  if (result.success) {
-    return { content: [{ type: "text", text: result.output ?? "" }] };
-  }
-  return {
-    content: [{ type: "text", text: result.error || result.output || "Unknown error" }],
-    isError: true,
-  };
-}
-
-function toolError(message) {
-  return { content: [{ type: "text", text: message }], isError: true };
 }
 
 const server = new Server(
@@ -148,76 +123,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   ]
 }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
-  switch (name) {
-    case "sync_tools": {
-      const result = runScript("runtime/sync.sh", args?.dry_run ? ["--dry-run"] : []);
-      return toToolResponse(result);
-    }
-
-    case "list_tools": {
-      const result = runScript("runtime/manifest.sh", ["status"]);
-      return toToolResponse(result);
-    }
-
-    case "get_config": {
-      const result = runScript("shared/lib/config-merger.sh");
-      return toToolResponse(result);
-    }
-
-    case "skill_stats": {
-      const result = runScript("ops/skill-stats.sh");
-      return toToolResponse(result);
-    }
-
-    case "context_cost": {
-      const threshold = validateNumber(args?.threshold, 2000);
-      const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-      return toToolResponse(result);
-    }
-
-    case "validate_all": {
-      const result = runScript("ops/validate-all.sh");
-      return toToolResponse(result);
-    }
-
-    case "mcp_list": {
-      const result = runScript("runtime/adapters/mcp-adapter.sh", ["list"]);
-      return toToolResponse(result);
-    }
-
-    case "mcp_add": {
-      try {
-        validateName(args?.name);
-        if (!isCommandNameSafe(args?.command)) {
-          return toolError("Invalid command: must be a simple command name (alphanumeric, dash, underscore)");
-        }
-        const result = runScript(
-          "runtime/adapters/mcp-adapter.sh",
-          ["add", args.name, args.command, ...(Array.isArray(args?.args) ? args.args : [])]
-        );
-        return toToolResponse(result);
-      } catch (err) {
-        return toolError(err.message || "Invalid arguments");
-      }
-    }
-
-    case "mcp_remove": {
-      try {
-        validateName(args?.name);
-        const result = runScript("runtime/adapters/mcp-adapter.sh", ["remove", args.name]);
-        return toToolResponse(result);
-      } catch (err) {
-        return toolError(err.message || "Invalid arguments");
-      }
-    }
-
-    default:
-      return toolError(`Unknown tool: ${name}`);
-  }
+const handleCallTool = createCallToolHandler({
+  runScript,
+  validateName,
+  validateNumber,
+  isCommandNameSafe,
+  toToolResponse,
+  toolError,
 });
+
+server.setRequestHandler(CallToolRequestSchema, handleCallTool);
 
 // Dashboard API server (Express)
 function startDashboardApi() {
