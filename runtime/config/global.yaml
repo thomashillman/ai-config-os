@@ -18,3 +18,9 @@ skills:
 agents: {}
 rules: {}
 commands: {}
+
+sync:
+  enabled: false
+  manifest: ""
+  interval_minutes: 5
+  cache_dir: ./runtime/cache/sync

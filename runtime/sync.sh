@@ -33,7 +33,18 @@ log "Snapshot written to $SNAPSHOT_FILE"
 # Step 2: Initialise manifest if needed
 bash "$REPO_ROOT/runtime/manifest.sh" init 2>/dev/null || true
 
-# Step 3: Show diff
+# Step 3: Sync subsystem phase (manifest/docs/bundles cache)
+info "Running sync subsystem phase..."
+SYNC_SUBSYSTEM_ARGS=(run "$SNAPSHOT_FILE")
+[ "$VERBOSE" = true ] && SYNC_SUBSYSTEM_ARGS+=(--verbose)
+if bash "$REPO_ROOT/runtime/sync-subsystem.sh" "${SYNC_SUBSYSTEM_ARGS[@]}"; then
+  bash "$REPO_ROOT/runtime/manifest.sh" update "sync-subsystem" "synced"
+else
+  echo "[warn] Sync subsystem phase failed; continuing with config sync" >&2
+  bash "$REPO_ROOT/runtime/manifest.sh" update "sync-subsystem" "error"
+fi
+
+# Step 4: Show diff
 info "Config diff:"
 bash "$REPO_ROOT/runtime/manifest.sh" diff "$SNAPSHOT_FILE"
 
@@ -42,7 +53,7 @@ if [ "$DRY_RUN" = true ]; then
   exit 0
 fi
 
-# Step 4: Apply MCP sync
+# Step 5: Apply MCP sync
 info "Syncing MCP servers..."
 if bash "$REPO_ROOT/runtime/adapters/mcp-adapter.sh" sync "$SNAPSHOT_FILE"; then
   bash "$REPO_ROOT/runtime/manifest.sh" update "mcp-config" "synced"
@@ -52,11 +63,11 @@ else
   exit 1
 fi
 
-# Step 5: CLI adapter check
+# Step 6: CLI adapter check
 info "Checking CLI tool presence..."
 bash "$REPO_ROOT/runtime/adapters/cli-adapter.sh" sync "$SNAPSHOT_FILE"
 
-# Step 6: Update manifest last_synced
+# Step 7: Update manifest last_synced
 yq -i ".last_synced = \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"" "$REPO_ROOT/runtime/manifest.yaml" 2>/dev/null || true
 
 info "Sync complete."
