@@ -18,11 +18,7 @@ import { getReleaseVersion } from "../lib/release-version.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
-import {
-  CONTRACT_VERSION,
-  assertExecutionResult,
-  makeErrorResponse,
-} from "../../packages/contracts/index.js";
+import { verifySignedRequest } from "../../shared/contracts/request-signature.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -53,65 +49,28 @@ function buildApiResponse(result, selectedRoute) {
 }
 
 function runScript(script, args = []) {
-  const startedAt = new Date();
-  const startMs = Date.now();
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
   if (!scriptPath) {
-    return assertExecutionResult({
-      ok: false,
-      stdout: '',
-      stderr: 'Script path escapes repository root',
-      exitCode: null,
-      startedAt: startedAt.toISOString(),
-      finishedAt: new Date().toISOString(),
-      durationMs: Date.now() - startMs,
-      metadata: { contractVersion: CONTRACT_VERSION },
-    });
+    return { success: false, output: "", error: "Script path escapes repository root" };
   }
 
   try {
-    const stdout = execFileSync("bash", [scriptPath, ...args], {
+    const output = execFileSync("bash", [scriptPath, ...args], {
       encoding: "utf8",
       timeout: 30000,
       cwd: REPO_ROOT,
     });
-
-    return assertExecutionResult({
-      ok: true,
-      stdout,
-      stderr: '',
-      exitCode: 0,
-      startedAt: startedAt.toISOString(),
-      finishedAt: new Date().toISOString(),
-      durationMs: Date.now() - startMs,
-      metadata: { contractVersion: CONTRACT_VERSION },
-    });
+    return { success: true, output, error: null };
   } catch (err) {
-    return assertExecutionResult({
-      ok: false,
-      stdout: String(err.stdout || ""),
-      stderr: String(err.stderr || err.message || "Unknown process error"),
-      exitCode: typeof err.status === 'number' ? err.status : null,
-      startedAt: startedAt.toISOString(),
-      finishedAt: new Date().toISOString(),
-      durationMs: Date.now() - startMs,
-      metadata: { contractVersion: CONTRACT_VERSION },
-    });
+    return {
+      success: false,
+      output: String(err.stdout || ""),
+      error: String(err.stderr || err.message || "Unknown process error"),
+    };
   }
 }
 
-function toDashboardScriptResponse(result) {
-  return {
-    stdout: result.stdout,
-    stderr: result.stderr,
-    ok: result.ok,
-    exitCode: result.exitCode,
-    // Backward compatibility for existing dashboard clients.
-    output: result.stdout,
-    success: result.ok,
-  };
-}
-
+const capabilityProfileResolver = createCapabilityProfileResolver();
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
@@ -141,8 +100,44 @@ server.setRequestHandler(CallToolRequestSchema, handleCallTool);
 // Dashboard API server (Express)
 function startDashboardApi() {
   const app = express();
+  const signingSecret = process.env.SIGNING_SECRET || "";
+
   app.use(cors({ origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:4242"] }));
-  app.use(express.json({ limit: "10kb" }));
+  app.use(express.json({
+    limit: "10kb",
+    verify: (req, _res, buf) => {
+      req.rawBody = buf.toString("utf8");
+    },
+  }));
+
+  app.use("/api", async (req, res, next) => {
+    try {
+      const canonicalPath = req.originalUrl.split("?")[0];
+      const result = await verifySignedRequest({
+        method: req.method,
+        path: canonicalPath,
+        headers: new Headers(req.headers),
+        body: req.rawBody || "",
+        secret: signingSecret,
+      });
+
+      if (!result.ok) {
+        res.status(result.error.status).json({ error: result.error });
+        return;
+      }
+
+      next();
+    } catch (error) {
+      res.status(401).json({
+        error: {
+          status: 401,
+          code: "signature_verification_error",
+          message: error.message || "Failed to verify request signature",
+          details: {},
+        },
+      });
+    }
+  });
 
   // Dashboard data endpoints
   function respondWithOutcome(res, result) {
@@ -152,23 +147,23 @@ function startDashboardApi() {
 
   app.get("/api/manifest", (req, res) => {
     const result = runScript("runtime/manifest.sh", ["status"]);
-    res.json(toDashboardScriptResponse(result));
+    res.json(buildApiResponse(result, "manifest-status"));
   });
 
   app.get("/api/skill-stats", (req, res) => {
     const result = runScript("ops/skill-stats.sh");
-    res.json(toDashboardScriptResponse(result));
+    res.json(buildApiResponse(result, "skill-stats"));
   });
 
   app.get("/api/context-cost", (req, res) => {
     const threshold = validateNumber(req.query.threshold, 2000);
     const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-    res.json(toDashboardScriptResponse(result));
+    res.json(buildApiResponse(result, "context-cost"));
   });
 
   app.get("/api/config", (req, res) => {
     const result = runScript("shared/lib/config-merger.sh");
-    res.json(toDashboardScriptResponse(result));
+    res.json(buildApiResponse(result, "merged-config"));
   });
 
   app.get("/api/analytics", (req, res) => {
@@ -176,25 +171,20 @@ function startDashboardApi() {
     try {
       const lines = fs.readFileSync(metricsFile, "utf8").trim().split("\n").filter(Boolean);
       const metrics = lines.map(l => JSON.parse(l));
-      res.json({ metrics, success: true });
-    } catch (err) {
-      const errorResponse = makeErrorResponse({
-        code: "METRICS_UNAVAILABLE",
-        message: "No metrics collected yet",
-        details: String(err?.message || "Unknown error"),
-      });
-      res.json({ metrics: [], ok: true, note: errorResponse.error.message });
+      res.json({ metrics, success: true, status: "Full", selectedRoute: "analytics-metrics" });
+    } catch {
+      res.json({ metrics: [], success: true, note: "No metrics collected yet", status: "Full", selectedRoute: "analytics-metrics" });
     }
   });
 
   app.post("/api/sync", (req, res) => {
     const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
-    res.json(toDashboardScriptResponse(result));
+    res.json(buildApiResponse(result, req.body?.dry_run ? "sync-tools-dry-run" : "sync-tools"));
   });
 
   app.get("/api/validate-all", (req, res) => {
     const result = runScript("ops/validate-all.sh");
-    res.json(toDashboardScriptResponse(result));
+    res.json(buildApiResponse(result, "validate-all"));
   });
 
   const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;

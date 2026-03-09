@@ -17,8 +17,8 @@
  *   GET /v1/client/:client/latest
  *   GET /v1/skill/:skillId
  *
- * Auth: Authorization: Bearer <token> on all endpoints.
- * Tokens: AUTH_TOKEN (primary), AUTH_TOKEN_NEXT (rotation staging).
+ * Auth: signed headers (timestamp, nonce, body SHA-256, HMAC signature) on all endpoints.
+ * Secret: SIGNING_SECRET.
  */
 
 // Bundled at deploy time by wrangler from dist/
@@ -26,40 +26,26 @@
 import REGISTRY_JSON from '../../dist/registry/index.json';
 // @ts-ignore - generated at build time
 import CLAUDE_CODE_PLUGIN_JSON from '../../dist/clients/claude-code/.claude-plugin/plugin.json';
-import { makeErrorResponse } from '../../packages/contracts/index.js';
+// @ts-ignore - shared ESM utility imported as runtime JS
+import { InMemoryNonceStore, verifySignedRequest } from '../../shared/contracts/request-signature.mjs';
 
 export interface Env {
-  AUTH_TOKEN: string;
-  AUTH_TOKEN_NEXT?: string;
+  SIGNING_SECRET: string;
   ENVIRONMENT?: string;
-  MANIFEST_KV: KVNamespace;
-  ARTEFACTS_R2: R2Bucket;
+  MANIFEST_POINTERS?: KVNamespace;
+  MANIFEST_ARTIFACTS?: R2Bucket;
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
+const nonceStore = new InMemoryNonceStore();
 
-function isAuthorized(request: Request, env: Env): boolean {
-  const authHeader = request.headers.get('Authorization') ?? '';
-  if (!authHeader.startsWith('Bearer ')) return false;
-  const token = authHeader.slice(7).trim();
-  if (!token) return false;
-  if (token === env.AUTH_TOKEN) return true;
-  if (env.AUTH_TOKEN_NEXT && token === env.AUTH_TOKEN_NEXT) return true;
-  return false;
-}
-
-function unauthorizedResponse(): Response {
+function authFailureResponse(error: any): Response {
   return new Response(
-    JSON.stringify(makeErrorResponse({
-      code: 'UNAUTHORIZED',
-      message: 'Unauthorized',
-      details: { hint: 'Provide a valid Bearer token' },
-    })),
+    JSON.stringify({ error }),
     {
-      status: 401,
+      status: error.status,
       headers: {
         'Content-Type': 'application/json',
-        'WWW-Authenticate': 'Bearer realm="ai-config-os"',
       },
     }
   );
@@ -75,151 +61,55 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 function notFound(message: string): Response {
-  return jsonResponse(makeErrorResponse({ code: 'NOT_FOUND', message, details: { status: 404 } }), 404);
+  return jsonResponse({ error: 'Not Found', message }, 404);
 }
 
-function unprocessableEntity(message: string, diagnostics?: Record<string, unknown>): Response {
-  return jsonResponse({ error: 'Unprocessable Entity', message, diagnostics }, 422);
+function notFoundWithCode(code: string, message: string): Response {
+  return jsonResponse({ error: 'Not Found', code, message }, 404);
 }
 
-type ResolvedVersion = {
-  version: string;
-  source: 'query' | 'kv';
-  key?: string;
-};
-
-async function resolveVersion(url: URL, env: Env): Promise<ResolvedVersion | Response> {
-  const requestedVersion = url.searchParams.get('version')?.trim();
-  if (requestedVersion) {
-    return {
-      version: requestedVersion,
-      source: 'query',
-    };
+async function readLatestVersion(env: Env): Promise<string | Response> {
+  if (!env.MANIFEST_POINTERS) {
+    return notFoundWithCode('POINTER_NAMESPACE_MISSING', 'Manifest pointer namespace is not configured');
   }
 
-  const pointerKey = 'manifest:latest';
-  const latestVersion = (await env.MANIFEST_KV.get(pointerKey))?.trim();
-  if (!latestVersion) {
-    return notFound(`Latest manifest pointer '${pointerKey}' is missing`);
+  const pointerRaw = await env.MANIFEST_POINTERS.get('manifest:latest');
+  if (!pointerRaw) {
+    return notFoundWithCode('LATEST_POINTER_MISSING', "KV key 'manifest:latest' was not found");
   }
 
-  return {
-    version: latestVersion,
-    source: 'kv',
-    key: pointerKey,
-  };
-}
-
-type ArtifactFetchResult = {
-  name: 'outcomes' | 'routes' | 'tools' | 'contract_template';
-  key: string;
-  data: unknown;
-};
-
-async function fetchArtifactJson(
-  env: Env,
-  name: ArtifactFetchResult['name'],
-  keyCandidates: string[],
-  required: boolean
-): Promise<ArtifactFetchResult | { response: Response }> {
-  for (const key of keyCandidates) {
-    const object = await env.ARTEFACTS_R2.get(key);
-    if (!object) continue;
-
-    try {
-      const data = await object.json();
-      return { name, key, data };
-    } catch {
-      return {
-        response: unprocessableEntity(`Artifact '${name}' is not valid JSON`, { key }),
-      };
+  try {
+    const pointer = JSON.parse(pointerRaw) as { version?: string };
+    if (!pointer.version) {
+      return notFoundWithCode(
+        'LATEST_POINTER_INVALID',
+        "KV key 'manifest:latest' is missing a 'version' field"
+      );
     }
-  }
 
-  if (!required) {
-    return {
-      name,
-      key: '',
-      data: null,
-    };
+    return pointer.version;
+  } catch {
+    return notFoundWithCode('LATEST_POINTER_INVALID', "KV key 'manifest:latest' contains invalid JSON");
   }
-
-  return {
-    response: notFound(
-      `Required artifact '${name}' was not found for any expected R2 key candidate`
-    ),
-  };
 }
 
-async function handleEffectiveContractPreview(url: URL, env: Env): Promise<Response> {
-  const resolvedVersion = await resolveVersion(url, env);
-  if (resolvedVersion instanceof Response) {
-    return resolvedVersion;
+async function readArtifactJson(env: Env, key: string): Promise<any | Response> {
+  if (!env.MANIFEST_ARTIFACTS) {
+    return notFoundWithCode('ARTIFACT_BUCKET_MISSING', 'Manifest artifacts bucket is not configured');
   }
 
-  const version = resolvedVersion.version;
+  const obj = await env.MANIFEST_ARTIFACTS.get(key);
+  if (!obj) {
+    return notFoundWithCode('ARTIFACT_MISSING', `R2 key '${key}' was not found`);
+  }
 
-  const outcomes = await fetchArtifactJson(
-    env,
-    'outcomes',
-    [
-      `versions/${version}/outcomes.json`,
-      `${version}/outcomes.json`,
-      `outcomes/${version}.json`,
-    ],
-    true
-  );
-  if ('response' in outcomes) return outcomes.response;
+  const artifactText = await obj.text();
 
-  const routes = await fetchArtifactJson(
-    env,
-    'routes',
-    [`versions/${version}/routes.json`, `${version}/routes.json`, `routes/${version}.json`],
-    true
-  );
-  if ('response' in routes) return routes.response;
-
-  const tools = await fetchArtifactJson(
-    env,
-    'tools',
-    [`versions/${version}/tools.json`, `${version}/tools.json`, `tools/${version}.json`],
-    true
-  );
-  if ('response' in tools) return tools.response;
-
-  const contractTemplate = await fetchArtifactJson(
-    env,
-    'contract_template',
-    [
-      `versions/${version}/contract-template.json`,
-      `${version}/contract-template.json`,
-      `contracts/${version}.template.json`,
-    ],
-    false
-  );
-  if ('response' in contractTemplate) return contractTemplate.response;
-
-  const preview = {
-    contract_template: contractTemplate.data,
-    outcomes: outcomes.data,
-    routes: routes.data,
-    tools: tools.data,
-  };
-
-  return jsonResponse({
-    version,
-    provenance: {
-      version_source: resolvedVersion.source,
-      version_pointer_key: resolvedVersion.key ?? null,
-      source_keys: {
-        outcomes: outcomes.key,
-        routes: routes.key,
-        tools: tools.key,
-        contract_template: contractTemplate.key || null,
-      },
-    },
-    preview,
-  });
+  try {
+    return JSON.parse(artifactText);
+  } catch {
+    return notFoundWithCode('ARTIFACT_INVALID_JSON', `R2 key '${key}' does not contain valid JSON`);
+  }
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────
@@ -356,21 +246,29 @@ export default {
         headers: {
           'Access-Control-Allow-Origin': '*',
           'Access-Control-Allow-Methods': 'GET, OPTIONS',
-          'Access-Control-Allow-Headers': 'Authorization',
+          'Access-Control-Allow-Headers': 'X-AIOS-Timestamp, X-AIOS-Nonce, X-AIOS-Body-SHA256, X-AIOS-Signature',
         },
       });
     }
 
     if (request.method !== 'GET') {
-      return jsonResponse(makeErrorResponse({ code: 'METHOD_NOT_ALLOWED', message: 'Method Not Allowed', details: { method: request.method } }), 405);
+      return jsonResponse({ error: 'Method Not Allowed' }, 405);
     }
 
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Auth guard (all endpoints)
-    if (!isAuthorized(request, env)) {
-      return unauthorizedResponse();
+    // Signature verification (all endpoints)
+    const verification = await verifySignedRequest({
+      method: request.method,
+      path,
+      headers: request.headers,
+      body: '',
+      secret: env.SIGNING_SECRET,
+      nonceStore,
+    });
+    if (!verification.ok) {
+      return authFailureResponse(verification.error);
     }
 
     // Routes
@@ -421,10 +319,6 @@ export default {
     const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);
     if (skillMatch) {
       return handleSkill(skillMatch[1]);
-    }
-
-    if (path === '/v1/effective-contract/preview') {
-      return handleEffectiveContractPreview(url, env);
     }
 
     return notFound(`Unknown route: ${path}`);

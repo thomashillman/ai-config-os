@@ -2,8 +2,7 @@ name = "ai-config-os"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
 
-# Set AUTH_TOKEN via: wrangler secret put AUTH_TOKEN
-# Set AUTH_TOKEN_NEXT via: wrangler secret put AUTH_TOKEN_NEXT (for rotation)
+# Set SIGNING_SECRET via: wrangler secret put SIGNING_SECRET
 
 [vars]
 ENVIRONMENT = "production"

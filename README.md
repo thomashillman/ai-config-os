@@ -214,7 +214,7 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `schemas/` | JSON Schemas for skill package manifests and related structures |
 | `scripts/build/` | Compiler that validates skills and emits `dist/` artefacts |
 | `scripts/build/lib/materialise-client.mjs` | Materialiser: extracts emitted packages without source access (portability contract) |
-| `worker/` | Cloudflare Worker serving compiled skills via bearer-auth REST API |
+| `worker/` | Cloudflare Worker serving compiled skills via signed-request REST API |
 | `plugins/core-skills/` | Claude Code plugin (optional local symlinks to `shared/skills/` on Unix only) |
 | `runtime/config/` | Desired-state configuration (global, machine, project overrides) |
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
