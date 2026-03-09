@@ -100,6 +100,18 @@ function runScript(script, args = []) {
   }
 }
 
+function toDashboardScriptResponse(result) {
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr,
+    ok: result.ok,
+    exitCode: result.exitCode,
+    // Backward compatibility for existing dashboard clients.
+    output: result.stdout,
+    success: result.ok,
+  };
+}
+
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
@@ -140,23 +152,23 @@ function startDashboardApi() {
 
   app.get("/api/manifest", (req, res) => {
     const result = runScript("runtime/manifest.sh", ["status"]);
-    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
+    res.json(toDashboardScriptResponse(result));
   });
 
   app.get("/api/skill-stats", (req, res) => {
     const result = runScript("ops/skill-stats.sh");
-    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
+    res.json(toDashboardScriptResponse(result));
   });
 
   app.get("/api/context-cost", (req, res) => {
     const threshold = validateNumber(req.query.threshold, 2000);
     const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
+    res.json(toDashboardScriptResponse(result));
   });
 
   app.get("/api/config", (req, res) => {
     const result = runScript("shared/lib/config-merger.sh");
-    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
+    res.json(toDashboardScriptResponse(result));
   });
 
   app.get("/api/analytics", (req, res) => {
@@ -177,12 +189,12 @@ function startDashboardApi() {
 
   app.post("/api/sync", (req, res) => {
     const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
-    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
+    res.json(toDashboardScriptResponse(result));
   });
 
   app.get("/api/validate-all", (req, res) => {
     const result = runScript("ops/validate-all.sh");
-    res.json({ stdout: result.stdout, stderr: result.stderr, ok: result.ok, exitCode: result.exitCode });
+    res.json(toDashboardScriptResponse(result));
   });
 
   const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;
