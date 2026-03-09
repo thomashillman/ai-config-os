@@ -361,6 +361,46 @@ test('handler success response uses toToolResponse', async () => {
   assert.equal(result.content[0].text, 'operation successful');
 });
 
+// --- Slice 2: Runtime prerequisite helper injection tests ---
+
+test('assertRuntimePrereqsWith passes when bash check succeeds', async () => {
+  const { assertRuntimePrereqsWith } = await import('../../../runtime/mcp/runtime-prereqs.mjs');
+
+  assert.doesNotThrow(() => {
+    assertRuntimePrereqsWith(() => 'bash');
+  });
+});
+
+test('assertRuntimePrereqsWith throws helpful error when bash unavailable', async () => {
+  const { assertRuntimePrereqsWith } = await import('../../../runtime/mcp/runtime-prereqs.mjs');
+
+  assert.throws(
+    () => {
+      assertRuntimePrereqsWith(() => {
+        throw new Error('spawn failed');
+      });
+    },
+    /runtime requires bash on PATH/
+  );
+});
+
+test('assertRuntimePrereqsWith checks bash using expected invocation', async () => {
+  const { assertRuntimePrereqsWith } = await import('../../../runtime/mcp/runtime-prereqs.mjs');
+
+  let captured = null;
+
+  assertRuntimePrereqsWith((cmd, args, opts) => {
+    captured = { cmd, args, opts };
+    return '';
+  });
+
+  assert.equal(captured.cmd, 'bash');
+  assert.deepEqual(captured.args, ['-lc', 'command -v bash']);
+  assert.equal(typeof captured.opts, 'object');
+  assert.equal(captured.opts.encoding, 'utf8');
+  assert.equal(captured.opts.timeout, 5000);
+});
+
 // --- Slice 1: Handler error semantics uniformity tests ---
 
 test('handler context_cost returns tool error when validateNumber throws', async () => {
