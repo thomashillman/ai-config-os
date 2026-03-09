@@ -24,6 +24,31 @@ import { createCapabilityProfileResolver } from "../lib/capability-profile.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
 
+function buildApiResponse(result, selectedRoute) {
+  const base = {
+    output: result.output,
+    success: result.success,
+    status: result.success ? "Full" : "Degraded",
+    selectedRoute,
+  };
+
+  if (result.success) {
+    return base;
+  }
+
+  return {
+    ...base,
+    missingCapabilities: ["local-runtime-script-execution"],
+    requiredUserInput: [
+      "Inspect the error details and confirm whether to run the equivalent route manually.",
+    ],
+    guidanceEquivalentRoute:
+      "Run the corresponding runtime script directly in a shell (for example via npm scripts or the repo script path) and capture the output.",
+    guidanceFullWorkflowHigherCapabilityEnvironment:
+      "Re-run this dashboard action in an environment with full local runtime script execution enabled so the complete workflow can run end-to-end.",
+  };
+}
+
 function runScript(script, args = []) {
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
   if (!scriptPath) {
@@ -87,23 +112,23 @@ function startDashboardApi() {
 
   app.get("/api/manifest", (req, res) => {
     const result = runScript("runtime/manifest.sh", ["status"]);
-    respondWithOutcome(res, result);
+    res.json(buildApiResponse(result, "manifest-status"));
   });
 
   app.get("/api/skill-stats", (req, res) => {
     const result = runScript("ops/skill-stats.sh");
-    respondWithOutcome(res, result);
+    res.json(buildApiResponse(result, "skill-stats"));
   });
 
   app.get("/api/context-cost", (req, res) => {
     const threshold = validateNumber(req.query.threshold, 2000);
     const result = runScript("ops/context-cost.sh", ["--threshold", String(threshold)]);
-    respondWithOutcome(res, result);
+    res.json(buildApiResponse(result, "context-cost"));
   });
 
   app.get("/api/config", (req, res) => {
     const result = runScript("shared/lib/config-merger.sh");
-    respondWithOutcome(res, result);
+    res.json(buildApiResponse(result, "merged-config"));
   });
 
   app.get("/api/analytics", (req, res) => {
@@ -111,20 +136,20 @@ function startDashboardApi() {
     try {
       const lines = fs.readFileSync(metricsFile, "utf8").trim().split("\n").filter(Boolean);
       const metrics = lines.map(l => JSON.parse(l));
-      res.json({ metrics, success: true });
+      res.json({ metrics, success: true, status: "Full", selectedRoute: "analytics-metrics" });
     } catch {
-      res.json({ metrics: [], success: true, note: "No metrics collected yet" });
+      res.json({ metrics: [], success: true, note: "No metrics collected yet", status: "Full", selectedRoute: "analytics-metrics" });
     }
   });
 
   app.post("/api/sync", (req, res) => {
     const result = runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []);
-    respondWithOutcome(res, result);
+    res.json(buildApiResponse(result, req.body?.dry_run ? "sync-tools-dry-run" : "sync-tools"));
   });
 
   app.get("/api/validate-all", (req, res) => {
     const result = runScript("ops/validate-all.sh");
-    respondWithOutcome(res, result);
+    res.json(buildApiResponse(result, "validate-all"));
   });
 
   const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;
