@@ -126,6 +126,10 @@ function handleHealth(env: Env): Response {
 }
 
 async function handleManifestLatest(env: Env): Promise<Response> {
+  if (!env.MANIFEST_POINTERS || !env.MANIFEST_ARTIFACTS) {
+    return jsonResponse(REGISTRY_JSON);
+  }
+
   const version = await readLatestVersion(env);
   if (version instanceof Response) {
     return version;
