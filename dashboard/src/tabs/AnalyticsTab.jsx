@@ -22,7 +22,7 @@ export default function AnalyticsTab({ api }) {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [])
+  }, [api])
 
   const aggregated = aggregateMetrics(metrics)
   const maxCount = aggregated[0]?.count || 1

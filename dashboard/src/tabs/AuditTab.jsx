@@ -1,5 +1,6 @@
 import { useState } from "react"
 import ResponseContractPanel from "../components/ResponseContractPanel"
+import { buildFetchError, getOutcomeContract } from "../lib/dashboardApi"
 
 export default function AuditTab({ api }) {
   const [data, setData] = useState(null)
@@ -9,7 +10,7 @@ export default function AuditTab({ api }) {
     setLoading(true)
     const result = await fetch(`${api}/validate-all`)
       .then(r => r.json())
-      .catch(() => ({ output: "Audit request failed", success: false, status: "Degraded" }))
+      .catch(() => buildFetchError("Audit request failed"))
     setData(result)
     setLoading(false)
   }
@@ -26,7 +27,7 @@ export default function AuditTab({ api }) {
           {loading ? "Running..." : "Run Audit"}
         </button>
       </div>
-      <ResponseContractPanel data={data} />
+      <ResponseContractPanel data={getOutcomeContract(data)} />
       {data ? (
         <pre className="bg-gray-900 rounded p-4 text-xs text-gray-300 whitespace-pre-wrap overflow-auto max-h-96">
           {data.output}

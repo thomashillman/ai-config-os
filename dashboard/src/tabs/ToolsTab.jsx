@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import ResponseContractPanel from "../components/ResponseContractPanel"
+import { buildFetchError, getOutcomeContract } from "../lib/dashboardApi"
 
 export default function ToolsTab({ api }) {
   const [data, setData] = useState(null)
@@ -9,8 +10,8 @@ export default function ToolsTab({ api }) {
     fetch(`${api}/manifest`)
       .then(r => r.json())
       .then(setData)
-      .catch(() => setData({ output: "Could not connect to dashboard API", success: false, status: "Degraded" }))
-  }, [])
+      .catch(() => setData(buildFetchError()))
+  }, [api])
 
   const handleSync = async (dryRun) => {
     setSyncing(true)
@@ -18,7 +19,7 @@ export default function ToolsTab({ api }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ dry_run: dryRun })
-    }).then(r => r.json()).catch(() => ({ output: "Sync request failed", success: false, status: "Degraded" }))
+    }).then(r => r.json()).catch(() => buildFetchError("Sync request failed"))
     setData(result)
     setSyncing(false)
   }
@@ -44,7 +45,7 @@ export default function ToolsTab({ api }) {
           </button>
         </div>
       </div>
-      <ResponseContractPanel data={data} />
+      <ResponseContractPanel data={getOutcomeContract(data)} />
       <pre className="bg-gray-900 rounded p-4 text-xs text-gray-300 whitespace-pre-wrap overflow-auto max-h-96">
         {data ? data.output : "Loading..."}
       </pre>

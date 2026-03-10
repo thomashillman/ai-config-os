@@ -1,18 +1,27 @@
 import { useState, useEffect } from "react"
 import ResponseContractPanel from "../components/ResponseContractPanel"
+import { buildFetchError, getOutcomeContract } from "../lib/dashboardApi"
+
+const CHECKMARK = "\u2713"
+const HEAVY_CHECKMARK = "\u2714"
+
+function hasVariant(value) {
+  const normalised = String(value || "").trim().toLowerCase()
+  return normalised === CHECKMARK || normalised === HEAVY_CHECKMARK || normalised === "true" || normalised === "yes"
+}
 
 function parseSkillStats(output) {
   const lines = output.split("\n").filter(Boolean)
-  const dataLines = lines.slice(2) // skip header and separator
+  const dataLines = lines.slice(2)
   return dataLines.map(line => {
     const parts = line.trim().split(/\s{2,}/)
     return {
       name: parts[0] || "",
       type: parts[1] || "",
       status: parts[2] || "",
-      opus: parts[3] || "-",
-      sonnet: parts[4] || "-",
-      haiku: parts[5] || "-",
+      opus: hasVariant(parts[3]),
+      sonnet: hasVariant(parts[4]),
+      haiku: hasVariant(parts[5]),
       tests: parts[6] || "0",
     }
   }).filter(r => r.name)
@@ -34,13 +43,16 @@ export default function SkillsTab({ api }) {
         setSkills(parseSkillStats(d.output || ""))
         setLoading(false)
       })
-      .catch(() => setLoading(false))
-  }, [])
+      .catch(() => {
+        setData(buildFetchError())
+        setLoading(false)
+      })
+  }, [api])
 
   return (
     <div>
       <h2 className="text-gray-300 font-semibold mb-4">Skill Library ({skills.length} skills)</h2>
-      <ResponseContractPanel data={data} />
+      <ResponseContractPanel data={getOutcomeContract(data)} />
       {loading ? (
         <p className="text-gray-500">Loading...</p>
       ) : (
@@ -63,9 +75,9 @@ export default function SkillsTab({ api }) {
                   <td className="py-2 pr-4 text-gray-200">{s.name}</td>
                   <td className="py-2 pr-4 text-gray-400">{s.type}</td>
                   <td className={`py-2 pr-4 ${statusColour(s.status)}`}>{s.status}</td>
-                  <td className="py-2 px-2 text-center">{s.opus === "✓" ? "✓" : <span className="text-gray-700">-</span>}</td>
-                  <td className="py-2 px-2 text-center">{s.sonnet === "✓" ? "✓" : <span className="text-gray-700">-</span>}</td>
-                  <td className="py-2 px-2 text-center">{s.haiku === "✓" ? "✓" : <span className="text-gray-700">-</span>}</td>
+                  <td className="py-2 px-2 text-center">{s.opus ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
+                  <td className="py-2 px-2 text-center">{s.sonnet ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
+                  <td className="py-2 px-2 text-center">{s.haiku ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
                   <td className="py-2 px-2 text-center text-gray-400">{s.tests}</td>
                 </tr>
               ))}
