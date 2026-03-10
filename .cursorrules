@@ -1,0 +1,31 @@
+# --- AI Config OS Configuration (start) ---
+# AI Config OS Configuration
+
+# Principles
+
+Opinionated defaults for AI behaviour. Referenced by skills, not auto-loaded.
+
+## Communication
+- Be direct and concise. Avoid filler phrases.
+- When uncertain, say so rather than guessing.
+- Prefer concrete examples over abstract explanations.
+
+## Code
+- Favour readability over cleverness.
+- Don't over-engineer. Solve the problem at hand.
+- Leave code better than you found it, but don't refactor unprompted.
+
+## Decision-making
+- When multiple approaches exist, briefly state the trade-offs and recommend one.
+- Default to the simplest solution that works.
+- Ask before making irreversible changes.
+
+## Available Skills from AI Config OS
+
+- **code-review**: "Perform structured code review with severity levels and actionable feedback.
+- **commit-conventions**: "Surfaces the Conventional Commits prefix rules used in this repo and helps draft well-formed commit messages.
+- **debug**: "Structured debugging for symptoms, error messages, and stack traces.
+- **explain-code**: "Explain code snippets at varying depths, from one-liners to architectural intent and design trade-offs."
+See: https://github.com/thomashillman/ai-config-os
+# --- AI Config OS Configuration (end) ---
+

@@ -342,7 +342,7 @@ export default {
       }
 
       if (path === '/v1/manifest/latest') {
-        return handleManifestLatest();
+        return handleManifestLatest(env);
       }
 
       const clientMatch = path.match(/^\/v1\/client\/([^/]+)\/latest$/);

@@ -110,9 +110,15 @@ cmd_fetch() {
 
   echo "Fetching from ${WORKER_URL}..."
 
-  local if_none_match=()
+  local curl_args=(
+    -sS
+    --fail-with-body
+    -H "Authorization: Bearer ${AI_CONFIG_TOKEN}"
+    -H "Accept: application/json"
+  )
+
   if [[ -f "${ETAG_FILE}" ]]; then
-    if_none_match=(-H "If-None-Match: $(cat "${ETAG_FILE}")")
+    curl_args+=(-H "If-None-Match: $(cat "${ETAG_FILE}")")
   fi
 
   local headers_file
@@ -121,10 +127,8 @@ cmd_fetch() {
   payload_file=$(mktemp "${CACHE_DIR}/payload.XXXXXX")
   trap 'rm -f "${headers_file}" "${payload_file}"' RETURN
 
-  if ! curl -sS --fail-with-body \
-    -H "Authorization: Bearer ${AI_CONFIG_TOKEN}" \
-    -H "Accept: application/json" \
-    "${if_none_match[@]}" \
+  if ! curl \
+    "${curl_args[@]}" \
     -D "${headers_file}" \
     -o "${payload_file}" \
     "${WORKER_URL}/v1/client/claude-code/latest"; then

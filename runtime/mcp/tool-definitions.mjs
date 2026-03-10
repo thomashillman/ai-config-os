@@ -4,6 +4,22 @@
 
 export const MCP_TOOL_DEFINITIONS = [
   {
+    name: 'resolve_outcome_contract',
+    description: 'Resolve EffectiveOutcomeContract for a target tool before execution',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      required: ['tool_name'],
+      properties: {
+        tool_name: { type: 'string', description: 'Tool name to resolve' }
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Inspect the runtime route resolver directly.' }
+  },
+  {
     name: 'sync_tools',
     description: 'Sync desired tool config to live Claude Code environment',
     executionClass: 'local',

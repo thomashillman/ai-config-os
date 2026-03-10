@@ -5,9 +5,17 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import http from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { resolveBashCommand } from './shell-test-helpers.mjs';
 
-const REPO_ROOT = resolve(new URL('../../..', import.meta.url).pathname);
+const REPO_ROOT = resolve(fileURLToPath(new URL('../../..', import.meta.url)));
 const MATERIALISE_SH = join(REPO_ROOT, 'adapters/claude/materialise.sh');
+const BASH_COMMAND = resolveBashCommand();
+const SHELL_TEST_OPTIONS = process.platform === 'win32'
+  ? { skip: 'shell fetch integration tests are not portable on Windows CI' }
+  : BASH_COMMAND
+    ? { timeout: 15000 }
+    : { skip: 'bash is unavailable for shell integration tests' };
 
 const tempDirs = [];
 afterEach(() => {
@@ -33,7 +41,16 @@ function cachePaths(homeDir) {
 
 function runFetch({ homeDir, workerUrl, token = 'test-token' }) {
   return new Promise((resolveFetch) => {
-    const proc = spawn('bash', [MATERIALISE_SH, 'fetch'], {
+    if (!BASH_COMMAND) {
+      resolveFetch({
+        status: null,
+        stdout: '',
+        stderr: 'bash is unavailable for shell integration tests',
+      });
+      return;
+    }
+
+    const proc = spawn(BASH_COMMAND, [MATERIALISE_SH, 'fetch'], {
       cwd: REPO_ROOT,
       env: { ...process.env, HOME: homeDir, AI_CONFIG_WORKER: workerUrl, AI_CONFIG_TOKEN: token, NO_PROXY: '127.0.0.1,localhost' },
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -41,9 +58,27 @@ function runFetch({ homeDir, workerUrl, token = 'test-token' }) {
 
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      proc.kill();
+      finish({
+        status: null,
+        stdout,
+        stderr: `${stderr}\nTimed out waiting for materialise fetch to exit`.trim(),
+      });
+    }, 10000);
+
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolveFetch(result);
+    };
+
     proc.stdout.on('data', (d) => { stdout += String(d); });
     proc.stderr.on('data', (d) => { stderr += String(d); });
-    proc.on('close', (status) => resolveFetch({ status, stdout, stderr }));
+    proc.on('error', (error) => finish({ status: null, stdout, stderr: error.message }));
+    proc.on('close', (status) => finish({ status, stdout, stderr }));
   });
 }
 
@@ -60,7 +95,7 @@ async function withMockServer(handler, fn) {
 }
 
 describe('sync loop fetch contract (etag + version pointer)', () => {
-  test('initial fetch stores both payload version and ETag', async () => {
+  test('initial fetch stores both payload version and ETag', SHELL_TEST_OPTIONS, async () => {
     const seen = [];
     await withMockServer((req, res) => {
       seen.push(req.headers);
@@ -84,7 +119,7 @@ describe('sync loop fetch contract (etag + version pointer)', () => {
     assert.equal(seen[0]['if-none-match'], undefined);
   });
 
-  test('subsequent request sends If-None-Match and 304 keeps version pointer unchanged', async () => {
+  test('subsequent request sends If-None-Match and 304 keeps version pointer unchanged', SHELL_TEST_OPTIONS, async () => {
     let callCount = 0;
     const ifNoneMatch = [];
 
@@ -118,7 +153,7 @@ describe('sync loop fetch contract (etag + version pointer)', () => {
     assert.deepEqual(ifNoneMatch, [undefined, '"etag-v1"']);
   });
 
-  test('200 with new ETag updates payload and version pointer atomically', async () => {
+  test('200 with new ETag updates payload and version pointer atomically', SHELL_TEST_OPTIONS, async () => {
     let callCount = 0;
 
     await withMockServer((req, res) => {
@@ -144,7 +179,7 @@ describe('sync loop fetch contract (etag + version pointer)', () => {
     });
   });
 
-  test('failure path does not partially update etag/version state', async () => {
+  test('failure path does not partially update etag/version state', SHELL_TEST_OPTIONS, async () => {
     await withMockServer((req, res) => {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');

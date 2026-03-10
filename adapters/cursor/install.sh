@@ -8,45 +8,106 @@ set -euo pipefail
 TARGET_DIR="${1:-.}"
 CURSORRULES_FILE="$TARGET_DIR/.cursorrules"
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)")"
+START_MARKER="# --- AI Config OS Configuration (start) ---"
+END_MARKER="# --- AI Config OS Configuration (end) ---"
+LEGACY_MARKER="# --- AI Config OS Configuration ---"
 
-# Check if .cursorrules already exists
-if [ -f "$CURSORRULES_FILE" ]; then
-  # Check if AI Config OS block already present
-  if grep -q "AI Config OS" "$CURSORRULES_FILE"; then
-    echo "WARNING: AI Config OS section already exists in $CURSORRULES_FILE"
-    echo "Skipping to avoid duplicate. Edit manually or remove the existing section."
-    exit 0
-  fi
-  echo "Note: Appending to existing $CURSORRULES_FILE"
+if [ ! -d "$TARGET_DIR" ]; then
+  echo "ERROR: Target directory does not exist: $TARGET_DIR" >&2
+  exit 1
 fi
 
-# Read principles
-PRINCIPLES=$(cat "$REPO_ROOT/shared/principles.md" 2>/dev/null || echo "# Principles file not found")
+render_managed_block() {
+  local skill_file
+  local desc
+  local skills_summary=""
 
-# Extract skill descriptions
-SKILLS_SUMMARY=""
-for skill in code-review commit-conventions debug explain-code; do
-  skill_file="$REPO_ROOT/shared/skills/$skill/SKILL.md"
-  if [ -f "$skill_file" ]; then
-    # Extract description from frontmatter
-    desc=$(awk 'BEGIN{f=0} /^---$/{f++; next} f==1 && /^description:/{f=2} f==2{print; exit}' "$skill_file" | sed 's/^description: *//' | head -1)
-    SKILLS_SUMMARY+="- **$skill**: $desc\n"
+  for skill in code-review commit-conventions debug explain-code; do
+    skill_file="$REPO_ROOT/shared/skills/$skill/SKILL.md"
+    if [ -f "$skill_file" ]; then
+      desc=$(awk '
+        BEGIN { in_frontmatter = 0 }
+        /^---$/ {
+          in_frontmatter++
+          next
+        }
+        in_frontmatter == 1 && /^description:/ {
+          sub(/^description:[[:space:]]*/, "")
+          print
+          exit
+        }
+      ' "$skill_file" | head -1)
+      skills_summary="${skills_summary}- **$skill**: ${desc}\n"
+    fi
+  done
+
+  cat <<EOF
+$START_MARKER
+# AI Config OS Configuration
+
+$(cat "$REPO_ROOT/shared/principles.md" 2>/dev/null || echo "# Principles file not found")
+
+## Available Skills from AI Config OS
+
+$(printf '%b' "$skills_summary")
+See: https://github.com/thomashillman/ai-config-os
+$END_MARKER
+EOF
+}
+
+strip_managed_block() {
+  local file="$1"
+
+  if [ ! -f "$file" ]; then
+    return
   fi
-done
 
-# Append block to .cursorrules
-{
-  echo ""
-  echo "# --- AI Config OS Configuration ---"
-  echo ""
-  echo "$PRINCIPLES"
-  echo ""
-  echo "## Available Skills from AI Config OS"
-  echo ""
-  printf "$SKILLS_SUMMARY"
-  echo ""
-  echo "See: https://github.com/thomashillman/ai-config-os"
-} >> "$CURSORRULES_FILE"
+  node - "$file" "$START_MARKER" "$END_MARKER" "$LEGACY_MARKER" <<'NODE'
+const fs = require('node:fs');
 
-echo "✓ AI Config OS section added to: $CURSORRULES_FILE"
+const [file, startMarker, endMarker, legacyMarker] = process.argv.slice(2);
+let text = fs.readFileSync(file, 'utf8');
+
+if (text.includes(startMarker) && text.includes(endMarker)) {
+  const start = text.indexOf(startMarker);
+  let end = text.indexOf(endMarker, start) + endMarker.length;
+  while (end < text.length && /[\r\n]/.test(text[end])) {
+    end += 1;
+  }
+  const prefix = text.slice(0, start).replace(/\s+$/, '');
+  const suffix = text.slice(end).replace(/^[\r\n]+/, '');
+  text = prefix;
+  if (prefix && suffix) {
+    text += '\n\n';
+  }
+  text += suffix;
+} else if (text.includes(legacyMarker)) {
+  const start = text.indexOf(legacyMarker);
+  text = text.slice(0, start).replace(/\s+$/, '');
+  if (text) {
+    text += '\n';
+  }
+}
+
+fs.writeFileSync(file, text, 'utf8');
+NODE
+}
+
+tmp_file="$(mktemp "${CURSORRULES_FILE}.tmp.XXXXXX")"
+trap 'rm -f "$tmp_file"' EXIT
+
+strip_managed_block "$CURSORRULES_FILE"
+
+if [ -f "$CURSORRULES_FILE" ]; then
+  cat "$CURSORRULES_FILE" > "$tmp_file"
+  if [ -s "$tmp_file" ]; then
+    printf '\n\n' >> "$tmp_file"
+  fi
+fi
+
+render_managed_block >> "$tmp_file"
+printf '\n' >> "$tmp_file"
+mv "$tmp_file" "$CURSORRULES_FILE"
+
+echo "Updated AI Config OS section in: $CURSORRULES_FILE"
 exit 0

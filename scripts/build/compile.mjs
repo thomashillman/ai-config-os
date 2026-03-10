@@ -20,6 +20,7 @@ import { emitCursor } from './lib/emit-cursor.mjs';
 import { emitRegistry } from './lib/emit-registry.mjs';
 import { emitRuntime } from './lib/emit-runtime.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
+import { loadRoutes, loadOutcomes } from './lib/load-definitions.mjs';
 import { resolveAll, validateOutcomeCompatibility } from './lib/resolve-compatibility.mjs';
 import { selectEmittedPlatforms } from './lib/select-emitted-platforms.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
