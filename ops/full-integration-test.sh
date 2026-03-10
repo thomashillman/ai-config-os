@@ -2,7 +2,7 @@
 # End-to-end integration test for all 6 Phase 2 features
 # Validates the complete system works together
 
-set -euo pipefail
+set -uo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 TESTS_PASSED=0
@@ -27,6 +27,11 @@ report_test() {
   fi
 }
 
+run_step() {
+  local command="$1"
+  bash -c "$command"
+}
+
 echo "=== Phase 2 Full Integration Test ==="
 echo ""
 echo "Testing all 6 features working together"
@@ -34,18 +39,27 @@ echo ""
 
 # Test 1: Structure validation (Feature 1)
 test_step "Testing skill dependency validation (Feature 1)"
-bash "$REPO_ROOT/ops/validate-dependencies.sh" >/dev/null 2>&1
-report_test "Dependency validation" $?
+if run_step "bash \"$REPO_ROOT/ops/validate-dependencies.sh\" >/dev/null 2>&1"; then
+  report_test "Dependency validation" 0
+else
+  report_test "Dependency validation" 1
+fi
 
 # Test 2: Variant validation (Feature 2)
 test_step "Testing variant definitions (Feature 2)"
-bash "$REPO_ROOT/ops/validate-variants.sh" >/dev/null 2>&1
-report_test "Variant validation" $?
+if run_step "bash \"$REPO_ROOT/ops/validate-variants.sh\" >/dev/null 2>&1"; then
+  report_test "Variant validation" 0
+else
+  report_test "Variant validation" 1
+fi
 
 # Test 3: Test runner (Feature 3)
 test_step "Testing skill testing framework (Feature 3)"
-bash "$REPO_ROOT/ops/test-skills.sh" >/dev/null 2>&1
-report_test "Test runner" $?
+if run_step "bash \"$REPO_ROOT/ops/test-skills.sh\" >/dev/null 2>&1"; then
+  report_test "Test runner" 0
+else
+  report_test "Test runner" 1
+fi
 
 # Test 4: Workflow validation (Feature 4)
 test_step "Testing workflow composition (Feature 4)"
@@ -65,8 +79,11 @@ fi
 
 # Test 6: Analytics infrastructure (Feature 6)
 test_step "Testing analytics infrastructure (Feature 6)"
-bash "$REPO_ROOT/ops/analytics-report.sh" >/dev/null 2>&1
-report_test "Analytics reporter" $?
+if run_step "bash \"$REPO_ROOT/ops/analytics-report.sh\" >/dev/null 2>&1"; then
+  report_test "Analytics reporter" 0
+else
+  report_test "Analytics reporter" 1
+fi
 
 # Test 7: Plugin validation
 test_step "Testing plugin structure"
