@@ -23,7 +23,7 @@ test('sync loop contract: cached payload is persisted to latest.json', () => {
   const script = readFileSync(join(REPO_ROOT, 'adapters', 'claude', 'materialise.sh'), 'utf8');
 
   assert.match(script, /latest\.json/);
-  assert.match(script, /echo "\$\{payload\}" > "\$\{CACHE_DIR\}\/latest\.json"/);
+  assert.match(script, /mv "\$\{latest_tmp\}" "\$\{CACHE_DIR\}\/latest\.json"/);
 });
 
 test('sync loop contract: version is read from cached payload', () => {

@@ -164,11 +164,17 @@ cmd_fetch() {
   version=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('version','?'))" "${payload_file}" 2>/dev/null || echo "?")
   [[ "${version}" != "?" ]] || die "Payload missing version field"
 
-  local payload
-  payload=$(cat "${payload_file}")
-  echo "${payload}" > "${CACHE_DIR}/latest.json"
-  printf '%s' "${response_etag}" > "${ETAG_FILE}"
-  printf '%s' "${version}" > "${VERSION_FILE}"
+  local latest_tmp="${CACHE_DIR}/latest.json.tmp"
+  local etag_tmp="${ETAG_FILE}.tmp"
+  local version_tmp="${VERSION_FILE}.tmp"
+
+  cp "${payload_file}" "${latest_tmp}"
+  printf '%s' "${response_etag}" > "${etag_tmp}"
+  printf '%s' "${version}" > "${version_tmp}"
+
+  mv "${latest_tmp}" "${CACHE_DIR}/latest.json"
+  mv "${version_tmp}" "${VERSION_FILE}"
+  mv "${etag_tmp}" "${ETAG_FILE}"
 
   local skill_count
   skill_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('skills',[])))" "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?")
