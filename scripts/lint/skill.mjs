@@ -13,6 +13,7 @@ import { parse as parseYaml } from 'yaml';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import { validateSkillPolicy } from '../build/lib/validate-skill-policy.mjs';
+import { registeredToolIds } from '../../runtime/tool-definitions.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../..');
@@ -27,6 +28,7 @@ const knownPlatforms = new Set(
     ? readdirSync(platformDir).filter(f => f.endsWith('.yaml')).map(f => f.replace('.yaml', ''))
     : []
 );
+const knownTools = registeredToolIds();
 
 // Load platform capabilities for cross-referencing
 const platformCaps = {};
@@ -78,7 +80,7 @@ function lintSkill(filePath) {
   }
 
   // === HARD ERRORS (custom rules beyond schema) ===
-  const { errors: policyErrors } = validateSkillPolicy(fm, skillName, knownPlatforms);
+  const { errors: policyErrors } = validateSkillPolicy(fm, skillName, knownPlatforms, knownTools);
   errors.push(...policyErrors);
 
   // === WARNINGS ===
