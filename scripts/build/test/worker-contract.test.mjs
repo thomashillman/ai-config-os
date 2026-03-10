@@ -2,14 +2,13 @@ import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../..');
 const WORKER_INDEX_TS = resolve(REPO_ROOT, 'worker/src/index.ts');
 const REGISTRY_PATH = resolve(REPO_ROOT, 'dist/registry/index.json');
 const PLUGIN_PATH = resolve(REPO_ROOT, 'dist/clients/claude-code/.claude-plugin/plugin.json');
-const TYPESCRIPT_PATH = resolve(REPO_ROOT, 'worker/node_modules/typescript/lib/typescript.js');
 
 function loadJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
@@ -17,7 +16,7 @@ function loadJson(path) {
 
 async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
   const source = readFileSync(WORKER_INDEX_TS, 'utf8');
-  const ts = await import(pathToFileURL(TYPESCRIPT_PATH).href);
+  const ts = await import('typescript');
 
   const patchedTs = source
     .replace(
