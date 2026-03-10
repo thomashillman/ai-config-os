@@ -74,6 +74,21 @@ export const MCP_TOOL_DEFINITIONS = [
     fallbackPolicy: { mode: 'manual', notes: 'Run ops/validate-all.sh directly.' }
   },
   {
+    name: 'resolve_outcome_contract',
+    description: 'Resolve and return the effective outcome contract for a tool',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tool_name: { type: 'string', description: 'Tool name to resolve routing contract for' }
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Inspect runtime/lib/outcome-resolver.mjs directly.' }
+  },
+  {
     name: 'mcp_list',
     description: 'List MCP servers currently configured in ~/.claude/mcp.json',
     executionClass: 'local',

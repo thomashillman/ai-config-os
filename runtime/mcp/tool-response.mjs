@@ -11,26 +11,24 @@ import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
  * Convert a script execution result to an MCP tool response.
  * On success: returns output only.
  * On failure: preserves both stderr and stdout for full diagnostic context.
- *
- * @param {object} result
- * @param {boolean} result.success - whether the script succeeded
- * @param {string} result.output - stdout content
- * @param {string|null} result.error - stderr content or error message
- * @returns {object} MCP-formatted tool response
  */
-export function toToolResponse(result, effectiveOutcomeContract = null) {
+export function toToolResponse(result, effectiveOutcomeContract = null, capabilityProfile = null) {
   const contractPrefix = effectiveOutcomeContract
-    ? `EffectiveOutcomeContract:
-${JSON.stringify(effectiveOutcomeContract, null, 2)}
-
-`
+    ? `EffectiveOutcomeContract:\n${JSON.stringify(effectiveOutcomeContract, null, 2)}\n\n`
     : '';
 
   if (result.success) {
-    return { content: [{ type: 'text', text: `${contractPrefix}${result.output ?? ''}` }] };
+    const output = result.output ?? '';
+    return attachCapabilityProfile({
+      content: [{ type: 'text', text: `${contractPrefix}${output}` }],
+      structuredContent: {
+        status: 'Full',
+        selectedRoute: 'local-runtime-script',
+        output,
+      },
+    }, capabilityProfile);
   }
 
-  // On failure: combine stderr and stdout to preserve diagnostic context.
   const parts = [];
   if (result.error) parts.push(result.error);
   if (result.output) parts.push(result.output);
@@ -40,21 +38,23 @@ ${JSON.stringify(effectiveOutcomeContract, null, 2)}
 
   return attachCapabilityProfile({
     content: [{ type: 'text', text }],
-    structuredContent: nonFullContract,
+    structuredContent: {
+      status: 'Degraded',
+      missingCapabilities: ['runtime-execution'],
+      selectedRoute: 'manual-investigation',
+      output: textBody,
+    },
     isError: true,
   }, capabilityProfile);
 }
 
 /**
  * Create an MCP error response for a validation or runtime error.
- *
- * @param {string} message - error message
- * @returns {object} MCP-formatted error response
  */
-export function toolError(message) {
+export function toolError(message, capabilityProfile = null) {
   const text = String(message || 'Unknown error');
 
-  return {
+  return attachCapabilityProfile({
     content: [{ type: 'text', text }],
     structuredContent: {
       status: 'Degraded',
@@ -74,4 +74,3 @@ export function toolError(message) {
     isError: true,
   }, capabilityProfile);
 }
-
