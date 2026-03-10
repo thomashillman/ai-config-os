@@ -8,8 +8,31 @@ import { readdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+
+function assertTestDependencies() {
+  const requiredPackages = ['ajv', 'yaml'];
+  const missing = [];
+
+  for (const pkg of requiredPackages) {
+    try {
+      require.resolve(pkg);
+    } catch {
+      missing.push(pkg);
+    }
+  }
+
+  if (missing.length > 0) {
+    console.error(`Missing required test dependencies: ${missing.join(', ')}`);
+    console.error('Run `npm install` before executing the test suite.');
+    process.exit(1);
+  }
+}
+
+assertTestDependencies();
 
 // Find all .test.mjs files in current directory
 const files = readdirSync(__dirname);
