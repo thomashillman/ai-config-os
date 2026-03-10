@@ -35,6 +35,12 @@ export interface Env {
   EXECUTOR_PROXY_URL: string;
   EXECUTOR_SHARED_SECRET: string;
   EXECUTOR_TIMEOUT_MS?: string;
+  MANIFEST_KV?: {
+    get(key: string): Promise<string | null> | string | null;
+  };
+  ARTEFACTS_R2?: {
+    get(key: string): Promise<{ text(): Promise<string> } | null> | { text(): Promise<string> } | null;
+  };
 }
 
 type ExecutePayload = {
@@ -89,6 +95,37 @@ function parseTimeoutMs(raw: string | undefined): number {
     return 10000;
   }
   return Math.min(parsed, 120000);
+}
+
+async function readLatestVersion(env: Env): Promise<string | Response> {
+  if (!env.MANIFEST_KV) {
+    return (REGISTRY_JSON as any).version;
+  }
+
+  const version = await env.MANIFEST_KV.get('latest');
+  if (typeof version !== 'string' || version.length === 0) {
+    return jsonResponse({ error: 'Latest manifest version pointer missing' }, 503);
+  }
+
+  return version;
+}
+
+async function readArtifactJson(env: Env, key: string): Promise<unknown | Response> {
+  if (!env.ARTEFACTS_R2) {
+    return jsonResponse({ error: 'Manifest artefact storage is not configured' }, 503);
+  }
+
+  const object = await env.ARTEFACTS_R2.get(key);
+  if (!object) {
+    return notFound(`Artifact not found for key '${key}'`);
+  }
+
+  const text = await object.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return jsonResponse({ error: `Artifact '${key}' contains invalid JSON` }, 502);
+  }
 }
 
 function validateExecutePayload(payload: unknown): { ok: true; value: ExecutePayload } | { ok: false; error: string } {
@@ -151,7 +188,7 @@ function handleHealth(env: Env): Response {
 }
 
 async function handleManifestLatest(env: Env): Promise<Response> {
-  if (!env.MANIFEST_POINTERS || !env.MANIFEST_ARTIFACTS) {
+  if (!env.MANIFEST_KV || !env.ARTEFACTS_R2) {
     return jsonResponse(REGISTRY_JSON);
   }
 
@@ -343,6 +380,37 @@ export default {
 
       if (path === '/v1/manifest/latest') {
         return handleManifestLatest(env);
+      }
+
+      if (path === '/v1/outcomes/latest') {
+        return handleLatestArtifact(env, 'outcomes.json');
+      }
+
+      if (path === '/v1/routes/latest') {
+        return handleLatestArtifact(env, 'routes.json');
+      }
+
+      if (path === '/v1/tools/latest') {
+        return handleLatestArtifact(env, 'tools.json');
+      }
+
+      const outcomesVersionedMatch = path.match(/^\/v1\/outcomes\/([^/]+)$/);
+      if (outcomesVersionedMatch) {
+        return handleVersionedArtifact(env, outcomesVersionedMatch[1], 'outcomes.json');
+      }
+
+      const routesVersionedMatch = path.match(/^\/v1\/routes\/([^/]+)$/);
+      if (routesVersionedMatch) {
+        return handleVersionedArtifact(env, routesVersionedMatch[1], 'routes.json');
+      }
+
+      const toolsVersionedMatch = path.match(/^\/v1\/tools\/([^/]+)$/);
+      if (toolsVersionedMatch) {
+        return handleVersionedArtifact(env, toolsVersionedMatch[1], 'tools.json');
+      }
+
+      if (path === '/v1/effective-contract/preview') {
+        return handleEffectiveContractPreview(env);
       }
 
       const clientMatch = path.match(/^\/v1\/client\/([^/]+)\/latest$/);

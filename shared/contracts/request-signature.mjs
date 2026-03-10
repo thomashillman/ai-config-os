@@ -99,10 +99,6 @@ export async function verifySignedRequest({
     return structuredError(401, 'body_hash_mismatch', 'Body hash does not match request payload');
   }
 
-  if (nonceStore && typeof nonceStore.consume === 'function' && !nonceStore.consume(nonce, nowMs)) {
-    return structuredError(403, 'replayed_nonce', 'Nonce was already used inside the accepted window');
-  }
-
   const canonical = canonicalSigningInput({ method, path, timestamp, nonce, bodyHash });
   const expected = `${SIGNATURE_VERSION}=${await hmacSha256Hex(secret, canonical)}`;
 
@@ -110,6 +106,10 @@ export async function verifySignedRequest({
     return structuredError(401, 'invalid_signature', 'Signature verification failed', {
       algorithm: SIGNATURE_ALGORITHM,
     });
+  }
+
+  if (nonceStore && typeof nonceStore.consume === 'function' && !nonceStore.consume(nonce, nowMs)) {
+    return structuredError(403, 'replayed_nonce', 'Nonce was already used inside the accepted window');
   }
 
   return { ok: true, canonical };

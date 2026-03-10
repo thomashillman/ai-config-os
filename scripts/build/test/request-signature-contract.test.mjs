@@ -98,3 +98,32 @@ test('verifySignedRequest rejects replayed nonce', async () => {
   assert.equal(second.error.status, 403);
   assert.equal(second.error.code, 'replayed_nonce');
 });
+
+test('verifySignedRequest does not consume nonce when signature is invalid', async () => {
+  const nonceStore = new InMemoryNonceStore();
+  const validHeaders = await makeHeaders({ nonce: 'n-invalid-signature' });
+  const tamperedHeaders = new Headers(validHeaders);
+  tamperedHeaders.set('X-AIOS-Signature', 'v1=deadbeef');
+
+  const invalid = await verifySignedRequest({
+    method: 'GET',
+    path: '/v1/health',
+    headers: tamperedHeaders,
+    body: '',
+    secret: SECRET,
+    nonceStore,
+  });
+
+  const valid = await verifySignedRequest({
+    method: 'GET',
+    path: '/v1/health',
+    headers: validHeaders,
+    body: '',
+    secret: SECRET,
+    nonceStore,
+  });
+
+  assert.equal(invalid.ok, false);
+  assert.equal(invalid.error.code, 'invalid_signature');
+  assert.equal(valid.ok, true, 'nonce should remain usable after invalid signature attempt');
+});
