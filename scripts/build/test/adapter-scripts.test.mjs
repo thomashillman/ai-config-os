@@ -8,6 +8,7 @@ import {
   copyFileSync,
   existsSync,
   rmSync,
+  realpathSync,
 } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -36,6 +37,19 @@ function runBash(scriptPath, { cwd, env = {}, args = [] } = {}) {
     encoding: 'utf8',
     env: { ...process.env, ...env },
   });
+}
+
+function normalizePathForAssert(pathValue) {
+  const resolvedPath = resolve(pathValue);
+  if (process.platform !== 'win32') {
+    return resolvedPath;
+  }
+
+  try {
+    return realpathSync.native(resolvedPath).toLowerCase();
+  } catch {
+    return resolvedPath.toLowerCase();
+  }
 }
 
 function createClaudeDevTestFixture({ dependencyExit = 0, variantsExit = 0 } = {}) {
@@ -75,7 +89,11 @@ function createClaudeWrapper({ captureDir, targetScript, claudeExit = 0 }) {
     `#!/usr/bin/env bash
 set -euo pipefail
 claude() {
-  pwd -W > "$CLAUDE_CWD_FILE"
+  if pwd -W >/dev/null 2>&1; then
+    pwd -W > "$CLAUDE_CWD_FILE"
+  else
+    pwd > "$CLAUDE_CWD_FILE"
+  fi
   printf '%s\\n' "$@" > "$CLAUDE_ARGS_FILE"
   return ${claudeExit}
 }
@@ -114,8 +132,8 @@ describe('adapter scripts: claude dev-test', () => {
         .split(/\r?\n/);
 
       assert.equal(
-        resolve(claudeCwd),
-        resolve(fixture),
+        normalizePathForAssert(claudeCwd),
+        normalizePathForAssert(fixture),
         'dev-test should validate from the repository root'
       );
       assert.deepEqual(
