@@ -18,7 +18,33 @@ import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
  * @param {string|null} result.error - stderr content or error message
  * @returns {object} MCP-formatted tool response
  */
-export function toToolResponse(result, effectiveOutcomeContract = null) {
+function buildFullContract(output) {
+  return {
+    status: 'Full',
+    selectedRoute: 'local-runtime-script',
+    output,
+  };
+}
+
+function buildDegradedContract(output) {
+  return {
+    status: 'Degraded',
+    missingCapabilities: [
+      'local-runtime-script-execution',
+    ],
+    selectedRoute: 'manual-input-correction',
+    requiredUserInput: [
+      'Inspect the error details and confirm whether to retry or run the equivalent route manually.',
+    ],
+    guidanceEquivalentRoute:
+      'Run the corresponding runtime script directly in a shell and capture both stdout and stderr.',
+    guidanceFullWorkflowHigherCapabilityEnvironment:
+      'Re-run this action in an environment with local runtime script execution enabled.',
+    output,
+  };
+}
+
+export function toToolResponse(result, effectiveOutcomeContract = null, capabilityProfile = null) {
   const contractPrefix = effectiveOutcomeContract
     ? `EffectiveOutcomeContract:
 ${JSON.stringify(effectiveOutcomeContract, null, 2)}
@@ -27,7 +53,11 @@ ${JSON.stringify(effectiveOutcomeContract, null, 2)}
     : '';
 
   if (result.success) {
-    return { content: [{ type: 'text', text: `${contractPrefix}${result.output ?? ''}` }] };
+    const output = result.output ?? '';
+    return attachCapabilityProfile({
+      content: [{ type: 'text', text: `${contractPrefix}${output}` }],
+      structuredContent: buildFullContract(output),
+    }, capabilityProfile);
   }
 
   // On failure: combine stderr and stdout to preserve diagnostic context.
@@ -38,11 +68,14 @@ ${JSON.stringify(effectiveOutcomeContract, null, 2)}
   const textBody = parts.length > 0 ? parts.join('\n\n') : 'Unknown error';
   const text = `${contractPrefix}${textBody}`;
 
-  return attachCapabilityProfile({
-    content: [{ type: 'text', text }],
-    structuredContent: nonFullContract,
-    isError: true,
-  }, capabilityProfile);
+  return attachCapabilityProfile(
+    {
+      content: [{ type: 'text', text }],
+      structuredContent: buildDegradedContract(textBody),
+      isError: true,
+    },
+    capabilityProfile
+  );
 }
 
 /**
@@ -51,27 +84,30 @@ ${JSON.stringify(effectiveOutcomeContract, null, 2)}
  * @param {string} message - error message
  * @returns {object} MCP-formatted error response
  */
-export function toolError(message) {
+export function toolError(message, capabilityProfile = null) {
   const text = String(message || 'Unknown error');
 
-  return {
-    content: [{ type: 'text', text }],
-    structuredContent: {
-      status: 'Degraded',
-      missingCapabilities: [
-        'valid-tool-input',
-      ],
-      selectedRoute: 'manual-input-correction',
-      requiredUserInput: [
-        'Update the tool arguments and retry the request.',
-      ],
-      guidanceEquivalentRoute:
-        'Use the same tool with corrected arguments matching the declared schema.',
-      guidanceFullWorkflowHigherCapabilityEnvironment:
-        'After correcting the input, run the full MCP workflow in a higher-capability environment if additional execution permissions are required.',
-      output: text,
+  return attachCapabilityProfile(
+    {
+      content: [{ type: 'text', text }],
+      structuredContent: {
+        status: 'Degraded',
+        missingCapabilities: [
+          'valid-tool-input',
+        ],
+        selectedRoute: 'manual-input-correction',
+        requiredUserInput: [
+          'Update the tool arguments and retry the request.',
+        ],
+        guidanceEquivalentRoute:
+          'Use the same tool with corrected arguments matching the declared schema.',
+        guidanceFullWorkflowHigherCapabilityEnvironment:
+          'After correcting the input, run the full MCP workflow in a higher-capability environment if additional execution permissions are required.',
+        output: text,
+      },
+      isError: true,
     },
-    isError: true,
-  }, capabilityProfile);
+    capabilityProfile
+  );
 }
 

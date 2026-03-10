@@ -13,17 +13,25 @@ import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { resolveBashCommand } from './shell-test-helpers.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
-const GIT_BASH = 'C:\\Program Files\\Git\\bin\\bash.exe';
+const BASH_COMMAND = resolveBashCommand();
+const SHELL_TEST_OPTIONS = BASH_COMMAND
+  ? {}
+  : { skip: 'bash is unavailable for shell integration tests' };
 
 function toPosixPath(path) {
   return path.replace(/\\/g, '/');
 }
 
 function runBash(scriptPath, { cwd, env = {}, args = [] } = {}) {
-  return spawnSync(GIT_BASH, [toPosixPath(scriptPath), ...args.map(toPosixPath)], {
+  if (!BASH_COMMAND) {
+    throw new Error('bash is unavailable for shell integration tests');
+  }
+
+  return spawnSync(BASH_COMMAND, [toPosixPath(scriptPath), ...args.map(toPosixPath)], {
     cwd,
     encoding: 'utf8',
     env: { ...process.env, ...env },
@@ -79,7 +87,7 @@ export -f claude
 }
 
 describe('adapter scripts: claude dev-test', () => {
-  test('runs validation from the repository root even when invoked elsewhere', () => {
+  test('runs validation from the repository root even when invoked elsewhere', SHELL_TEST_OPTIONS, () => {
     const fixture = createClaudeDevTestFixture();
     const outsideDir = mkdtempSync(join(tmpdir(), 'adapter-dev-test-outside-'));
     const captureDir = mkdtempSync(join(tmpdir(), 'adapter-dev-test-capture-'));
@@ -128,7 +136,7 @@ describe('adapter scripts: claude dev-test', () => {
     }
   });
 
-  test('fails fast when prerequisite validators fail', () => {
+  test('fails fast when prerequisite validators fail', SHELL_TEST_OPTIONS, () => {
     const fixture = createClaudeDevTestFixture({ dependencyExit: 17 });
     const outsideDir = mkdtempSync(join(tmpdir(), 'adapter-dev-test-outside-'));
     const captureDir = mkdtempSync(join(tmpdir(), 'adapter-dev-test-capture-'));
@@ -162,7 +170,7 @@ describe('adapter scripts: claude dev-test', () => {
 });
 
 describe('adapter scripts: cursor installer', () => {
-  test('replaces an existing managed block instead of leaving stale rules behind', () => {
+  test('replaces an existing managed block instead of leaving stale rules behind', SHELL_TEST_OPTIONS, () => {
     const targetDir = mkdtempSync(join(tmpdir(), 'cursor-install-'));
     const cursorRules = join(targetDir, '.cursorrules');
 
