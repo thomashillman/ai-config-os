@@ -28,7 +28,8 @@ export function loadPlatforms(repoRoot) {
     return { platforms, errors };
   }
 
-  const files = readdirSync(platformDir).filter(f => f.endsWith('.yaml'));
+  // Deterministic ordering keeps downstream compatibility and emission stable.
+  const files = readdirSync(platformDir).filter(f => f.endsWith('.yaml')).sort();
   for (const file of files) {
     const platformId = file.replace('.yaml', '');
     let data;

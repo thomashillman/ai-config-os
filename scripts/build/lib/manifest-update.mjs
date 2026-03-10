@@ -6,6 +6,7 @@
  */
 
 import { readFileSync, writeFileSync } from 'fs';
+import { parse as parseYaml } from 'yaml';
 
 /**
  * Extract description from skill frontmatter
@@ -13,11 +14,26 @@ import { readFileSync, writeFileSync } from 'fs';
  * @returns {string} Description line (first line of description field)
  */
 export function extractDescription(skillContent) {
-  // Extract the description field from frontmatter
-  const match = skillContent.match(/^description:\s*\|\s*\n\s*(.+?)\n/m);
-  if (match && match[1]) {
-    return match[1].trim();
+  const frontmatterMatch = skillContent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!frontmatterMatch) {
+    return 'TODO: add description from SKILL.md frontmatter';
   }
+
+  try {
+    const frontmatter = parseYaml(frontmatterMatch[1], { strict: false });
+    if (typeof frontmatter?.description === 'string') {
+      const firstLine = frontmatter.description
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .find(Boolean);
+      if (firstLine) {
+        return firstLine;
+      }
+    }
+  } catch {
+    // Fall through to placeholder to keep scaffolding resilient.
+  }
+
   return 'TODO: add description from SKILL.md frontmatter';
 }
 

@@ -54,6 +54,19 @@ status: stable
     assert.equal(desc, 'Whitespace-padded description.');
   });
 
+  await t.test('extractDescription: should handle single-line YAML description', () => {
+    const skillContent = `---
+skill: test-skill
+description: Single line summary
+type: prompt
+status: stable
+---
+Body content...`;
+
+    const desc = extractDescription(skillContent);
+    assert.equal(desc, 'Single line summary');
+  });
+
   await t.test('updateManifestWithSkill: should insert row before next section', () => {
     const tmpDir = mkdtempSync(join(tmpdir(), 'manifest-test-'));
 
