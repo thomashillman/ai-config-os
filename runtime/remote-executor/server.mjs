@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPublicKey, verify } from 'node:crypto';
+import { ExecutorHttpError, toErrorResponse } from './errors.mjs';
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,7 +20,7 @@ const TOOL_SCRIPT_MAP = {
   validate_all: 'ops/validate-all.sh',
 };
 
-function getEnv() {
+export function getEnv() {
   const timeoutMs = Number(process.env.REMOTE_EXECUTOR_TIMEOUT_MS ?? '15000');
   return {
     port: Number(process.env.REMOTE_EXECUTOR_PORT ?? '8788'),
@@ -35,17 +36,6 @@ function json(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function normalizeError(error, status = 500) {
-  return {
-    ok: false,
-    status,
-    error: {
-      code: status >= 500 ? 'EXECUTOR_ERROR' : 'BAD_REQUEST',
-      message: error instanceof Error ? error.message : String(error),
-    },
-  };
-}
-
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -56,7 +46,7 @@ function parseBody(req) {
         const text = Buffer.concat(chunks).toString('utf8');
         resolve(text ? JSON.parse(text) : {});
       } catch {
-        reject(new Error('Request body must be valid JSON'));
+        reject(new ExecutorHttpError(400, 'BAD_REQUEST', 'Request body must be valid JSON'));
       }
     });
   });
@@ -64,19 +54,19 @@ function parseBody(req) {
 
 function validateContract(body) {
   if (typeof body !== 'object' || body === null) {
-    throw new Error('Payload must be an object');
+    throw new ExecutorHttpError(400, 'BAD_REQUEST', 'Payload must be an object');
   }
 
   if (typeof body.tool !== 'string' || body.tool.length === 0) {
-    throw new Error("Field 'tool' must be a non-empty string");
+    throw new ExecutorHttpError(400, 'BAD_REQUEST', "Field 'tool' must be a non-empty string");
   }
 
   if (body.args !== undefined && (!Array.isArray(body.args) || body.args.some(v => typeof v !== 'string'))) {
-    throw new Error("Field 'args' must be an array of strings");
+    throw new ExecutorHttpError(400, 'BAD_REQUEST', "Field 'args' must be an array of strings");
   }
 
   if (body.timeout_ms !== undefined && (!Number.isInteger(body.timeout_ms) || body.timeout_ms <= 0)) {
-    throw new Error("Field 'timeout_ms' must be a positive integer");
+    throw new ExecutorHttpError(400, 'BAD_REQUEST', "Field 'timeout_ms' must be a positive integer");
   }
 }
 
@@ -96,11 +86,11 @@ function verifyRequestSignature(body, rawSignature, publicKeyPem) {
 function resolveScript(tool) {
   const relativeScript = TOOL_SCRIPT_MAP[tool];
   if (!relativeScript) {
-    throw new Error(`Unsupported tool '${tool}'`);
+    throw new ExecutorHttpError(400, 'BAD_REQUEST', `Unsupported tool '${tool}'`);
   }
   const scriptPath = path.resolve(REPO_ROOT, relativeScript);
   if (!scriptPath.startsWith(REPO_ROOT + path.sep)) {
-    throw new Error('Resolved script path is outside repository root');
+    throw new ExecutorHttpError(500, 'EXECUTOR_ERROR', 'Resolved script path is outside repository root');
   }
   return scriptPath;
 }
@@ -108,12 +98,17 @@ function resolveScript(tool) {
 async function executeTool(body, timeoutMs) {
   const scriptPath = resolveScript(body.tool);
   const args = body.tool === 'list_tools' ? ['status'] : (body.args ?? []);
-  const result = await execFileAsync('bash', [scriptPath, ...args], {
-    cwd: REPO_ROOT,
-    timeout: Math.min(timeoutMs, body.timeout_ms ?? timeoutMs),
-    maxBuffer: 1024 * 1024,
-    encoding: 'utf8',
-  });
+  let result;
+  try {
+    result = await execFileAsync('bash', [scriptPath, ...args], {
+      cwd: REPO_ROOT,
+      timeout: Math.min(timeoutMs, body.timeout_ms ?? timeoutMs),
+      maxBuffer: 1024 * 1024,
+      encoding: 'utf8',
+    });
+  } catch (error) {
+    throw new ExecutorHttpError(500, 'EXECUTOR_ERROR', error instanceof Error ? error.message : String(error));
+  }
 
   return {
     ok: true,
@@ -126,54 +121,82 @@ async function executeTool(body, timeoutMs) {
   };
 }
 
-const env = getEnv();
-
-if (!env.sharedSecret) {
-  throw new Error('REMOTE_EXECUTOR_SHARED_SECRET is required');
+function createExecuteTool(timeoutMs) {
+  return async function execute(body) {
+    return executeTool(body, timeoutMs);
+  };
 }
 
-const server = createServer(async (req, res) => {
-  if (req.method === 'GET' && req.url === '/v1/health') {
-    return json(res, 200, { ok: true, service: 'remote-executor' });
-  }
-
-  if (req.method !== 'POST' || req.url !== '/v1/execute') {
-    return json(res, 404, { ok: false, error: { code: 'NOT_FOUND', message: 'Route not found' } });
-  }
-
-  const proxySecret = req.headers['x-executor-shared-secret'];
-  if (proxySecret !== env.sharedSecret) {
-    return json(res, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Invalid proxy secret' } });
-  }
-
-  try {
-    const body = await parseBody(req);
-    validateContract(body);
-
-    const signature = typeof req.headers['x-request-signature'] === 'string' ? req.headers['x-request-signature'] : '';
-    const signatureVerified = env.signaturePublicKey
-      ? verifyRequestSignature(body, signature, env.signaturePublicKey)
-      : null;
-
-    if (env.requireSignature && !signatureVerified) {
-      return json(res, 401, {
-        ok: false,
-        error: { code: 'INVALID_SIGNATURE', message: 'Request signature verification failed' },
-      });
+export function createRemoteExecutorHandler({
+  env,
+  executeToolImpl = createExecuteTool(env.timeoutMs),
+} = {}) {
+  return async function handler(req, res) {
+    if (req.method === 'GET' && req.url === '/v1/health') {
+      return json(res, 200, { ok: true, service: 'remote-executor' });
     }
 
-    const response = await executeTool(body, env.timeoutMs);
-    return json(res, 200, {
-      ...response,
-      signature_verified: signatureVerified,
-      request_id: body.request_id ?? null,
-    });
-  } catch (error) {
-    const err = normalizeError(error, 400);
-    return json(res, err.status, err);
-  }
-});
+    if (req.method !== 'POST' || req.url !== '/v1/execute') {
+      return json(res, 404, { ok: false, error: { code: 'NOT_FOUND', message: 'Route not found' } });
+    }
 
-server.listen(env.port, '0.0.0.0', () => {
-  console.log(`[remote-executor] listening on http://0.0.0.0:${env.port}`);
-});
+    const proxySecret = req.headers['x-executor-shared-secret'];
+    if (proxySecret !== env.sharedSecret) {
+      return json(res, 401, { ok: false, error: { code: 'UNAUTHORIZED', message: 'Invalid proxy secret' } });
+    }
+
+    try {
+      const body = await parseBody(req);
+      validateContract(body);
+
+      const signature = typeof req.headers['x-request-signature'] === 'string' ? req.headers['x-request-signature'] : '';
+      const signatureVerified = env.signaturePublicKey
+        ? verifyRequestSignature(body, signature, env.signaturePublicKey)
+        : null;
+
+      if (env.requireSignature && !signatureVerified) {
+        return json(res, 401, {
+          ok: false,
+          error: { code: 'INVALID_SIGNATURE', message: 'Request signature verification failed' },
+        });
+      }
+
+      const response = await executeToolImpl(body);
+      return json(res, 200, {
+        ...response,
+        signature_verified: signatureVerified,
+        request_id: body.request_id ?? null,
+      });
+    } catch (error) {
+      const err = toErrorResponse(error);
+      return json(res, err.status, err.payload);
+    }
+  };
+}
+
+export function createRemoteExecutorServer({
+  env = getEnv(),
+  executeToolImpl,
+} = {}) {
+  if (!env.sharedSecret) {
+    throw new Error('REMOTE_EXECUTOR_SHARED_SECRET is required');
+  }
+  return createServer(createRemoteExecutorHandler({ env, executeToolImpl }));
+}
+
+export function startRemoteExecutor({
+  env = getEnv(),
+  host = '0.0.0.0',
+  executeToolImpl,
+} = {}) {
+  const server = createRemoteExecutorServer({ env, executeToolImpl });
+  server.listen(env.port, host, () => {
+    console.log(`[remote-executor] listening on http://${host}:${env.port}`);
+  });
+  return server;
+}
+
+const isMainModule = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMainModule) {
+  startRemoteExecutor();
+}

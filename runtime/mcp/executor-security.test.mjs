@@ -2,9 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 import { runScriptWithGuardrails, toBoundedToolResponse } from './executor-runtime.mjs';
 import { createTunnelPolicy } from './tunnel-security.mjs';
+
+const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(TEST_DIR, '../..');
+const HAS_BASH = spawnSync('bash', ['-lc', 'echo ok'], { stdio: 'ignore' }).status === 0;
 
 function withEnv(overrides, fn) {
   const previous = new Map();
@@ -30,11 +36,10 @@ function withEnv(overrides, fn) {
   }
 }
 
-test('oversized stdout is deterministically truncated with metadata', () => {
-  const repoRoot = path.resolve(process.cwd(), "../..");
+test('oversized stdout is deterministically truncated with metadata', { skip: !HAS_BASH }, () => {
   const scriptRelPath = 'runtime/mcp/tmp-large-output-test.sh';
-  const scriptPath = path.join(repoRoot, scriptRelPath);
-  fs.writeFileSync(scriptPath, '#!/usr/bin/env bash\npython - <<"PY"\nprint("A" * 400, end="")\nPY\n');
+  const scriptPath = path.join(REPO_ROOT, scriptRelPath);
+  fs.writeFileSync(scriptPath, '#!/usr/bin/env bash\ni=0\nwhile [ "$i" -lt 400 ]; do\n  printf "A"\n  i=$((i + 1))\ndone\n');
   fs.chmodSync(scriptPath, 0o755);
 
   try {
@@ -43,7 +48,7 @@ test('oversized stdout is deterministically truncated with metadata', () => {
         EXECUTOR_MAX_STDIO_BYTES: 64,
         EXECUTOR_MAX_RESPONSE_BYTES: 128,
       },
-      () => runScriptWithGuardrails(scriptRelPath, [], repoRoot)
+      () => runScriptWithGuardrails(scriptRelPath, [], REPO_ROOT)
     );
 
     assert.equal(result.success, true);
@@ -59,11 +64,10 @@ test('oversized stdout is deterministically truncated with metadata', () => {
   }
 });
 
-test('timeout expiry is surfaced in metadata', () => {
-  const repoRoot = path.resolve(process.cwd(), "../..");
+test('timeout expiry is surfaced in metadata', { skip: !HAS_BASH }, () => {
   const scriptRelPath = 'runtime/mcp/tmp-timeout-test.sh';
-  const scriptPath = path.join(repoRoot, scriptRelPath);
-  fs.writeFileSync(scriptPath, '#!/usr/bin/env bash\nsleep 1\necho done\n');
+  const scriptPath = path.join(REPO_ROOT, scriptRelPath);
+  fs.writeFileSync(scriptPath, '#!/usr/bin/env bash\nwhile true; do\n  :\ndone\n');
   fs.chmodSync(scriptPath, 0o755);
 
   try {
@@ -71,7 +75,7 @@ test('timeout expiry is surfaced in metadata', () => {
       {
         EXECUTOR_TIMEOUT_MS: 100,
       },
-      () => runScriptWithGuardrails(scriptRelPath, [], repoRoot)
+      () => runScriptWithGuardrails(scriptRelPath, [], REPO_ROOT)
     );
 
     assert.equal(result.success, false);
@@ -115,6 +119,23 @@ test('direct/public access is rejected while tunnel-approved requests are accept
       },
     }),
     true
+  );
+});
+
+test('mTLS header is ignored for untrusted remote address', () => {
+  const policy = createTunnelPolicy({
+    TRUSTED_FORWARDER_IPS: '10.0.0.10',
+    REQUIRE_TUNNEL_MTLS: '1',
+  });
+
+  assert.equal(
+    policy.isTunnelApproved({
+      remoteAddress: '198.51.100.7',
+      headers: {
+        'x-client-cert-verified': 'SUCCESS',
+      },
+    }),
+    false
   );
 });
 

@@ -10,15 +10,17 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
 import cors from "cors";
-import fs from "fs";
 import { validateName, validateNumber } from "./validators.mjs";
 import { isCommandNameSafe } from "../adapters/shell-safe.mjs";
 import { resolveRepoScriptPath } from "./path-utils.mjs";
 import { getReleaseVersion } from "../lib/release-version.mjs";
+import { createCapabilityProfileResolver } from "../lib/capability-profile.mjs";
 import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
 import { resolveEffectiveOutcomeContract } from "../lib/outcome-resolver.mjs";
+import { createTunnelPolicy, tunnelGuardMiddleware } from "./tunnel-security.mjs";
+import { createDashboardApi } from "./dashboard-api.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -175,79 +177,22 @@ const handleCallTool = createCallToolHandler({
 
 server.setRequestHandler(CallToolRequestSchema, handleCallTool);
 
-// Dashboard API server (Express)
 function startDashboardApi() {
-  const app = express();
-  app.use(cors({ origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:4242"] }));
-  app.use(express.json({ limit: "10kb" }));
-
-  function executeWithOutcomeContract(toolName, run) {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({
-      toolName,
-      executionChannel: 'dashboard',
-    });
-
-    const result = run();
-
-    return {
-      ...result,
-      effectiveOutcomeContract,
-    };
-  }
-
-  // Dashboard data endpoints
-  function respondWithOutcome(res, result) {
-    const capabilityProfile = capabilityProfileResolver.getCachedProfile();
-    res.json({ output: result.output, success: result.success, capability_profile: capabilityProfile || null });
-  }
-
-  app.get("/api/manifest", (req, res) => {
-    const response = executeWithOutcomeContract('list_tools', () => runScript("runtime/manifest.sh", ["status"]));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
+  const dashboardPort = Number(process.env.DASHBOARD_PORT || 4242);
+  const api = createDashboardApi({
+    app: express(),
+    corsMiddleware: cors,
+    jsonMiddleware: express.json,
+    tunnelPolicy: createTunnelPolicy(process.env),
+    tunnelGuardFactory: tunnelGuardMiddleware,
+    runScript,
+    resolveEffectiveOutcomeContract,
+    validateNumber,
+    capabilityProfileResolver,
+    repoRoot: REPO_ROOT,
+    port: Number.isFinite(dashboardPort) && dashboardPort > 0 ? dashboardPort : 4242,
   });
-
-  app.get("/api/skill-stats", (req, res) => {
-    const response = executeWithOutcomeContract('skill_stats', () => runScript("ops/skill-stats.sh"));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
-  });
-
-  app.get("/api/context-cost", (req, res) => {
-    const threshold = validateNumber(req.query.threshold, 2000);
-    const response = executeWithOutcomeContract('context_cost', () => runScript("ops/context-cost.sh", ["--threshold", String(threshold)]));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
-  });
-
-  app.get("/api/config", (req, res) => {
-    const response = executeWithOutcomeContract('get_config', () => runScript("shared/lib/config-merger.sh"));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
-  });
-
-  app.get("/api/analytics", (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-    const metricsFile = `${REPO_ROOT}/.claude/metrics.jsonl`;
-    try {
-      const lines = fs.readFileSync(metricsFile, "utf8").trim().split("\n").filter(Boolean);
-      const metrics = lines.map(l => JSON.parse(l));
-      res.json({ metrics, success: true, effectiveOutcomeContract });
-    } catch {
-      res.json({ metrics: [], success: true, note: "No metrics collected yet", effectiveOutcomeContract });
-    }
-  });
-
-  app.post("/api/sync", (req, res) => {
-    const response = executeWithOutcomeContract('sync_tools', () => runScript("runtime/sync.sh", req.body?.dry_run ? ["--dry-run"] : []));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
-  });
-
-  app.get("/api/validate-all", (req, res) => {
-    const response = executeWithOutcomeContract('validate_all', () => runScript("ops/validate-all.sh"));
-    res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
-  });
-
-  const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 4242;
-  app.listen(DASHBOARD_PORT, () => {
-    console.error(`[ai-config-os dashboard API] Listening on http://localhost:${DASHBOARD_PORT}`);
-  });
+  api.start();
 }
 
 async function main() {

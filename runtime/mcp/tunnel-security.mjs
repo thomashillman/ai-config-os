@@ -27,6 +27,7 @@ export function createTunnelPolicy(env = process.env) {
     isTunnelApproved(requestLike) {
       const remoteAddress = normalizeAddress(requestLike.remoteAddress || '');
       const headers = requestLike.headers || {};
+      const trustedForwarder = trustedForwarders.has(remoteAddress);
 
       if (isLoopbackAddress(remoteAddress)) {
         return true;
@@ -39,14 +40,9 @@ export function createTunnelPolicy(env = process.env) {
 
       const forwardedFor = headers['x-forwarded-for'];
       const forwardedProto = headers['x-forwarded-proto'];
-      if (trustedForwarders.has(remoteAddress) && forwardedFor && forwardedProto) {
-        if (!requireMtlsHeader) {
-          return true;
-        }
-      }
-
-      if (requireMtlsHeader && headers['x-client-cert-verified'] === 'SUCCESS') {
-        return true;
+      if (trustedForwarder && forwardedFor && forwardedProto) {
+        if (!requireMtlsHeader) return true;
+        return headers['x-client-cert-verified'] === 'SUCCESS';
       }
 
       return false;
