@@ -49,7 +49,7 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | Phase 9.4: Validation architecture overhaul | ✅ Done | v0.5.3+: Shared validation, schema tightening, compiler strictness, linter refactoring |
 | Phase 9.5: Delivery contract (PR 4) | ✅ Done | v0.5.3+: 28 tests protecting dist/ artifacts, documented in CLAUDE.md |
 | Phase 9.6: Portability contract (TDD) | ✅ Done | v0.6.0+: Materialiser core, canonical source contract, self-sufficiency tests, CI gates, docs updated |
-| Phase 9.7: Manifest-controlled feature flags | ✅ Done | v0.5.4+: outcome_resolution_enabled, effective_contract_required, remote_executor_enabled |
+| Phase 9.7: Manifest-controlled feature flags | 🔄 In progress | v0.5.4+: flags defined + validated (Step 1/4); runtime gating (Steps 2–4) not yet implemented |
 | **MVA: Task control plane** | 🔜 Next | PortableTaskObject, TaskStore, RouteResolver, EffectiveExecutionContract, FindingsLedger, ContinuationPackage, HandoffToken |
 
 ## MVA: Task Control Plane — Portable Repository Review (NEXT)
@@ -156,11 +156,11 @@ Before broadening to more task types or hosts:
 
 ---
 
-## Phase 9.7: Manifest-Controlled Runtime Feature Flags (COMPLETE ✅)
+## Phase 9.7: Manifest-Controlled Runtime Feature Flags (IN PROGRESS)
 
 **Version:** v0.5.4+
-**Branch:** merged to main
-**Completion:** 2026-03-07 (integrated via multiple feature branches)
+**Branch:** current
+**Step 1 done:** flags defined in `runtime/manifest.sh` + `validateManifestFeatureFlags()` in `scripts/build/lib/versioning.mjs` + tests. Steps 2–4 (runtime gating) not yet implemented.
 
 ### Feature flags
 
@@ -905,29 +905,34 @@ These are deferred improvements, not part of the initial build:
 
 ---
 
-## Recommended next — After Phase 9.7 (v0.5.4+)
+## Recommended next — Complete Phase 9.7, then begin MVA
 
-**Phase 9.7 is complete.** Manifest-controlled feature flags are implemented and rolled out.
+**Phase 9.7 is in progress (Step 1/4 done).** Complete the remaining steps before starting MVA.
 
-**Next session: Begin MVA (Minimum Viable Architecture) — Portable Task Control Plane (v0.7.0)**
+### Phase 9.7 remaining work (Steps 2–4)
 
-### Key checkpoints before starting
+Step 1 is done: flags defined in `runtime/manifest.sh`, validated by `validateManifestFeatureFlags()` in `scripts/build/lib/versioning.mjs`, tested.
 
-1. **Fetch latest main** — `git fetch origin main && git rebase origin/main` to pick up Phase 9.7 integrations and any post-completion fixes.
+**Step 2 — Wire flags into runtime execution paths:**
+- Read `feature_flags` from the manifest at runtime startup (parse YAML in Node or bash)
+- Gate `remote_executor_enabled` in `runtime/remote-executor/server.mjs` — refuse to start if flag is `false`
+- Gate `outcome_resolution_enabled` in `runtime/lib/outcome-resolver.mjs` — bypass contract resolution if flag is `false`
+- Add a `remote_exec` route entry to `OUTCOME_ROUTES` in outcome-resolver.mjs
 
-2. **Review MVA overview** — Read the "MVA: Task Control Plane — Portable Repository Review (NEXT)" section above (lines 55–156). Understand the six core primitives, task types, and sprint structure.
+**Step 3 — Enforce explicit contract:**
+- When `effective_contract_required=true`, block any tool execution that lacks an `outcomeId` (i.e., no mapped route)
+- Surface a structured error with the missing route info
 
-3. **Verify Autospec ready** — Check [github.com/thomashillman/autospec](https://github.com/thomashillman/autospec) for T001 spec.yaml, plan.yaml, tasks.yaml, acceptance.yaml.
+**Step 4 — Verify rollback works:**
+- Confirm all flags can be toggled via manifest-only change (no code deploy)
+- Update migration criteria checklist in PLAN.md once validated
 
-4. **Version planning** — MVA targets v0.7.0. Do NOT bump the VERSION file yet; it will be updated when Phase 10 (post-MVA) merges.
+### After Phase 9.7 completes — begin MVA (v0.7.0)
 
-### Week 1 focus (T001–T005)
-
-- Create Autospec artefacts (T001)
-- Define versioned schemas for PortableTaskObject, TaskStore, RouteResolver, etc. (T002)
-- Implement TaskStore with versioned updates (T003)
-- Refactor `runtime/lib/outcome-resolver.mjs` into task-and-route resolution (T004–T005)
-- Deliverable: failing red test suite, clean runtime boundary
+1. **Fetch latest main** — `git fetch origin main && git rebase origin/main`
+2. **Review MVA overview** — "MVA: Task Control Plane" section above (lines 55–156)
+3. **Verify Autospec artefacts** — T001 spec.yaml, plan.yaml, tasks.yaml, acceptance.yaml
+4. **Version planning** — MVA targets v0.7.0; bump VERSION only when Phase 10 merges
 
 ### Build order constraint
 
