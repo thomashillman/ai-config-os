@@ -49,7 +49,7 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | Phase 9.4: Validation architecture overhaul | ✅ Done | v0.5.3+: Shared validation, schema tightening, compiler strictness, linter refactoring |
 | Phase 9.5: Delivery contract (PR 4) | ✅ Done | v0.5.3+: 28 tests protecting dist/ artifacts, documented in CLAUDE.md |
 | Phase 9.6: Portability contract (TDD) | ✅ Done | v0.6.0+: Materialiser core, canonical source contract, self-sufficiency tests, CI gates, docs updated |
-| Phase 9.7: Manifest-controlled feature flags | 🔄 In progress | v0.6.x: outcome_resolution_enabled, effective_contract_required, remote_executor_enabled |
+| Phase 9.7: Manifest-controlled feature flags | ✅ Done | v0.5.4+: outcome_resolution_enabled, effective_contract_required, remote_executor_enabled |
 | **MVA: Task control plane** | 🔜 Next | PortableTaskObject, TaskStore, RouteResolver, EffectiveExecutionContract, FindingsLedger, ContinuationPackage, HandoffToken |
 
 ## MVA: Task Control Plane — Portable Repository Review (NEXT)
@@ -156,10 +156,11 @@ Before broadening to more task types or hosts:
 
 ---
 
-## Phase 9.7: Manifest-Controlled Runtime Feature Flags (IN PROGRESS)
+## Phase 9.7: Manifest-Controlled Runtime Feature Flags (COMPLETE ✅)
 
-**Version:** v0.6.x
-**Branch:** current
+**Version:** v0.5.4+
+**Branch:** merged to main
+**Completion:** 2026-03-07 (integrated via multiple feature branches)
 
 ### Feature flags
 
@@ -904,52 +905,37 @@ These are deferred improvements, not part of the initial build:
 
 ---
 
-## Recommended next
+## Recommended next — After Phase 9.7 (v0.5.4+)
 
-After each merge, update this section with what should happen in the next session.
+**Phase 9.7 is complete.** Manifest-controlled feature flags are implemented and rolled out.
 
-**After Phase 9.1 (v0.5.1 — distribution layer):**
+**Next session: Begin MVA (Minimum Viable Architecture) — Portable Task Control Plane (v0.7.0)**
 
-1. **Add `platforms:` blocks to skills** — existing skills default to `claude-code`. Add explicit `platforms:` + `capabilities:` to each skill to enable multi-platform distribution (cursor, codex).
+### Key checkpoints before starting
 
-2. **Deploy the Worker** — `cd worker && wrangler secret put AUTH_TOKEN && wrangler deploy`. Test with `bash adapters/claude/materialise.sh status`.
+1. **Fetch latest main** — `git fetch origin main && git rebase origin/main` to pick up Phase 9.7 integrations and any post-completion fixes.
 
-3. **Wire materialiser into session-start hook** — auto-fetch latest from Worker on session start if a newer version exists remotely.
+2. **Review MVA overview** — Read the "MVA: Task Control Plane — Portable Repository Review (NEXT)" section above (lines 55–156). Understand the six core primitives, task types, and sprint structure.
 
-4. **Add emitters for cursor and codex** — implement `emit-cursor.mjs` and `emit-codex.mjs` in `scripts/build/lib/`.
+3. **Verify Autospec ready** — Check [github.com/thomashillman/autospec](https://github.com/thomashillman/autospec) for T001 spec.yaml, plan.yaml, tasks.yaml, acceptance.yaml.
 
-5. **Validate CI** — merge to main and confirm `.github/workflows/build.yml` passes; check that `dist/` artefact uploads correctly.
+4. **Version planning** — MVA targets v0.7.0. Do NOT bump the VERSION file yet; it will be updated when Phase 10 (post-MVA) merges.
 
-**After Phase 7 (v0.4.7 — 7 new skills + 2 workflows + infrastructure):**
+### Week 1 focus (T001–T005)
 
-1. **Validate Phase 7 on second device** — Merge to main, restart Claude Code on a second device with auto-update enabled, confirm version `0.4.7` is picked up and all 23 skills + 2 workflows load correctly.
+- Create Autospec artefacts (T001)
+- Define versioned schemas for PortableTaskObject, TaskStore, RouteResolver, etc. (T002)
+- Implement TaskStore with versioned updates (T003)
+- Refactor `runtime/lib/outcome-resolver.mjs` into task-and-route resolution (T004–T005)
+- Deliverable: failing red test suite, clean runtime boundary
 
-2. **Test the memory skill workflow** — Use the `memory` skill to persist context across sessions:
-   - At session start: `action: read` to load project state
-   - During work: `action: update` to record decisions/blockers
-   - At session end: verify `.memory/<project>.md` persists
+### Build order constraint
 
-3. **Pilot the daily-brief workflow** — Run the daily-brief workflow (composes git-ops → changelog → memory → task-decompose) to validate multi-skill composition:
-   - Does it synthesize recent work correctly?
-   - Are the composed skills executing in correct order?
-   - Adjust skill ordering/variants if needed
-
-4. **Pilot the pre-commit workflow** — Use the pre-commit workflow as a quality gate before commits:
-   - Does it catch real security or code quality issues?
-   - Is the gate too strict or too loose?
-   - Refine severity thresholds if needed
-
-5. **Activate analytics collection** — Ensure the `post-tool-use-metrics.sh` hook is collecting data:
-   - Check `.claude/metrics.jsonl` for entries after skill invocations
-   - Validate metrics include timestamp, tool name, status
-   - Begin trending latency and cost by skill/variant
-
-6. **Monitor Phase 5 deferred items** — Watch for signs that these are now needed:
-   - Skill context pressure → consider plugin splitting
-   - Concurrent edit issues → implement sync locking
-   - Agent coordination problems → add interop markers
-
-**After Phase 6 (v0.4.0):** Executed Phase 7 expansion.
+**Do not:**
+- Add UI or integrations before task-state and governed routing
+- Build another agent framework (keep providers as adapters at the edge)
+- Use chat as the continuity layer (persist structured task state first)
+- Put route selection in prompts (route selection must be deterministic runtime logic)
 
 ---
 
