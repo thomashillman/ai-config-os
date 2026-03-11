@@ -16,26 +16,39 @@ const TOOL_OUTCOME_MAP = {
   mcp_remove: 'runtime.mcp-remove',
 };
 
+const REMOTE_EXEC_ROUTE = {
+  id: 'remote-executor/execute',
+  channel: 'remote_exec',
+  equivalence: 'high',
+  requiredCapabilities: ['remote.exec'],
+};
+
 const OUTCOME_ROUTES = {
   'runtime.sync-tools': [
     { id: 'runtime/sync.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
     { id: 'runtime/manifest.sh', channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
+    REMOTE_EXEC_ROUTE,
   ],
   'runtime.list-tools': [
     { id: 'runtime/manifest.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
     { id: 'runtime/sync.sh', args: ['--dry-run'], channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
+    REMOTE_EXEC_ROUTE,
   ],
   'runtime.get-config': [
     { id: 'shared/lib/config-merger.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    REMOTE_EXEC_ROUTE,
   ],
   'runtime.skill-stats': [
     { id: 'ops/skill-stats.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    REMOTE_EXEC_ROUTE,
   ],
   'runtime.context-cost': [
     { id: 'ops/context-cost.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    REMOTE_EXEC_ROUTE,
   ],
   'runtime.validate-all': [
     { id: 'ops/validate-all.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
+    REMOTE_EXEC_ROUTE,
   ],
   'runtime.mcp-list': [
     { id: 'runtime/adapters/mcp-adapter.sh', args: ['list'], channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
@@ -106,10 +119,26 @@ export function scoreRoutesByEquivalence(routes, capabilityProfile) {
     .map(({ rank, ...route }) => route);
 }
 
-export function resolveEffectiveOutcomeContract({ toolName, executionChannel = 'mcp' }) {
+export function resolveEffectiveOutcomeContract({ toolName, executionChannel = 'mcp', readFlags } = {}) {
+  const capabilityProfile = loadCapabilityProfile({ executionChannel });
+
+  if (readFlags !== undefined && readFlags !== null) {
+    const flags = readFlags();
+    if (!flags.outcome_resolution_enabled) {
+      return {
+        toolName,
+        outcomeId: null,
+        capabilityProfile,
+        preferredRoute: null,
+        fallbackRoutes: [],
+        availableRoutes: [],
+        bypassed: true,
+      };
+    }
+  }
+
   const identifiedOutcome = identifyOutcome(toolName);
   const { outcomeId, routes } = loadOutcomeAndRoutes(identifiedOutcome);
-  const capabilityProfile = loadCapabilityProfile({ executionChannel });
   const scoredRoutes = scoreRoutesByEquivalence(routes, capabilityProfile);
 
   return {
