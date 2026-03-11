@@ -2,16 +2,21 @@
 
 ## Overview
 
-Single private GitHub repo that serves as:
-1. A Claude Code plugin marketplace (install and update plugins cleanly)
-2. A development workspace (edit, validate, test locally)
-3. A tool-agnostic library that Codex (or other agents) can read as files
+The **control plane for portable AI work**. The task object is the unit of value — not chat, not prompts, not agents. Work starts in any environment (web, mobile, IDE), and the runtime routes it, checkpoints it, and continues it in a stronger environment without the user re-explaining anything.
 
-Core principle: **share knowledge, not runtime wiring**.
+The existing substrate (Worker endpoints, emitted runtime artefacts, capability profiling, remote executor, dashboard contract panel) is preserved and extended. The new layer adds six core primitives: PortableTaskObject, capability detection integration, deterministic route resolution, EffectiveExecutionContract, structured continuation, and findings provenance.
+
+The first automated workflow is `review_repository`: start in a limited environment, continue in a stronger one, preserve findings with provenance, finish without reconstructing context.
+
+**The product test:** after switching environments, does the runtime feel ready?
+
+Autospec artefacts live at [github.com/thomashillman/autospec](https://github.com/thomashillman/autospec).
+
+Core principle: **own the task lifecycle — routing, continuation, verification, provenance, and cross-environment upgrades**.
 
 ---
 
-## Current state — updated 2026-03-08
+## Current state — updated 2026-03-11
 
 | Area | Status | Notes |
 |---|---|---|
@@ -44,6 +49,112 @@ Core principle: **share knowledge, not runtime wiring**.
 | Phase 9.4: Validation architecture overhaul | ✅ Done | v0.5.3+: Shared validation, schema tightening, compiler strictness, linter refactoring |
 | Phase 9.5: Delivery contract (PR 4) | ✅ Done | v0.5.3+: 28 tests protecting dist/ artifacts, documented in CLAUDE.md |
 | Phase 9.6: Portability contract (TDD) | ✅ Done | v0.6.0+: Materialiser core, canonical source contract, self-sufficiency tests, CI gates, docs updated |
+| Phase 9.7: Manifest-controlled feature flags | 🔄 In progress | v0.6.x: outcome_resolution_enabled, effective_contract_required, remote_executor_enabled |
+| **MVA: Task control plane** | 🔜 Next | PortableTaskObject, TaskStore, RouteResolver, EffectiveExecutionContract, FindingsLedger, ContinuationPackage, HandoffToken |
+
+## MVA: Task Control Plane — Portable Repository Review (NEXT)
+
+**Goal:** Prove one portable work journey end-to-end. Start `review_repository` in a weak environment, continue in a stronger one, preserve findings with provenance, finish without re-explaining.
+
+**Version:** v0.7.0
+**Autospec:** [github.com/thomashillman/autospec](https://github.com/thomashillman/autospec) — T001 creates spec.yaml, plan.yaml, tasks.yaml, acceptance.yaml
+
+### Six core primitives
+
+| Primitive | Description |
+|---|---|
+| PortableTaskObject | Goal, current route, state, progress, findings, unresolved questions, approvals, route history, next action |
+| TaskStore | Versioned save/load/update/conflict with snapshot retrieval |
+| RouteResolver | Capability-aware deterministic route selection — never prompt-driven |
+| EffectiveExecutionContract | Selected route, equivalence level, missing capabilities, required inputs, stronger-host guidance |
+| FindingsLedger | Provenance-marked findings: `verified`, `reused`, `hypothesis`; transitions on route upgrade |
+| ContinuationPackage + HandoffToken | Portable task payload + expiring, replay-safe token for environment transitions |
+
+### Task types and routes
+
+**Task type:** `review_repository`
+
+| Route | Environment | Notes |
+|---|---|---|
+| `github_pr` | Weak (web, mobile) | Public PR inspection via API |
+| `pasted_diff` | Weak | User-provided diff text |
+| `uploaded_bundle` | Weak | Uploaded archive |
+| `local_repo` | Strong (IDE, desktop) | Full local inspection; upgrade target |
+
+### Sprint plan
+
+**Week 1 — task object and control-plane foundations**
+- Create Autospec artefacts (T001)
+- Define versioned schemas: PortableTaskObject, TaskStateSnapshot, RouteDefinition, EffectiveExecutionContract, ProgressEvent, FindingsLedgerEntry, ProvenanceMarker, ContinuationPackage, HandoffToken (T002)
+- Implement TaskStore with versioned updates and optimistic concurrency (T003)
+- Refactor `runtime/lib/outcome-resolver.mjs` from hardcoded admin mappings to loader-backed task-and-route resolution (T004–T005)
+- Deliverables: approved schemas, failing red test suite, clean runtime boundary
+
+**Week 2 — core task runtime**
+- Deterministic RouteResolver using real capability profiles (T006)
+- EffectiveExecutionContract engine (T007)
+- `review_repository` task type with all four routes (T008)
+- PortableTaskObject lifecycle and state transitions (T009)
+- FindingsLedger with provenance rules (T010)
+- ProgressEvent pipeline (T011)
+- ContinuationPackage builder (T012)
+- Deliverables: working local task runtime for `review_repository` with persisted state, explicit contracts, visible progress, preserved findings
+
+**Week 3 — handoff, route upgrade, and validation**
+- HandoffToken service: task binding, expiry, signature, replay protection (T013)
+- Extend Worker control-plane endpoints for task-centric operations (T014)
+- Weak-environment start flow (T015)
+- Strong-environment resume flow: load existing task → re-evaluate capabilities → upgrade to `local_repo` → preserve findings with provenance (T016)
+- Dashboard and API views: task readiness, route history, progress, findings provenance, stronger-route availability (T017)
+- Telemetry and audit events (T018)
+- Adversarial suite: fake capabilities, replayed tokens, injected repo text, route mismatches, missing task state (T019)
+- Staging deployment and release checklist (T020)
+- Deliverables: staging-ready MVA — start anywhere, finish where the tools are, never re-explain the task
+
+### Key success metrics
+
+| KPI | Target | When |
+|---|---|---|
+| Portable task completeness (all required fields present) | 100% | End of Week 2 |
+| Deterministic route correctness (fixture scenarios) | ≥ 98% | End of Week 2 |
+| Contract honesty (route, equivalence, missing caps match reality) | 100% | Continuous |
+| Resume readiness (no user restatement needed) | ≥ 90% | MVA release |
+| Route-upgrade success (upgrade preserves findings) | ≥ 85% | MVA release |
+| Handoff friction (median user actions to continue) | ≤ 1 | MVA release |
+| Findings provenance coverage (verified/reused/hypothesis after transition) | 100% | MVA release |
+| Control-plane reliability (Worker endpoints) | ≥ 99.5% | Production |
+| Working staging flow (start → finish with preserved state) | 21 calendar days | Sprint 1 |
+
+### Risk register
+
+| Risk | Mitigation |
+|---|---|
+| Mistaking substrate for product — Worker + runtime exist but resolver is still admin-first | T004 explicitly replaces hardcoded resolver before any new UI work |
+| Drifting back into agent thinking | Providers and IDEs are adapters at the edge only; no orchestration framework |
+| Continuity theatre — handoff exists but resumed system isn't ready | Resume readiness is a first-class KPI; adversarial suite tests incomplete state |
+| Over-engineering before the flagship workflow is complete | No broad platform parity, no marketplace expansion until `review_repository` journey is proven |
+
+### Pre-MVA gates
+
+Before the MVA merges:
+- All PortableTaskObject schemas are versioned with snapshot tests
+- TaskStore and RouteResolver have failing tests written first
+- Hardcoded admin-first resolver is removed or isolated
+- `review_repository` acceptance flow passes locally: task creation → continuation → resume
+
+Before staging:
+- Worker endpoints load and return real task state
+- Contracts computed from actual capabilities and routes
+- Continuation packages and handoff tokens are valid, expiring, and replay-safe
+- Findings provenance visible through route upgrade
+- Adversarial suite passes
+
+Before broadening to more task types or hosts:
+- Web-to-desktop review journey must feel ready without user re-explanation
+- Route upgrade deepens work rather than restarts it
+- One week of staging metrics: low handoff friction, strong resume readiness, full provenance coverage
+
+---
 
 ## Phase 9.7: Manifest-Controlled Runtime Feature Flags (IN PROGRESS)
 
@@ -378,12 +489,25 @@ Total: 5 platform(s), 0 error(s), 15 warning(s)  [missing verified_at dates only
 
 ## Recommended next
 
-1. **Add Codex emitter** — second non-Claude emitter to validate the pattern further.
-2. **Run probes on Claude Web/iOS** — use `ops/capability-probe.sh` to discover real capabilities, update platform files with evidence.
-3. **Probe-driven platform overlays** — local probe results override shared platform assumptions per machine.
-4. **Wire materialiser into session-start hook** — auto-fetch latest from Worker if newer version exists.
-5. **Deploy Worker and validate CI** — merge to main, confirm build workflow passes, deploy Worker.
-6. **Phase 9.4 (after 1-5 above)** — Execute split-brain fix using Phases 1-4 plan; defer Phases 5 and 10 per analysis.
+**Complete Phase 9.7** (manifest-controlled feature flags) then begin the MVA in strict order:
+
+1. **Define task object and persistence** — PortableTaskObject schema + TaskStore (T001–T003). Failing tests first.
+2. **Replace hardcoded resolver** — refactor `runtime/lib/outcome-resolver.mjs` into loader-backed task-and-route resolution (T004–T005).
+3. **Implement capability-aware route resolution** — deterministic RouteResolver using real capability profiles (T006).
+4. **Implement execution contracts** — EffectiveExecutionContract engine with full/near-equivalent/partial/unavailable states (T007).
+5. **Add `review_repository` task type** — concrete routes: `github_pr`, `local_repo`, `pasted_diff`, `uploaded_bundle` (T008–T009).
+6. **Implement findings provenance and structured continuation** — FindingsLedger, ContinuationPackage, HandoffToken (T010–T013).
+7. **Extend Worker and local runtime** — load tasks, compute real contracts, issue/resolve handoff tokens (T014).
+8. **Prove the portable journey** — weak-environment start → strong-environment resume, no re-explanation (T015–T016).
+9. **Expose task lifecycle in UI and APIs** — task identity, contract, progress, route history, findings provenance (T017–T018).
+10. **Adversarial suite and staging** — fake capabilities, replayed tokens, injected repo text, route mismatches (T019–T020).
+
+**Build order constraint:** do not add UI or integrations before task-state and governed routing. Building in the wrong order recreates session software.
+
+**Do not:**
+- Build another agent framework (keep providers as adapters at the edge)
+- Use chat as the continuity layer (persist structured task state first)
+- Put route selection in prompts (route selection must be deterministic runtime logic)
 
 ---
 
