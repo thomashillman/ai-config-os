@@ -1,0 +1,22 @@
+version: 1
+
+task_types:
+  review_repository:
+    routes:
+      - route_id: local_repo
+        equivalence_level: equal
+        required_capabilities:
+          - local_fs
+          - local_shell
+          - local_repo
+      - route_id: github_pr
+        equivalence_level: degraded
+        required_capabilities:
+          - network_http
+      - route_id: uploaded_bundle
+        equivalence_level: degraded
+        required_capabilities:
+          - local_fs
+      - route_id: pasted_diff
+        equivalence_level: degraded
+        required_capabilities: []

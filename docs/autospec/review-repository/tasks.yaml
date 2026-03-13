@@ -23,7 +23,7 @@ tasks:
   - id: T006
     sprint: week_2
     title: Implement deterministic RouteResolver using capability profiles
-    status: todo
+    status: done
   - id: T007
     sprint: week_2
     title: Build EffectiveExecutionContract engine
