@@ -60,7 +60,10 @@ test('tasks enumerate deterministic T001-T020 sequence with status guardrails', 
   }
 
   const doneIds = tasksDoc.tasks.filter(task => task.status === 'done').map(task => task.id);
-  assert.deepEqual(doneIds, ['T001', 'T002', 'T003', 'T004', 'T005']);
+  const firstTodoIndex = tasksDoc.tasks.findIndex(task => task.status === 'todo');
+  const expectedDonePrefix = (firstTodoIndex === -1 ? tasksDoc.tasks : tasksDoc.tasks.slice(0, firstTodoIndex))
+    .map(task => task.id);
+  assert.deepEqual(doneIds, expectedDonePrefix, 'Done tasks must form a contiguous prefix from T001');
 });
 
 test('plan sprint task mapping stays consistent with tasks.yaml', () => {

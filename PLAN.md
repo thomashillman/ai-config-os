@@ -193,7 +193,7 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - Deliverables: approved schemas, failing red test suite, clean runtime boundary
 
 **Week 2 — core task runtime**
-- Deterministic RouteResolver using real capability profiles (T006)
+- ✓ Deterministic RouteResolver using real capability profiles (T006)
 - EffectiveExecutionContract engine (T007)
 - `review_repository` task type with all four routes (T008)
 - PortableTaskObject lifecycle and state transitions (T009)
@@ -301,6 +301,7 @@ Before broadening to more task types or hosts:
 - [x] T001: Autospec artefacts created for `review_repository` MVA
 - [x] T002: versioned control-plane schemas defined with tests
 - [x] T003: TaskStore implemented with versioned optimistic concurrency and snapshot retrieval tests
+- [x] T006: deterministic RouteResolver implemented using capability profiles with route-definition loader and tests
 - [ ] MVA: `review_repository` portable journey proven end-to-end
 
 ---
