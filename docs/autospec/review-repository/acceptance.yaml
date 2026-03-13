@@ -1,0 +1,26 @@
+version: 0.7.0
+scenarios:
+  - id: A001
+    name: weak_to_strong_review_journey
+    description: >-
+      Start review_repository from a weak host route, continue on a stronger host,
+      upgrade route, and complete without user restatement.
+    checks:
+      - route_selected_deterministically
+      - effective_contract_is_explicit_and_honest
+      - findings_provenance_preserved
+      - no_user_restatement_required
+  - id: A002
+    name: continuation_security
+    description: Handoff token is task-bound, expiring, signed, and replay-safe.
+    checks:
+      - token_expiry_enforced
+      - token_signature_verified
+      - token_replay_rejected
+  - id: A003
+    name: control_plane_resilience
+    description: Endpoint and task-state failures are explicit and recoverable.
+    checks:
+      - missing_task_state_reports_actionable_error
+      - mismatched_route_rejected
+      - capability_spoofing_detected
