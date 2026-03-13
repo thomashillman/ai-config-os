@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/findings-ledger-entry.schema.json",
+  "title": "FindingsLedgerEntry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "finding_id", "summary", "provenance"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "finding_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "summary": { "type": "string", "minLength": 1 },
+    "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "provenance": { "$ref": "provenance-marker.schema.json" }
+  }
+}

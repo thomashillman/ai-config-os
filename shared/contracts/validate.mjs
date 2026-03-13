@@ -22,6 +22,16 @@ const outcomeDefinitionSchema = loadSchema('shared/contracts/schemas/v1/outcome-
 const routeDefinitionSchema = loadSchema('shared/contracts/schemas/v1/route-definition.schema.json');
 const effectiveOutcomeContractSchema = loadSchema('shared/contracts/schemas/v1/effective-outcome-contract.schema.json');
 
+const portableTaskObjectSchema = loadSchema('shared/contracts/schemas/v1/portable-task-object.schema.json');
+const taskStateSnapshotSchema = loadSchema('shared/contracts/schemas/v1/task-state-snapshot.schema.json');
+const taskRouteDefinitionSchema = loadSchema('shared/contracts/schemas/v1/task-route-definition.schema.json');
+const effectiveExecutionContractSchema = loadSchema('shared/contracts/schemas/v1/effective-execution-contract.schema.json');
+const progressEventSchema = loadSchema('shared/contracts/schemas/v1/progress-event.schema.json');
+const provenanceMarkerSchema = loadSchema('shared/contracts/schemas/v1/provenance-marker.schema.json');
+const findingsLedgerEntrySchema = loadSchema('shared/contracts/schemas/v1/findings-ledger-entry.schema.json');
+const continuationPackageSchema = loadSchema('shared/contracts/schemas/v1/continuation-package.schema.json');
+const handoffTokenSchema = loadSchema('shared/contracts/schemas/v1/handoff-token.schema.json');
+
 const kindToSchemaId = {
   manifest: manifestSchema.$id,
   capabilityProfile: capabilityProfileSchema.$id,
@@ -30,6 +40,16 @@ const kindToSchemaId = {
   outcomeDefinition: outcomeDefinitionSchema.$id,
   routeDefinition: routeDefinitionSchema.$id,
   effectiveOutcomeContract: effectiveOutcomeContractSchema.$id,
+
+  portableTaskObject: portableTaskObjectSchema.$id,
+  taskStateSnapshot: taskStateSnapshotSchema.$id,
+  taskRouteDefinition: taskRouteDefinitionSchema.$id,
+  effectiveExecutionContract: effectiveExecutionContractSchema.$id,
+  progressEvent: progressEventSchema.$id,
+  provenanceMarker: provenanceMarkerSchema.$id,
+  findingsLedgerEntry: findingsLedgerEntrySchema.$id,
+  continuationPackage: continuationPackageSchema.$id,
+  handoffToken: handoffTokenSchema.$id,
 };
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -43,6 +63,16 @@ ajv.addSchema(skillDefinitionSchema);
 ajv.addSchema(outcomeDefinitionSchema);
 ajv.addSchema(routeDefinitionSchema);
 ajv.addSchema(effectiveOutcomeContractSchema);
+
+ajv.addSchema(provenanceMarkerSchema);
+ajv.addSchema(findingsLedgerEntrySchema);
+ajv.addSchema(taskRouteDefinitionSchema);
+ajv.addSchema(effectiveExecutionContractSchema);
+ajv.addSchema(portableTaskObjectSchema);
+ajv.addSchema(taskStateSnapshotSchema);
+ajv.addSchema(progressEventSchema);
+ajv.addSchema(continuationPackageSchema);
+ajv.addSchema(handoffTokenSchema);
 
 const validators = Object.fromEntries(
   Object.entries(kindToSchemaId).map(([kind, schemaId]) => [kind, ajv.getSchema(schemaId)])

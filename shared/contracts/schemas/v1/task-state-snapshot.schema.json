@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/task-state-snapshot.schema.json",
+  "title": "TaskStateSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "snapshot_version", "created_at", "task"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "task_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "snapshot_version": { "type": "integer", "minimum": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "task": { "$ref": "portable-task-object.schema.json" }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/task-route-definition.schema.json",
+  "title": "TaskRouteDefinition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "route_id", "equivalence_level"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "route_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+    "equivalence_level": { "type": "string", "enum": ["equal", "degraded", "upgrade"] },
+    "required_capabilities": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    },
+    "missing_capabilities": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "default": []
+    }
+  }
+}

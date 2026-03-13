@@ -7,11 +7,11 @@ tasks:
   - id: T002
     sprint: week_1
     title: Define versioned control-plane schemas
-    status: todo
+    status: done
   - id: T003
     sprint: week_1
     title: Implement TaskStore with optimistic concurrency
-    status: todo
+    status: done
   - id: T004
     sprint: week_1
     title: Refactor resolver to loader-backed route definitions
