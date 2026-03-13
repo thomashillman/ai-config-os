@@ -1,4 +1,5 @@
 import { validateContract } from '../../shared/contracts/validate.mjs';
+import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -86,6 +87,71 @@ export class TaskStore {
     this.snapshots.set(taskId, snapshots);
 
     return clone(validated);
+  }
+
+
+  transitionState(taskId, { expectedVersion, nextState, nextAction, updatedAt, progress }) {
+    const current = this.tasks.get(taskId);
+    if (!current) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    if (current.version !== expectedVersion) {
+      throw new TaskConflictError(`Version conflict for ${taskId}: expected ${expectedVersion}, current ${current.version}`, {
+        taskId,
+        expectedVersion,
+        currentVersion: current.version,
+      });
+    }
+
+    const validated = transitionPortableTaskState({
+      task: current,
+      expectedVersion,
+      nextState,
+      nextAction,
+      updatedAt,
+      progress,
+    });
+
+    this.tasks.set(taskId, validated);
+
+    const nextSnapshot = createSnapshot(validated);
+    const snapshots = this.snapshots.get(taskId) || [];
+    snapshots.push(nextSnapshot);
+    this.snapshots.set(taskId, snapshots);
+
+    return clone(validated);
+  }
+
+  selectRoute(taskId, { routeId, expectedVersion, selectedAt }) {
+    const current = this.tasks.get(taskId);
+    if (!current) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    if (current.version !== expectedVersion) {
+      throw new TaskConflictError(`Version conflict for ${taskId}: expected ${expectedVersion}, current ${current.version}`, {
+        taskId,
+        expectedVersion,
+        currentVersion: current.version,
+      });
+    }
+
+    const next = appendRouteSelection({
+      task: current,
+      routeId,
+      expectedVersion,
+      selectedAt,
+    });
+
+    this.tasks.set(taskId, next);
+
+    const nextSnapshot = createSnapshot(next);
+    const snapshots = this.snapshots.get(taskId) || [];
+    snapshots.push(nextSnapshot);
+    this.snapshots.set(taskId, snapshots);
+
+    return clone(next);
   }
 
   listSnapshots(taskId) {
