@@ -122,28 +122,15 @@ All 22 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 ### 1. Complete Phase 9.7 — Manifest-controlled runtime feature flags
 
 **Version:** v0.5.4+
-**Status:** Step 1 of 4 complete. Flags defined and validated, but not wired into runtime.
+**Status:** All 4 steps complete. ✓
 
 **What exists:**
 - Feature flags defined in `runtime/manifest.sh`: `outcome_resolution_enabled`, `effective_contract_required`, `remote_executor_enabled`
 - Validation function `validateManifestFeatureFlags()` in `scripts/build/lib/versioning.mjs`
 - Tests for validation
-
-**What is missing (Steps 2-4):**
-
-**Step 2 — Wire flags into runtime execution paths:**
-- Read `feature_flags` from the manifest at runtime startup
-- Gate `remote_executor_enabled` in `runtime/remote-executor/server.mjs` — refuse to start if flag is `false`
-- Gate `outcome_resolution_enabled` in `runtime/lib/outcome-resolver.mjs` — bypass contract resolution if flag is `false`
-- Add a `remote_exec` route entry to `OUTCOME_ROUTES` in outcome-resolver.mjs
-
-**Step 3 — Enforce explicit contract:**
-- When `effective_contract_required=true`, block any tool execution that lacks an `outcomeId` (no mapped route)
-- Surface a structured error with the missing route info
-
-**Step 4 — Verify rollback works:**
-- Confirm all flags can be toggled via manifest-only change (no code deploy)
-- Update migration criteria checklist once validated
+- ✓ **Step 2** — Flags read at runtime startup; `remote_executor_enabled` gates server start; `outcome_resolution_enabled` gates contract resolution; `remote_exec` route added to `OUTCOME_ROUTES`
+- ✓ **Step 3** — `effective_contract_required=true` blocks tool execution without an `outcomeId`; structured error surfaces missing route info (4 unit tests in `runtime/mcp/handlers.test.mjs`)
+- ✓ **Step 4** — All flags toggleable via manifest-only change; rollback criteria documented below
 
 **Rollout criteria:**
 - `manifest_feature_flags` reports expected values in runtime environment
@@ -304,7 +291,7 @@ Before broadening to more task types or hosts:
 - [x] Portability contract: 76 tests protecting materialisation
 - [x] All 22 skills have structured capability contracts
 - [x] Compiler resolves compatibility from platform capabilities (not hardcoded)
-- [ ] Phase 9.7 runtime gating wired and tested (Steps 2-4)
+- [x] Phase 9.7 runtime gating wired and tested (Steps 2-4)
 - [ ] MVA: `review_repository` portable journey proven end-to-end
 
 ---
