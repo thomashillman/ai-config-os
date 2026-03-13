@@ -1,0 +1,47 @@
+version: 0.7.0
+scope: review_repository_mva
+sprints:
+  - id: week_1
+    focus: task_object_and_control_plane_foundations
+    task_ids:
+      - T001
+      - T002
+      - T003
+      - T004
+      - T005
+    deliverables:
+      - autospec_artifacts_created
+      - versioned_schemas_defined
+      - task_store_with_optimistic_concurrency
+      - loader_backed_route_resolution
+  - id: week_2
+    focus: core_task_runtime
+    task_ids:
+      - T006
+      - T007
+      - T008
+      - T009
+      - T010
+      - T011
+      - T012
+    deliverables:
+      - deterministic_route_resolver
+      - effective_execution_contract_engine
+      - review_repository_route_runtime
+      - lifecycle_provenance_and_progress
+  - id: week_3
+    focus: handoff_upgrade_and_validation
+    task_ids:
+      - T013
+      - T014
+      - T015
+      - T016
+      - T017
+      - T018
+      - T019
+      - T020
+    deliverables:
+      - replay_safe_handoff_tokens
+      - task_centric_worker_endpoints
+      - weak_to_strong_resume_flow
+      - adversarial_validation_and_staging_release

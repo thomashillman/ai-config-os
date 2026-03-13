@@ -1,0 +1,82 @@
+version: 0.7.0
+tasks:
+  - id: T001
+    sprint: week_1
+    title: Create Autospec artefacts
+    status: done
+  - id: T002
+    sprint: week_1
+    title: Define versioned control-plane schemas
+    status: todo
+  - id: T003
+    sprint: week_1
+    title: Implement TaskStore with optimistic concurrency
+    status: todo
+  - id: T004
+    sprint: week_1
+    title: Refactor resolver to loader-backed route definitions
+    status: done
+  - id: T005
+    sprint: week_1
+    title: Deterministic resolver cleanup and validation hardening
+    status: done
+  - id: T006
+    sprint: week_2
+    title: Implement deterministic RouteResolver using capability profiles
+    status: todo
+  - id: T007
+    sprint: week_2
+    title: Build EffectiveExecutionContract engine
+    status: todo
+  - id: T008
+    sprint: week_2
+    title: Implement review_repository task type routes
+    status: todo
+  - id: T009
+    sprint: week_2
+    title: Implement PortableTaskObject lifecycle transitions
+    status: todo
+  - id: T010
+    sprint: week_2
+    title: Implement FindingsLedger provenance transitions
+    status: todo
+  - id: T011
+    sprint: week_2
+    title: Implement ProgressEvent pipeline
+    status: todo
+  - id: T012
+    sprint: week_2
+    title: Build ContinuationPackage creator
+    status: todo
+  - id: T013
+    sprint: week_3
+    title: Implement HandoffToken service
+    status: todo
+  - id: T014
+    sprint: week_3
+    title: Extend Worker endpoints for task-centric operations
+    status: todo
+  - id: T015
+    sprint: week_3
+    title: Implement weak-environment start flow
+    status: todo
+  - id: T016
+    sprint: week_3
+    title: Implement strong-environment resume and route upgrade flow
+    status: todo
+  - id: T017
+    sprint: week_3
+    title: Add dashboard and API visibility for readiness/provenance/history
+    status: todo
+  - id: T018
+    sprint: week_3
+    title: Add telemetry and audit events
+    status: todo
+  - id: T019
+    sprint: week_3
+    title: Deliver adversarial test suite
+    status: todo
+  - id: T020
+    sprint: week_3
+    title: Complete staging deployment and release checklist
+    status: todo

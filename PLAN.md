@@ -159,7 +159,7 @@ Additional post-merge verification completed: alternative resolver permutation/s
 **Goal:** Prove one portable work journey end-to-end. Start `review_repository` in a weak environment, continue in a stronger one, preserve findings with provenance, finish without re-explaining.
 
 **Version:** v0.7.0
-**Autospec:** [github.com/thomashillman/autospec](https://github.com/thomashillman/autospec) — T001 creates spec.yaml, plan.yaml, tasks.yaml, acceptance.yaml
+**Autospec:** [github.com/thomashillman/autospec](https://github.com/thomashillman/autospec) — T001 completed (`docs/autospec/review-repository/{spec,plan,tasks,acceptance}.yaml`)
 
 ### Six core primitives
 
@@ -186,7 +186,7 @@ Additional post-merge verification completed: alternative resolver permutation/s
 ### Sprint plan
 
 **Week 1 — task object and control-plane foundations**
-- Create Autospec artefacts (T001)
+- ✓ Create Autospec artefacts (T001)
 - Define versioned schemas: PortableTaskObject, TaskStateSnapshot, RouteDefinition, EffectiveExecutionContract, ProgressEvent, FindingsLedgerEntry, ProvenanceMarker, ContinuationPackage, HandoffToken (T002)
 - Implement TaskStore with versioned updates and optimistic concurrency (T003)
 - Refactor `runtime/lib/outcome-resolver.mjs` from hardcoded admin mappings to loader-backed task-and-route resolution (T004–T005)
@@ -298,6 +298,7 @@ Before broadening to more task types or hosts:
 - [x] Phase 9.7 runtime gating wired and tested (Steps 2-4)
 - [x] T004: outcome resolver moved from hardcoded mappings to loader-backed definitions with tests
 - [x] T005: outcome resolver deterministic/validation cleanup completed with tests
+- [x] T001: Autospec artefacts created for `review_repository` MVA
 - [ ] MVA: `review_repository` portable journey proven end-to-end
 
 ---

@@ -1,0 +1,30 @@
+name: review_repository_portable_journey
+version: 0.7.0
+status: draft
+task_type: review_repository
+goal: >-
+  Start repository review in a weak environment, continue in a stronger environment,
+  preserve findings provenance, and finish without user restatement.
+source_of_truth:
+  plan_md: PLAN.md
+routes:
+  - github_pr
+  - pasted_diff
+  - uploaded_bundle
+  - local_repo
+primitives:
+  - PortableTaskObject
+  - TaskStore
+  - RouteResolver
+  - EffectiveExecutionContract
+  - FindingsLedger
+  - ContinuationPackage
+  - HandoffToken
+success_metrics:
+  - portable_task_completeness_100
+  - route_correctness_gte_98
+  - contract_honesty_100
+  - resume_readiness_gte_90
+  - route_upgrade_success_gte_85
+  - handoff_friction_lte_1
+  - findings_provenance_coverage_100
