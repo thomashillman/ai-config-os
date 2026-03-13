@@ -31,6 +31,7 @@ export function createCallToolHandler(deps) {
     toToolResponse,
     toolError,
     getCapabilityProfile,
+    readFlags,
   } = deps;
 
   return async function handleCallTool(request) {
@@ -39,6 +40,16 @@ export function createCallToolHandler(deps) {
     const capabilityProfile = typeof getCapabilityProfile === 'function'
       ? await getCapabilityProfile()
       : null;
+
+    if (readFlags !== undefined && readFlags !== null) {
+      const flags = readFlags();
+      if (flags.effective_contract_required && effectiveOutcomeContract.outcomeId === null) {
+        return toolError(
+          `No outcome route for tool '${name}': effective_contract_required is enabled in manifest`,
+          capabilityProfile
+        );
+      }
+    }
 
     if (!MCP_TOOL_MAP.has(name)) {
       return toolError(`Unknown tool: ${name}`, capabilityProfile);

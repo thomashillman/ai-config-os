@@ -177,9 +177,18 @@ export function createRemoteExecutorHandler({
 export function createRemoteExecutorServer({
   env = getEnv(),
   executeToolImpl,
+  readFlags = null,
 } = {}) {
   if (!env.sharedSecret) {
     throw new Error('REMOTE_EXECUTOR_SHARED_SECRET is required');
+  }
+  if (readFlags !== null) {
+    const flags = readFlags();
+    if (!flags.remote_executor_enabled) {
+      throw new Error(
+        'remote_executor_enabled flag is false in manifest; refusing to start remote executor'
+      );
+    }
   }
   return createServer(createRemoteExecutorHandler({ env, executeToolImpl }));
 }
@@ -188,8 +197,9 @@ export function startRemoteExecutor({
   env = getEnv(),
   host = '0.0.0.0',
   executeToolImpl,
+  readFlags = null,
 } = {}) {
-  const server = createRemoteExecutorServer({ env, executeToolImpl });
+  const server = createRemoteExecutorServer({ env, executeToolImpl, readFlags });
   server.listen(env.port, host, () => {
     console.log(`[remote-executor] listening on http://${host}:${env.port}`);
   });
