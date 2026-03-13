@@ -1,0 +1,18 @@
+version: 1
+
+task_types:
+  review_repository:
+    routes:
+      local_repo:
+        required_inputs:
+          - repository_path
+      github_pr:
+        required_inputs:
+          - repository_slug
+          - pull_request_number
+      uploaded_bundle:
+        required_inputs:
+          - bundle_path
+      pasted_diff:
+        required_inputs:
+          - diff_text

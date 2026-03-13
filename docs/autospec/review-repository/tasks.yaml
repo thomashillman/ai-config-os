@@ -27,7 +27,7 @@ tasks:
   - id: T007
     sprint: week_2
     title: Build EffectiveExecutionContract engine
-    status: todo
+    status: done
   - id: T008
     sprint: week_2
     title: Implement review_repository task type routes
