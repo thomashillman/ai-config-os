@@ -5,6 +5,8 @@ import {
   loadOutcomeAndRoutes,
   scoreRoutesByEquivalence,
   resolveEffectiveOutcomeContract,
+  setOutcomeResolverLoader,
+  resetOutcomeResolverLoader,
 } from './outcome-resolver.mjs';
 
 const FLAGS_RESOLUTION_OFF = () => ({
@@ -17,6 +19,10 @@ const FLAGS_RESOLUTION_ON = () => ({
   outcome_resolution_enabled: true,
   effective_contract_required: false,
   remote_executor_enabled: false,
+});
+
+test.afterEach(() => {
+  resetOutcomeResolverLoader();
 });
 
 // --- Atom 3: Flag gate ---
@@ -72,6 +78,34 @@ test('loadOutcomeAndRoutes includes remote_exec route for runtime.validate-all',
   const { routes } = loadOutcomeAndRoutes('runtime.validate-all');
   const remoteExecRoute = routes.find(r => r.channel === 'remote_exec');
   assert.ok(remoteExecRoute, 'runtime.validate-all should have a remote_exec route');
+});
+
+// --- Loader-backed resolution tests ---
+
+test('identifyOutcome resolves from injected loader definitions', () => {
+  setOutcomeResolverLoader(() => ({
+    toolOutcomeMap: { custom_tool: 'custom.outcome' },
+    outcomesById: {},
+    routesById: {},
+  }));
+
+  assert.equal(identifyOutcome('custom_tool'), 'custom.outcome');
+  assert.equal(identifyOutcome('sync_tools'), null);
+});
+
+test('loadOutcomeAndRoutes throws descriptive error when outcome references unknown route', () => {
+  setOutcomeResolverLoader(() => ({
+    toolOutcomeMap: {},
+    outcomesById: {
+      'custom.outcome': { routes: ['missing.route'] },
+    },
+    routesById: {},
+  }));
+
+  assert.throws(
+    () => loadOutcomeAndRoutes('custom.outcome'),
+    /Unknown route 'missing.route' for outcome 'custom.outcome'/
+  );
 });
 
 // --- Existing API surface tests ---

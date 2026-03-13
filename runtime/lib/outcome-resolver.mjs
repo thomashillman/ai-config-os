@@ -4,62 +4,7 @@
  * Pure resolver that computes an EffectiveOutcomeContract before runtime execution.
  */
 
-const TOOL_OUTCOME_MAP = {
-  sync_tools: 'runtime.sync-tools',
-  list_tools: 'runtime.list-tools',
-  get_config: 'runtime.get-config',
-  skill_stats: 'runtime.skill-stats',
-  context_cost: 'runtime.context-cost',
-  validate_all: 'runtime.validate-all',
-  mcp_list: 'runtime.mcp-list',
-  mcp_add: 'runtime.mcp-add',
-  mcp_remove: 'runtime.mcp-remove',
-};
-
-const REMOTE_EXEC_ROUTE = {
-  id: 'remote-executor/execute',
-  channel: 'remote_exec',
-  equivalence: 'high',
-  requiredCapabilities: ['remote.exec'],
-};
-
-const OUTCOME_ROUTES = {
-  'runtime.sync-tools': [
-    { id: 'runtime/sync.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    { id: 'runtime/manifest.sh', channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
-    REMOTE_EXEC_ROUTE,
-  ],
-  'runtime.list-tools': [
-    { id: 'runtime/manifest.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    { id: 'runtime/sync.sh', args: ['--dry-run'], channel: 'script', equivalence: 'partial', requiredCapabilities: ['shell.exec'] },
-    REMOTE_EXEC_ROUTE,
-  ],
-  'runtime.get-config': [
-    { id: 'shared/lib/config-merger.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    REMOTE_EXEC_ROUTE,
-  ],
-  'runtime.skill-stats': [
-    { id: 'ops/skill-stats.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    REMOTE_EXEC_ROUTE,
-  ],
-  'runtime.context-cost': [
-    { id: 'ops/context-cost.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    REMOTE_EXEC_ROUTE,
-  ],
-  'runtime.validate-all': [
-    { id: 'ops/validate-all.sh', channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-    REMOTE_EXEC_ROUTE,
-  ],
-  'runtime.mcp-list': [
-    { id: 'runtime/adapters/mcp-adapter.sh', args: ['list'], channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-  ],
-  'runtime.mcp-add': [
-    { id: 'runtime/adapters/mcp-adapter.sh', args: ['add'], channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-  ],
-  'runtime.mcp-remove': [
-    { id: 'runtime/adapters/mcp-adapter.sh', args: ['remove'], channel: 'script', equivalence: 'exact', requiredCapabilities: ['shell.exec'] },
-  ],
-};
+import { createCachedOutcomeDefinitionsLoader } from './outcome-definition-loader.mjs';
 
 const EQUIVALENCE_SCORE = {
   exact: 1,
@@ -68,16 +13,59 @@ const EQUIVALENCE_SCORE = {
   low: 0.35,
 };
 
+const defaultLoader = createCachedOutcomeDefinitionsLoader();
+let outcomeDefinitionsLoader = defaultLoader;
+
+export function setOutcomeResolverLoader(loader) {
+  if (typeof loader !== 'function') {
+    throw new TypeError('setOutcomeResolverLoader requires a function loader');
+  }
+  outcomeDefinitionsLoader = loader;
+}
+
+export function resetOutcomeResolverLoader() {
+  outcomeDefinitionsLoader = defaultLoader;
+}
+
+function loadDefinitions() {
+  const definitions = outcomeDefinitionsLoader();
+  if (!definitions || typeof definitions !== 'object') {
+    throw new Error('Outcome resolver loader returned invalid definitions object');
+  }
+
+  return {
+    toolOutcomeMap: definitions.toolOutcomeMap ?? {},
+    outcomesById: definitions.outcomesById ?? {},
+    routesById: definitions.routesById ?? {},
+  };
+}
+
 export function identifyOutcome(toolName) {
-  return TOOL_OUTCOME_MAP[toolName] || null;
+  if (!toolName) return null;
+  const { toolOutcomeMap } = loadDefinitions();
+  return toolOutcomeMap[toolName] || null;
 }
 
 export function loadOutcomeAndRoutes(outcomeId) {
   if (!outcomeId) return { outcomeId: null, routes: [] };
-  return {
-    outcomeId,
-    routes: OUTCOME_ROUTES[outcomeId] ? [...OUTCOME_ROUTES[outcomeId]] : [],
-  };
+
+  const { outcomesById, routesById } = loadDefinitions();
+  const outcomeDefinition = outcomesById[outcomeId];
+
+  if (!outcomeDefinition) {
+    return { outcomeId, routes: [] };
+  }
+
+  const routeIds = Array.isArray(outcomeDefinition.routes) ? outcomeDefinition.routes : [];
+  const routes = routeIds.map((routeId) => {
+    const route = routesById[routeId];
+    if (!route) {
+      throw new Error(`Unknown route '${routeId}' for outcome '${outcomeId}'`);
+    }
+    return { ...route };
+  });
+
+  return { outcomeId, routes };
 }
 
 export function loadCapabilityProfile({ executionChannel = 'mcp' } = {}) {

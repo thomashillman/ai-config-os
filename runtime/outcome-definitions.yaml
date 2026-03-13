@@ -1,0 +1,129 @@
+toolOutcomes:
+  sync_tools: runtime.sync-tools
+  list_tools: runtime.list-tools
+  get_config: runtime.get-config
+  skill_stats: runtime.skill-stats
+  context_cost: runtime.context-cost
+  validate_all: runtime.validate-all
+  mcp_list: runtime.mcp-list
+  mcp_add: runtime.mcp-add
+  mcp_remove: runtime.mcp-remove
+
+outcomes:
+  runtime.sync-tools:
+    routes:
+      - runtime.sync-tools.script-sync
+      - runtime.sync-tools.script-manifest
+      - runtime.remote-executor
+  runtime.list-tools:
+    routes:
+      - runtime.list-tools.script-manifest
+      - runtime.list-tools.script-sync-dry-run
+      - runtime.remote-executor
+  runtime.get-config:
+    routes:
+      - runtime.get-config.script
+      - runtime.remote-executor
+  runtime.skill-stats:
+    routes:
+      - runtime.skill-stats.script
+      - runtime.remote-executor
+  runtime.context-cost:
+    routes:
+      - runtime.context-cost.script
+      - runtime.remote-executor
+  runtime.validate-all:
+    routes:
+      - runtime.validate-all.script
+      - runtime.remote-executor
+  runtime.mcp-list:
+    routes:
+      - runtime.mcp-list.script
+  runtime.mcp-add:
+    routes:
+      - runtime.mcp-add.script
+  runtime.mcp-remove:
+    routes:
+      - runtime.mcp-remove.script
+
+routes:
+  runtime.sync-tools.script-sync:
+    id: runtime/sync.sh
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.sync-tools.script-manifest:
+    id: runtime/manifest.sh
+    channel: script
+    equivalence: partial
+    requiredCapabilities:
+      - shell.exec
+  runtime.list-tools.script-manifest:
+    id: runtime/manifest.sh
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.list-tools.script-sync-dry-run:
+    id: runtime/sync.sh
+    args:
+      - --dry-run
+    channel: script
+    equivalence: partial
+    requiredCapabilities:
+      - shell.exec
+  runtime.get-config.script:
+    id: shared/lib/config-merger.sh
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.skill-stats.script:
+    id: ops/skill-stats.sh
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.context-cost.script:
+    id: ops/context-cost.sh
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.validate-all.script:
+    id: ops/validate-all.sh
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.mcp-list.script:
+    id: runtime/adapters/mcp-adapter.sh
+    args:
+      - list
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.mcp-add.script:
+    id: runtime/adapters/mcp-adapter.sh
+    args:
+      - add
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.mcp-remove.script:
+    id: runtime/adapters/mcp-adapter.sh
+    args:
+      - remove
+    channel: script
+    equivalence: exact
+    requiredCapabilities:
+      - shell.exec
+  runtime.remote-executor:
+    id: remote-executor/execute
+    channel: remote_exec
+    equivalence: high
+    requiredCapabilities:
+      - remote.exec
