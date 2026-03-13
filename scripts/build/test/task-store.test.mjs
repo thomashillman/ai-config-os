@@ -88,3 +88,71 @@ test('TaskStore throws TaskNotFoundError for missing tasks/snapshots', () => {
   assert.throws(() => store.listSnapshots('missing_task_id'), TaskNotFoundError);
   assert.throws(() => store.getSnapshot('missing_task_id', 1), TaskNotFoundError);
 });
+
+
+test('TaskStore transitionState enforces lifecycle and snapshots', () => {
+  const store = new TaskStore();
+  const task = buildTask({ state: 'pending', version: 1 });
+  store.create(task);
+
+  const active = store.transitionState(task.task_id, {
+    expectedVersion: 1,
+    nextState: 'active',
+    nextAction: 'collect_more_context',
+    updatedAt: '2026-03-12T12:10:00.000Z',
+    progress: { completed_steps: 1, total_steps: 3 },
+  });
+
+  assert.equal(active.state, 'active');
+  assert.equal(active.version, 2);
+
+  assert.throws(
+    () => store.transitionState(task.task_id, {
+      expectedVersion: 2,
+      nextState: 'pending',
+      nextAction: 'rewind',
+      updatedAt: '2026-03-12T12:12:00.000Z',
+    }),
+    /Invalid task state transition/,
+  );
+
+  const snapshots = store.listSnapshots(task.task_id);
+  assert.equal(snapshots.length, 2);
+  assert.equal(snapshots[1].task.state, 'active');
+});
+
+test('TaskStore selectRoute appends canonical route history', () => {
+  const store = new TaskStore();
+  const task = buildTask({ state: 'active', version: 1 });
+  store.create(task);
+
+  const updated = store.selectRoute(task.task_id, {
+    routeId: 'local_repo',
+    expectedVersion: 1,
+    selectedAt: '2026-03-12T12:15:00.000Z',
+  });
+
+  assert.equal(updated.current_route, 'local_repo');
+  assert.equal(updated.route_history.length, 2);
+  assert.equal(updated.route_history[1].route, 'local_repo');
+  assert.equal(updated.version, 2);
+
+  const snapshots = store.listSnapshots(task.task_id);
+  assert.equal(snapshots.length, 2);
+});
+
+
+test('TaskStore selectRoute rejects stale versions with TaskConflictError', () => {
+  const store = new TaskStore();
+  const task = buildTask({ state: 'active', version: 2 });
+  store.create(task);
+
+  assert.throws(
+    () => store.selectRoute(task.task_id, {
+      routeId: 'local_repo',
+      expectedVersion: 1,
+      selectedAt: '2026-03-12T12:16:00.000Z',
+    }),
+    TaskConflictError,
+  );
+});
