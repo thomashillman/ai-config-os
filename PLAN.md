@@ -146,7 +146,9 @@ All 22 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 
 ### 2. Resolve hardcoded outcome resolver before MVA
 
-The outcome resolver (`runtime/lib/outcome-resolver.mjs`) currently uses admin-first hardcoded mappings. This must be refactored to loader-backed task-and-route resolution before the MVA can build on top of it. This is captured as T004-T005 in the MVA sprint plan below.
+**Status:** T004 complete (loader-backed resolver landed). T005 cleanup/expansion remains.
+
+The outcome resolver (`runtime/lib/outcome-resolver.mjs`) now resolves outcomes/routes from loader-backed definitions (`runtime/outcome-definitions.yaml`) with tests for injected-loader behavior and unknown-route failures. Follow-on T005 work should tighten deterministic guarantees and remove any remaining transitional shims before route-resolver expansion.
 
 ---
 
@@ -292,6 +294,7 @@ Before broadening to more task types or hosts:
 - [x] All 22 skills have structured capability contracts
 - [x] Compiler resolves compatibility from platform capabilities (not hardcoded)
 - [x] Phase 9.7 runtime gating wired and tested (Steps 2-4)
+- [x] T004: outcome resolver moved from hardcoded mappings to loader-backed definitions with tests
 - [ ] MVA: `review_repository` portable journey proven end-to-end
 
 ---
