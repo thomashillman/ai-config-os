@@ -16,6 +16,17 @@ const EQUIVALENCE_SCORE = {
 const defaultLoader = createCachedOutcomeDefinitionsLoader();
 let outcomeDefinitionsLoader = defaultLoader;
 
+
+function isDictionaryObject(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+
 export function setOutcomeResolverLoader(loader) {
   if (typeof loader !== 'function') {
     throw new TypeError('setOutcomeResolverLoader requires a function loader');
@@ -29,34 +40,48 @@ export function resetOutcomeResolverLoader() {
 
 function loadDefinitions() {
   const definitions = outcomeDefinitionsLoader();
-  if (!definitions || typeof definitions !== 'object') {
+  if (!isDictionaryObject(definitions)) {
     throw new Error('Outcome resolver loader returned invalid definitions object');
   }
 
-  return {
-    toolOutcomeMap: definitions.toolOutcomeMap ?? {},
-    outcomesById: definitions.outcomesById ?? {},
-    routesById: definitions.routesById ?? {},
-  };
+  const toolOutcomeMap = definitions.toolOutcomeMap ?? {};
+  const outcomesById = definitions.outcomesById ?? {};
+  const routesById = definitions.routesById ?? {};
+
+  if (!isDictionaryObject(toolOutcomeMap)) {
+    throw new Error('Outcome resolver definitions invalid: toolOutcomeMap must be an object');
+  }
+  if (!isDictionaryObject(outcomesById)) {
+    throw new Error('Outcome resolver definitions invalid: outcomesById must be an object');
+  }
+  if (!isDictionaryObject(routesById)) {
+    throw new Error('Outcome resolver definitions invalid: routesById must be an object');
+  }
+
+  return { toolOutcomeMap, outcomesById, routesById };
 }
 
-export function identifyOutcome(toolName) {
+export function identifyOutcome(toolName, definitions = loadDefinitions()) {
   if (!toolName) return null;
-  const { toolOutcomeMap } = loadDefinitions();
+  const { toolOutcomeMap } = definitions;
   return toolOutcomeMap[toolName] || null;
 }
 
-export function loadOutcomeAndRoutes(outcomeId) {
+export function loadOutcomeAndRoutes(outcomeId, definitions = loadDefinitions()) {
   if (!outcomeId) return { outcomeId: null, routes: [] };
 
-  const { outcomesById, routesById } = loadDefinitions();
+  const { outcomesById, routesById } = definitions;
   const outcomeDefinition = outcomesById[outcomeId];
 
   if (!outcomeDefinition) {
     return { outcomeId, routes: [] };
   }
 
-  const routeIds = Array.isArray(outcomeDefinition.routes) ? outcomeDefinition.routes : [];
+  if (!Array.isArray(outcomeDefinition.routes)) {
+    throw new Error(`Outcome '${outcomeId}' must define routes as an array`);
+  }
+
+  const routeIds = outcomeDefinition.routes;
   const routes = routeIds.map((routeId) => {
     const route = routesById[routeId];
     if (!route) {
@@ -125,8 +150,9 @@ export function resolveEffectiveOutcomeContract({ toolName, executionChannel = '
     }
   }
 
-  const identifiedOutcome = identifyOutcome(toolName);
-  const { outcomeId, routes } = loadOutcomeAndRoutes(identifiedOutcome);
+  const definitions = loadDefinitions();
+  const identifiedOutcome = identifyOutcome(toolName, definitions);
+  const { outcomeId, routes } = loadOutcomeAndRoutes(identifiedOutcome, definitions);
   const scoredRoutes = scoreRoutesByEquivalence(routes, capabilityProfile);
 
   return {
