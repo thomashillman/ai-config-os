@@ -146,9 +146,11 @@ All 22 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 
 ### 2. Resolve hardcoded outcome resolver before MVA
 
-**Status:** T004 complete (loader-backed resolver landed). T005 cleanup/expansion remains.
+**Status:** T004–T005 complete (loader-backed resolver landed, deterministic/validation hardening added).
 
-The outcome resolver (`runtime/lib/outcome-resolver.mjs`) now resolves outcomes/routes from loader-backed definitions (`runtime/outcome-definitions.yaml`) with tests for injected-loader behavior and unknown-route failures. Follow-on T005 work should tighten deterministic guarantees and remove any remaining transitional shims before route-resolver expansion.
+The outcome resolver (`runtime/lib/outcome-resolver.mjs`) now resolves outcomes/routes from loader-backed definitions (`runtime/outcome-definitions.yaml`) with deterministic single-load resolution per contract evaluation and strict definition-shape validation (including malformed map/route handling) covered by unit tests.
+
+Additional post-merge verification completed: alternative resolver permutation/snapshot tests plus direct shell-safety security suite and standalone skill/platform lint runs all pass (warnings only where already documented). Validation now also enforces dictionary-object semantics (plain/null-prototype maps only) to prevent non-record types (for example Map instances) from silently entering route resolution.
 
 ---
 
@@ -295,6 +297,7 @@ Before broadening to more task types or hosts:
 - [x] Compiler resolves compatibility from platform capabilities (not hardcoded)
 - [x] Phase 9.7 runtime gating wired and tested (Steps 2-4)
 - [x] T004: outcome resolver moved from hardcoded mappings to loader-backed definitions with tests
+- [x] T005: outcome resolver deterministic/validation cleanup completed with tests
 - [ ] MVA: `review_repository` portable journey proven end-to-end
 
 ---

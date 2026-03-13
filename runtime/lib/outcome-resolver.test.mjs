@@ -108,6 +108,83 @@ test('loadOutcomeAndRoutes throws descriptive error when outcome references unkn
   );
 });
 
+test('resolveEffectiveOutcomeContract reads loader definitions once per resolution', () => {
+  let calls = 0;
+  setOutcomeResolverLoader(() => {
+    calls += 1;
+    return {
+      toolOutcomeMap: { single_call_tool: 'single.call.outcome' },
+      outcomesById: {
+        'single.call.outcome': { routes: ['single.call.route'] },
+      },
+      routesById: {
+        'single.call.route': {
+          id: 'single/call',
+          channel: 'script',
+          equivalence: 'exact',
+          requiredCapabilities: ['shell.exec'],
+        },
+      },
+    };
+  });
+
+  const contract = resolveEffectiveOutcomeContract({ toolName: 'single_call_tool' });
+  assert.equal(contract.outcomeId, 'single.call.outcome');
+  assert.equal(calls, 1, 'definitions loader should only be called once per resolution');
+});
+
+test('identifyOutcome throws when loader returns non-object maps', () => {
+  setOutcomeResolverLoader(() => ({
+    toolOutcomeMap: ['not', 'an', 'object'],
+    outcomesById: {},
+    routesById: {},
+  }));
+
+  assert.throws(
+    () => identifyOutcome('sync_tools'),
+    /toolOutcomeMap must be an object/
+  );
+});
+
+
+
+test('resolveEffectiveOutcomeContract throws when loader returns non-dictionary definitions object', () => {
+  setOutcomeResolverLoader(() => new Map());
+
+  assert.throws(
+    () => resolveEffectiveOutcomeContract({ toolName: 'sync_tools' }),
+    /invalid definitions object/
+  );
+});
+
+test('identifyOutcome throws when loader returns Map for toolOutcomeMap', () => {
+  setOutcomeResolverLoader(() => ({
+    toolOutcomeMap: new Map([['sync_tools', 'runtime.sync-tools']]),
+    outcomesById: {},
+    routesById: {},
+  }));
+
+  assert.throws(
+    () => identifyOutcome('sync_tools'),
+    /toolOutcomeMap must be an object/
+  );
+});
+
+test('loadOutcomeAndRoutes throws when outcome routes is not an array', () => {
+  setOutcomeResolverLoader(() => ({
+    toolOutcomeMap: {},
+    outcomesById: {
+      'custom.outcome': { routes: 'runtime.sync-tools.script-sync' },
+    },
+    routesById: {},
+  }));
+
+  assert.throws(
+    () => loadOutcomeAndRoutes('custom.outcome'),
+    /must define routes as an array/
+  );
+});
+
 // --- Existing API surface tests ---
 
 test('identifyOutcome returns correct outcomeId for known tools', () => {
