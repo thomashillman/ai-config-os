@@ -31,7 +31,7 @@ tasks:
   - id: T008
     sprint: week_2
     title: Implement review_repository task type routes
-    status: todo
+    status: done
   - id: T009
     sprint: week_2
     title: Implement PortableTaskObject lifecycle transitions

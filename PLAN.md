@@ -195,7 +195,7 @@ Additional post-merge verification completed: alternative resolver permutation/s
 **Week 2 — core task runtime**
 - ✓ Deterministic RouteResolver using real capability profiles (T006)
 - ✓ EffectiveExecutionContract engine (T007)
-- `review_repository` task type with all four routes (T008)
+- ✓ `review_repository` task type with all four routes (T008)
 - PortableTaskObject lifecycle and state transitions (T009)
 - FindingsLedger with provenance rules (T010)
 - ProgressEvent pipeline (T011)
@@ -303,6 +303,7 @@ Before broadening to more task types or hosts:
 - [x] T003: TaskStore implemented with versioned optimistic concurrency and snapshot retrieval tests
 - [x] T006: deterministic RouteResolver implemented using capability profiles with route-definition loader and tests
 - [x] T007: EffectiveExecutionContract engine implemented with deterministic route-derived contract projection and tests
+- [x] T008: review_repository route runtime implemented with canonical four routes and route-input validation tests
 - [ ] MVA: `review_repository` portable journey proven end-to-end
 
 ---
