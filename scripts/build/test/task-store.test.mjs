@@ -156,3 +156,57 @@ test('TaskStore selectRoute rejects stale versions with TaskConflictError', () =
     TaskConflictError,
   );
 });
+
+
+test('TaskStore appendFinding records finding with optimistic concurrency', () => {
+  const store = new TaskStore();
+  const task = buildTask({ state: 'active', version: 1 });
+  store.create(task);
+
+  const updated = store.appendFinding(task.task_id, {
+    expectedVersion: 1,
+    finding: {
+      findingId: 'missing_authz',
+      summary: 'Missing authorization check for admin action.',
+      status: 'verified',
+      recordedAt: '2026-03-12T12:18:00.000Z',
+      recordedByRoute: 'github_pr',
+    },
+    updatedAt: '2026-03-12T12:18:00.000Z',
+  });
+
+  assert.equal(updated.version, 2);
+  assert.equal(updated.findings.length, 1);
+  assert.equal(updated.findings[0].finding_id, 'missing_authz');
+});
+
+test('TaskStore transitionFindingsForRouteUpgrade marks cross-route verified findings as reused', () => {
+  const store = new TaskStore();
+  const task = buildTask({
+    state: 'active',
+    version: 1,
+    findings: [{
+      schema_version: '1.0.0',
+      finding_id: 'weak_route_verified',
+      summary: 'Review finding from weak route.',
+      provenance: {
+        schema_version: '1.0.0',
+        status: 'verified',
+        recorded_at: '2026-03-12T12:20:00.000Z',
+        recorded_by_route: 'github_pr',
+      },
+    }],
+  });
+  store.create(task);
+
+  const updated = store.transitionFindingsForRouteUpgrade(task.task_id, {
+    expectedVersion: 1,
+    toRouteId: 'local_repo',
+    upgradedAt: '2026-03-12T12:25:00.000Z',
+    toEquivalenceLevel: 'equal',
+  });
+
+  assert.equal(updated.version, 2);
+  assert.equal(updated.findings[0].provenance.status, 'reused');
+  assert.equal(updated.findings[0].provenance.recorded_by_route, 'local_repo');
+});

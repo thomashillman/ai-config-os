@@ -35,11 +35,11 @@ tasks:
   - id: T009
     sprint: week_2
     title: Implement PortableTaskObject lifecycle transitions
-    status: todo
+    status: done
   - id: T010
     sprint: week_2
     title: Implement FindingsLedger provenance transitions
-    status: todo
+    status: done
   - id: T011
     sprint: week_2
     title: Implement ProgressEvent pipeline

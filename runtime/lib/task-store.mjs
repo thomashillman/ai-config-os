@@ -1,5 +1,6 @@
 import { validateContract } from '../../shared/contracts/validate.mjs';
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle.mjs';
+import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -121,6 +122,76 @@ export class TaskStore {
     this.snapshots.set(taskId, snapshots);
 
     return clone(validated);
+  }
+
+
+  appendFinding(taskId, { expectedVersion, finding, updatedAt }) {
+    const current = this.tasks.get(taskId);
+    if (!current) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    if (current.version !== expectedVersion) {
+      throw new TaskConflictError(`Version conflict for ${taskId}: expected ${expectedVersion}, current ${current.version}`, {
+        taskId,
+        expectedVersion,
+        currentVersion: current.version,
+      });
+    }
+
+    const next = appendFindingToTask({
+      task: current,
+      expectedVersion,
+      finding,
+      updatedAt,
+    });
+
+    this.tasks.set(taskId, next);
+
+    const nextSnapshot = createSnapshot(next);
+    const snapshots = this.snapshots.get(taskId) || [];
+    snapshots.push(nextSnapshot);
+    this.snapshots.set(taskId, snapshots);
+
+    return clone(next);
+  }
+
+  transitionFindingsForRouteUpgrade(taskId, { expectedVersion, toRouteId, upgradedAt, toEquivalenceLevel }) {
+    const current = this.tasks.get(taskId);
+    if (!current) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    if (current.version !== expectedVersion) {
+      throw new TaskConflictError(`Version conflict for ${taskId}: expected ${expectedVersion}, current ${current.version}`, {
+        taskId,
+        expectedVersion,
+        currentVersion: current.version,
+      });
+    }
+
+    const transitionedFindings = transitionFindingsForRouteUpgrade({
+      findings: current.findings,
+      toRouteId,
+      upgradedAt,
+      toEquivalenceLevel,
+    });
+
+    const next = validateContract('portableTaskObject', {
+      ...clone(current),
+      findings: transitionedFindings,
+      version: current.version + 1,
+      updated_at: upgradedAt,
+    });
+
+    this.tasks.set(taskId, next);
+
+    const nextSnapshot = createSnapshot(next);
+    const snapshots = this.snapshots.get(taskId) || [];
+    snapshots.push(nextSnapshot);
+    this.snapshots.set(taskId, snapshots);
+
+    return clone(next);
   }
 
   selectRoute(taskId, { routeId, expectedVersion, selectedAt }) {
