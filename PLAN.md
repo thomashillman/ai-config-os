@@ -187,8 +187,8 @@ Additional post-merge verification completed: alternative resolver permutation/s
 
 **Week 1 — task object and control-plane foundations**
 - ✓ Create Autospec artefacts (T001)
-- Define versioned schemas: PortableTaskObject, TaskStateSnapshot, RouteDefinition, EffectiveExecutionContract, ProgressEvent, FindingsLedgerEntry, ProvenanceMarker, ContinuationPackage, HandoffToken (T002)
-- Implement TaskStore with versioned updates and optimistic concurrency (T003)
+- ✓ Define versioned schemas: PortableTaskObject, TaskStateSnapshot, RouteDefinition, EffectiveExecutionContract, ProgressEvent, FindingsLedgerEntry, ProvenanceMarker, ContinuationPackage, HandoffToken (T002)
+- ✓ Implement TaskStore with versioned updates and optimistic concurrency (T003)
 - Refactor `runtime/lib/outcome-resolver.mjs` from hardcoded admin mappings to loader-backed task-and-route resolution (T004–T005)
 - Deliverables: approved schemas, failing red test suite, clean runtime boundary
 
@@ -299,6 +299,8 @@ Before broadening to more task types or hosts:
 - [x] T004: outcome resolver moved from hardcoded mappings to loader-backed definitions with tests
 - [x] T005: outcome resolver deterministic/validation cleanup completed with tests
 - [x] T001: Autospec artefacts created for `review_repository` MVA
+- [x] T002: versioned control-plane schemas defined with tests
+- [x] T003: TaskStore implemented with versioned optimistic concurrency and snapshot retrieval tests
 - [ ] MVA: `review_repository` portable journey proven end-to-end
 
 ---

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/continuation-package.schema.json",
+  "title": "ContinuationPackage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task", "effective_execution_contract", "handoff_token_id", "created_at"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "task": { "$ref": "portable-task-object.schema.json" },
+    "effective_execution_contract": { "$ref": "effective-execution-contract.schema.json" },
+    "handoff_token_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "created_at": { "type": "string", "format": "date-time" }
+  }
+}

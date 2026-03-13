@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/effective-execution-contract.schema.json",
+  "title": "EffectiveExecutionContract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "task_id", "task_type", "selected_route", "equivalence_level", "required_inputs", "computed_at"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "task_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "task_type": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+    "selected_route": { "$ref": "task-route-definition.schema.json" },
+    "equivalence_level": { "type": "string", "enum": ["equal", "degraded", "upgrade"] },
+    "missing_capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
+    "required_inputs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "stronger_host_guidance": { "type": "string" },
+    "computed_at": { "type": "string", "format": "date-time" }
+  }
+}
