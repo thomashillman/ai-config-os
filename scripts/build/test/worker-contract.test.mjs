@@ -8,9 +8,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../..');
 const WORKER_INDEX_TS = resolve(REPO_ROOT, 'worker/src/index.ts');
-const TASK_STORE_FILE_URL = fileURLToPath(new URL('../../../runtime/lib/task-store.mjs', import.meta.url));
-const HANDOFF_SERVICE_FILE_URL = fileURLToPath(new URL('../../../runtime/lib/handoff-token-service.mjs', import.meta.url));
-const TASK_CONTROL_PLANE_SERVICE_FILE_URL = fileURLToPath(new URL('../../../runtime/lib/task-control-plane-service.mjs', import.meta.url));
+const TASK_STORE_FILE_URL = new URL('../../../runtime/lib/task-store.mjs', import.meta.url).href;
+const HANDOFF_SERVICE_FILE_URL = new URL('../../../runtime/lib/handoff-token-service.mjs', import.meta.url).href;
+const TASK_CONTROL_PLANE_SERVICE_FILE_URL = new URL('../../../runtime/lib/task-control-plane-service.mjs', import.meta.url).href;
 const REGISTRY_PATH = resolve(REPO_ROOT, 'dist/registry/index.json');
 const PLUGIN_PATH = resolve(REPO_ROOT, 'dist/clients/claude-code/.claude-plugin/plugin.json');
 
