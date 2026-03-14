@@ -90,6 +90,56 @@ export const TOOL_REGISTRY = {
       additionalProperties: false,
     },
     run: ({ runScript }, args) => runScript('runtime/adapters/mcp-adapter.sh', ['remove', args.name]),
+  },
+  task_start_review_repository: {
+    description: 'Start a review_repository portable task from route-specific inputs',
+    schema: {
+      type: 'object',
+      required: ['task_id', 'goal', 'route_inputs'],
+      properties: {
+        task_id: { type: 'string' },
+        goal: { type: 'string' },
+        route_inputs: { type: 'object' },
+        capability_profile: { type: 'object' },
+      },
+      additionalProperties: false,
+    },
+    run: ({ taskService }, args) => taskService.startReviewRepositoryTask({
+      taskId: args.task_id,
+      goal: args.goal,
+      routeInputs: args.route_inputs,
+      capabilityProfile: args.capability_profile,
+    }),
+  },
+  task_resume_review_repository: {
+    description: 'Resume an existing review_repository task and re-evaluate route strength',
+    schema: {
+      type: 'object',
+      required: ['task_id'],
+      properties: {
+        task_id: { type: 'string' },
+        capability_profile: { type: 'object' },
+      },
+      additionalProperties: false,
+    },
+    run: ({ taskService }, args) => taskService.resumeReviewRepositoryTask({
+      taskId: args.task_id,
+      capabilityProfile: args.capability_profile,
+    }),
+  },
+  task_get_readiness: {
+    description: 'Get task readiness projection and route-upgrade availability',
+    schema: {
+      type: 'object',
+      required: ['task_id'],
+      properties: {
+        task_id: { type: 'string' },
+      },
+      additionalProperties: false,
+    },
+    run: ({ taskService }, args) => ({
+      readiness: taskService.getReadiness(args.task_id),
+    }),
   }
 };
 

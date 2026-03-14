@@ -21,34 +21,12 @@ import { createCallToolHandler } from "./handlers.mjs";
 import { resolveEffectiveOutcomeContract } from "../lib/outcome-resolver.mjs";
 import { createTunnelPolicy, tunnelGuardMiddleware } from "./tunnel-security.mjs";
 import { createDashboardApi } from "./dashboard-api.mjs";
+import { MCP_TOOL_DEFINITIONS } from './tool-definitions.mjs';
+import { TaskStore } from "../lib/task-store.mjs";
+import { createTaskControlPlaneService } from "../lib/task-control-plane-service.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
-
-function buildApiResponse(result, selectedRoute) {
-  const base = {
-    output: result.output,
-    success: result.success,
-    status: result.success ? "Full" : "Degraded",
-    selectedRoute,
-  };
-
-  if (result.success) {
-    return base;
-  }
-
-  return {
-    ...base,
-    missingCapabilities: ["local-runtime-script-execution"],
-    requiredUserInput: [
-      "Inspect the error details and confirm whether to run the equivalent route manually.",
-    ],
-    guidanceEquivalentRoute:
-      "Run the corresponding runtime script directly in a shell (for example via npm scripts or the repo script path) and capture the output.",
-    guidanceFullWorkflowHigherCapabilityEnvironment:
-      "Re-run this dashboard action in an environment with full local runtime script execution enabled so the complete workflow can run end-to-end.",
-  };
-}
 
 function runScript(script, args = []) {
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
@@ -73,6 +51,7 @@ function runScript(script, args = []) {
 }
 
 const capabilityProfileResolver = createCapabilityProfileResolver();
+const taskService = createTaskControlPlaneService({ taskStore: new TaskStore() });
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
@@ -80,88 +59,11 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: "resolve_outcome_contract",
-      description: "Resolve EffectiveOutcomeContract for a target tool before execution",
-      inputSchema: {
-        type: "object",
-        required: ["tool_name"],
-        properties: {
-          tool_name: { type: "string", description: "Tool name to resolve" }
-        }
-      }
-    },
-    {
-      name: "sync_tools",
-      description: "Sync desired tool config to live Claude Code environment",
-      inputSchema: {
-        type: "object",
-        properties: {
-          dry_run: { type: "boolean", description: "Preview changes without applying", default: false }
-        }
-      }
-    },
-    {
-      name: "list_tools",
-      description: "List installed tools and their status from the runtime manifest",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "get_config",
-      description: "Get the merged runtime config (global + machine + project)",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "skill_stats",
-      description: "Get a summary table of all skills with type, status, variants, and test count",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "context_cost",
-      description: "Analyse token footprint of all skills",
-      inputSchema: {
-        type: "object",
-        properties: {
-          threshold: { type: "number", description: "Token threshold for warnings", default: 2000 }
-        }
-      }
-    },
-    {
-      name: "validate_all",
-      description: "Run the full validation suite (dependencies, variants, structure tests, docs, plugin)",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "mcp_list",
-      description: "List MCP servers currently configured in ~/.claude/mcp.json",
-      inputSchema: { type: "object", properties: {} }
-    },
-    {
-      name: "mcp_add",
-      description: "Add an MCP server entry",
-      inputSchema: {
-        type: "object",
-        required: ["name", "command"],
-        properties: {
-          name: { type: "string", description: "MCP server name" },
-          command: { type: "string", description: "Command to run the server" },
-          args: { type: "array", items: { type: "string" }, description: "Command arguments" }
-        }
-      }
-    },
-    {
-      name: "mcp_remove",
-      description: "Remove an MCP server entry",
-      inputSchema: {
-        type: "object",
-        required: ["name"],
-        properties: {
-          name: { type: "string", description: "MCP server name to remove" }
-        }
-      }
-    }
-  ]
+  tools: MCP_TOOL_DEFINITIONS.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    inputSchema: tool.inputSchema,
+  })),
 }));
 
 const handleCallTool = createCallToolHandler({
@@ -173,6 +75,7 @@ const handleCallTool = createCallToolHandler({
   toToolResponse,
   toolError,
   getCapabilityProfile: () => capabilityProfileResolver.getProfile(),
+  taskService,
 });
 
 server.setRequestHandler(CallToolRequestSchema, handleCallTool);
@@ -189,6 +92,7 @@ function startDashboardApi() {
     resolveEffectiveOutcomeContract,
     validateNumber,
     capabilityProfileResolver,
+    taskService,
     repoRoot: REPO_ROOT,
     port: Number.isFinite(dashboardPort) && dashboardPort > 0 ? dashboardPort : 4242,
   });

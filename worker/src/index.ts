@@ -30,6 +30,7 @@ import REGISTRY_JSON from '../../dist/registry/index.json';
 import CLAUDE_CODE_PLUGIN_JSON from '../../dist/clients/claude-code/.claude-plugin/plugin.json';
 // @ts-ignore - runtime JS module
 import { TaskStore, TaskConflictError, TaskNotFoundError } from '../../runtime/lib/task-store.mjs';
+import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service.mjs';
 // @ts-ignore - runtime JS module
 import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service.mjs';
 
@@ -98,6 +99,11 @@ function getTaskStore(env: Env): TaskStore {
   }
 
   return taskStore;
+}
+
+
+function getTaskService(env: Env) {
+  return createTaskControlPlaneService({ taskStore: getTaskStore(env) });
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────
@@ -520,7 +526,7 @@ async function handleTaskCreate(request: Request, env: Env): Promise<Response> {
   if (!validation.ok) return badRequest(validation.error);
 
   try {
-    const created = getTaskStore(env).create(validation.value);
+    const created = getTaskService(env).createTask(validation.value);
     return jsonResponse({ task: created }, 201);
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -531,7 +537,7 @@ async function handleTaskCreate(request: Request, env: Env): Promise<Response> {
 
 function handleTaskGet(env: Env, taskId: string): Response {
   try {
-    return jsonResponse({ task: getTaskStore(env).load(taskId) });
+    return jsonResponse({ task: getTaskService(env).getTask(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task load error' } }, 500);
   }
@@ -544,13 +550,7 @@ async function handleTaskTransitionState(request: Request, env: Env, taskId: str
   if (!validation.ok) return badRequest(validation.error);
 
   try {
-    const updated = getTaskStore(env).transitionState(taskId, {
-      expectedVersion: validation.value.expected_version,
-      nextState: validation.value.next_state,
-      nextAction: validation.value.next_action,
-      updatedAt: validation.value.updated_at,
-      progress: validation.value.progress,
-    });
+    const updated = getTaskService(env).transitionState(taskId, validation.value);
     return jsonResponse({ task: updated });
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -566,11 +566,7 @@ async function handleTaskRouteSelection(request: Request, env: Env, taskId: stri
   if (!validation.ok) return badRequest(validation.error);
 
   try {
-    const updated = getTaskStore(env).selectRoute(taskId, {
-      expectedVersion: validation.value.expected_version,
-      routeId: validation.value.route_id,
-      selectedAt: validation.value.selected_at,
-    });
+    const updated = getTaskService(env).selectRoute(taskId, validation.value);
     return jsonResponse({ task: updated });
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -614,11 +610,7 @@ async function handleTaskContinuation(request: Request, env: Env, taskId: string
   const replayed = Boolean(tokenId && continuationFingerprints.get(tokenId) === fingerprint);
 
   try {
-    const continuation_package = getTaskStore(env).createContinuationPackage(taskId, {
-      handoffToken: validation.value.handoff_token,
-      effectiveExecutionContract: validation.value.effective_execution_contract,
-      createdAt: validation.value.created_at,
-    });
+    const continuation_package = getTaskService(env).createContinuation(taskId, validation.value);
 
     if (tokenId && !continuationFingerprints.has(tokenId)) {
       continuationFingerprints.set(tokenId, fingerprint);
@@ -634,7 +626,7 @@ async function handleTaskContinuation(request: Request, env: Env, taskId: string
 
 function handleTaskProgressEvents(env: Env, taskId: string): Response {
   try {
-    return jsonResponse({ events: getTaskStore(env).listProgressEvents(taskId) });
+    return jsonResponse({ events: getTaskService(env).listProgressEvents(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task progress event error' } }, 500);
   }
@@ -642,7 +634,7 @@ function handleTaskProgressEvents(env: Env, taskId: string): Response {
 
 function handleTaskReadiness(env: Env, taskId: string): Response {
   try {
-    return jsonResponse({ readiness: getTaskStore(env).getReadinessView(taskId) });
+    return jsonResponse({ readiness: getTaskService(env).getReadiness(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task readiness error' } }, 500);
   }
@@ -651,14 +643,14 @@ function handleTaskReadiness(env: Env, taskId: string): Response {
 function handleTaskSnapshots(env: Env, taskId: string, version: string | null): Response {
   try {
     if (!version) {
-      return jsonResponse({ snapshots: getTaskStore(env).listSnapshots(taskId) });
+      return jsonResponse({ snapshots: getTaskService(env).listSnapshots(taskId) });
     }
 
     const snapshotVersion = Number(version);
     if (!Number.isInteger(snapshotVersion) || snapshotVersion <= 0) {
       return badRequest("Path parameter 'version' must be a positive integer");
     }
-    return jsonResponse({ snapshot: getTaskStore(env).getSnapshot(taskId, snapshotVersion) });
+    return jsonResponse({ snapshot: getTaskService(env).getSnapshot(taskId, snapshotVersion) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task snapshot error' } }, 500);
   }

@@ -16,6 +16,7 @@ export function createDashboardApi({
   resolveEffectiveOutcomeContract,
   validateNumber,
   capabilityProfileResolver,
+  taskService,
   repoRoot,
   port,
 }) {
@@ -77,6 +78,62 @@ export function createDashboardApi({
     const response = executeWithOutcomeContract('validate_all', () => runScript('ops/validate-all.sh'));
     res.json({ output: response.output, success: response.success, effectiveOutcomeContract: response.effectiveOutcomeContract });
   });
+
+  app.get('/api/outcome-contract', (req, res) => {
+    const toolName = typeof req.query.tool_name === 'string' ? req.query.tool_name : '';
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName, executionChannel: 'dashboard' });
+    res.json({ effectiveOutcomeContract, success: true });
+  });
+
+  app.post('/api/tasks/review/start', (req, res) => {
+    if (!taskService) {
+      res.status(503).json({ success: false, error: 'task service unavailable' });
+      return;
+    }
+
+    try {
+      const result = taskService.startReviewRepositoryTask({
+        taskId: req.body?.task_id,
+        goal: req.body?.goal,
+        routeInputs: req.body?.route_inputs,
+        capabilityProfile: req.body?.capability_profile,
+      });
+      res.status(201).json({ success: true, ...result });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to start task' });
+    }
+  });
+
+  app.post('/api/tasks/:taskId/review/resume', (req, res) => {
+    if (!taskService) {
+      res.status(503).json({ success: false, error: 'task service unavailable' });
+      return;
+    }
+
+    try {
+      const result = taskService.resumeReviewRepositoryTask({
+        taskId: req.params.taskId,
+        capabilityProfile: req.body?.capability_profile,
+      });
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to resume task' });
+    }
+  });
+
+  app.get('/api/tasks/:taskId/readiness', (req, res) => {
+    if (!taskService) {
+      res.status(503).json({ success: false, error: 'task service unavailable' });
+      return;
+    }
+
+    try {
+      res.json({ success: true, readiness: taskService.getReadiness(req.params.taskId) });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to load readiness' });
+    }
+  });
+
 
   return {
     app,

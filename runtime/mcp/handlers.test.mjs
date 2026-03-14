@@ -25,6 +25,11 @@ function makeDeps({ outcomeId = null, readFlags = null } = {}) {
     }),
     getCapabilityProfile: null,
     readFlags,
+    taskService: {
+      startReviewRepositoryTask: () => ({ task: { task_id: 'task_1' }, upgraded: false }),
+      resumeReviewRepositoryTask: () => ({ task: { task_id: 'task_1' }, upgraded: true }),
+      getReadiness: () => ({ task_id: 'task_1', readiness: { is_ready: true } }),
+    },
   };
 }
 
@@ -73,4 +78,40 @@ test('behaves normally when readFlags is not provided', async () => {
   const handler = createCallToolHandler(makeDeps({ outcomeId: null, readFlags: null }));
   const result = await handler({ params: { name: 'sync_tools', arguments: {} } });
   assert.ok(!result.isError, 'should not be an error without readFlags');
+});
+
+
+test('supports task tools through shared task service', async () => {
+  const handler = createCallToolHandler(makeDeps());
+
+  const started = await handler({
+    params: {
+      name: 'task_start_review_repository',
+      arguments: {
+        task_id: 'task_1',
+        goal: 'Review repo',
+        route_inputs: { diff_text: 'diff --git a b' },
+      },
+    },
+  });
+  assert.equal(started.isError, undefined);
+
+  const resumed = await handler({ params: { name: 'task_resume_review_repository', arguments: { task_id: 'task_1' } } });
+  assert.equal(resumed.isError, undefined);
+
+  const readiness = await handler({ params: { name: 'task_get_readiness', arguments: { task_id: 'task_1' } } });
+  assert.equal(readiness.isError, undefined);
+});
+
+test('task tools return structured error when task service is not configured', async () => {
+  const deps = makeDeps();
+  deps.taskService = null;
+  const handler = createCallToolHandler(deps);
+
+  const result = await handler({
+    params: { name: 'task_get_readiness', arguments: { task_id: 'task_1' } },
+  });
+
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /Task service is not configured/);
 });

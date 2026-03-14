@@ -32,7 +32,16 @@ export function createCallToolHandler(deps) {
     toolError,
     getCapabilityProfile,
     readFlags,
+    taskService,
   } = deps;
+
+  function requireTaskService(capabilityProfile) {
+    if (!taskService) {
+      return toolError('Task service is not configured for this MCP runtime', capabilityProfile);
+    }
+
+    return null;
+  }
 
   return async function handleCallTool(request) {
     const { name, arguments: args } = request.params;
@@ -120,6 +129,62 @@ export function createCallToolHandler(deps) {
         }
       }
 
+
+      case 'task_start_review_repository': {
+        const missingService = requireTaskService(capabilityProfile);
+        if (missingService) {
+          return missingService;
+        }
+
+        try {
+          const result = taskService.startReviewRepositoryTask({
+            taskId: args?.task_id,
+            goal: args?.goal,
+            routeInputs: args?.route_inputs,
+            capabilityProfile: args?.capability_profile,
+          });
+          return attachCapabilityProfile({
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          }, capabilityProfile);
+        } catch (err) {
+          return toolError(err.message || 'Invalid arguments', capabilityProfile);
+        }
+      }
+
+      case 'task_resume_review_repository': {
+        const missingService = requireTaskService(capabilityProfile);
+        if (missingService) {
+          return missingService;
+        }
+
+        try {
+          const result = taskService.resumeReviewRepositoryTask({
+            taskId: args?.task_id,
+            capabilityProfile: args?.capability_profile,
+          });
+          return attachCapabilityProfile({
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          }, capabilityProfile);
+        } catch (err) {
+          return toolError(err.message || 'Invalid arguments', capabilityProfile);
+        }
+      }
+
+      case 'task_get_readiness': {
+        const missingService = requireTaskService(capabilityProfile);
+        if (missingService) {
+          return missingService;
+        }
+
+        try {
+          const readiness = taskService.getReadiness(args?.task_id);
+          return attachCapabilityProfile({
+            content: [{ type: 'text', text: JSON.stringify({ readiness }, null, 2) }],
+          }, capabilityProfile);
+        } catch (err) {
+          return toolError(err.message || 'Invalid arguments', capabilityProfile);
+        }
+      }
       case 'mcp_remove': {
         try {
           validateName(args?.name);
