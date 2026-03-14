@@ -210,7 +210,7 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - ✓ T010 provenance transitions hardened with explicit `finding_transitioned` progress events.
 - ✓ T011 coverage extended through dedicated transition-event typing and regression tests.
 - ✓ T012 continuation flow hardened: idempotency, canonical replay behavior, and strict input validation are now covered.
-- ✓ T013 completed: `runtime/lib/handoff-token-service.mjs` now issues/verifies/consumes signed handoff tokens with task binding, expiry-window enforcement, replay-store abstraction, timing-safe signature checks, and TaskStore continuation gating with idempotent replay semantics.
+- ✓ T013 completed (2026-03-14): `runtime/lib/handoff-token-service.mjs` now issues/verifies/consumes signed handoff tokens with task binding, expiry-window enforcement, replay-store abstraction, timing-safe signature checks, and TaskStore continuation gating with idempotent replay semantics.
 
 
 **Post-review hardening update (2026-03-14):**
@@ -218,7 +218,7 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - ✓ Added dedicated negative-path tests for handoff-token lifetime-window violations and consume-expiry guards, plus continuation-flow assertion that invalid contracts never consume a token.
 **Week 3 — handoff, route upgrade, and validation**
 - ✓ HandoffToken service: task binding, expiry, signature, replay protection (T013)
-- Extend Worker control-plane endpoints for task-centric operations (T014)
+- ✓ Extend Worker control-plane endpoints for task-centric operations (T014)
 - Weak-environment start flow (T015)
 - Strong-environment resume flow: load existing task → re-evaluate capabilities → upgrade to `local_repo` → preserve findings with provenance (T016)
 - Dashboard and API views: task readiness, route history, progress, findings provenance, stronger-route availability (T017)
@@ -226,6 +226,8 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - Adversarial suite: fake capabilities, replayed tokens, injected repo text, route mismatches, missing task state (T019)
 - Staging deployment and release checklist (T020)
 - Deliverables: staging-ready MVA — start anywhere, finish where the tools are, never re-explain the task
+
+**Week 3 progress update (2026-03-14):** T013 and T014 are complete with worker-level task endpoints, structured 4xx mappings, continuation token verify/consume enforcement, and contract/unit coverage for success/failure and replay/expiry scenarios. Security hardening now includes HMAC-based signature verification, signed-token key configuration checks, timestamp-order validation, and constant-time signature comparison semantics in T013 tests.
 
 ### Key success metrics
 

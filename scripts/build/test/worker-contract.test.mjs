@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../..');
 const WORKER_INDEX_TS = resolve(REPO_ROOT, 'worker/src/index.ts');
+const TASK_STORE_FILE_URL = new URL('../../../runtime/lib/task-store.mjs', import.meta.url).href;
+const HANDOFF_SERVICE_FILE_URL = new URL('../../../runtime/lib/handoff-token-service.mjs', import.meta.url).href;
 const REGISTRY_PATH = resolve(REPO_ROOT, 'dist/registry/index.json');
 const PLUGIN_PATH = resolve(REPO_ROOT, 'dist/clients/claude-code/.claude-plugin/plugin.json');
 
@@ -26,6 +28,14 @@ async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
     .replace(
       /import CLAUDE_CODE_PLUGIN_JSON from '..\/..\/dist\/clients\/claude-code\/\.claude-plugin\/plugin.json';/,
       `const CLAUDE_CODE_PLUGIN_JSON = ${JSON.stringify(pluginFixture)} as const;`
+    )
+    .replace(
+      /import \{ TaskStore, TaskConflictError, TaskNotFoundError \} from '..\/..\/runtime\/lib\/task-store.mjs';/,
+      `import { TaskStore, TaskConflictError, TaskNotFoundError } from '${TASK_STORE_FILE_URL}';`
+    )
+    .replace(
+      /import \{ createHandoffTokenService \} from '..\/..\/runtime\/lib\/handoff-token-service.mjs';/,
+      `import { createHandoffTokenService } from '${HANDOFF_SERVICE_FILE_URL}';`
     );
 
   const transpiled = ts.transpileModule(patchedTs, {
@@ -47,7 +57,37 @@ function makeAuthorizedRequest(pathname) {
   });
 }
 
-const env = { AUTH_TOKEN: 'test-token', ENVIRONMENT: 'test' };
+function makeAuthorizedJsonRequest(method, pathname, body) {
+  return new Request(`https://example.test${pathname}`, {
+    method,
+    headers: {
+      Authorization: 'Bearer test-token',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+const env = { AUTH_TOKEN: 'test-token', ENVIRONMENT: 'test', HANDOFF_TOKEN_SIGNING_KEY: 'test-signing-key' };
+
+async function makeSignedHandoffToken({ tokenId, taskId, issuedAt, expiresAt, replayNonce = 'nonce_1', signingKey = 'test-signing-key' }) {
+  const token = {
+    schema_version: '1.0.0',
+    token_id: tokenId,
+    task_id: taskId,
+    issued_at: issuedAt,
+    expires_at: expiresAt,
+    signature: '',
+    replay_nonce: replayNonce,
+  };
+
+  const { canonicalHandoffTokenPayload, signCanonicalHandoffTokenPayload } = await import(HANDOFF_SERVICE_FILE_URL);
+  token.signature = signCanonicalHandoffTokenPayload({
+    secret: signingKey,
+    canonical: canonicalHandoffTokenPayload(token),
+  });
+  return token;
+}
 
 async function responseJson(worker, path) {
   const res = await worker.fetch(makeAuthorizedRequest(path), env);
@@ -226,5 +266,266 @@ describe('worker endpoint contract', () => {
       assert.equal(sample.body.version, version);
       assert.equal(sample.body.artifact.version, version);
     }
+  });
+
+  test('task control plane endpoints cover success and deterministic continuation replay', async () => {
+    const registry = loadJson(REGISTRY_PATH);
+    const plugin = loadJson(PLUGIN_PATH);
+    const worker = await loadWorkerWithFixtures(registry, plugin);
+
+    const task = {
+      schema_version: '1.0.0',
+      task_id: 'task_review_repository_001',
+      task_type: 'review_repository',
+      goal: 'Review repository changes for correctness and risk.',
+      current_route: 'github_pr',
+      state: 'pending',
+      progress: { completed_steps: 0, total_steps: 3 },
+      findings: [],
+      unresolved_questions: [],
+      approvals: [],
+      route_history: [{ route: 'github_pr', selected_at: '2026-03-12T12:00:00.000Z' }],
+      next_action: 'collect_more_context',
+      version: 1,
+      updated_at: '2026-03-12T12:00:00.000Z',
+    };
+
+    const createRes = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks', task), env);
+    assert.equal(createRes.status, 201);
+    const createBody = await createRes.json();
+    assert.equal(createBody.task.task_id, task.task_id);
+
+    const getRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}`), env);
+    assert.equal(getRes.status, 200);
+
+    const transitionRes = await worker.fetch(makeAuthorizedJsonRequest('PATCH', `/v1/tasks/${task.task_id}/state`, {
+      expected_version: 1,
+      next_state: 'active',
+      next_action: 'collect_more_context',
+      updated_at: '2026-03-12T12:01:00.000Z',
+      progress: { completed_steps: 1, total_steps: 3 },
+    }), env);
+    assert.equal(transitionRes.status, 200);
+
+    const routeSelectionRes = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/route-selection`, {
+      expected_version: 2,
+      route_id: 'local_repo',
+      selected_at: '2026-03-12T12:02:00.000Z',
+    }), env);
+    assert.equal(routeSelectionRes.status, 200);
+
+    const effectiveExecutionContract = {
+      schema_version: '1.0.0',
+      task_id: task.task_id,
+      task_type: task.task_type,
+      selected_route: {
+        schema_version: '1.0.0',
+        route_id: 'local_repo',
+        equivalence_level: 'equal',
+        required_capabilities: ['repo_local_read'],
+        missing_capabilities: [],
+      },
+      equivalence_level: 'equal',
+      missing_capabilities: [],
+      required_inputs: ['repository_ref'],
+      stronger_host_guidance: 'Use local route.',
+      computed_at: '2026-03-12T12:03:00.000Z',
+    };
+
+    const handoffToken = await makeSignedHandoffToken({
+      tokenId: 'handoff_001',
+      taskId: task.task_id,
+      issuedAt: '2026-03-12T12:03:00.000Z',
+      expiresAt: '2099-03-12T12:10:00.000Z',
+      replayNonce: 'nonce_1',
+    });
+
+    const continuationReqBody = {
+      handoff_token: handoffToken,
+      effective_execution_contract: effectiveExecutionContract,
+      created_at: '2026-03-12T12:04:00.000Z',
+    };
+
+    const continuationRes1 = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, continuationReqBody), env);
+    assert.equal(continuationRes1.status, 201);
+    const continuationBody1 = await continuationRes1.json();
+    assert.equal(continuationBody1.continuation_package.handoff_token_id, 'handoff_001');
+    assert.equal(continuationBody1.continuation_package.created_at, '2026-03-12T12:04:00.000Z');
+
+    const continuationRes2 = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, continuationReqBody), env);
+    assert.equal(continuationRes2.status, 200);
+    const continuationBody2 = await continuationRes2.json();
+    assert.equal(
+      continuationBody2.continuation_package.created_at,
+      continuationBody1.continuation_package.created_at,
+      'retry must be idempotent and keep canonical created_at',
+    );
+
+    const progressEventsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/progress-events`), env);
+    assert.equal(progressEventsRes.status, 200);
+    const progressEventsBody = await progressEventsRes.json();
+    assert.ok(progressEventsBody.events.length >= 3);
+
+    const snapshotsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots`), env);
+    assert.equal(snapshotsRes.status, 200);
+    const snapshotsBody = await snapshotsRes.json();
+    assert.equal(snapshotsBody.snapshots.length, 3);
+
+    const snapshotVersion2Res = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots/2`), env);
+    assert.equal(snapshotVersion2Res.status, 200);
+    const snapshotVersion2Body = await snapshotVersion2Res.json();
+    assert.equal(snapshotVersion2Body.snapshot.snapshot_version, 2);
+  });
+
+  test('task endpoint failures: malformed payloads, auth, not found, conflict and token errors', async () => {
+    const registry = loadJson(REGISTRY_PATH);
+    const plugin = loadJson(PLUGIN_PATH);
+    const worker = await loadWorkerWithFixtures(registry, plugin);
+
+    const unauthorized = await worker.fetch(new Request('https://example.test/v1/tasks', { method: 'POST' }), env);
+    assert.equal(unauthorized.status, 401);
+
+
+    const missingSigningKeyRes = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks/task_missing_key_001/continuation', {
+      handoff_token: {
+        schema_version: '1.0.0',
+        token_id: 'handoff_missing_key',
+        task_id: 'task_missing_key_001',
+        issued_at: '2026-03-12T12:03:00.000Z',
+        expires_at: '2099-03-12T12:10:00.000Z',
+        signature: 'deadbeef',
+        replay_nonce: 'nonce_missing_key',
+      },
+      effective_execution_contract: {
+        schema_version: '1.0.0',
+        task_id: 'task_missing_key_001',
+        task_type: 'review_repository',
+        selected_route: {
+          schema_version: '1.0.0',
+          route_id: 'github_pr',
+          equivalence_level: 'equal',
+          required_capabilities: ['network_http'],
+          missing_capabilities: [],
+        },
+        equivalence_level: 'equal',
+        missing_capabilities: [],
+        required_inputs: ['pr_url'],
+        computed_at: '2026-03-12T12:03:00.000Z',
+      },
+      created_at: '2026-03-12T12:04:00.000Z',
+    }), { ...env, HANDOFF_TOKEN_SIGNING_KEY: '' });
+    assert.equal(missingSigningKeyRes.status, 500);
+
+    const malformed = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks/task_review_repository_001/route-selection', {
+      expected_version: 'x',
+      route_id: 'local_repo',
+      selected_at: '2026-03-12T12:02:00.000Z',
+    }), env);
+    assert.equal(malformed.status, 400);
+
+    const task = {
+      schema_version: '1.0.0',
+      task_id: 'task_review_repository_002',
+      task_type: 'review_repository',
+      goal: 'Review repository changes for correctness and risk.',
+      current_route: 'github_pr',
+      state: 'pending',
+      progress: { completed_steps: 0, total_steps: 3 },
+      findings: [],
+      unresolved_questions: [],
+      approvals: [],
+      route_history: [{ route: 'github_pr', selected_at: '2026-03-12T12:00:00.000Z' }],
+      next_action: 'collect_more_context',
+      version: 1,
+      updated_at: '2026-03-12T12:00:00.000Z',
+    };
+
+    const createRes = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks', task), env);
+    assert.equal(createRes.status, 201);
+
+    const duplicateCreateRes = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks', task), env);
+    assert.equal(duplicateCreateRes.status, 409);
+
+    const staleRouteSelection = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/route-selection`, {
+      expected_version: 0,
+      route_id: 'local_repo',
+      selected_at: '2026-03-12T12:02:00.000Z',
+    }), env);
+    assert.equal(staleRouteSelection.status, 409);
+
+    const missingTask = await worker.fetch(makeAuthorizedRequest('/v1/tasks/missing_task_001'), env);
+    assert.equal(missingTask.status, 404);
+
+    const baseExecutionContract = {
+      schema_version: '1.0.0',
+      task_id: task.task_id,
+      task_type: task.task_type,
+      selected_route: {
+        schema_version: '1.0.0',
+        route_id: 'github_pr',
+        equivalence_level: 'equal',
+        required_capabilities: ['network_http'],
+        missing_capabilities: [],
+      },
+      equivalence_level: 'equal',
+      missing_capabilities: [],
+      required_inputs: ['pr_url'],
+      computed_at: '2026-03-12T12:03:00.000Z',
+    };
+
+    const invalidTokenRes = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, {
+      handoff_token: {
+        schema_version: '1.0.0',
+        token_id: 'handoff_invalid',
+        task_id: 'other_task_id',
+        issued_at: '2026-03-12T12:03:00.000Z',
+        expires_at: '2099-03-12T12:10:00.000Z',
+        signature: 'deadbeef',
+        replay_nonce: 'nonce_invalid',
+      },
+      effective_execution_contract: baseExecutionContract,
+      created_at: '2026-03-12T12:04:00.000Z',
+    }), env);
+    assert.equal(invalidTokenRes.status, 401);
+
+    const expiredToken = await makeSignedHandoffToken({
+      tokenId: 'handoff_expired',
+      taskId: task.task_id,
+      issuedAt: '2020-03-12T12:03:00.000Z',
+      expiresAt: '2020-03-12T12:10:00.000Z',
+      replayNonce: 'nonce_expired',
+    });
+
+    const expiredTokenRes = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, {
+      handoff_token: expiredToken,
+      effective_execution_contract: baseExecutionContract,
+      created_at: '2026-03-12T12:04:00.000Z',
+    }), env);
+    assert.equal(expiredTokenRes.status, 403);
+
+    const replayToken = await makeSignedHandoffToken({
+      tokenId: 'handoff_replay_001',
+      taskId: task.task_id,
+      issuedAt: '2026-03-12T12:03:00.000Z',
+      expiresAt: '2099-03-12T12:10:00.000Z',
+      replayNonce: 'nonce_replay_001',
+    });
+
+    const firstReplayUse = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, {
+      handoff_token: replayToken,
+      effective_execution_contract: baseExecutionContract,
+      created_at: '2026-03-12T12:04:00.000Z',
+    }), env);
+    assert.equal(firstReplayUse.status, 201);
+
+    const replayConflict = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, {
+      handoff_token: replayToken,
+      effective_execution_contract: {
+        ...baseExecutionContract,
+        required_inputs: ['different_input'],
+      },
+      created_at: '2026-03-12T12:05:00.000Z',
+    }), env);
+    assert.equal(replayConflict.status, 403);
   });
 });

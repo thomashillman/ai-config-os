@@ -27,6 +27,10 @@
 import REGISTRY_JSON from '../../dist/registry/index.json';
 // @ts-ignore - generated at build time
 import CLAUDE_CODE_PLUGIN_JSON from '../../dist/clients/claude-code/.claude-plugin/plugin.json';
+// @ts-ignore - runtime JS module
+import { TaskStore, TaskConflictError, TaskNotFoundError } from '../../runtime/lib/task-store.mjs';
+// @ts-ignore - runtime JS module
+import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service.mjs';
 
 export interface Env {
   AUTH_TOKEN: string;
@@ -35,6 +39,7 @@ export interface Env {
   EXECUTOR_PROXY_URL: string;
   EXECUTOR_SHARED_SECRET: string;
   EXECUTOR_TIMEOUT_MS?: string;
+  HANDOFF_TOKEN_SIGNING_KEY?: string;
   MANIFEST_KV?: {
     get(key: string): Promise<string | null> | string | null;
   };
@@ -50,6 +55,49 @@ type ExecutePayload = {
   timeout_ms?: number;
   metadata?: Record<string, unknown>;
 };
+
+type TransitionTaskStatePayload = {
+  expected_version: number;
+  next_state: string;
+  next_action: string;
+  updated_at: string;
+  progress?: { completed_steps: number; total_steps: number };
+};
+
+type RouteSelectionPayload = {
+  expected_version: number;
+  route_id: string;
+  selected_at: string;
+};
+
+type ContinuationPayload = {
+  handoff_token: Record<string, unknown>;
+  effective_execution_contract: Record<string, unknown>;
+  created_at?: string;
+};
+
+let taskStore: TaskStore | null = null;
+let taskStoreSecret: string | null = null;
+const continuationFingerprints = new Map<string, string>();
+
+function getTaskStore(env: Env): TaskStore {
+  const secret = env.HANDOFF_TOKEN_SIGNING_KEY ?? null;
+
+  if (!taskStore) {
+    taskStore = secret
+      ? new TaskStore({ handoffTokenService: createHandoffTokenService({ secret }) })
+      : new TaskStore();
+    taskStoreSecret = secret;
+    return taskStore;
+  }
+
+  if (secret && taskStoreSecret !== secret) {
+    taskStore = new TaskStore({ handoffTokenService: createHandoffTokenService({ secret }) });
+    taskStoreSecret = secret;
+  }
+
+  return taskStore;
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────
 
@@ -87,6 +135,58 @@ function jsonResponse(data: unknown, status = 200): Response {
 
 function notFound(message: string): Response {
   return jsonResponse({ error: 'Not Found', message }, 404);
+}
+
+function badRequest(message: string): Response {
+  return jsonResponse({ error: { code: 'bad_request', message } }, 400);
+}
+
+function taskErrorResponse(error: unknown): Response | null {
+  if (error instanceof TaskNotFoundError) {
+    const known = error as Error & { code?: string; details?: unknown };
+    return jsonResponse({
+      error: {
+        code: known.code,
+        message: known.message,
+        details: known.details,
+      },
+    }, 404);
+  }
+
+  if (error instanceof TaskConflictError) {
+    const known = error as Error & { code?: string; details?: unknown };
+    return jsonResponse({
+      error: {
+        code: known.code,
+        message: known.message,
+        details: known.details,
+      },
+    }, 409);
+  }
+
+  if (error instanceof Error) {
+    const message = error.message || 'Continuation token validation failed';
+    if (message.includes('Token is expired') || message.includes('already consumed')) {
+      return jsonResponse({ error: { code: 'handoff_token_forbidden', message } }, 403);
+    }
+
+    if (message.includes('Token')) {
+      return jsonResponse({ error: { code: 'handoff_token_invalid', message } }, 401);
+    }
+  }
+
+  return null;
+}
+
+function asObject(payload: unknown): Record<string, unknown> | null {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    return null;
+  }
+  return payload as Record<string, unknown>;
+}
+
+function isIsoDateTime(value: unknown): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
 }
 
 function parseTimeoutMs(raw: string | undefined): number {
@@ -129,11 +229,10 @@ async function readArtifactJson(env: Env, key: string): Promise<unknown | Respon
 }
 
 function validateExecutePayload(payload: unknown): { ok: true; value: ExecutePayload } | { ok: false; error: string } {
-  if (typeof payload !== 'object' || payload === null) {
+  const data = asObject(payload);
+  if (!data) {
     return { ok: false, error: 'Payload must be a JSON object' };
   }
-
-  const data = payload as Record<string, unknown>;
 
   if (typeof data.tool !== 'string' || data.tool.trim().length === 0) {
     return { ok: false, error: "Field 'tool' must be a non-empty string" };
@@ -174,6 +273,67 @@ function validateExecutePayload(payload: unknown): { ok: true; value: ExecutePay
       metadata: data.metadata as Record<string, unknown> | undefined,
     },
   };
+}
+
+function validateTaskCreatePayload(payload: unknown): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) {
+    return { ok: false, error: 'Payload must be a JSON object' };
+  }
+  return { ok: true, value: data };
+}
+
+function validateTaskStatePayload(payload: unknown): { ok: true; value: TransitionTaskStatePayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+  if (!Number.isInteger(data.expected_version)) return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (typeof data.next_state !== 'string' || data.next_state.length === 0) return { ok: false, error: "Field 'next_state' must be a non-empty string" };
+  if (typeof data.next_action !== 'string' || data.next_action.length === 0) return { ok: false, error: "Field 'next_action' must be a non-empty string" };
+  if (!isIsoDateTime(data.updated_at)) return { ok: false, error: "Field 'updated_at' must be an ISO timestamp" };
+
+  if (data.progress !== undefined) {
+    const progress = asObject(data.progress);
+    if (!progress) return { ok: false, error: "Field 'progress' must be an object" };
+    if (!Number.isInteger(progress.completed_steps) || !Number.isInteger(progress.total_steps)) {
+      return { ok: false, error: "Field 'progress' must include integer 'completed_steps' and 'total_steps'" };
+    }
+  }
+
+  return { ok: true, value: data as unknown as TransitionTaskStatePayload };
+}
+
+function validateRouteSelectionPayload(payload: unknown): { ok: true; value: RouteSelectionPayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+  if (!Number.isInteger(data.expected_version)) return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (typeof data.route_id !== 'string' || data.route_id.length === 0) return { ok: false, error: "Field 'route_id' must be a non-empty string" };
+  if (!isIsoDateTime(data.selected_at)) return { ok: false, error: "Field 'selected_at' must be an ISO timestamp" };
+  return { ok: true, value: data as unknown as RouteSelectionPayload };
+}
+
+function validateContinuationPayload(payload: unknown): { ok: true; value: ContinuationPayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+
+  if (!asObject(data.handoff_token)) {
+    return { ok: false, error: "Field 'handoff_token' must be an object" };
+  }
+  if (!asObject(data.effective_execution_contract)) {
+    return { ok: false, error: "Field 'effective_execution_contract' must be an object" };
+  }
+  if (data.created_at !== undefined && !isIsoDateTime(data.created_at)) {
+    return { ok: false, error: "Field 'created_at' must be an ISO timestamp" };
+  }
+
+  return { ok: true, value: data as unknown as ContinuationPayload };
+}
+
+async function readJsonBody(request: Request): Promise<{ ok: true; value: unknown } | { ok: false; response: Response }> {
+  try {
+    return { ok: true, value: await request.json() };
+  } catch {
+    return { ok: false, response: badRequest('Invalid JSON body') };
+  }
 }
 
 // ── Route handlers ────────────────────────────────────────────────────────
@@ -352,6 +512,149 @@ async function handleExecute(request: Request, env: Env): Promise<Response> {
   }
 }
 
+async function handleTaskCreate(request: Request, env: Env): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const validation = validateTaskCreatePayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const created = getTaskStore(env).create(validation.value);
+    return jsonResponse({ task: created }, 201);
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to create task');
+  }
+}
+
+function handleTaskGet(env: Env, taskId: string): Response {
+  try {
+    return jsonResponse({ task: getTaskStore(env).load(taskId) });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task load error' } }, 500);
+  }
+}
+
+async function handleTaskTransitionState(request: Request, env: Env, taskId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const validation = validateTaskStatePayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const updated = getTaskStore(env).transitionState(taskId, {
+      expectedVersion: validation.value.expected_version,
+      nextState: validation.value.next_state,
+      nextAction: validation.value.next_action,
+      updatedAt: validation.value.updated_at,
+      progress: validation.value.progress,
+    });
+    return jsonResponse({ task: updated });
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to transition task state');
+  }
+}
+
+async function handleTaskRouteSelection(request: Request, env: Env, taskId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const validation = validateRouteSelectionPayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const updated = getTaskStore(env).selectRoute(taskId, {
+      expectedVersion: validation.value.expected_version,
+      routeId: validation.value.route_id,
+      selectedAt: validation.value.selected_at,
+    });
+    return jsonResponse({ task: updated });
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to select task route');
+  }
+}
+
+async function handleTaskContinuation(request: Request, env: Env, taskId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+  const validation = validateContinuationPayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  if (!env.HANDOFF_TOKEN_SIGNING_KEY) {
+    return jsonResponse({ error: { code: 'handoff_signing_key_missing', message: 'Handoff token signing key is not configured' } }, 500);
+  }
+
+  const fingerprint = JSON.stringify({
+    task_id: taskId,
+    token_id: (validation.value.handoff_token as any).token_id ?? null,
+    effective_execution_contract: validation.value.effective_execution_contract,
+  });
+
+  const tokenId = typeof (validation.value.handoff_token as any).token_id === 'string'
+    ? (validation.value.handoff_token as any).token_id as string
+    : null;
+
+  if (tokenId) {
+    const existingFingerprint = continuationFingerprints.get(tokenId);
+    if (existingFingerprint && existingFingerprint !== fingerprint) {
+      return jsonResponse({
+        error: {
+          code: 'handoff_token_forbidden',
+          message: `Continuation replay fingerprint mismatch for token ${tokenId}`,
+        },
+      }, 403);
+    }
+  }
+
+  const replayed = Boolean(tokenId && continuationFingerprints.get(tokenId) === fingerprint);
+
+  try {
+    const continuation_package = getTaskStore(env).createContinuationPackage(taskId, {
+      handoffToken: validation.value.handoff_token,
+      effectiveExecutionContract: validation.value.effective_execution_contract,
+      createdAt: validation.value.created_at,
+    });
+
+    if (tokenId && !continuationFingerprints.has(tokenId)) {
+      continuationFingerprints.set(tokenId, fingerprint);
+    }
+
+    return jsonResponse({ continuation_package }, replayed ? 200 : 201);
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to create continuation package');
+  }
+}
+
+function handleTaskProgressEvents(env: Env, taskId: string): Response {
+  try {
+    return jsonResponse({ events: getTaskStore(env).listProgressEvents(taskId) });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task progress event error' } }, 500);
+  }
+}
+
+function handleTaskSnapshots(env: Env, taskId: string, version: string | null): Response {
+  try {
+    if (!version) {
+      return jsonResponse({ snapshots: getTaskStore(env).listSnapshots(taskId) });
+    }
+
+    const snapshotVersion = Number(version);
+    if (!Number.isInteger(snapshotVersion) || snapshotVersion <= 0) {
+      return badRequest("Path parameter 'version' must be a positive integer");
+    }
+    return jsonResponse({ snapshot: getTaskStore(env).getSnapshot(taskId, snapshotVersion) });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task snapshot error' } }, 500);
+  }
+}
+
 // ── Router ────────────────────────────────────────────────────────────────
 
 export default {
@@ -360,7 +663,7 @@ export default {
       return new Response(null, {
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Signature',
         },
       });
@@ -422,13 +725,52 @@ export default {
       if (skillMatch) {
         return handleSkill(skillMatch[1]);
       }
+
+      const taskGetMatch = path.match(/^\/v1\/tasks\/([^/]+)$/);
+      if (taskGetMatch) {
+        return handleTaskGet(env, taskGetMatch[1]);
+      }
+
+      const taskProgressMatch = path.match(/^\/v1\/tasks\/([^/]+)\/progress-events$/);
+      if (taskProgressMatch) {
+        return handleTaskProgressEvents(env, taskProgressMatch[1]);
+      }
+
+      const taskSnapshotByVersionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/snapshots\/([^/]+)$/);
+      if (taskSnapshotByVersionMatch) {
+        return handleTaskSnapshots(env, taskSnapshotByVersionMatch[1], taskSnapshotByVersionMatch[2]);
+      }
+
+      const taskSnapshotsMatch = path.match(/^\/v1\/tasks\/([^/]+)\/snapshots$/);
+      if (taskSnapshotsMatch) {
+        return handleTaskSnapshots(env, taskSnapshotsMatch[1], null);
+      }
     }
 
     if (request.method === 'POST' && path === '/v1/execute') {
       return handleExecute(request, env);
     }
 
-    if (request.method !== 'GET' && request.method !== 'POST') {
+    if (request.method === 'POST' && path === '/v1/tasks') {
+      return handleTaskCreate(request, env);
+    }
+
+    const taskRouteSelectionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/route-selection$/);
+    if (request.method === 'POST' && taskRouteSelectionMatch) {
+      return handleTaskRouteSelection(request, env, taskRouteSelectionMatch[1]);
+    }
+
+    const taskContinuationMatch = path.match(/^\/v1\/tasks\/([^/]+)\/continuation$/);
+    if (request.method === 'POST' && taskContinuationMatch) {
+      return handleTaskContinuation(request, env, taskContinuationMatch[1]);
+    }
+
+    const taskStatePatchMatch = path.match(/^\/v1\/tasks\/([^/]+)\/state$/);
+    if (request.method === 'PATCH' && taskStatePatchMatch) {
+      return handleTaskTransitionState(request, env, taskStatePatchMatch[1]);
+    }
+
+    if (request.method !== 'GET' && request.method !== 'POST' && request.method !== 'PATCH') {
       return jsonResponse({ error: 'Method Not Allowed' }, 405);
     }
 
