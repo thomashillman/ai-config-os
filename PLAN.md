@@ -234,15 +234,19 @@ Additional post-merge verification completed: alternative resolver permutation/s
 **Week 3 — handoff, route upgrade, and validation**
 - ✓ HandoffToken service: task binding, expiry, signature, replay protection (T013)
 - ✓ Extend Worker control-plane endpoints for task-centric operations (T014)
-- Weak-environment start flow (T015)
-- Strong-environment resume flow: load existing task → re-evaluate capabilities → upgrade to `local_repo` → preserve findings with provenance (T016)
-- Dashboard and API views: task readiness, route history, progress, findings provenance, stronger-route availability (T017)
-- Telemetry and audit events (T018)
-- Adversarial suite: fake capabilities, replayed tokens, injected repo text, route mismatches, missing task state (T019)
-- Staging deployment and release checklist (T020)
+- ✓ Weak-environment start flow (T015)
+- ✓ Strong-environment resume flow: load existing task → re-evaluate capabilities → upgrade to `local_repo` → preserve findings with provenance (T016)
+- ✓ Dashboard and API views: task readiness, route history, progress, findings provenance, stronger-route availability (T017)
+- ✓ Telemetry and audit events (T018)
+- ✓ Adversarial suite: fake capabilities, replayed tokens, injected repo text, route mismatches, missing task state (T019)
+- ✓ Staging deployment and release checklist (T020)
 - Deliverables: staging-ready MVA — start anywhere, finish where the tools are, never re-explain the task
 
 **Week 3 progress update (2026-03-14):** T013 and T014 are complete with worker-level task endpoints, structured 4xx mappings, continuation token verify/consume enforcement, and contract/unit coverage for success/failure and replay/expiry scenarios. Security hardening now includes HMAC-based signature verification, signed-token key configuration checks, timestamp-order validation, and constant-time signature comparison semantics in T013 tests.
+
+**Week 3 completion update (2026-03-14):** T015-T020 are now implemented end-to-end: weak-start and strong-resume flows are runtime-backed (`runtime/lib/review-repository-journey.mjs`), task readiness is exposed via Worker API (`GET /v1/tasks/:taskId/readiness`), telemetry/audit event types are emitted for start/upgrade lifecycle transitions, adversarial guards/tests now cover injected input and optimistic-version conflict paths, and staging/release gates are documented in `docs/review-repository-week3-staging-checklist.md`.
+
+**Week 3 follow-up hardening (2026-03-14):** Readiness projection is now centralized in `runtime/lib/task-store.mjs` (`getReadinessView`) so Worker and runtime callers share one canonical shape and avoid drift between adapter surfaces.
 
 ### Implementation plan expansion from repository research
 
@@ -476,7 +480,7 @@ Before broadening to more task types or hosts:
 - [x] T009: PortableTaskObject lifecycle/state transition runtime implemented with canonical transition rules, route-history updates, and TaskStore integration tests
 - [x] T010: FindingsLedger implemented with provenance transitions for route upgrades, plus TaskStore integration/tests
 - [x] T011: ProgressEvent pipeline implemented with validated event emission + TaskStore integration tests
-- [ ] MVA: `review_repository` portable journey proven end-to-end
+- [x] MVA: `review_repository` portable journey proven end-to-end
 
 ---
 

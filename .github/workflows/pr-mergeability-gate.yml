@@ -68,7 +68,7 @@ jobs:
 
       - name: Guard: no conflict markers in tracked files
         run: |
-          if rg -n "^(<<<<<<<|=======|>>>>>>>)" \
+          if rg -n "(^<{7}|^={7}|^>{7})" \
             --glob '!**/node_modules/**' \
             --glob '!.git/**' . ; then
             echo "Conflict markers found"

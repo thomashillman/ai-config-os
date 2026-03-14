@@ -366,6 +366,13 @@ describe('worker endpoint contract', () => {
     const progressEventsBody = await progressEventsRes.json();
     assert.ok(progressEventsBody.events.length >= 3);
 
+    const readinessRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/readiness`), env);
+    assert.equal(readinessRes.status, 200);
+    const readinessBody = await readinessRes.json();
+    assert.equal(readinessBody.readiness.task_id, task.task_id);
+    assert.equal(readinessBody.readiness.current_route, 'local_repo');
+    assert.equal(readinessBody.readiness.progress_event_count >= 3, true);
+
     const snapshotsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots`), env);
     assert.equal(snapshotsRes.status, 200);
     const snapshotsBody = await snapshotsRes.json();
@@ -455,6 +462,9 @@ describe('worker endpoint contract', () => {
 
     const missingTask = await worker.fetch(makeAuthorizedRequest('/v1/tasks/missing_task_001'), env);
     assert.equal(missingTask.status, 404);
+
+    const missingTaskReadiness = await worker.fetch(makeAuthorizedRequest('/v1/tasks/missing_task_001/readiness'), env);
+    assert.equal(missingTaskReadiness.status, 404);
 
     const baseExecutionContract = {
       schema_version: '1.0.0',

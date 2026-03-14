@@ -60,7 +60,7 @@ Execution procedure:
    - run provided verification_commands in order
    - fix only merge-induced breakages
 5) Final checks:
-   - ensure no markers remain: `rg -n "^(<<<<<<<|=======|>>>>>>>)" <resolved file list>`
+   - ensure no markers remain: `rg -n "(^<{7}|^={7}|^>{7})" <resolved file list>`
    - git status
    - git diff origin/<base_branch>...HEAD --stat
 6) Push:

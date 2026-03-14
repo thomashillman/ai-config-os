@@ -51,32 +51,32 @@ tasks:
   - id: T013
     sprint: week_3
     title: Implement HandoffToken service
-    status: todo
+    status: done
   - id: T014
     sprint: week_3
     title: Extend Worker endpoints for task-centric operations
-    status: todo
+    status: done
   - id: T015
     sprint: week_3
     title: Implement weak-environment start flow
-    status: todo
+    status: done
   - id: T016
     sprint: week_3
     title: Implement strong-environment resume and route upgrade flow
-    status: todo
+    status: done
   - id: T017
     sprint: week_3
     title: Add dashboard and API visibility for readiness/provenance/history
-    status: todo
+    status: done
   - id: T018
     sprint: week_3
     title: Add telemetry and audit events
-    status: todo
+    status: done
   - id: T019
     sprint: week_3
     title: Deliver adversarial test suite
-    status: todo
+    status: done
   - id: T020
     sprint: week_3
     title: Complete staging deployment and release checklist
-    status: todo
+    status: done

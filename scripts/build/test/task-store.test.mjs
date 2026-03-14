@@ -210,3 +210,52 @@ test('TaskStore transitionFindingsForRouteUpgrade marks cross-route verified fin
   assert.equal(updated.findings[0].provenance.status, 'reused');
   assert.equal(updated.findings[0].provenance.recorded_by_route, 'local_repo');
 });
+
+test('TaskStore getReadinessView returns canonical readiness projection', () => {
+  const store = new TaskStore();
+  const task = buildTask({
+    state: 'active',
+    current_route: 'github_pr',
+    progress: { completed_steps: 1, total_steps: 4 },
+    findings: [{
+      schema_version: '1.0.0',
+      finding_id: 'finding_1',
+      summary: 'Potential issue',
+      evidence: [],
+      provenance: {
+        schema_version: '1.0.0',
+        status: 'verified',
+        recorded_at: '2026-03-12T12:20:00.000Z',
+        recorded_by_route: 'github_pr',
+      },
+    }],
+  });
+
+  store.create(task);
+  store.appendFinding(task.task_id, {
+    expectedVersion: 1,
+    finding: {
+      findingId: 'finding_2',
+      summary: 'Secondary signal',
+      status: 'hypothesis',
+      recordedAt: '2026-03-12T12:21:00.000Z',
+      recordedByRoute: 'github_pr',
+      evidence: [],
+    },
+    updatedAt: '2026-03-12T12:21:00.000Z',
+  });
+
+  const readiness = store.getReadinessView(task.task_id);
+
+  assert.equal(readiness.task_id, task.task_id);
+  assert.equal(readiness.current_route, 'github_pr');
+  assert.equal(readiness.readiness.is_ready, true);
+  assert.equal(readiness.readiness.stronger_route_available, true);
+  assert.equal(readiness.findings_provenance.verified, 1);
+  assert.equal(readiness.progress_event_count > 0, true);
+});
+
+test('TaskStore getReadinessView throws TaskNotFoundError for unknown task', () => {
+  const store = new TaskStore();
+  assert.throws(() => store.getReadinessView('missing_task_id'), TaskNotFoundError);
+});

@@ -49,7 +49,7 @@ npm run -s test
 npm run -s verify
 
 # 5) Explicit conflict-marker guard
-if rg -n "^(<<<<<<<|=======|>>>>>>>)" --glob '!**/node_modules/**' . ; then
+if rg -n "(^<{7}|^={7}|^>{7})" --glob '!**/node_modules/**' . ; then
   echo "ERROR: Conflict markers found."
   exit 4
 fi

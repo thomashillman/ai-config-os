@@ -16,6 +16,7 @@
  *   GET /v1/effective-contract/preview
  *   GET /v1/client/:client/latest
  *   GET /v1/skill/:skillId
+ *   GET /v1/tasks/:taskId/readiness
  *   POST /v1/execute
  *
  * Auth: Authorization: Bearer <token> on all endpoints.
@@ -639,6 +640,14 @@ function handleTaskProgressEvents(env: Env, taskId: string): Response {
   }
 }
 
+function handleTaskReadiness(env: Env, taskId: string): Response {
+  try {
+    return jsonResponse({ readiness: getTaskStore(env).getReadinessView(taskId) });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task readiness error' } }, 500);
+  }
+}
+
 function handleTaskSnapshots(env: Env, taskId: string, version: string | null): Response {
   try {
     if (!version) {
@@ -734,6 +743,11 @@ export default {
       const taskProgressMatch = path.match(/^\/v1\/tasks\/([^/]+)\/progress-events$/);
       if (taskProgressMatch) {
         return handleTaskProgressEvents(env, taskProgressMatch[1]);
+      }
+
+      const taskReadinessMatch = path.match(/^\/v1\/tasks\/([^/]+)\/readiness$/);
+      if (taskReadinessMatch) {
+        return handleTaskReadiness(env, taskReadinessMatch[1]);
       }
 
       const taskSnapshotByVersionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/snapshots\/([^/]+)$/);
