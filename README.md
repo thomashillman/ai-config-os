@@ -30,6 +30,46 @@ This architecture ensures:
 - **Determinism:** Same source always produces identical emitted packages (no timestamps in build output)
 - **Scalability:** Packages can be distributed via Worker, S3, package manager, or Git without modification
 
+## Architecture: Runtime Control Plane
+
+The repository now has a second architectural spine alongside skill packaging: a task-control-plane for portable work.
+
+At a high level:
+
+1. `runtime/lib/` defines portable task state, route resolution, findings provenance, continuation packages, and handoff tokens.
+2. `runtime/mcp/` exposes local runtime operations and starts the dashboard API.
+3. `runtime/remote-executor/` provides a constrained HTTP execution surface for proxied tool runs.
+4. `worker/src/index.ts` serves emitted artifacts, proxies approved execution requests, and exposes task-control-plane endpoints.
+5. `dashboard/` acts as an operator UI over the runtime API.
+
+Current design intent:
+
+- keep canonical authored content in `shared/`
+- keep deterministic compilation in `scripts/build/`
+- keep orchestration logic in `runtime/lib/`
+- treat MCP, dashboard, and Worker as adapters over shared runtime behavior
+
+This matters because AI Config OS is no longer only a packaging system for skills. It is also becoming a runtime that can start work in one environment and continue it in another without reconstructing task state.
+
+## Current implementation focus
+
+The flagship workflow is now `review_repository`:
+
+- start in a weaker environment such as web, mobile, pasted diff, or uploaded bundle
+- create a canonical task object with route-specific inputs
+- continue in a stronger environment such as `local_repo`
+- preserve findings with explicit provenance (`verified`, `reused`, `hypothesis`)
+- finish without asking the user to restate the task
+
+The next implementation work is concentrated in four areas:
+
+1. Finish the end-to-end `review_repository` flow on top of the task-control-plane.
+2. Converge script-driven runtime flows and contract-driven runtime flows so MCP, dashboard, and Worker do not drift.
+3. Decompose the Worker into smaller modules while preserving the public API.
+4. Extend emitted runtime metadata only where task orchestration needs it, without weakening determinism.
+
+The detailed planning notes for this work live in `PLAN.md`, with supporting research documents in `specs/`.
+
 ---
 
 ## Getting started
@@ -220,6 +260,7 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
 | `runtime/mcp/` | MCP server exposing runtime operations as Claude Code tools |
 | `runtime/remote-executor/` | HTTP service that executes proxied tool requests from the worker |
+| `runtime/lib/` | Task-control-plane core: route resolution, task lifecycle, findings provenance, continuation, and runtime contracts |
 | `dashboard/` | React SPA for runtime visibility and control |
 | `ops/` | Developer scripts (new-skill, merge-open-prs, lint, validate, docs generator) |
 | `.claude/hooks/` | Startup and post-tool hooks for Claude Code |

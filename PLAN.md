@@ -119,6 +119,22 @@ All 22 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 
 ## Immediate next actions (before any new work proceeds)
 
+### Research-grounded implementation tracks
+
+The repository research in `specs/` clarifies where the next implementation effort should go. The current highest-leverage tracks are:
+
+1. Finish the `review_repository` journey end-to-end on top of the new task-control-plane.
+2. Reduce control-plane duplication between script-driven runtime flows and contract-driven runtime flows.
+3. Break the Worker surface into smaller, testable modules before additional endpoint growth.
+4. Keep the build pipeline deterministic while expanding emitted runtime metadata for task-centric execution.
+
+These tracks are grounded in:
+
+- `specs/repository-research.md`
+- `specs/runtime-lib-control-plane-research.md`
+- `specs/worker-endpoint-inventory.md`
+- `specs/build-pipeline-research.md`
+
 ### 1. Complete Phase 9.7 — Manifest-controlled runtime feature flags
 
 **Version:** v0.5.4+
@@ -227,6 +243,144 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - Deliverables: staging-ready MVA — start anywhere, finish where the tools are, never re-explain the task
 
 **Week 3 progress update (2026-03-14):** T013 and T014 are complete with worker-level task endpoints, structured 4xx mappings, continuation token verify/consume enforcement, and contract/unit coverage for success/failure and replay/expiry scenarios. Security hardening now includes HMAC-based signature verification, signed-token key configuration checks, timestamp-order validation, and constant-time signature comparison semantics in T013 tests.
+
+### Implementation plan expansion from repository research
+
+The research pass changes the planning priority inside the MVA. The next work should be organized into four concrete tracks.
+
+#### Track A - Finish the task-control-plane journey
+
+Focus:
+
+- complete T015-T020 on top of the now-established `runtime/lib/` control-plane modules
+
+Why now:
+
+- `runtime/lib/` is already the architectural center of gravity
+- T013 and T014 established the minimum viable task and continuation substrate
+- the product claim still depends on a real weak-start -> strong-resume journey
+
+Implementation steps:
+
+- T015: implement weak-environment task creation flows that produce canonical PortableTaskObjects using route-specific required inputs
+- T016: implement strong-environment resume and route-upgrade flow that re-evaluates capability profiles, upgrades to `local_repo`, and transitions findings provenance correctly
+- T017: surface task readiness, route history, progress events, findings provenance, and stronger-route availability in dashboard and API payloads
+- T018: emit telemetry and audit events from task transitions, route upgrades, and continuation-package creation
+- T019: expand adversarial coverage around capability spoofing, replayed continuation tokens, input mismatches, and task version conflicts
+- T020: document release gates and stage the full journey in a deployment-ready configuration
+
+Definition of done:
+
+- a repository review can begin in a degraded route and resume in `local_repo` without task restatement
+- findings survive route upgrade with explicit provenance transitions
+- dashboard and API expose enough task state to explain why the runtime is or is not ready
+
+#### Track B - Unify runtime execution paths
+
+Focus:
+
+- reduce the split between script-backed dashboard/runtime actions and the newer contract-driven runtime control-plane
+
+Why now:
+
+- research identified a real split-brain risk between `runtime/mcp/dashboard-api.mjs` and `runtime/lib/`
+- adding more task features without tightening that boundary will make behavior drift more likely
+
+Implementation steps:
+
+- define which runtime actions should remain shell-script adapters versus which should move behind `runtime/lib/` services
+- introduce narrow runtime service modules for task-facing flows so MCP handlers, dashboard API, and Worker can share one implementation path
+- keep shell scripts as thin orchestration wrappers where they remain necessary for environment integration
+- extend tests to assert equivalent behavior across MCP, dashboard, and Worker surfaces for the same route/outcome decisions
+
+Definition of done:
+
+- task-centric behavior is implemented once in `runtime/lib/` or a thin adjacent service layer
+- dashboard and MCP surfaces become adapters over shared runtime behavior instead of parallel implementations
+
+#### Track C - Decompose the Worker surface
+
+Focus:
+
+- split `worker/src/index.ts` by responsibility before more features land
+
+Why now:
+
+- the Worker already owns auth, artifact delivery, execution proxying, task state, snapshots, and continuation behavior
+- the current file is serviceable, but future growth will make review and security work harder
+
+Implementation steps:
+
+- extract auth and common response helpers into Worker-local modules
+- extract artifact-serving routes into a dedicated manifest/artifact handler
+- extract task-control-plane handlers into a dedicated Worker task module
+- extract remote-execution proxy code into a focused adapter around `runtime/remote-executor`
+- preserve current public routes and response contracts while refactoring internally
+
+Definition of done:
+
+- `worker/src/index.ts` is mostly route wiring
+- route families are isolated enough to test independently
+- auth, task, and artifact changes can land without touching unrelated code
+
+#### Track D - Extend build/runtime metadata for portable tasks
+
+Focus:
+
+- keep the compiler deterministic while expanding runtime metadata to support task-centric orchestration
+
+Why now:
+
+- the build pipeline is already the place where source definitions become runtime-consumable artifacts
+- task/outcome/route growth will put more pressure on emitted runtime metadata
+
+Implementation steps:
+
+- review whether task route definitions and task route input definitions should eventually be emitted into `dist/runtime/` instead of remaining runtime-only files
+- keep manifest hashing and deterministic emission rules intact as new runtime documents are added
+- add contract tests that cover any new emitted task metadata
+- update registry/runtime docs so downstream consumers know which artifacts are authoritative for task orchestration
+
+Definition of done:
+
+- runtime consumers can discover task-oriented metadata from emitted artifacts where appropriate
+- new metadata remains deterministic, hashed, and covered by contract tests
+
+### Cross-track sequencing
+
+Recommended execution order:
+
+1. Track A: finish the portable `review_repository` journey because it is the flagship proof.
+2. Track B: remove shared-runtime drift while the control-plane surface is still small enough to consolidate cleanly.
+3. Track C: decompose the Worker after task flows stabilize enough to preserve the external contract during refactor.
+4. Track D: extend emitted metadata in lockstep with proven runtime needs, not ahead of them.
+
+### Explicit near-term milestones
+
+#### Milestone 1 - Resume readiness
+
+Target:
+
+- complete T015 and T016
+- prove weak-start -> strong-resume with preserved findings
+
+#### Milestone 2 - Runtime convergence
+
+Target:
+
+- share task-facing execution logic across MCP, dashboard, and Worker paths
+
+#### Milestone 3 - Worker maintainability
+
+Target:
+
+- split Worker internals without changing public endpoints
+
+#### Milestone 4 - Emitted task metadata maturity
+
+Target:
+
+- formalize which task-route and task-input definitions belong in `dist/runtime/`
 
 ### Key success metrics
 
