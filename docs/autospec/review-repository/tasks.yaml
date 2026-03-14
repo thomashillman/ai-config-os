@@ -47,7 +47,7 @@ tasks:
   - id: T012
     sprint: week_2
     title: Build ContinuationPackage creator
-    status: todo
+    status: done
   - id: T013
     sprint: week_3
     title: Implement HandoffToken service

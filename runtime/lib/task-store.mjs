@@ -2,6 +2,7 @@ import { validateContract } from '../../shared/contracts/validate.mjs';
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle.mjs';
 import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger.mjs';
 import { ProgressEventStore } from './progress-event-pipeline.mjs';
+import { createContinuationPackage } from './continuation-package.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -284,6 +285,41 @@ export class TaskStore {
     });
 
     return clone(next);
+  }
+
+
+  createContinuationPackage(taskId, { effectiveExecutionContract, handoffTokenId, createdAt = new Date().toISOString() }) {
+    const task = this.tasks.get(taskId);
+    if (!task) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    const continuationPackage = createContinuationPackage({
+      task,
+      effectiveExecutionContract,
+      handoffTokenId,
+      createdAt,
+    });
+
+    const continuationEventId = `evt_${task.version}_continuation_created_${handoffTokenId}`;
+    const existingEvents = this.progressEvents.listByTaskId(taskId);
+    const alreadyRecorded = existingEvents.some((event) => event.event_id === continuationEventId);
+
+    if (!alreadyRecorded) {
+      this.progressEvents.append({
+        taskId,
+        eventId: continuationEventId,
+        type: 'continuation_created',
+        message: `Created continuation package for handoff token ${handoffTokenId}.`,
+        createdAt,
+        metadata: {
+          handoff_token_id: handoffTokenId,
+          route_id: task.current_route,
+        },
+      });
+    }
+
+    return continuationPackage;
   }
 
   listProgressEvents(taskId) {
