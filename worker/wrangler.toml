@@ -1,6 +1,7 @@
 name = "ai-config-os"
 main = "src/index.ts"
 compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
 
 # Set AUTH_TOKEN via: wrangler secret put AUTH_TOKEN
 # Set AUTH_TOKEN_NEXT via: wrangler secret put AUTH_TOKEN_NEXT (for rotation)

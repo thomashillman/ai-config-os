@@ -312,6 +312,12 @@ Definition of done:
 
 #### Track C - Decompose the Worker surface
 
+**Track C completion update (2026-03-14):**
+- ✓ Worker entrypoint `worker/src/index.ts` is now route wiring only.
+- ✓ Auth, HTTP response helpers, artifact/manifest handlers, task-control-plane handlers, and executor proxy handling are extracted into focused Worker-local modules under `worker/src/`.
+- ✓ Public route contracts are preserved while internals are decomposed for independent review/testability.
+- ✓ Follow-up hardening: TaskStore wiring now re-initializes whenever handoff-signing-key configuration changes (including key removal), and continuation replay fingerprints are bounded to prevent unbounded in-memory growth.
+
 Focus:
 
 - split `worker/src/index.ts` by responsibility before more features land

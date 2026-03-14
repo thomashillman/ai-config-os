@@ -1,8 +1,9 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { resolve, dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../..');
@@ -21,7 +22,7 @@ async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
   const source = readFileSync(WORKER_INDEX_TS, 'utf8');
   const ts = await import('typescript');
 
-  const patchedTs = source
+  const patchedIndex = source
     .replace(
       /import REGISTRY_JSON from '..\/..\/dist\/registry\/index.json';/,
       `const REGISTRY_JSON = ${JSON.stringify(registryFixture)} as const;`
@@ -43,15 +44,57 @@ async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
       `import { createTaskControlPlaneService } from '${TASK_CONTROL_PLANE_SERVICE_FILE_URL}';`
     );
 
-  const transpiled = ts.transpileModule(patchedTs, {
-    compilerOptions: {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.ES2022,
-    },
-  });
+  const tempRoot = mkdtempSync(join(tmpdir(), 'worker-contract-'));
+  const tempSrc = join(tempRoot, 'src');
+  const sourceRoot = resolve(REPO_ROOT, 'worker/src');
 
-  const moduleUrl = `data:text/javascript;base64,${Buffer.from(transpiled.outputText, 'utf8').toString('base64')}`;
+  function transpileTree(current) {
+    for (const entry of readdirSync(current)) {
+      const absolute = join(current, entry);
+      const relative = absolute.slice(sourceRoot.length + 1);
+      const stat = statSync(absolute);
+
+      if (stat.isDirectory()) {
+        transpileTree(absolute);
+        continue;
+      }
+
+      if (!relative.endsWith('.ts')) {
+        continue;
+      }
+
+      let tsSource = relative === 'index.ts' ? patchedIndex : readFileSync(absolute, 'utf8');
+      if (relative === 'task-runtime.ts') {
+        tsSource = tsSource
+          .replace("import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/lib/task-store.mjs';", `import { TaskStore, TaskConflictError, TaskNotFoundError } from '${TASK_STORE_FILE_URL}';`)
+          .replace("import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service.mjs';", `import { createTaskControlPlaneService } from '${TASK_CONTROL_PLANE_SERVICE_FILE_URL}';`)
+          .replace("import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service.mjs';", `import { createHandoffTokenService } from '${HANDOFF_SERVICE_FILE_URL}';`);
+      }
+      const transpiled = ts.transpileModule(tsSource, {
+        compilerOptions: {
+          module: ts.ModuleKind.ESNext,
+          target: ts.ScriptTarget.ES2022,
+        },
+        fileName: relative,
+      });
+
+      const outputPath = join(tempSrc, relative.replace(/\.ts$/, '.js'));
+      mkdirSync(dirname(outputPath), { recursive: true });
+      const rewritten = transpiled.outputText.replace(
+        /(from\s+['"])(\.\.?\/[^'".]+)(['"])/g,
+        '$1$2.js$3'
+      );
+      writeFileSync(outputPath, rewritten);
+    }
+  }
+
+  mkdirSync(tempSrc, { recursive: true });
+  transpileTree(sourceRoot);
+  writeFileSync(join(tempRoot, 'package.json'), JSON.stringify({ type: 'module' }));
+
+  const moduleUrl = `${pathToFileURL(join(tempSrc, 'index.js')).href}?t=${Date.now()}`;
   const mod = await import(moduleUrl);
+  rmSync(tempRoot, { recursive: true, force: true });
   return mod.default;
 }
 
