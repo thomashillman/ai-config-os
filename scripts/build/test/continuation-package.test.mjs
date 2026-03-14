@@ -266,3 +266,31 @@ test('TaskStore createContinuationPackage replays canonical result from prior to
   assert.equal(events.length, 1);
   assert.equal(events[0].event_id, 'evt_legacy_continuation_001');
 });
+
+test('TaskStore createContinuationPackage stores canonical timestamp metadata per token', () => {
+  const store = new TaskStore();
+  const task = buildTask({ version: 1, updated_at: '2026-03-12T12:00:00.000Z' });
+  store.create(task);
+
+  store.createContinuationPackage(task.task_id, {
+    handoffToken: baseHandoffToken(task.task_id),
+    effectiveExecutionContract: baseExecutionContract(task.task_id),
+    createdAt: '2026-03-12T12:03:00.000Z',
+  });
+
+  store.createContinuationPackage(task.task_id, {
+    handoffToken: {
+      ...baseHandoffToken(task.task_id),
+      token_id: 'handoff_002',
+      replay_nonce: 'nonce_2',
+    },
+    effectiveExecutionContract: baseExecutionContract(task.task_id),
+    createdAt: '2026-03-12T12:04:00.000Z',
+  });
+
+  const events = store.listProgressEvents(task.task_id);
+  const byToken = new Map(events.map((event) => [event.metadata?.handoff_token_id, event]));
+
+  assert.equal(byToken.get('handoff_001')?.metadata?.continuation_package_created_at, '2026-03-12T12:03:00.000Z');
+  assert.equal(byToken.get('handoff_002')?.metadata?.continuation_package_created_at, '2026-03-12T12:04:00.000Z');
+});
