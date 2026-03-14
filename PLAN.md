@@ -198,7 +198,7 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - ✓ `review_repository` task type with all four routes (T008)
 - ✓ PortableTaskObject lifecycle and state transitions (T009)
 - ✓ FindingsLedger with provenance rules (T010)
-- ProgressEvent pipeline (T011)
+- ✓ ProgressEvent pipeline (T011)
 - ContinuationPackage builder (T012)
 - Deliverables: working local task runtime for `review_repository` with persisted state, explicit contracts, visible progress, preserved findings
 
@@ -306,6 +306,7 @@ Before broadening to more task types or hosts:
 - [x] T008: review_repository route runtime implemented with canonical four routes and route-input validation tests
 - [x] T009: PortableTaskObject lifecycle/state transition runtime implemented with canonical transition rules, route-history updates, and TaskStore integration tests
 - [x] T010: FindingsLedger implemented with provenance transitions for route upgrades, plus TaskStore integration/tests
+- [x] T011: ProgressEvent pipeline implemented with validated event emission + TaskStore integration tests
 - [ ] MVA: `review_repository` portable journey proven end-to-end
 
 ---

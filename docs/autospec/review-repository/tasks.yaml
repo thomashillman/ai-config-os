@@ -43,7 +43,7 @@ tasks:
   - id: T011
     sprint: week_2
     title: Implement ProgressEvent pipeline
-    status: todo
+    status: done
   - id: T012
     sprint: week_2
     title: Build ContinuationPackage creator
