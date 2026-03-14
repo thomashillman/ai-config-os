@@ -248,3 +248,48 @@ test('TaskStore createContinuationPackage records a new event after task version
 
   assert.equal(events.length, 2, 'new task version should record another continuation creation event');
 });
+
+test('TaskStore createContinuationPackage rejects uppercase handoffTokenId', () => {
+  const store = new TaskStore();
+  const task = buildTask();
+  store.create(task);
+
+  assert.throws(
+    () => store.createContinuationPackage(task.task_id, {
+      handoffTokenId: 'Handoff_001',
+      effectiveExecutionContract: buildContract(),
+      createdAt: '2026-03-12T12:05:00.000Z',
+    }),
+    /Invalid continuationPackage: .*handoff_token_id/,
+  );
+});
+
+test('TaskStore createContinuationPackage rejects handoffTokenId with spaces', () => {
+  const store = new TaskStore();
+  const task = buildTask();
+  store.create(task);
+
+  assert.throws(
+    () => store.createContinuationPackage(task.task_id, {
+      handoffTokenId: 'handoff 001',
+      effectiveExecutionContract: buildContract(),
+      createdAt: '2026-03-12T12:05:00.000Z',
+    }),
+    /Invalid continuationPackage: .*handoff_token_id/,
+  );
+});
+
+test('TaskStore createContinuationPackage rejects handoffTokenId with symbols', () => {
+  const store = new TaskStore();
+  const task = buildTask();
+  store.create(task);
+
+  assert.throws(
+    () => store.createContinuationPackage(task.task_id, {
+      handoffTokenId: 'handoff#001',
+      effectiveExecutionContract: buildContract(),
+      createdAt: '2026-03-12T12:05:00.000Z',
+    }),
+    /Invalid continuationPackage: .*handoff_token_id/,
+  );
+});
