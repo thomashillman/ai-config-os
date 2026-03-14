@@ -1,8 +1,7 @@
 import { validateContract } from '../../shared/contracts/validate.mjs';
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle.mjs';
 import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger.mjs';
-import { ProgressEventStore } from './progress-event-pipeline.mjs';
-import { createContinuationPackage } from './continuation-package.mjs';
+import { ProgressEventStore, ProgressEventConflictError } from './progress-event-pipeline.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -60,34 +59,6 @@ export class TaskStore {
       throw new TaskNotFoundError(taskId);
     }
     return clone(task);
-  }
-
-  createContinuationPackage(taskId, { handoffTokenId, effectiveExecutionContract, createdAt }) {
-    const task = this.tasks.get(taskId);
-    if (!task) {
-      throw new TaskNotFoundError(taskId);
-    }
-
-    if (
-      effectiveExecutionContract
-      && typeof effectiveExecutionContract === 'object'
-      && Object.prototype.hasOwnProperty.call(effectiveExecutionContract, 'task_type')
-      && effectiveExecutionContract.task_type !== task.task_type
-    ) {
-      throw new Error(
-        `task_type mismatch: task ${task.task_type} != effectiveExecutionContract ${effectiveExecutionContract.task_type}`,
-      );
-    }
-
-    const continuationPackage = validateContract('continuationPackage', {
-      schema_version: '1.0.0',
-      task: clone(task),
-      effective_execution_contract: clone(effectiveExecutionContract),
-      handoff_token_id: handoffTokenId,
-      created_at: createdAt,
-    });
-
-    return clone(continuationPackage);
   }
 
   update(taskId, { expectedVersion, changes }) {
@@ -316,46 +287,107 @@ export class TaskStore {
   }
 
 
-  createContinuationPackage(taskId, { effectiveExecutionContract, handoffTokenId, createdAt = new Date().toISOString() }) {
-    const task = this.tasks.get(taskId);
-    if (!task) {
-      throw new TaskNotFoundError(taskId);
-    }
-
-    const continuationPackage = createContinuationPackage({
-      task,
-      effectiveExecutionContract,
-      handoffTokenId,
-      createdAt,
-    });
-
-    const continuationEventId = `evt_${task.version}_continuation_created_${handoffTokenId}`;
-    const existingEvents = this.progressEvents.listByTaskId(taskId);
-    const alreadyRecorded = existingEvents.some((event) => event.event_id === continuationEventId);
-
-    if (!alreadyRecorded) {
-      this.progressEvents.append({
-        taskId,
-        eventId: continuationEventId,
-        type: 'continuation_created',
-        message: `Created continuation package for handoff token ${handoffTokenId}.`,
-        createdAt,
-        metadata: {
-          handoff_token_id: handoffTokenId,
-          route_id: task.current_route,
-        },
-      });
-    }
-
-    return continuationPackage;
-  }
-
   listProgressEvents(taskId) {
     if (!this.tasks.has(taskId)) {
       throw new TaskNotFoundError(taskId);
     }
 
     return this.progressEvents.listByTaskId(taskId);
+  }
+
+  createContinuationPackage(taskId, {
+    handoffToken,
+    effectiveExecutionContract,
+    createdAt = new Date().toISOString(),
+  }) {
+    const task = this.tasks.get(taskId);
+    if (!task) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    const validatedHandoffToken = validateContract('handoffToken', clone(handoffToken));
+    if (validatedHandoffToken.task_id !== taskId) {
+      throw new Error(`handoffToken.task_id must match taskId '${taskId}'`);
+    }
+
+    const validatedExecutionContract = validateContract(
+      'effectiveExecutionContract',
+      clone(effectiveExecutionContract),
+    );
+    if (validatedExecutionContract.task_id !== taskId) {
+      throw new Error(`effectiveExecutionContract.task_id must match taskId '${taskId}'`);
+    }
+
+    if (validatedExecutionContract.task_type !== task.task_type) {
+      throw new Error(`effectiveExecutionContract.task_type must match task task_type '${task.task_type}'`);
+    }
+
+    const eventId = `evt_continuation_created_${validatedHandoffToken.token_id}`;
+    const existingContinuationEvent = this.progressEvents
+      .listByTaskId(taskId)
+      .find((event) => (
+        event.type === 'continuation_created'
+        && event.metadata?.handoff_token_id === validatedHandoffToken.token_id
+      ));
+
+    const canonicalCreatedAt = existingContinuationEvent?.metadata?.continuation_package_created_at
+      || existingContinuationEvent?.created_at
+      || createdAt;
+
+    const continuationPackage = validateContract('continuationPackage', {
+      schema_version: '1.0.0',
+      task: clone(task),
+      effective_execution_contract: validatedExecutionContract,
+      handoff_token_id: validatedHandoffToken.token_id,
+      created_at: canonicalCreatedAt,
+    });
+
+    if (existingContinuationEvent) {
+      return clone(continuationPackage);
+    }
+
+    const eventPayload = {
+      taskId,
+      eventId,
+      type: 'continuation_created',
+      message: `Created continuation package for token ${validatedHandoffToken.token_id}.`,
+      createdAt,
+      metadata: {
+        handoff_token_id: validatedHandoffToken.token_id,
+        continuation_package_created_at: canonicalCreatedAt,
+      },
+    };
+
+    try {
+      this.progressEvents.append(eventPayload);
+    } catch (error) {
+      if (!(error instanceof ProgressEventConflictError)) {
+        throw error;
+      }
+
+      const equivalentEvent = this.progressEvents
+        .listByTaskId(taskId)
+        .find((event) => (
+          event.type === 'continuation_created'
+          && event.metadata?.handoff_token_id === validatedHandoffToken.token_id
+        ));
+
+      if (!equivalentEvent) {
+        throw error;
+      }
+
+      const replayPackage = validateContract('continuationPackage', {
+        schema_version: '1.0.0',
+        task: clone(task),
+        effective_execution_contract: validatedExecutionContract,
+        handoff_token_id: validatedHandoffToken.token_id,
+        created_at: equivalentEvent.metadata?.continuation_package_created_at || equivalentEvent.created_at,
+      });
+
+      return clone(replayPackage);
+    }
+
+    return clone(continuationPackage);
   }
 
   listSnapshots(taskId) {
