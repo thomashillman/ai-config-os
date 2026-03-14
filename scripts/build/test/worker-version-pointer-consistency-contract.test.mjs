@@ -13,17 +13,18 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 
-function workerSource() {
-  return readFileSync(join(REPO_ROOT, 'worker', 'src', 'index.ts'), 'utf8');
+function workerSource(path) {
+  return readFileSync(join(REPO_ROOT, 'worker', 'src', path), 'utf8');
 }
 
-test('worker version-pointer contract: health endpoint points to registry version', () => {
-  const src = workerSource();
-  assert.match(src, /version:\s*\(REGISTRY_JSON as any\)\.version/);
+test('worker version-pointer contract: entrypoint injects registry into shared handler', () => {
+  const src = workerSource('index.ts');
+  assert.match(src, /import REGISTRY_JSON from '\.\.\/\.\.\/dist\/registry\/index\.json';/);
+  assert.match(src, /createWorkerHandler\(REGISTRY_JSON/);
 });
 
-test('worker version-pointer contract: client/skill payloads point to registry version', () => {
-  const src = workerSource();
-  assert.match(src, /const registry = REGISTRY_JSON as any/);
+test('worker version-pointer contract: health/client/skill handlers use injected registry version', () => {
+  const src = workerSource('handlers/artifacts.ts');
   assert.match(src, /version:\s*registry\.version/);
+  assert.match(src, /built_at:\s*registry\.built_at/);
 });
