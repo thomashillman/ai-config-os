@@ -1,0 +1,76 @@
+name: PR Mergeability Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  mergeability:
+    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch tip
+        run: |
+          git fetch origin "${{ github.base_ref }}" --prune
+
+      - name: Ensure PR branch clean
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Working tree is not clean in CI checkout"
+            git status --short
+            exit 1
+          fi
+
+      - name: Simulate merge from base (must be conflict-free)
+        run: |
+          set -euo pipefail
+          if ! git merge --no-commit --no-ff "origin/${{ github.base_ref }}"; then
+            echo "Merge conflicts detected against origin/${{ github.base_ref }}"
+            git diff --name-only --diff-filter=U || true
+            git merge --abort || true
+            exit 1
+          fi
+          git merge --abort || true
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate
+        run: npm run -s validate
+
+      - name: Build
+        run: npm run -s build
+
+      - name: Test
+        run: npm run -s test
+
+      - name: Verify
+        run: npm run -s verify
+
+      - name: Guard: no conflict markers in tracked files
+        run: |
+          if rg -n "^(<<<<<<<|=======|>>>>>>>)" \
+            --glob '!**/node_modules/**' \
+            --glob '!.git/**' . ; then
+            echo "Conflict markers found"
+            exit 1
+          fi
