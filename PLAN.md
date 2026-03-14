@@ -385,8 +385,8 @@ Recommended execution order:
 
 Target:
 
-- complete T015 and T016
-- prove weak-start -> strong-resume with preserved findings
+- validate and operationalize completed T015/T016 flows in staging
+- prove weak-start -> strong-resume with preserved findings via staged runbooks and KPI tracking
 
 #### Milestone 2 - Runtime convergence
 
