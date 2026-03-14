@@ -199,8 +199,10 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - ✓ PortableTaskObject lifecycle and state transitions (T009)
 - ✓ FindingsLedger with provenance rules (T010)
 - ✓ ProgressEvent pipeline (T011)
-- ContinuationPackage builder (T012)
+- ✓ ContinuationPackage builder (T012)
 - Deliverables: working local task runtime for `review_repository` with persisted state, explicit contracts, visible progress, preserved findings
+
+**Week 2 status update (2026-03-14):** T012 completed with a validated continuation package creator (`runtime/lib/continuation-package.mjs`), TaskStore integration for package creation, and continuation progress-event emission coverage.
 
 **Week 3 — handoff, route upgrade, and validation**
 - HandoffToken service: task binding, expiry, signature, replay protection (T013)
