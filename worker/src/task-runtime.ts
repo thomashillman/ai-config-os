@@ -1,5 +1,8 @@
+// @ts-ignore - runtime JS module
 import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/lib/task-store.mjs';
+// @ts-ignore - runtime JS module
 import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service.mjs';
+// @ts-ignore - runtime JS module
 import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service.mjs';
 import { jsonResponse } from './http';
 import type { Env } from './types';
