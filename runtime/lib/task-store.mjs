@@ -1,6 +1,7 @@
 import { validateContract } from '../../shared/contracts/validate.mjs';
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle.mjs';
 import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger.mjs';
+import { ProgressEventStore } from './progress-event-pipeline.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -38,6 +39,7 @@ export class TaskStore {
   constructor() {
     this.tasks = new Map();
     this.snapshots = new Map();
+    this.progressEvents = new ProgressEventStore();
   }
 
   create(task) {
@@ -121,6 +123,19 @@ export class TaskStore {
     snapshots.push(nextSnapshot);
     this.snapshots.set(taskId, snapshots);
 
+    this.progressEvents.append({
+      taskId,
+      eventId: `evt_${validated.version}_state_change`,
+      type: 'state_change',
+      message: `Task transitioned to ${validated.state}.`,
+      createdAt: updatedAt,
+      metadata: {
+        next_state: validated.state,
+        completed_steps: validated.progress.completed_steps,
+        total_steps: validated.progress.total_steps,
+      },
+    });
+
     return clone(validated);
   }
 
@@ -152,6 +167,18 @@ export class TaskStore {
     const snapshots = this.snapshots.get(taskId) || [];
     snapshots.push(nextSnapshot);
     this.snapshots.set(taskId, snapshots);
+
+    this.progressEvents.append({
+      taskId,
+      eventId: `evt_${next.version}_finding_recorded`,
+      type: 'finding_recorded',
+      message: `Recorded finding ${next.findings[next.findings.length - 1].finding_id}.`,
+      createdAt: updatedAt,
+      metadata: {
+        finding_id: next.findings[next.findings.length - 1].finding_id,
+        provenance_status: next.findings[next.findings.length - 1].provenance.status,
+      },
+    });
 
     return clone(next);
   }
@@ -190,6 +217,29 @@ export class TaskStore {
     const snapshots = this.snapshots.get(taskId) || [];
     snapshots.push(nextSnapshot);
     this.snapshots.set(taskId, snapshots);
+    const reclassifiedCount = transitionedFindings.reduce((count, nextFinding, index) => {
+      const previousFinding = current.findings[index];
+      if (!previousFinding) {
+        return count + 1;
+      }
+
+      const statusChanged = previousFinding.provenance.status !== nextFinding.provenance.status;
+      const routeChanged = previousFinding.provenance.recorded_by_route !== nextFinding.provenance.recorded_by_route;
+      return (statusChanged || routeChanged) ? count + 1 : count;
+    }, 0);
+
+    this.progressEvents.append({
+      taskId,
+      eventId: `evt_${next.version}_finding_transitioned`,
+      type: 'finding_transitioned',
+      message: `Updated findings provenance for route upgrade to ${toRouteId}.`,
+      createdAt: upgradedAt,
+      metadata: {
+        route_id: toRouteId,
+        reclassified_count: reclassifiedCount,
+        equivalence_level: toEquivalenceLevel,
+      },
+    });
 
     return clone(next);
   }
@@ -222,7 +272,26 @@ export class TaskStore {
     snapshots.push(nextSnapshot);
     this.snapshots.set(taskId, snapshots);
 
+    this.progressEvents.append({
+      taskId,
+      eventId: `evt_${next.version}_route_selected`,
+      type: 'route_selected',
+      message: `Selected route ${routeId}.`,
+      createdAt: selectedAt,
+      metadata: {
+        route_id: routeId,
+      },
+    });
+
     return clone(next);
+  }
+
+  listProgressEvents(taskId) {
+    if (!this.tasks.has(taskId)) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    return this.progressEvents.listByTaskId(taskId);
   }
 
   listSnapshots(taskId) {
