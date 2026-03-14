@@ -197,3 +197,54 @@ test('TaskStore createContinuationPackage is idempotent for same task version an
 
   assert.equal(events.length, 1, 'idempotent retries should not create duplicate continuation events');
 });
+
+
+test('TaskStore createContinuationPackage records a new event after task version changes even with same token', () => {
+  const store = new TaskStore();
+  const task = buildTask({ state: 'pending', version: 1 });
+  store.create(task);
+
+  store.createContinuationPackage(task.task_id, {
+    effectiveExecutionContract: buildContract({
+      selected_route: {
+        schema_version: '1.0.0',
+        route_id: 'github_pr',
+        equivalence_level: 'upgrade',
+        required_capabilities: ['network_http'],
+        missing_capabilities: [],
+      },
+      computed_at: '2026-03-12T12:18:00.000Z',
+    }),
+    handoffTokenId: 'handoff_token_009',
+    createdAt: '2026-03-12T12:18:01.000Z',
+  });
+
+  store.transitionState(task.task_id, {
+    expectedVersion: 1,
+    nextState: 'active',
+    nextAction: 'collect_more_context',
+    updatedAt: '2026-03-12T12:18:02.000Z',
+    progress: { completed_steps: 1, total_steps: 3 },
+  });
+
+  store.createContinuationPackage(task.task_id, {
+    effectiveExecutionContract: buildContract({
+      selected_route: {
+        schema_version: '1.0.0',
+        route_id: 'github_pr',
+        equivalence_level: 'upgrade',
+        required_capabilities: ['network_http'],
+        missing_capabilities: [],
+      },
+      computed_at: '2026-03-12T12:18:03.000Z',
+    }),
+    handoffTokenId: 'handoff_token_009',
+    createdAt: '2026-03-12T12:18:04.000Z',
+  });
+
+  const events = store
+    .listProgressEvents(task.task_id)
+    .filter((event) => event.type === 'continuation_created' && event.metadata.handoff_token_id === 'handoff_token_009');
+
+  assert.equal(events.length, 2, 'new task version should record another continuation creation event');
+});

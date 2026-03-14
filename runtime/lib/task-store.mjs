@@ -301,17 +301,14 @@ export class TaskStore {
       createdAt,
     });
 
+    const continuationEventId = `evt_${task.version}_continuation_created_${handoffTokenId}`;
     const existingEvents = this.progressEvents.listByTaskId(taskId);
-    const alreadyRecorded = existingEvents.some((event) =>
-      event.type === 'continuation_created'
-      && event.metadata?.handoff_token_id === handoffTokenId
-      && event.metadata?.route_id === task.current_route
-    );
+    const alreadyRecorded = existingEvents.some((event) => event.event_id === continuationEventId);
 
     if (!alreadyRecorded) {
       this.progressEvents.append({
         taskId,
-        eventId: `evt_${task.version}_continuation_created_${handoffTokenId}`,
+        eventId: continuationEventId,
         type: 'continuation_created',
         message: `Created continuation package for handoff token ${handoffTokenId}.`,
         createdAt,
