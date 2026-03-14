@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createContinuationPackage } from '../../../runtime/lib/continuation-package.mjs';
 import { TaskStore, TaskNotFoundError } from '../../../runtime/lib/task-store.mjs';
+import { createHandoffTokenService } from '../../../runtime/lib/handoff-token-service.mjs';
+
 
 function buildTask(overrides = {}) {
   return {
@@ -64,16 +66,33 @@ function baseExecutionContract(taskId) {
   };
 }
 
-function baseHandoffToken(taskId) {
-  return {
-    schema_version: '1.0.0',
-    token_id: 'handoff_001',
-    task_id: taskId,
-    issued_at: '2026-03-12T12:00:00.000Z',
-    expires_at: '2026-03-12T12:10:00.000Z',
-    signature: 'deadbeef',
-    replay_nonce: 'nonce_1',
-  };
+function baseHandoffToken(taskId, {
+  tokenId = 'handoff_001',
+  replayNonce = 'nonce_1',
+  issuedAt = '2026-03-12T12:00:00.000Z',
+  ttlSeconds = 600,
+} = {}) {
+  const handoffTokenService = createHandoffTokenService({
+    secret: 'test-secret',
+    now: () => issuedAt,
+    createTokenId: () => tokenId,
+    createReplayNonce: () => replayNonce,
+  });
+
+  return handoffTokenService.issueToken({
+    taskId,
+    ttlSeconds,
+    now: issuedAt,
+  });
+}
+
+function buildStore() {
+  return new TaskStore({
+    handoffTokenService: createHandoffTokenService({
+      secret: 'test-secret',
+      now: () => '2026-03-12T12:00:00.000Z',
+    }),
+  });
 }
 
 // --- Standalone createContinuationPackage tests ---
@@ -158,7 +177,7 @@ test('createContinuationPackage rejects invalid createdAt date-time', () => {
 // --- TaskStore.createContinuationPackage tests (handoffToken object API) ---
 
 test('TaskStore createContinuationPackage is idempotent for retries with same handoff token', () => {
-  const store = new TaskStore();
+  const store = buildStore();
   const task = buildTask({ version: 1, updated_at: '2026-03-12T12:00:00.000Z' });
   store.create(task);
 
@@ -188,7 +207,7 @@ test('TaskStore createContinuationPackage is idempotent for retries with same ha
 });
 
 test('TaskStore createContinuationPackage records unique events for different handoff tokens', () => {
-  const store = new TaskStore();
+  const store = buildStore();
   const task = buildTask({ version: 1, updated_at: '2026-03-12T12:00:00.000Z' });
   store.create(task);
 
@@ -200,9 +219,7 @@ test('TaskStore createContinuationPackage records unique events for different ha
 
   store.createContinuationPackage(task.task_id, {
     handoffToken: {
-      ...baseHandoffToken(task.task_id),
-      token_id: 'handoff_002',
-      replay_nonce: 'nonce_2',
+      ...baseHandoffToken(task.task_id, { tokenId: 'handoff_002', replayNonce: 'nonce_2' }),
     },
     effectiveExecutionContract: baseExecutionContract(task.task_id),
     createdAt: '2026-03-12T12:04:00.000Z',
@@ -220,7 +237,7 @@ test('TaskStore createContinuationPackage records unique events for different ha
 });
 
 test('TaskStore createContinuationPackage rejects mismatched effective execution task type', () => {
-  const store = new TaskStore();
+  const store = buildStore();
   const task = buildTask({ version: 1, updated_at: '2026-03-12T12:00:00.000Z' });
   store.create(task);
 
@@ -238,7 +255,7 @@ test('TaskStore createContinuationPackage rejects mismatched effective execution
 });
 
 test('TaskStore createContinuationPackage replays canonical result from prior token event even with legacy event id', () => {
-  const store = new TaskStore();
+  const store = buildStore();
   const task = buildTask({ version: 1, updated_at: '2026-03-12T12:00:00.000Z' });
   store.create(task);
 
@@ -268,7 +285,7 @@ test('TaskStore createContinuationPackage replays canonical result from prior to
 });
 
 test('TaskStore createContinuationPackage stores canonical timestamp metadata per token', () => {
-  const store = new TaskStore();
+  const store = buildStore();
   const task = buildTask({ version: 1, updated_at: '2026-03-12T12:00:00.000Z' });
   store.create(task);
 
@@ -280,9 +297,7 @@ test('TaskStore createContinuationPackage stores canonical timestamp metadata pe
 
   store.createContinuationPackage(task.task_id, {
     handoffToken: {
-      ...baseHandoffToken(task.task_id),
-      token_id: 'handoff_002',
-      replay_nonce: 'nonce_2',
+      ...baseHandoffToken(task.task_id, { tokenId: 'handoff_002', replayNonce: 'nonce_2' }),
     },
     effectiveExecutionContract: baseExecutionContract(task.task_id),
     createdAt: '2026-03-12T12:04:00.000Z',
@@ -293,4 +308,40 @@ test('TaskStore createContinuationPackage stores canonical timestamp metadata pe
 
   assert.equal(byToken.get('handoff_001')?.metadata?.continuation_package_created_at, '2026-03-12T12:03:00.000Z');
   assert.equal(byToken.get('handoff_002')?.metadata?.continuation_package_created_at, '2026-03-12T12:04:00.000Z');
+});
+
+
+test('TaskStore createContinuationPackage does not consume token when execution contract is invalid', () => {
+  let consumeCalls = 0;
+  const handoffTokenService = createHandoffTokenService({
+    secret: 'test-secret',
+    now: () => '2026-03-12T12:00:00.000Z',
+  });
+
+  const store = new TaskStore({
+    handoffTokenService: {
+      verifyToken: handoffTokenService.verifyToken,
+      consumeToken(input) {
+        consumeCalls += 1;
+        return handoffTokenService.consumeToken(input);
+      },
+    },
+  });
+
+  const task = buildTask({ version: 1, updated_at: '2026-03-12T12:00:00.000Z' });
+  store.create(task);
+
+  assert.throws(
+    () => store.createContinuationPackage(task.task_id, {
+      handoffToken: baseHandoffToken(task.task_id),
+      effectiveExecutionContract: {
+        ...baseExecutionContract(task.task_id),
+        task_type: 'other_task_type',
+      },
+      createdAt: '2026-03-12T12:03:00.000Z',
+    }),
+    /effectiveExecutionContract\.task_type must match task task_type/,
+  );
+
+  assert.equal(consumeCalls, 0);
 });
