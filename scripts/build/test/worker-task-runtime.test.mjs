@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 const mod = await import('../../../worker/src/task-runtime.ts').catch(async () => {
   const ts = await import('typescript');
   const { readFileSync, mkdtempSync, writeFileSync, mkdirSync, rmSync } = await import('node:fs');
-  const { join, dirname, resolve } = await import('node:path');
+  const { join } = await import('node:path');
   const { tmpdir } = await import('node:os');
-  const { pathToFileURL } = await import('node:url');
+  const { fileURLToPath, pathToFileURL } = await import('node:url');
 
-  const repoRoot = resolve(new URL('.', import.meta.url).pathname, '../../..');
+  const repoRoot = fileURLToPath(new URL('../../..', import.meta.url));
   const sourcePath = join(repoRoot, 'worker/src/task-runtime.ts');
   let src = readFileSync(sourcePath, 'utf8');
 
