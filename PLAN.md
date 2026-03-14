@@ -343,6 +343,12 @@ Definition of done:
 
 #### Track D - Extend build/runtime metadata for portable tasks
 
+**Track D completion update (2026-03-14):**
+- ✓ Compiler runtime emission now publishes task route metadata into `dist/runtime/task-route-definitions.json` and `dist/runtime/task-route-input-definitions.json`.
+- ✓ Runtime manifest document mapping and artifact hashing now cover both task metadata files for deterministic integrity checks.
+- ✓ Contract coverage now verifies emitted task metadata presence, hashing, canonical source parity, and deterministic ordering.
+- ✓ Repository docs now identify `dist/runtime/` as the authoritative emitted surface for task orchestration metadata.
+
 Focus:
 
 - keep the compiler deterministic while expanding runtime metadata to support task-centric orchestration

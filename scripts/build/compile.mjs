@@ -26,6 +26,8 @@ import { selectEmittedPlatforms } from './lib/select-emitted-platforms.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
 import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
 import { registeredToolIds } from '../../runtime/tool-definitions.mjs';
+import { loadTaskRouteDefinitions } from '../../runtime/lib/task-route-definition-loader.mjs';
+import { loadTaskRouteInputDefinitions } from '../../runtime/lib/task-route-input-loader.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -44,6 +46,8 @@ const PLATFORM_SCHEMA_PATH = join(ROOT, 'schemas', 'platform.schema.json');
 
 const OUTCOME_SCHEMA_PATH = join(ROOT, 'schemas', 'outcome.schema.json');
 const ROUTE_SCHEMA_PATH = join(ROOT, 'schemas', 'route.schema.json');
+const TASK_ROUTE_DEFINITIONS_PATH = join(ROOT, 'runtime', 'task-route-definitions.yaml');
+const TASK_ROUTE_INPUT_DEFINITIONS_PATH = join(ROOT, 'runtime', 'task-route-input-definitions.yaml');
 
 
 // Release version from VERSION file; provenance only in release mode
@@ -351,10 +355,14 @@ async function main() {
   emitRegistry(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix });
 
   console.log('\n[runtime]');
+  const { taskTypes: taskRouteDefinitions } = loadTaskRouteDefinitions(TASK_ROUTE_DEFINITIONS_PATH);
+  const { taskTypes: taskRouteInputDefinitions } = loadTaskRouteInputDefinitions(TASK_ROUTE_INPUT_DEFINITIONS_PATH);
   emitRuntime(parsed, actuallyEmittedPlatforms, {
     distDir: DIST_DIR,
     releaseVersion,
     provenance,
+    taskRouteDefinitions,
+    taskRouteInputDefinitions,
   });
 
   console.log('\nBuild complete.\n');

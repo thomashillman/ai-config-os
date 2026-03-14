@@ -14,6 +14,8 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadTaskRouteDefinitions } from '../../../runtime/lib/task-route-definition-loader.mjs';
+import { loadTaskRouteInputDefinitions } from '../../../runtime/lib/task-route-input-loader.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
@@ -229,11 +231,15 @@ test('runtime docs are emitted with deterministic artifact hashes', () => {
   const outcomesPath = join(runtimeDir, 'outcomes.json');
   const routesPath = join(runtimeDir, 'routes.json');
   const toolRegistryPath = join(runtimeDir, 'tool-registry.json');
+  const taskRouteDefinitionsPath = join(runtimeDir, 'task-route-definitions.json');
+  const taskRouteInputDefinitionsPath = join(runtimeDir, 'task-route-input-definitions.json');
 
   assert.ok(existsSync(manifestPath), 'runtime manifest.json must exist');
   assert.ok(existsSync(outcomesPath), 'runtime outcomes.json must exist');
   assert.ok(existsSync(routesPath), 'runtime routes.json must exist');
   assert.ok(existsSync(toolRegistryPath), 'runtime tool-registry.json must exist');
+  assert.ok(existsSync(taskRouteDefinitionsPath), 'runtime task-route-definitions.json must exist');
+  assert.ok(existsSync(taskRouteInputDefinitionsPath), 'runtime task-route-input-definitions.json must exist');
 
   const runtimeManifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
   assert.equal(runtimeManifest.schemaVersion, 1, 'runtime manifest schemaVersion should be 1');
@@ -245,6 +251,8 @@ test('runtime docs are emitted with deterministic artifact hashes', () => {
     runtimeManifest.documents.outcomes,
     runtimeManifest.documents.routes,
     runtimeManifest.documents.toolRegistry,
+    runtimeManifest.documents.taskRouteDefinitions,
+    runtimeManifest.documents.taskRouteInputDefinitions,
   ];
 
   for (const relativePath of docPaths) {
@@ -291,4 +299,21 @@ test('runtime docs are emitted with deterministic artifact hashes', () => {
       `artifact hash should match for ${bundlePath}`
     );
   }
+
+  const emittedTaskRouteDefinitions = JSON.parse(readFileSync(taskRouteDefinitionsPath, 'utf8'));
+  const emittedTaskRouteInputDefinitions = JSON.parse(readFileSync(taskRouteInputDefinitionsPath, 'utf8'));
+  const sourceTaskRouteDefinitions = loadTaskRouteDefinitions(join(REPO_ROOT, 'runtime', 'task-route-definitions.yaml'));
+  const sourceTaskRouteInputDefinitions = loadTaskRouteInputDefinitions(join(REPO_ROOT, 'runtime', 'task-route-input-definitions.yaml'));
+
+  assert.deepEqual(
+    emittedTaskRouteDefinitions.task_types,
+    sourceTaskRouteDefinitions.taskTypes,
+    'emitted task-route-definitions should match canonical runtime source definitions'
+  );
+
+  assert.deepEqual(
+    emittedTaskRouteInputDefinitions.task_types,
+    sourceTaskRouteInputDefinitions.taskTypes,
+    'emitted task-route-input definitions should match canonical runtime source definitions'
+  );
 });

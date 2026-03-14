@@ -12,7 +12,7 @@ import { join } from 'path';
  * @property {string} version
  * @property {number} skillCount
  * @property {number} platformCount
- * @property {{ manifest: string, outcomes: string, routes: string, toolRegistry: string }} documents
+ * @property {{ manifest: string, outcomes: string, routes: string, toolRegistry: string, taskRouteDefinitions: string, taskRouteInputDefinitions: string }} documents
  * @property {string[]} bundles
  * @property {Record<string, string>} artifactHashes
  * @property {'sha256'} artifactHashAlgorithm
@@ -29,8 +29,14 @@ import { join } from 'path';
  * @param {string} opts.distDir
  * @param {string} opts.releaseVersion
  * @param {object|null} [opts.provenance]
+ * @param {Record<string, { routes: Array<{ route_id: string, equivalence_level: string, required_capabilities: string[] }> }>} opts.taskRouteDefinitions
+ * @param {Record<string, { routes: Record<string, { required_inputs: string[] }> }>} opts.taskRouteInputDefinitions
  */
-export function emitRuntime(skills, platforms, { distDir, releaseVersion, provenance }) {
+export function emitRuntime(
+  skills,
+  platforms,
+  { distDir, releaseVersion, provenance, taskRouteDefinitions, taskRouteInputDefinitions }
+) {
   const runtimeDir = join(distDir, 'runtime');
   mkdirSync(runtimeDir, { recursive: true });
 
@@ -78,20 +84,36 @@ export function emitRuntime(skills, platforms, { distDir, releaseVersion, proven
     })),
   };
 
+  const taskRouteDefinitionsDoc = {
+    version: releaseVersion,
+    task_types: cloneJsonObject(taskRouteDefinitions),
+  };
+
+  const taskRouteInputDefinitionsDoc = {
+    version: releaseVersion,
+    task_types: cloneJsonObject(taskRouteInputDefinitions),
+  };
+
   const manifestPath = join(runtimeDir, 'manifest.json');
   const outcomesPath = join(runtimeDir, 'outcomes.json');
   const routesPath = join(runtimeDir, 'routes.json');
   const toolRegistryPath = join(runtimeDir, 'tool-registry.json');
+  const taskRouteDefinitionsPath = join(runtimeDir, 'task-route-definitions.json');
+  const taskRouteInputDefinitionsPath = join(runtimeDir, 'task-route-input-definitions.json');
 
   writeJson(outcomesPath, outcomesDoc);
   writeJson(routesPath, routesDoc);
   writeJson(toolRegistryPath, toolRegistryDoc);
+  writeJson(taskRouteDefinitionsPath, taskRouteDefinitionsDoc);
+  writeJson(taskRouteInputDefinitionsPath, taskRouteInputDefinitionsDoc);
 
   const documents = {
     manifest: 'runtime/manifest.json',
     outcomes: 'runtime/outcomes.json',
     routes: 'runtime/routes.json',
     toolRegistry: 'runtime/tool-registry.json',
+    taskRouteDefinitions: 'runtime/task-route-definitions.json',
+    taskRouteInputDefinitions: 'runtime/task-route-input-definitions.json',
   };
 
   const bundles = [
@@ -135,6 +157,8 @@ export function emitRuntime(skills, platforms, { distDir, releaseVersion, proven
   console.log(`  [runtime] outcomes.json → ${outcomesPath}`);
   console.log(`  [runtime] routes.json → ${routesPath}`);
   console.log(`  [runtime] tool-registry.json → ${toolRegistryPath}`);
+  console.log(`  [runtime] task-route-definitions.json → ${taskRouteDefinitionsPath}`);
+  console.log(`  [runtime] task-route-input-definitions.json → ${taskRouteInputDefinitionsPath}`);
 }
 
 function writeJson(path, data) {
@@ -159,4 +183,8 @@ function hashManifestWithRedactedSelfHash(manifestDoc, manifestPath) {
   const hash = createHash('sha256');
   hash.update(JSON.stringify(clone, null, 2) + '\n');
   return hash.digest('hex');
+}
+
+function cloneJsonObject(value) {
+  return JSON.parse(JSON.stringify(value));
 }

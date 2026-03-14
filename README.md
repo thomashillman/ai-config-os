@@ -248,6 +248,7 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | **`shared/skills/`** | **Canonical source.** Write skills here. Each skill is a folder with SKILL.md (metadata + prompts) and optional subdirectories (prompts/, tests/). Compiler reads *only* from this directory. |
 | **`dist/clients/`** | **Emitted packages (self-sufficient, source-independent).** Each platform (claude-code, cursor) has a complete package: plugin.json + skill copies + resources (prompts/, etc.). These packages work standalone without source access. |
 | **`dist/registry/`** | Cross-platform skill registry (index.json) with compatibility matrix. Single source of truth for what skills are available and which platforms support them. |
+| **`dist/runtime/`** | Runtime control-plane metadata documents (manifest, outcomes, routes, tool-registry, task-route-definitions, task-route-input-definitions) consumed by Worker/MCP/dashboard adapters. Authoritative emitted surface for task orchestration metadata. |
 | `shared/workflows/` | Skill compositions: named collections of skills executed in sequence |
 | `shared/targets/` | Platform reference docs (capability definitions for v0.5.2+) |
 | `shared/lib/` | Shared utility libraries (YAML parser, analytics, config merger) |
