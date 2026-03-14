@@ -211,7 +211,7 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - ✓ T011 coverage extended through dedicated transition-event typing and regression tests.
 - ✓ T012 continuation flow hardened: idempotency, canonical replay behavior, and strict input validation are now covered.
 - ✓ T013 completed (2026-03-14): `runtime/lib/handoff-token-service.mjs` now issues/verifies/consumes signed handoff tokens with task binding, expiry-window enforcement, replay-store abstraction, timing-safe signature checks, and TaskStore continuation gating with idempotent replay semantics.
-
+- ✓ T014 completed (2026-03-14): Worker task-state/control-plane operations are live and contract-tested across `/v1/tasks`, `/v1/tasks/:taskId`, `/v1/tasks/:taskId/state`, `/v1/tasks/:taskId/route-selection`, `/v1/tasks/:taskId/continuation`, `/v1/tasks/:taskId/progress-events`, and `/v1/tasks/:taskId/snapshots(/:snapshotVersion)`.
 
 **Post-review hardening update (2026-03-14):**
 - ✓ T013 regression gaps closed: execution-contract validation now occurs before token consumption, preventing accidental token burn on invalid continuation inputs.
@@ -261,9 +261,9 @@ Before the MVA merges:
 - `review_repository` acceptance flow passes locally: task creation → continuation → resume
 
 Before staging:
-- Worker endpoints load and return real task state
+- Worker control-plane endpoints are contract-tested and return version-consistent task-control artefacts required for route and contract resolution
 - Contracts computed from actual capabilities and routes
-- Continuation packages and handoff tokens are valid, expiring, and replay-safe
+- Continuation packages and handoff tokens are validated, expiring, signature-checked, task-bound, and replay-safe
 - Findings provenance visible through route upgrade
 - Adversarial suite passes
 
