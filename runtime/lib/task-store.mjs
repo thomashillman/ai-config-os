@@ -61,34 +61,6 @@ export class TaskStore {
     return clone(task);
   }
 
-  createContinuationPackage(taskId, { handoffTokenId, effectiveExecutionContract, createdAt }) {
-    const task = this.tasks.get(taskId);
-    if (!task) {
-      throw new TaskNotFoundError(taskId);
-    }
-
-    if (
-      effectiveExecutionContract
-      && typeof effectiveExecutionContract === 'object'
-      && Object.prototype.hasOwnProperty.call(effectiveExecutionContract, 'task_type')
-      && effectiveExecutionContract.task_type !== task.task_type
-    ) {
-      throw new Error(
-        `task_type mismatch: task ${task.task_type} != effectiveExecutionContract ${effectiveExecutionContract.task_type}`,
-      );
-    }
-
-    const continuationPackage = validateContract('continuationPackage', {
-      schema_version: '1.0.0',
-      task: clone(task),
-      effective_execution_contract: clone(effectiveExecutionContract),
-      handoff_token_id: handoffTokenId,
-      created_at: createdAt,
-    });
-
-    return clone(continuationPackage);
-  }
-
   update(taskId, { expectedVersion, changes }) {
     const current = this.tasks.get(taskId);
     if (!current) {
@@ -313,6 +285,35 @@ export class TaskStore {
 
     return clone(next);
   }
+
+  createContinuationPackage(taskId, { handoffTokenId, effectiveExecutionContract, createdAt }) {
+    const task = this.tasks.get(taskId);
+    if (!task) {
+      throw new TaskNotFoundError(taskId);
+    }
+
+    if (
+      effectiveExecutionContract
+      && typeof effectiveExecutionContract === 'object'
+      && Object.prototype.hasOwnProperty.call(effectiveExecutionContract, 'task_type')
+      && effectiveExecutionContract.task_type !== task.task_type
+    ) {
+      throw new Error(
+        `task_type mismatch: task ${task.task_type} != effectiveExecutionContract ${effectiveExecutionContract.task_type}`,
+      );
+    }
+
+    const continuationPackage = validateContract('continuationPackage', {
+      schema_version: '1.0.0',
+      task: clone(task),
+      effective_execution_contract: clone(effectiveExecutionContract),
+      handoff_token_id: handoffTokenId,
+      created_at: createdAt,
+    });
+
+    return clone(continuationPackage);
+  }
+
 
   listProgressEvents(taskId) {
     if (!this.tasks.has(taskId)) {
