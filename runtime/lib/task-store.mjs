@@ -326,7 +326,6 @@ export class TaskStore {
       .listByTaskId(taskId)
       .find((event) => (
         event.type === 'continuation_created'
-        && event.event_id === eventId
         && event.metadata?.handoff_token_id === validatedHandoffToken.token_id
       ));
 
@@ -369,7 +368,6 @@ export class TaskStore {
         .listByTaskId(taskId)
         .find((event) => (
           event.type === 'continuation_created'
-          && event.event_id === eventId
           && event.metadata?.handoff_token_id === validatedHandoffToken.token_id
         ));
 

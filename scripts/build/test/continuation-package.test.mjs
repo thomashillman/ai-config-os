@@ -134,3 +134,34 @@ test('TaskStore createContinuationPackage rejects mismatched effective execution
     /effectiveExecutionContract\.task_type must match task task_type/,
   );
 });
+
+
+test('TaskStore createContinuationPackage replays canonical result from prior token event even with legacy event id', () => {
+  const store = new TaskStore();
+  const task = baseTask();
+  store.create(task);
+
+  store.progressEvents.append({
+    taskId: task.task_id,
+    eventId: 'evt_legacy_continuation_001',
+    type: 'continuation_created',
+    message: 'Legacy continuation package event.',
+    createdAt: '2026-03-12T12:01:00.000Z',
+    metadata: {
+      handoff_token_id: 'handoff_001',
+      continuation_package_created_at: '2026-03-12T12:01:00.000Z',
+    },
+  });
+
+  const replayPackage = store.createContinuationPackage(task.task_id, {
+    handoffToken: baseHandoffToken(task.task_id),
+    effectiveExecutionContract: baseExecutionContract(task.task_id),
+    createdAt: '2026-03-12T12:09:00.000Z',
+  });
+
+  assert.equal(replayPackage.created_at, '2026-03-12T12:01:00.000Z');
+
+  const events = store.listProgressEvents(task.task_id);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].event_id, 'evt_legacy_continuation_001');
+});
