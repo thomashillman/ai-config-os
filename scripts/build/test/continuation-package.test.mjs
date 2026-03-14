@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { TaskStore } from '../../../runtime/lib/task-store.mjs';
+import { createContinuationPackage } from '../../../runtime/lib/continuation-package.mjs';
+import { TaskStore, TaskNotFoundError } from '../../../runtime/lib/task-store.mjs';
 
 function baseTask(overrides = {}) {
   return {
@@ -22,7 +23,7 @@ function baseTask(overrides = {}) {
   };
 }
 
-function baseExecutionContract(taskId) {
+function baseExecutionContract(taskId, overrides = {}) {
   return {
     schema_version: '1.0.0',
     task_id: taskId,
@@ -39,10 +40,11 @@ function baseExecutionContract(taskId) {
     required_inputs: ['repository_ref'],
     stronger_host_guidance: 'Use local_repo for full verification.',
     computed_at: '2026-03-12T12:00:00.000Z',
+    ...overrides,
   };
 }
 
-function baseHandoffToken(taskId) {
+function baseHandoffToken(taskId, overrides = {}) {
   return {
     schema_version: '1.0.0',
     token_id: 'handoff_001',
@@ -51,8 +53,54 @@ function baseHandoffToken(taskId) {
     expires_at: '2026-03-12T12:10:00.000Z',
     signature: 'deadbeef',
     replay_nonce: 'nonce_1',
+    ...overrides,
   };
 }
+
+test('createContinuationPackage builds validated payload', () => {
+  const task = baseTask();
+  const contract = baseExecutionContract(task.task_id);
+
+  const continuationPackage = createContinuationPackage({
+    task,
+    effectiveExecutionContract: contract,
+    handoffTokenId: 'handoff_001',
+    createdAt: '2026-03-12T12:10:00.000Z',
+  });
+
+  assert.equal(continuationPackage.schema_version, '1.0.0');
+  assert.equal(continuationPackage.task.task_id, task.task_id);
+  assert.equal(continuationPackage.effective_execution_contract.task_id, task.task_id);
+  assert.equal(continuationPackage.handoff_token_id, 'handoff_001');
+});
+
+test('createContinuationPackage rejects contract/task mismatch', () => {
+  const task = baseTask();
+  const contract = baseExecutionContract('task_different_001');
+
+  assert.throws(
+    () => createContinuationPackage({
+      task,
+      effectiveExecutionContract: contract,
+      handoffTokenId: 'handoff_002',
+      createdAt: '2026-03-12T12:11:00.000Z',
+    }),
+    /task_id mismatch/,
+  );
+});
+
+test('TaskStore createContinuationPackage throws TaskNotFoundError for unknown task', () => {
+  const store = new TaskStore();
+
+  assert.throws(
+    () => store.createContinuationPackage('task_missing_001', {
+      handoffToken: baseHandoffToken('task_missing_001'),
+      effectiveExecutionContract: baseExecutionContract('task_missing_001'),
+      createdAt: '2026-03-12T12:13:00.000Z',
+    }),
+    TaskNotFoundError,
+  );
+});
 
 test('TaskStore createContinuationPackage is idempotent for retries with same handoff token', () => {
   const store = new TaskStore();
@@ -96,11 +144,7 @@ test('TaskStore createContinuationPackage records unique events for different ha
   });
 
   store.createContinuationPackage(task.task_id, {
-    handoffToken: {
-      ...baseHandoffToken(task.task_id),
-      token_id: 'handoff_002',
-      replay_nonce: 'nonce_2',
-    },
+    handoffToken: baseHandoffToken(task.task_id, { token_id: 'handoff_002', replay_nonce: 'nonce_2' }),
     effectiveExecutionContract: baseExecutionContract(task.task_id),
     createdAt: '2026-03-12T12:04:00.000Z',
   });
@@ -109,13 +153,9 @@ test('TaskStore createContinuationPackage records unique events for different ha
   assert.equal(events.length, 2);
   assert.deepEqual(
     events.map((event) => event.event_id),
-    [
-      'evt_continuation_created_handoff_001',
-      'evt_continuation_created_handoff_002',
-    ],
+    ['evt_continuation_created_handoff_001', 'evt_continuation_created_handoff_002'],
   );
 });
-
 
 test('TaskStore createContinuationPackage rejects mismatched effective execution task type', () => {
   const store = new TaskStore();
@@ -125,16 +165,12 @@ test('TaskStore createContinuationPackage rejects mismatched effective execution
   assert.throws(
     () => store.createContinuationPackage(task.task_id, {
       handoffToken: baseHandoffToken(task.task_id),
-      effectiveExecutionContract: {
-        ...baseExecutionContract(task.task_id),
-        task_type: 'other_task_type',
-      },
+      effectiveExecutionContract: baseExecutionContract(task.task_id, { task_type: 'other_task_type' }),
       createdAt: '2026-03-12T12:03:00.000Z',
     }),
-    /effectiveExecutionContract\.task_type must match task task_type/,
+    /task_type mismatch/,
   );
 });
-
 
 test('TaskStore createContinuationPackage replays canonical result from prior token event even with legacy event id', () => {
   const store = new TaskStore();
@@ -178,11 +214,7 @@ test('TaskStore createContinuationPackage stores canonical timestamp metadata pe
   });
 
   store.createContinuationPackage(task.task_id, {
-    handoffToken: {
-      ...baseHandoffToken(task.task_id),
-      token_id: 'handoff_002',
-      replay_nonce: 'nonce_2',
-    },
+    handoffToken: baseHandoffToken(task.task_id, { token_id: 'handoff_002', replay_nonce: 'nonce_2' }),
     effectiveExecutionContract: baseExecutionContract(task.task_id),
     createdAt: '2026-03-12T12:04:00.000Z',
   });

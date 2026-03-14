@@ -2,6 +2,7 @@ import { validateContract } from '../../shared/contracts/validate.mjs';
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle.mjs';
 import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger.mjs';
 import { ProgressEventStore, ProgressEventConflictError } from './progress-event-pipeline.mjs';
+import { createContinuationPackage as buildContinuationPackage } from './continuation-package.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -286,6 +287,7 @@ export class TaskStore {
     return clone(next);
   }
 
+
   listProgressEvents(taskId) {
     if (!this.tasks.has(taskId)) {
       throw new TaskNotFoundError(taskId);
@@ -309,18 +311,14 @@ export class TaskStore {
       throw new Error(`handoffToken.task_id must match taskId '${taskId}'`);
     }
 
-    const validatedExecutionContract = validateContract(
-      'effectiveExecutionContract',
-      clone(effectiveExecutionContract),
-    );
-    if (validatedExecutionContract.task_id !== taskId) {
-      throw new Error(`effectiveExecutionContract.task_id must match taskId '${taskId}'`);
-    }
+    const continuationPackage = buildContinuationPackage({
+      task,
+      effectiveExecutionContract,
+      handoffTokenId: validatedHandoffToken.token_id,
+      createdAt,
+    });
 
-    if (validatedExecutionContract.task_type !== task.task_type) {
-      throw new Error(`effectiveExecutionContract.task_type must match task task_type '${task.task_type}'`);
-    }
-
+    const validatedExecutionContract = continuationPackage.effective_execution_contract;
     const eventId = `evt_continuation_created_${validatedHandoffToken.token_id}`;
     const existingContinuationEvent = this.progressEvents
       .listByTaskId(taskId)
@@ -333,16 +331,15 @@ export class TaskStore {
       || existingContinuationEvent?.created_at
       || createdAt;
 
-    const continuationPackage = validateContract('continuationPackage', {
-      schema_version: '1.0.0',
-      task: clone(task),
-      effective_execution_contract: validatedExecutionContract,
-      handoff_token_id: validatedHandoffToken.token_id,
-      created_at: canonicalCreatedAt,
+    const canonicalPackage = buildContinuationPackage({
+      task,
+      effectiveExecutionContract: validatedExecutionContract,
+      handoffTokenId: validatedHandoffToken.token_id,
+      createdAt: canonicalCreatedAt,
     });
 
     if (existingContinuationEvent) {
-      return clone(continuationPackage);
+      return clone(canonicalPackage);
     }
 
     const eventPayload = {
@@ -386,7 +383,7 @@ export class TaskStore {
       return clone(replayPackage);
     }
 
-    return clone(continuationPackage);
+    return clone(canonicalPackage);
   }
 
   listSnapshots(taskId) {
