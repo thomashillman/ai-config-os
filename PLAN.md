@@ -210,10 +210,14 @@ Additional post-merge verification completed: alternative resolver permutation/s
 - ✓ T010 provenance transitions hardened with explicit `finding_transitioned` progress events.
 - ✓ T011 coverage extended through dedicated transition-event typing and regression tests.
 - ✓ T012 continuation flow hardened: idempotency, canonical replay behavior, and strict input validation are now covered.
-- △ T013 is now **in progress**: HandoffToken contract plumbing exists in TaskStore continuation creation, with API migrated from raw token IDs to validated handoff token objects; expiry/signature/replay-protection service work remains in Week 3 scope.
+- ✓ T013 completed: `runtime/lib/handoff-token-service.mjs` now issues/verifies/consumes signed handoff tokens with task binding, expiry-window enforcement, replay-store abstraction, timing-safe signature checks, and TaskStore continuation gating with idempotent replay semantics.
 
+
+**Post-review hardening update (2026-03-14):**
+- ✓ T013 regression gaps closed: execution-contract validation now occurs before token consumption, preventing accidental token burn on invalid continuation inputs.
+- ✓ Added dedicated negative-path tests for handoff-token lifetime-window violations and consume-expiry guards, plus continuation-flow assertion that invalid contracts never consume a token.
 **Week 3 — handoff, route upgrade, and validation**
-- HandoffToken service: task binding, expiry, signature, replay protection (T013, in progress)
+- ✓ HandoffToken service: task binding, expiry, signature, replay protection (T013)
 - Extend Worker control-plane endpoints for task-centric operations (T014)
 - Weak-environment start flow (T015)
 - Strong-environment resume flow: load existing task → re-evaluate capabilities → upgrade to `local_repo` → preserve findings with provenance (T016)

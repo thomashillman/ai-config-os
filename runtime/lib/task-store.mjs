@@ -2,6 +2,7 @@ import { validateContract } from '../../shared/contracts/validate.mjs';
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle.mjs';
 import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger.mjs';
 import { ProgressEventStore, ProgressEventConflictError } from './progress-event-pipeline.mjs';
+import { createHandoffTokenService } from './handoff-token-service.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -36,10 +37,14 @@ function createSnapshot(task) {
 }
 
 export class TaskStore {
-  constructor() {
+  constructor({ handoffTokenService } = {}) {
     this.tasks = new Map();
     this.snapshots = new Map();
     this.progressEvents = new ProgressEventStore();
+    this.handoffTokenService = handoffTokenService
+      || (process.env.AIOS_HANDOFF_TOKEN_SECRET
+        ? createHandoffTokenService({ secret: process.env.AIOS_HANDOFF_TOKEN_SECRET })
+        : null);
   }
 
   create(task) {
@@ -322,7 +327,6 @@ export class TaskStore {
       throw new Error(`effectiveExecutionContract.task_type must match task task_type '${task.task_type}'`);
     }
 
-    const eventId = `evt_continuation_created_${validatedHandoffToken.token_id}`;
     const existingContinuationEvent = this.progressEvents
       .listByTaskId(taskId)
       .find((event) => (
@@ -334,6 +338,35 @@ export class TaskStore {
       || existingContinuationEvent?.created_at
       || createdAt;
 
+    if (existingContinuationEvent) {
+      return clone(validateContract('continuationPackage', {
+        schema_version: '1.0.0',
+        task: clone(task),
+        effective_execution_contract: validatedExecutionContract,
+        handoff_token_id: validatedHandoffToken.token_id,
+        created_at: canonicalCreatedAt,
+      }));
+    }
+
+    if (!this.handoffTokenService) {
+      throw new Error('handoffTokenService is not configured');
+    }
+
+    this.handoffTokenService.verifyToken({
+      token: validatedHandoffToken,
+      expectedTaskId: taskId,
+      now: createdAt,
+    });
+
+    this.handoffTokenService.consumeToken({
+      tokenId: validatedHandoffToken.token_id,
+      nonce: validatedHandoffToken.replay_nonce,
+      now: createdAt,
+      expiresAt: validatedHandoffToken.expires_at,
+    });
+
+    const eventId = `evt_continuation_created_${validatedHandoffToken.token_id}`;
+
     const continuationPackage = validateContract('continuationPackage', {
       schema_version: '1.0.0',
       task: clone(task),
@@ -341,10 +374,6 @@ export class TaskStore {
       handoff_token_id: validatedHandoffToken.token_id,
       created_at: canonicalCreatedAt,
     });
-
-    if (existingContinuationEvent) {
-      return clone(continuationPackage);
-    }
 
     const eventPayload = {
       taskId,
