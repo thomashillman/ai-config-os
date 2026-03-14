@@ -16,7 +16,7 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — v0.5.4, updated 2026-03-11
+## Current state — v0.5.4+, updated 2026-03-14
 
 ### Completed infrastructure
 
@@ -113,7 +113,7 @@ All 22 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 | Outcome definitions | Done | `shared/outcomes/repository-audit.yaml` |
 | Executor runtime | Done | `runtime/mcp/executor-runtime.mjs` — centralized guardrails |
 | Tool definitions | Done | `runtime/tool-definitions.mjs` — canonical tool registry |
-| Manifest feature flags | Partial | `runtime/manifest.sh` — flags defined + validated; runtime gating NOT wired |
+| Manifest feature flags | Done | `runtime/manifest.sh` + runtime wiring (`runtime/mcp/server.js`, `runtime/lib/outcome-resolver.mjs`) — flags defined, validated, and enforced at runtime |
 
 ---
 
@@ -204,8 +204,16 @@ Additional post-merge verification completed: alternative resolver permutation/s
 
 **Week 2 status update (2026-03-14):** T012 completed with a validated continuation package creator (`runtime/lib/continuation-package.mjs`), TaskStore integration for package creation, and continuation progress-event emission coverage.
 
+**Closed-PR reconciliation update (2026-03-14):**
+- ✓ T008 hardening completed: route-runtime loader injection guards and route-input drift protection landed.
+- ✓ T009 lifecycle consistency fix completed: TaskStore route-selection versioning/conflict handling repaired.
+- ✓ T010 provenance transitions hardened with explicit `finding_transitioned` progress events.
+- ✓ T011 coverage extended through dedicated transition-event typing and regression tests.
+- ✓ T012 continuation flow hardened: idempotency, canonical replay behavior, and strict input validation are now covered.
+- △ T013 is now **in progress**: HandoffToken contract plumbing exists in TaskStore continuation creation, with API migrated from raw token IDs to validated handoff token objects; expiry/signature/replay-protection service work remains in Week 3 scope.
+
 **Week 3 — handoff, route upgrade, and validation**
-- HandoffToken service: task binding, expiry, signature, replay protection (T013)
+- HandoffToken service: task binding, expiry, signature, replay protection (T013, in progress)
 - Extend Worker control-plane endpoints for task-centric operations (T014)
 - Weak-environment start flow (T015)
 - Strong-environment resume flow: load existing task → re-evaluate capabilities → upgrade to `local_repo` → preserve findings with provenance (T016)
