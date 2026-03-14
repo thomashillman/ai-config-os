@@ -281,6 +281,14 @@ Definition of done:
 
 #### Track B - Unify runtime execution paths
 
+**Track B completion update (2026-03-14):**
+- ✓ Runtime task-facing operations now flow through a shared `runtime/lib/task-control-plane-service.mjs` layer.
+- ✓ Worker task endpoints now call the shared task-control-plane service adapter rather than duplicating TaskStore invocation mappings.
+- ✓ MCP task tools (`task_start_review_repository`, `task_resume_review_repository`, `task_get_readiness`) and dashboard task endpoints now use the same task-facing runtime service path.
+- ✓ Added parity coverage for the new MCP task tools and service delegation behavior.
+- ✓ Follow-up hardening: task-surface adapters now fail fast when task service wiring is missing, and MCP server refactor residue was removed.
+
+
 Focus:
 
 - reduce the split between script-backed dashboard/runtime actions and the newer contract-driven runtime control-plane

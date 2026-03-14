@@ -132,6 +132,58 @@ export const MCP_TOOL_DEFINITIONS = [
     outputSchema: { type: 'object' },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Edit ~/.claude/mcp.json directly.' }
+  },
+  {
+    name: 'task_start_review_repository',
+    description: 'Start a review_repository portable task from route-specific inputs',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id', 'goal', 'route_inputs'],
+      properties: {
+        task_id: { type: 'string' },
+        goal: { type: 'string' },
+        route_inputs: { type: 'object' },
+        capability_profile: { type: 'object' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker /v1/tasks route directly.' }
+  },
+  {
+    name: 'task_resume_review_repository',
+    description: 'Resume an existing review_repository task and re-evaluate route strength',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id'],
+      properties: {
+        task_id: { type: 'string' },
+        capability_profile: { type: 'object' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker /v1/tasks/:taskId/readiness after resume.' }
+  },
+  {
+    name: 'task_get_readiness',
+    description: 'Get task readiness projection and route-upgrade availability',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id'],
+      properties: {
+        task_id: { type: 'string' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker /v1/tasks/:taskId/readiness directly.' }
   }
 ];
 
