@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import * as TOML from '@iarna/toml';
 
 /**
  * Validates wrangler.toml configuration structure and required fields.
@@ -123,9 +124,7 @@ export function loadAndValidateWranglerConfig(workerDir = 'worker') {
 
   try {
     const content = fs.readFileSync(wranglerPath, 'utf8');
-    // Parse TOML - simple parsing for our use case
-    // Note: real TOML parsing would need a library, but we can handle our simple structure
-    const config = parseToml(content);
+    const config = TOML.parse(content);
     const result = validateWranglerConfig(config);
 
     return {
@@ -139,137 +138,6 @@ export function loadAndValidateWranglerConfig(workerDir = 'worker') {
       config: null
     };
   }
-}
-
-/**
- * Simple TOML parser for wrangler.toml - handles basic structure we care about.
- * For production, would use a proper TOML library.
- */
-function parseToml(content) {
-  const lines = content.split('\n');
-  const config = {
-    kv_namespaces: [],
-    r2_buckets: [],
-    env: {},
-    vars: {}
-  };
-
-  let currentSection = null;
-  let currentArrayType = null; // 'kv_namespaces', 'r2_buckets', or null
-  let currentArrayItem = null;
-  let currentEnv = null;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Skip comments and empty lines
-    if (!trimmed || trimmed.startsWith('#')) continue;
-
-    // Handle array table start [[...]]
-    if (trimmed.startsWith('[[') && trimmed.endsWith(']]')) {
-      // Save previous array item if any
-      if (currentArrayItem) {
-        if (currentArrayType === 'kv_namespaces') config.kv_namespaces.push(currentArrayItem);
-        else if (currentArrayType === 'r2_buckets') config.r2_buckets.push(currentArrayItem);
-      }
-
-      const match = trimmed.match(/\[\[(.+?)\]\]/);
-      if (match) {
-        const arrayPath = match[1].trim();
-        if (arrayPath.startsWith('env.')) {
-          // Handle [[env.staging.kv_namespaces]]
-          const parts = arrayPath.split('.');
-          currentEnv = parts[1];
-          currentArrayType = parts.slice(2).join('.');
-          if (!config.env[currentEnv]) config.env[currentEnv] = {};
-          if (!config.env[currentEnv][currentArrayType]) config.env[currentEnv][currentArrayType] = [];
-        } else {
-          // Handle [[kv_namespaces]] or [[r2_buckets]]
-          currentArrayType = arrayPath;
-          currentEnv = null;
-        }
-        currentSection = arrayPath;
-        currentArrayItem = {};
-      }
-      continue;
-    }
-
-    // Handle section table start [...]
-    if (trimmed.startsWith('[') && !trimmed.startsWith('[[')) {
-      // Save previous array item if any
-      if (currentArrayItem) {
-        if (currentArrayType === 'kv_namespaces') config.kv_namespaces.push(currentArrayItem);
-        else if (currentArrayType === 'r2_buckets') config.r2_buckets.push(currentArrayItem);
-      }
-
-      const match = trimmed.match(/\[(.+?)\]/);
-      if (match) {
-        currentSection = match[1].trim();
-        currentArrayType = null;
-        currentArrayItem = null;
-
-        if (currentSection.startsWith('env.')) {
-          const parts = currentSection.split('.');
-          currentEnv = parts[1];
-          const rest = parts.slice(2).join('.');
-
-          if (!config.env[currentEnv]) config.env[currentEnv] = {};
-
-          if (rest === 'vars') {
-            if (!config.env[currentEnv].vars) config.env[currentEnv].vars = {};
-          } else if (rest) {
-            if (!config.env[currentEnv][rest]) config.env[currentEnv][rest] = {};
-          }
-        } else {
-          currentEnv = null;
-          if (!config[currentSection]) config[currentSection] = {};
-        }
-      }
-      continue;
-    }
-
-    // Handle key = value pairs
-    const eqIdx = trimmed.indexOf('=');
-    if (eqIdx > 0) {
-      const key = trimmed.substring(0, eqIdx).trim();
-      let value = trimmed.substring(eqIdx + 1).trim();
-
-      // Remove quotes
-      if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
-      }
-
-      // Store value in appropriate location
-      if (currentArrayItem !== null) {
-        // We're inside an array item
-        currentArrayItem[key] = value;
-      } else if (currentEnv && currentSection.includes('vars')) {
-        // We're in [env.X.vars]
-        if (!config.env[currentEnv].vars) config.env[currentEnv].vars = {};
-        config.env[currentEnv].vars[key] = value;
-      } else if (currentEnv && currentSection.includes(currentEnv)) {
-        // We're in [env.X] (non-vars)
-        if (!config.env[currentEnv]) config.env[currentEnv] = {};
-        config.env[currentEnv][key] = value;
-      } else if (currentSection === 'vars') {
-        config.vars[key] = value;
-      } else if (currentSection) {
-        if (!config[currentSection]) config[currentSection] = {};
-        config[currentSection][key] = value;
-      } else {
-        // Root level
-        config[key] = value;
-      }
-    }
-  }
-
-  // Save final array item if any
-  if (currentArrayItem) {
-    if (currentArrayType === 'kv_namespaces') config.kv_namespaces.push(currentArrayItem);
-    else if (currentArrayType === 'r2_buckets') config.r2_buckets.push(currentArrayItem);
-  }
-
-  return config;
 }
 
 /**
