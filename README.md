@@ -32,40 +32,39 @@ This architecture ensures:
 
 ## Architecture: Runtime Execution (Phase 1 Cloudflare-first)
 
-The repository has evolved to support portable task execution across environments. **Phase 1 is Cloudflare-first with no external executor required.**
-
-### Phase 1 Primary Path (Cloudflare)
+**Phase 1 is Cloudflare-first. No external executor host is required.**
 
 The main execution flow:
 
-1. **Main Worker** (`worker/src/`) — API gateway serving artifacts, handling requests
-2. **Executor Worker** (`worker/executor/`) — Executes Phase 1 tools via service binding (KV/R2 queries only, 15s max)
+1. **Main Worker** (`worker/src/`) — API gateway serving artifacts, routing requests
+2. **Executor Worker** (`worker/executor/`) — Executes Phase 1 tools via service binding (KV/R2 metadata queries only, 15s timeout)
 3. **Task control plane** (`runtime/lib/`) — Portable task state, route resolution, continuation
 
-Execution is contained entirely within Cloudflare Workers. No external executor host required.
+All execution is contained within Cloudflare Workers. The two Workers communicate via **service binding** (no external HTTP overhead).
+
+### Phase 1 Constraints (by design)
+
+Phase 1 does **not** support:
+- Shell execution (`bash`, `sh`, etc.)
+- Filesystem read/write
+- Git operations
+- Long-lived processes
+- External subprocess spawning
+
+Phase 1 **does** support:
+- KV/R2 queries (metadata, artifacts)
+- Service binding between Workers (fast, no HTTP)
+- Portable task state and continuation
 
 ### Supporting Components
 
-- `runtime/mcp/` — Local development MCP server exposing runtime operations
-- `runtime/remote-executor/` — Phase 0 legacy HTTP executor (for backward compat or future Phase 2 VPS)
+- `runtime/mcp/` — Local development MCP server (exposes runtime operations)
+- `runtime/remote-executor/` — Reference Phase 0 HTTP executor (preserved for Phase 2 seam only)
 - `dashboard/` — Operator UI over runtime API
-- Worker serves artifacts from `dist/`, invokes executor via service binding, manages task state
 
-### Phase 1 Architecture Summary
+### Phase 2 (future, not implemented)
 
-**Phase 1 does not require:**
-- External executor service
-- Shell execution on Workers
-- Filesystem access
-- Long-lived processes
-
-**Phase 1 supports:**
-- KV/R2 queries (metadata, artifacts)
-- Service binding between Workers (fast, no HTTP overhead)
-- Portable task state (continuation across environments)
-
-**Phase 2 (future):**
-May add VPS-backed executor for shell, filesystem, git, and long-lived runtime tasks. The seam for Phase 2 is preserved in code but not implemented yet.
+A future phase may add VPS-backed executor for shell, filesystem, git, and long-running tasks. The seam for Phase 2 is preserved in code but not implemented yet. Phase 1 will remain the primary fast path for metadata operations.
 
 ## Current implementation focus
 

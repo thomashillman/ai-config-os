@@ -6,14 +6,18 @@ export interface Env {
   EXECUTOR_TIMEOUT_MS?: string;
   HANDOFF_TOKEN_SIGNING_KEY?: string;
 
-  // Phase 1 primary path: Service binding to executor Worker
-  // (invoked via service binding; no HTTP overhead, no external URL needed)
+  // PHASE 1 PRIMARY PATH: Service binding to executor Worker
+  // Cloudflare-first execution. Main Worker invokes executor Worker via
+  // service binding (no HTTP overhead, no external URL needed).
+  // This is the default and only recommended configuration for Phase 1.
   EXECUTOR?: {
     fetch(request: Request): Promise<Response>;
   };
 
-  // Phase 0 compatibility / Phase 2 future: External executor via HTTP proxy
-  // (optional; only used as fallback if service binding unavailable)
+  // PHASE 0 COMPATIBILITY / PHASE 2 FUTURE: External executor via HTTP proxy
+  // Optional fallback for backward compatibility or future VPS executor.
+  // Phase 1 does NOT require this; service binding (EXECUTOR) is primary.
+  // Will be used only if service binding is unavailable.
   EXECUTOR_PROXY_URL?: string;
 
   MANIFEST_KV?: {

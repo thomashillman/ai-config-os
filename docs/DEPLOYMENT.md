@@ -369,7 +369,7 @@ This is only for backward compatibility testing. Phase 1 uses service binding.
 | Name | Required | Purpose |
 |------|----------|---------|
 | `ENVIRONMENT` | Yes | Environment label: `staging`, `production` |
-| `EXECUTOR_PROXY_URL` | Yes | URL to remote executor (e.g., `https://executor.example.com`) |
+| `EXECUTOR_PROXY_URL` | No (Phase 1) | URL to remote executor; only for Phase 0 backward compat or Phase 2. Phase 1 uses service binding. |
 | `EXECUTOR_TIMEOUT_MS` | No | Executor timeout in ms (default: 10000) |
 
 ### Cloud Resources (in `wrangler.toml`)

@@ -33,19 +33,24 @@ test('validateWranglerConfig - passes with all required fields', () => {
   assert.equal(result.errors.length, 0);
 });
 
-test('validateWranglerConfig - fails when EXECUTOR_PROXY_URL is missing', () => {
+test('validateWranglerConfig - passes even without EXECUTOR_PROXY_URL (Phase 1 uses service binding)', () => {
   const config = {
     name: 'ai-config-os',
     main: 'src/index.ts',
     vars: {
       ENVIRONMENT: 'staging',
       EXECUTOR_TIMEOUT_MS: '10000'
-    }
+    },
+    kv_namespaces: [
+      { binding: 'MANIFEST_KV', id: 'kv-id' }
+    ],
+    r2_buckets: [
+      { binding: 'ARTEFACTS_R2', bucket_name: 'bucket' }
+    ]
   };
 
   const result = validateWranglerConfig(config);
-  assert.equal(result.valid, false);
-  assert.ok(result.errors.some(e => e.includes('EXECUTOR_PROXY_URL')));
+  assert.equal(result.valid, true, 'Phase 1 does not require EXECUTOR_PROXY_URL; service binding is primary');
 });
 
 test('validateWranglerConfig - fails when EXECUTOR_TIMEOUT_MS is not a number', () => {
@@ -430,4 +435,69 @@ test('validateWranglerConfigForEnv - accepts staging service binding with correc
 
   const result = validateWranglerConfigForEnv(config, 'staging');
   assert.equal(result.valid, true, 'Should accept staging service binding with correct name');
+});
+
+/* Phase 1 Primary Path Tests */
+
+test('validateWranglerConfig - accepts top-level config with service binding (Phase 1 primary)', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    vars: {
+      ENVIRONMENT: 'production',
+      EXECUTOR_TIMEOUT_MS: '10000'
+      // No EXECUTOR_PROXY_URL - service binding only
+    },
+    services: [
+      {
+        binding: 'EXECUTOR',
+        service: 'ai-config-os-executor',
+        environment: 'production'
+      }
+    ],
+    kv_namespaces: [
+      { binding: 'MANIFEST_KV', id: 'prod-kv-id' }
+    ],
+    r2_buckets: [
+      { binding: 'ARTEFACTS_R2', bucket_name: 'prod-bucket' }
+    ]
+  };
+
+  const result = validateWranglerConfig(config);
+  assert.equal(result.valid, true, 'Phase 1 requires service binding; EXECUTOR_PROXY_URL should be optional');
+});
+
+test('validateWranglerConfig - accepts staging config with service binding only', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    vars: {
+      EXECUTOR_TIMEOUT_MS: '10000'
+    },
+    env: {
+      staging: {
+        services: [
+          {
+            binding: 'EXECUTOR',
+            service: 'ai-config-os-executor-staging',
+            environment: 'staging'
+          }
+        ],
+        vars: {
+          ENVIRONMENT: 'staging',
+          EXECUTOR_TIMEOUT_MS: '10000'
+          // No EXECUTOR_PROXY_URL - service binding only
+        },
+        kv_namespaces: [
+          { binding: 'MANIFEST_KV', id: 'staging-kv-id' }
+        ],
+        r2_buckets: [
+          { binding: 'ARTEFACTS_R2', bucket_name: 'staging-bucket' }
+        ]
+      }
+    }
+  };
+
+  const result = validateWranglerConfig(config);
+  assert.equal(result.valid, true, 'Phase 1 staging should accept service binding without EXECUTOR_PROXY_URL');
 });

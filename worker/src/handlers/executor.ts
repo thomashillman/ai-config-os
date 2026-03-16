@@ -13,8 +13,7 @@ function parseTimeoutMs(raw: string | undefined): number {
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return 10000;
   }
-  // Phase 1: Clamp to 15s (15000ms) for service binding path
-  // Phase 0: 120s for HTTP proxy path (handled separately if needed)
+  // Parse timeout; final clamping happens in invokeExecutorServiceBinding or invokeExecutorProxy
   return Math.min(parsed, 120000);
 }
 
@@ -181,24 +180,26 @@ export async function handleExecute(request: Request, env: Env): Promise<Respons
 
   const forwardedSignature = request.headers.get('X-Request-Signature') ?? '';
 
-  // --- PHASE 1 PRIMARY PATH: Service binding ---
-  // Cloudflare-first execution via service binding to executor Worker.
-  // This is the default and only recommended path for Phase 1.
-  // No external executor host required; execution is contained within Cloudflare.
+  // --- PHASE 1 PRIMARY PATH: Service binding (Cloudflare-first) ---
+  // Invoke executor Worker via service binding. This is the default and only
+  // recommended path for Phase 1. No external executor host required.
+  // All execution is contained within Cloudflare Workers.
   if (env.EXECUTOR) {
     return invokeExecutorServiceBinding(env, validation.value, forwardedSignature);
   }
 
   // --- PHASE 0 COMPATIBILITY / PHASE 2 FUTURE: External executor via HTTP proxy ---
-  // Fallback for backward compatibility or future VPS executor.
-  // Only used if service binding is not available.
+  // Fallback path only when service binding is unavailable.
+  // Used for: (1) backward compatibility with Phase 0 architecture,
+  // or (2) future Phase 2 with a VPS-backed executor.
+  // Phase 1 does NOT require this; service binding is the default.
   if (env.EXECUTOR_PROXY_URL) {
     return invokeExecutorProxy(env, validation.value, forwardedSignature);
   }
 
-  // Neither path configured
+  // Neither path configured - Phase 1 requires service binding
   return jsonResponse({
-    error: 'Executor is not configured. Phase 1 requires service binding (EXECUTOR). ' +
-           'For legacy compatibility, set EXECUTOR_PROXY_URL.',
+    error: 'Executor is not configured. Phase 1 requires service binding (EXECUTOR) in wrangler.toml. ' +
+           'EXECUTOR_PROXY_URL is optional for backward compatibility or future Phase 2.',
   }, 500);
 }
