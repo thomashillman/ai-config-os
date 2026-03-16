@@ -1,36 +1,25 @@
-import { readFileSync } from 'fs';
-import { dirname, resolve } from 'path';
-import { fileURLToPath } from 'url';
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..', '..');
+import skillSchema from '../../schemas/skill.schema.json' assert { type: 'json' };
 
-function loadSchema(relativePath) {
-  const absolutePath = resolve(REPO_ROOT, relativePath);
-  return JSON.parse(readFileSync(absolutePath, 'utf8'));
-}
+import manifestSchema from './schemas/v1/manifest.schema.json' assert { type: 'json' };
+import capabilityProfileSchema from './schemas/v1/capability-profile.schema.json' assert { type: 'json' };
+import toolDefinitionSchema from './schemas/v1/tool-definition.schema.json' assert { type: 'json' };
+import skillDefinitionSchema from './schemas/v1/skill-definition.schema.json' assert { type: 'json' };
+import outcomeDefinitionSchema from './schemas/v1/outcome-definition.schema.json' assert { type: 'json' };
+import routeDefinitionSchema from './schemas/v1/route-definition.schema.json' assert { type: 'json' };
+import effectiveOutcomeContractSchema from './schemas/v1/effective-outcome-contract.schema.json' assert { type: 'json' };
 
-const skillSchema = loadSchema('schemas/skill.schema.json');
-
-const manifestSchema = loadSchema('shared/contracts/schemas/v1/manifest.schema.json');
-const capabilityProfileSchema = loadSchema('shared/contracts/schemas/v1/capability-profile.schema.json');
-const toolDefinitionSchema = loadSchema('shared/contracts/schemas/v1/tool-definition.schema.json');
-const skillDefinitionSchema = loadSchema('shared/contracts/schemas/v1/skill-definition.schema.json');
-const outcomeDefinitionSchema = loadSchema('shared/contracts/schemas/v1/outcome-definition.schema.json');
-const routeDefinitionSchema = loadSchema('shared/contracts/schemas/v1/route-definition.schema.json');
-const effectiveOutcomeContractSchema = loadSchema('shared/contracts/schemas/v1/effective-outcome-contract.schema.json');
-
-const portableTaskObjectSchema = loadSchema('shared/contracts/schemas/v1/portable-task-object.schema.json');
-const taskStateSnapshotSchema = loadSchema('shared/contracts/schemas/v1/task-state-snapshot.schema.json');
-const taskRouteDefinitionSchema = loadSchema('shared/contracts/schemas/v1/task-route-definition.schema.json');
-const effectiveExecutionContractSchema = loadSchema('shared/contracts/schemas/v1/effective-execution-contract.schema.json');
-const progressEventSchema = loadSchema('shared/contracts/schemas/v1/progress-event.schema.json');
-const provenanceMarkerSchema = loadSchema('shared/contracts/schemas/v1/provenance-marker.schema.json');
-const findingsLedgerEntrySchema = loadSchema('shared/contracts/schemas/v1/findings-ledger-entry.schema.json');
-const continuationPackageSchema = loadSchema('shared/contracts/schemas/v1/continuation-package.schema.json');
-const handoffTokenSchema = loadSchema('shared/contracts/schemas/v1/handoff-token.schema.json');
+import portableTaskObjectSchema from './schemas/v1/portable-task-object.schema.json' assert { type: 'json' };
+import taskStateSnapshotSchema from './schemas/v1/task-state-snapshot.schema.json' assert { type: 'json' };
+import taskRouteDefinitionSchema from './schemas/v1/task-route-definition.schema.json' assert { type: 'json' };
+import effectiveExecutionContractSchema from './schemas/v1/effective-execution-contract.schema.json' assert { type: 'json' };
+import progressEventSchema from './schemas/v1/progress-event.schema.json' assert { type: 'json' };
+import provenanceMarkerSchema from './schemas/v1/provenance-marker.schema.json' assert { type: 'json' };
+import findingsLedgerEntrySchema from './schemas/v1/findings-ledger-entry.schema.json' assert { type: 'json' };
+import continuationPackageSchema from './schemas/v1/continuation-package.schema.json' assert { type: 'json' };
+import handoffTokenSchema from './schemas/v1/handoff-token.schema.json' assert { type: 'json' };
 
 const kindToSchemaId = {
   manifest: manifestSchema.$id,
