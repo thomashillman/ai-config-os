@@ -5,7 +5,7 @@
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle-worker.mjs';
 import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger-worker.mjs';
 import { ProgressEventStore, ProgressEventConflictError } from './progress-event-pipeline-worker.mjs';
-import { createHandoffTokenService } from './handoff-token-service.mjs';
+import { createHandoffTokenService } from './handoff-token-service-worker.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
