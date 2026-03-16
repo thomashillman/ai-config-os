@@ -256,11 +256,12 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `scripts/build/` | Compiler that validates skills and emits `dist/` artefacts |
 | `scripts/build/lib/materialise-client.mjs` | Materialiser: extracts emitted packages without source access (portability contract) |
 | `worker/` | Cloudflare Worker serving compiled skills via signed-request REST API |
+| `worker/executor/` | Phase 1 executor Worker (Cloudflare-only, invoked via service binding; supports KV/R2 queries only) |
 | `plugins/core-skills/` | Claude Code plugin (optional local symlinks to `shared/skills/` on Unix only) |
 | `runtime/config/` | Desired-state configuration (global, machine, project overrides) |
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
 | `runtime/mcp/` | MCP server exposing runtime operations as Claude Code tools |
-| `runtime/remote-executor/` | HTTP service that executes proxied tool requests from the worker |
+| `runtime/remote-executor/` | HTTP service that executes proxied tool requests from the worker (Phase 0, being phased out) |
 | `runtime/lib/` | Task-control-plane core: route resolution, task lifecycle, findings provenance, continuation, and runtime contracts |
 | `dashboard/` | React SPA for runtime visibility and control |
 | `ops/` | Developer scripts (new-skill, merge-open-prs, lint, validate, docs generator) |
