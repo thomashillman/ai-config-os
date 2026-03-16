@@ -2,9 +2,9 @@
 // Uses in Worker runtime where JSON.parse boundary provides type safety.
 // Node-only validation remains in task-store.mjs.
 
-import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle.mjs';
-import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger.mjs';
-import { ProgressEventStore, ProgressEventConflictError } from './progress-event-pipeline.mjs';
+import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle-worker.mjs';
+import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger-worker.mjs';
+import { ProgressEventStore, ProgressEventConflictError } from './progress-event-pipeline-worker.mjs';
 import { createHandoffTokenService } from './handoff-token-service.mjs';
 
 function clone(value) {
