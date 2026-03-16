@@ -20,11 +20,11 @@ EXECUTOR_TIMEOUT_MS = "15000"
 
 [[kv_namespaces]]
 binding = "MANIFEST_KV"
-id = "REPLACE_WITH_MANIFEST_KV_ID"
+id = "92c2036894ca42d2a7732ea98c0c53a6"
 
 [[r2_buckets]]
 binding = "ARTEFACTS_R2"
-bucket_name = "ai-config-os-artefacts"
+bucket_name = "artefacts-r2"
 
 # Staging environment
 [env.staging]
@@ -35,8 +35,8 @@ EXECUTOR_TIMEOUT_MS = "15000"
 
 [[env.staging.kv_namespaces]]
 binding = "MANIFEST_KV"
-id = "REPLACE_WITH_STAGING_MANIFEST_KV_ID"
+id = "92c2036894ca42d2a7732ea98c0c53a6"
 
 [[env.staging.r2_buckets]]
 binding = "ARTEFACTS_R2"
-bucket_name = "ai-config-os-artefacts-staging"
+bucket_name = "artefacts-r2"
