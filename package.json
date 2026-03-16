@@ -11,7 +11,11 @@
     "test": "node scripts/build/test/run-tests.mjs",
     "version:sync": "node scripts/build/sync-release-version.mjs",
     "version:check": "node scripts/build/check-version-parity.mjs",
-    "verify": "node scripts/build/verify.mjs"
+    "verify": "node scripts/build/verify.mjs",
+    "deploy:validate": "node scripts/deploy/validate-config.mjs",
+    "deploy:build": "bash scripts/deploy/build-worker.sh",
+    "deploy:staging": "bash scripts/deploy/deploy-staging.sh",
+    "smoke:test": "node scripts/deploy/smoke-tests.mjs"
   },
   "dependencies": {
     "ajv": "^8.17.1",
