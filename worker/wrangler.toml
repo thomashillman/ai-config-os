@@ -3,23 +3,29 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# --------------------------------------------
+# PHASE 1 CLOUDFLARE-FIRST ARCHITECTURE
+#
+# Primary path: Service binding to executor Worker (below).
+# Fallback path (Phase 0 compat): HTTP proxy to EXECUTOR_PROXY_URL (optional).
+#
+# For Phase 1, configure service binding [[services]] below.
+# EXECUTOR_PROXY_URL is for backward compatibility or future VPS executor.
+
 # SECRETS — Set via: wrangler secret put <NAME> --env <ENV>
-# --------------------------------------------
+# ----------
 # AUTH_TOKEN                — Bearer token for API clients (required)
 # AUTH_TOKEN_NEXT           — Next bearer token for rotation (optional)
-# EXECUTOR_SHARED_SECRET    — Shared secret for remote executor verification (required)
-# HANDOFF_TOKEN_SIGNING_KEY — Private key for handoff token signing (optional, for continuation)
+# EXECUTOR_SHARED_SECRET    — Shared secret for request verification (required)
+# HANDOFF_TOKEN_SIGNING_KEY — Private key for handoff token signing (optional)
 #
 # Example for staging:
 #   wrangler secret put AUTH_TOKEN --env staging
 #   wrangler secret put EXECUTOR_SHARED_SECRET --env staging
 
-# --------------------------------------------
 # DEFAULT ENVIRONMENT (Production)
-# --------------------------------------------
 [vars]
 ENVIRONMENT = "production"
+# Phase 0 compat only: HTTP proxy URL for external executor (not required for Phase 1)
 EXECUTOR_PROXY_URL = "https://remote-executor.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
 
@@ -38,10 +44,11 @@ bucket_name = "ai-config-os-artefacts"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
+# Phase 0 compat only: HTTP proxy URL for external executor (not required for Phase 1)
 EXECUTOR_PROXY_URL = "https://executor-staging.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
 
-# Phase 1: Staging executor service binding
+# Phase 1 primary path: Service binding to staging executor Worker
 [[env.staging.services]]
 binding = "EXECUTOR"
 service = "ai-config-os-executor-staging"
@@ -57,11 +64,10 @@ bucket_name = "ai-config-os-artefacts-staging"
 
 # --------------------------------------------
 # BUILD & DEPLOYMENT
-# --------------------------------------------
 # The dist/ registry and client bundles are bundled into the worker at deploy time.
 # See scripts/build/compile.mjs to regenerate dist/ before deploying.
 
-# Phase 1: Service binding to executor Worker (primary execution path)
+# Phase 1 primary path: Service binding to production executor Worker
 [[services]]
 binding = "EXECUTOR"
 service = "ai-config-os-executor"

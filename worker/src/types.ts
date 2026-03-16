@@ -2,15 +2,19 @@ export interface Env {
   AUTH_TOKEN: string;
   AUTH_TOKEN_NEXT?: string;
   ENVIRONMENT?: string;
-  EXECUTOR_PROXY_URL?: string;
   EXECUTOR_SHARED_SECRET: string;
   EXECUTOR_TIMEOUT_MS?: string;
   HANDOFF_TOKEN_SIGNING_KEY?: string;
 
-  // Phase 1: Service binding to executor Worker (primary path)
+  // Phase 1 primary path: Service binding to executor Worker
+  // (invoked via service binding; no HTTP overhead, no external URL needed)
   EXECUTOR?: {
     fetch(request: Request): Promise<Response>;
   };
+
+  // Phase 0 compatibility / Phase 2 future: External executor via HTTP proxy
+  // (optional; only used as fallback if service binding unavailable)
+  EXECUTOR_PROXY_URL?: string;
 
   MANIFEST_KV?: {
     get(key: string): Promise<string | null> | string | null;

@@ -82,7 +82,8 @@ export function validateWranglerConfigForEnv(config, environment = 'production')
   // Get vars from the target environment
   const vars = envConfig.vars || {};
 
-  // Phase 1: Check for service binding OR valid EXECUTOR_PROXY_URL
+  // Phase 1: Service binding is the primary path
+  // EXECUTOR_PROXY_URL is optional, for Phase 0 compat or Phase 2 future
   const sbResult = validateServiceBindingsForEnv(config, environment);
   const hasServiceBinding = sbResult.valid;
   const executorUrl = vars.EXECUTOR_PROXY_URL;
@@ -90,9 +91,12 @@ export function validateWranglerConfigForEnv(config, environment = 'production')
 
   if (!hasServiceBinding && !hasValidProxyUrl) {
     if (!executorUrl) {
-      errors.push(`Missing executor configuration: either service binding or EXECUTOR_PROXY_URL required for ${environment}`);
+      errors.push(`Missing executor configuration for Phase 1: service binding [[services]] required for ${environment}. ` +
+                  `(EXECUTOR_PROXY_URL is optional, for backward compat only.)`);
     } else if (isPlaceholder(executorUrl, environment)) {
-      errors.push(`Invalid EXECUTOR_PROXY_URL for ${environment}: "${executorUrl}" appears to be a placeholder. Set a real executor endpoint or configure service binding.`);
+      errors.push(`Invalid EXECUTOR_PROXY_URL for ${environment}: "${executorUrl}" is a placeholder. ` +
+                  `For Phase 1, configure service binding [[services]]. ` +
+                  `EXECUTOR_PROXY_URL is only for backward compatibility.`);
     }
   }
 

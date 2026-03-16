@@ -3,7 +3,14 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# Secrets
+# PHASE 1 EXECUTOR WORKER (Cloudflare-only)
+#
+# This is the Phase 1 executor, invoked by main Worker via service binding.
+# Only supports KV/R2 queries (Phase 1 tool subset).
+# Maximum timeout: 15 seconds (Worker isolation constraint).
+# No shell execution, no filesystem access, no external subprocess spawning.
+
+# SECRETS
 # EXECUTOR_SHARED_SECRET — set via: wrangler secret put EXECUTOR_SHARED_SECRET --env production
 
 [vars]
