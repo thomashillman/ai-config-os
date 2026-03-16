@@ -181,16 +181,24 @@ export async function handleExecute(request: Request, env: Env): Promise<Respons
 
   const forwardedSignature = request.headers.get('X-Request-Signature') ?? '';
 
-  // Phase 1 primary path: Service binding (if available)
+  // --- PHASE 1 PRIMARY PATH: Service binding ---
+  // Cloudflare-first execution via service binding to executor Worker.
+  // This is the default and only recommended path for Phase 1.
+  // No external executor host required; execution is contained within Cloudflare.
   if (env.EXECUTOR) {
     return invokeExecutorServiceBinding(env, validation.value, forwardedSignature);
   }
 
-  // Phase 0 fallback: HTTP proxy (for backward compatibility)
+  // --- PHASE 0 COMPATIBILITY / PHASE 2 FUTURE: External executor via HTTP proxy ---
+  // Fallback for backward compatibility or future VPS executor.
+  // Only used if service binding is not available.
   if (env.EXECUTOR_PROXY_URL) {
     return invokeExecutorProxy(env, validation.value, forwardedSignature);
   }
 
-  // Neither configured
-  return jsonResponse({ error: 'Executor is not configured (neither service binding nor proxy URL available)' }, 500);
+  // Neither path configured
+  return jsonResponse({
+    error: 'Executor is not configured. Phase 1 requires service binding (EXECUTOR). ' +
+           'For legacy compatibility, set EXECUTOR_PROXY_URL.',
+  }, 500);
 }

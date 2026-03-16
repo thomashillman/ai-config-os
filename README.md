@@ -30,26 +30,42 @@ This architecture ensures:
 - **Determinism:** Same source always produces identical emitted packages (no timestamps in build output)
 - **Scalability:** Packages can be distributed via Worker, S3, package manager, or Git without modification
 
-## Architecture: Runtime Control Plane
+## Architecture: Runtime Execution (Phase 1 Cloudflare-first)
 
-The repository now has a second architectural spine alongside skill packaging: a task-control-plane for portable work.
+The repository has evolved to support portable task execution across environments. **Phase 1 is Cloudflare-first with no external executor required.**
 
-At a high level:
+### Phase 1 Primary Path (Cloudflare)
 
-1. `runtime/lib/` defines portable task state, route resolution, findings provenance, continuation packages, and handoff tokens.
-2. `runtime/mcp/` exposes local runtime operations and starts the dashboard API.
-3. `runtime/remote-executor/` provides a constrained HTTP execution surface for proxied tool runs.
-4. `worker/src/index.ts` serves emitted artifacts, proxies approved execution requests, and exposes task-control-plane endpoints.
-5. `dashboard/` acts as an operator UI over the runtime API.
+The main execution flow:
 
-Current design intent:
+1. **Main Worker** (`worker/src/`) — API gateway serving artifacts, handling requests
+2. **Executor Worker** (`worker/executor/`) — Executes Phase 1 tools via service binding (KV/R2 queries only, 15s max)
+3. **Task control plane** (`runtime/lib/`) — Portable task state, route resolution, continuation
 
-- keep canonical authored content in `shared/`
-- keep deterministic compilation in `scripts/build/`
-- keep orchestration logic in `runtime/lib/`
-- treat MCP, dashboard, and Worker as adapters over shared runtime behavior
+Execution is contained entirely within Cloudflare Workers. No external executor host required.
 
-This matters because AI Config OS is no longer only a packaging system for skills. It is also becoming a runtime that can start work in one environment and continue it in another without reconstructing task state.
+### Supporting Components
+
+- `runtime/mcp/` — Local development MCP server exposing runtime operations
+- `runtime/remote-executor/` — Phase 0 legacy HTTP executor (for backward compat or future Phase 2 VPS)
+- `dashboard/` — Operator UI over runtime API
+- Worker serves artifacts from `dist/`, invokes executor via service binding, manages task state
+
+### Phase 1 Architecture Summary
+
+**Phase 1 does not require:**
+- External executor service
+- Shell execution on Workers
+- Filesystem access
+- Long-lived processes
+
+**Phase 1 supports:**
+- KV/R2 queries (metadata, artifacts)
+- Service binding between Workers (fast, no HTTP overhead)
+- Portable task state (continuation across environments)
+
+**Phase 2 (future):**
+May add VPS-backed executor for shell, filesystem, git, and long-lived runtime tasks. The seam for Phase 2 is preserved in code but not implemented yet.
 
 ## Current implementation focus
 
