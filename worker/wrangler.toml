@@ -54,7 +54,7 @@ EXECUTOR_TIMEOUT_MS = "10000"
 # PHASE 1: Service binding to staging executor Worker (primary path)
 [[env.staging.services]]
 binding = "EXECUTOR"
-service = "ai-config-os-executor-staging"
+service = "ai-config-os-executor"
 environment = "staging"
 
 [[env.staging.kv_namespaces]]
