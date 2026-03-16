@@ -23,6 +23,12 @@ compatibility_flags = ["nodejs_compat"]
 #   wrangler secret put AUTH_TOKEN --env staging
 #   wrangler secret put EXECUTOR_SHARED_SECRET --env staging
 
+# Build step: generates dist/ artefacts and installs root dependencies before wrangler bundles.
+# Required because wrangler runs from worker/ but src/index.ts imports ../../dist/ files
+# and ../runtime/lib/ modules that depend on packages only in the root package.json.
+[build]
+command = "cd .. && npm install && node scripts/build/compile.mjs"
+
 # DEFAULT ENVIRONMENT (Production)
 [vars]
 ENVIRONMENT = "production"
