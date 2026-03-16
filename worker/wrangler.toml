@@ -3,10 +3,21 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# Set AUTH_TOKEN via: wrangler secret put AUTH_TOKEN
-# Set AUTH_TOKEN_NEXT via: wrangler secret put AUTH_TOKEN_NEXT (for rotation)
-# Set EXECUTOR_SHARED_SECRET via: wrangler secret put EXECUTOR_SHARED_SECRET
+# --------------------------------------------
+# SECRETS — Set via: wrangler secret put <NAME> --env <ENV>
+# --------------------------------------------
+# AUTH_TOKEN                — Bearer token for API clients (required)
+# AUTH_TOKEN_NEXT           — Next bearer token for rotation (optional)
+# EXECUTOR_SHARED_SECRET    — Shared secret for remote executor verification (required)
+# HANDOFF_TOKEN_SIGNING_KEY — Private key for handoff token signing (optional, for continuation)
+#
+# Example for staging:
+#   wrangler secret put AUTH_TOKEN --env staging
+#   wrangler secret put EXECUTOR_SHARED_SECRET --env staging
 
+# --------------------------------------------
+# DEFAULT ENVIRONMENT (Production)
+# --------------------------------------------
 [vars]
 ENVIRONMENT = "production"
 EXECUTOR_PROXY_URL = "https://remote-executor.example.com"
@@ -20,5 +31,34 @@ id = "REPLACE_WITH_MANIFEST_KV_ID"
 binding = "ARTEFACTS_R2"
 bucket_name = "ai-config-os-artefacts"
 
+# --------------------------------------------
+# STAGING ENVIRONMENT
+# --------------------------------------------
+[env.staging]
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+EXECUTOR_PROXY_URL = "https://executor-staging.example.com"
+EXECUTOR_TIMEOUT_MS = "10000"
+
+[[env.staging.kv_namespaces]]
+binding = "MANIFEST_KV"
+id = "REPLACE_WITH_STAGING_MANIFEST_KV_ID"
+
+[[env.staging.r2_buckets]]
+binding = "ARTEFACTS_R2"
+bucket_name = "ai-config-os-artefacts-staging"
+
+# --------------------------------------------
+# BUILD & DEPLOYMENT
+# --------------------------------------------
 # The dist/ registry and client bundles are bundled into the worker at deploy time.
 # See scripts/build/compile.mjs to regenerate dist/ before deploying.
+#
+# Deploy staging:
+#   npm run build
+#   wrangler deploy --env staging
+#
+# Deploy production:
+#   npm run build
+#   wrangler deploy
