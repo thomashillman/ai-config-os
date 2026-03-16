@@ -1,17 +1,22 @@
 #!/bin/bash
 
-# Deploy Worker to staging environment
+# Deploy Main Worker to staging environment
 #
-# This script:
+# PREREQUISITE: Executor Worker must be deployed first (Phase 1 two-Worker model).
+# Deploy executor Worker from worker/executor/ directory:
+#   cd worker/executor && npx wrangler deploy --env staging
+#
+# This script (main Worker):
 # 1. Validates wrangler.toml configuration
 # 2. Verifies required dist/ artifacts exist
 # 3. Deploys to Cloudflare staging environment
 #
 # Prerequisites:
 # 1. npm run build (or bash scripts/deploy/build-worker.sh)
-# 2. wrangler installed (npm install in worker/)
-# 3. Cloudflare credentials configured (wrangler auth)
-# 4. Secrets set via wrangler: wrangler secret put AUTH_TOKEN --env staging
+# 2. Executor Worker deployed to staging (see above)
+# 3. wrangler installed (npm install in worker/)
+# 4. Cloudflare credentials configured (wrangler auth)
+# 5. Secrets set via wrangler: wrangler secret put AUTH_TOKEN --env staging
 #
 # Usage:
 #   bash scripts/deploy/deploy-staging.sh

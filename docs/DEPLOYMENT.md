@@ -26,17 +26,20 @@ The deployment process has two parts:
 
 This document covers the repo-side steps. Cloudflare resource setup is manual and one-time.
 
-## What Gets Deployed
+## What Gets Deployed (Two Workers)
 
-**Main Worker** (`worker/`):
+**Executor Worker** (`worker/executor/`) — Deployed first
+- TypeScript sources (`worker/executor/src/`) compiled by Wrangler
+- Configuration (`worker/executor/wrangler.toml`) — KV/R2 bindings, secrets
+- Handles Phase 1 tools (KV/R2 metadata queries only)
+- Service name: `ai-config-os-executor` (production) or `ai-config-os-executor-staging` (staging)
+
+**Main Worker** (`worker/`) — Deployed second
 - TypeScript sources (`worker/src/`) compiled by Wrangler
 - Bundled artifacts (`dist/`) — Skill registry and client plugin JSON
-- Configuration (`worker/wrangler.toml`) — Bindings, service binding to executor, secrets
-
-**Executor Worker** (`worker/executor/`):
-- TypeScript sources (`worker/executor/src/`) compiled by Wrangler
-- Configuration (`worker/executor/wrangler.toml`) — Bindings, secrets
-- No bundled artifacts (uses shared KV/R2 with main Worker)
+- Configuration (`worker/wrangler.toml`) — Service binding, KV/R2 bindings, secrets
+- Routes requests to executor Worker via service binding
+- Manages task state and orchestration
 
 ## Environment Structure
 
@@ -104,13 +107,19 @@ These bucket names are already referenced in `worker/wrangler.toml`:
 
 The executor Worker is deployed **from `worker/executor/`** after the main Worker. No external service needed for Phase 1.
 
-**Phase 0 compat (optional):**
-If you need backward compatibility with external executor, set up a service outside Cloudflare:
+**Phase 0 compat (optional) / Phase 2 future:**
+The external executor path is preserved for:
+1. Backward compatibility with Phase 0 external executors
+2. Future Phase 2 with a VPS-backed executor
+
+If you need this path, set up a service outside Cloudflare:
 - Listen on an HTTP endpoint (e.g., `https://executor-staging.example.com`)
 - Support `POST /v1/execute` route
 - Use the same `EXECUTOR_SHARED_SECRET` as the Workers
 
-See `runtime/remote-executor/` for the legacy reference implementation.
+See:
+- `runtime/remote-executor/` for the Phase 0 reference implementation
+- `docs/PHASE2-SEAM.md` for how Phase 2 can reuse this path
 
 #### 4. Worker Secrets
 
@@ -151,16 +160,17 @@ This generates `dist/` with:
 - `dist/registry/index.json` — Skill registry with versions
 - `dist/clients/claude-code/.claude-plugin/plugin.json` — Client metadata
 
-### Step 1: Deploy Executor Worker First
+### Step 1: Deploy Executor Worker First (Required)
 
-The executor Worker must be deployed before the main Worker so service binding can be resolved.
+**The executor Worker MUST be deployed before the main Worker.** This is required for Phase 1 service binding to resolve.
 
 ```bash
 cd worker/executor
 npx wrangler deploy --env staging
+cd ../..
 ```
 
-Note the **executor Worker URL** (e.g., `https://ai-config-os-executor-staging.your-domain.workers.dev`).
+Note the executor Worker URL (e.g., `https://ai-config-os-executor-staging.your-domain.workers.dev`). The main Worker's wrangler.toml references this service by name.
 
 ### Step 2: Validate Configuration for Main Worker (Staging)
 
@@ -304,7 +314,9 @@ npm run smoke:test
 
 ### Phase 1: Run Both Workers Locally (Primary Path)
 
-**Terminal 1: Start executor Worker**
+This is the recommended way to test the Phase 1 two-Worker architecture locally.
+
+**Terminal 1: Start executor Worker first**
 
 ```bash
 cd worker/executor
@@ -315,7 +327,9 @@ npx wrangler dev
 **Terminal 2: Start main Worker**
 
 ```bash
+cd ../..  # Back to repo root
 cd worker
+
 # Create `.env.local` for main Worker
 cat > .env.local << EOF
 AUTH_TOKEN=local-test-token
@@ -324,9 +338,8 @@ EOF
 
 npx wrangler dev
 # Main Worker available at http://localhost:8787
+# Service binding will automatically resolve to the local executor Worker
 ```
-
-Service binding will automatically resolve to the local executor Worker.
 
 **Terminal 3: Run smoke tests**
 
@@ -336,6 +349,8 @@ export AI_CONFIG_WORKER_URL="http://localhost:8787/v1"
 export AI_CONFIG_WORKER_TOKEN="local-test-token"
 npm run smoke:test
 ```
+
+The `/execute` test confirms service binding to executor Worker is working.
 
 ### Phase 0 Compat: Local Executor with HTTP Proxy (Legacy)
 
@@ -369,7 +384,7 @@ This is only for backward compatibility testing. Phase 1 uses service binding.
 | Name | Required | Purpose |
 |------|----------|---------|
 | `ENVIRONMENT` | Yes | Environment label: `staging`, `production` |
-| `EXECUTOR_PROXY_URL` | Yes | URL to remote executor (e.g., `https://executor.example.com`) |
+| `EXECUTOR_PROXY_URL` | No (Phase 1) | URL to remote executor; only for Phase 0 backward compat or Phase 2. Phase 1 uses service binding. |
 | `EXECUTOR_TIMEOUT_MS` | No | Executor timeout in ms (default: 10000) |
 
 ### Cloud Resources (in `wrangler.toml`)

@@ -5,9 +5,10 @@ compatibility_flags = ["nodejs_compat"]
 
 # PHASE 1 EXECUTOR WORKER (Cloudflare-only)
 #
-# This is the Phase 1 executor, invoked by main Worker via service binding.
-# Only supports KV/R2 queries (Phase 1 tool subset).
-# Maximum timeout: 15 seconds (Worker isolation constraint).
+# Invoked by main Worker via service binding (no external URL needed).
+# Supports only Phase 1 tools: KV/R2 queries and metadata operations.
+# Phase 0 tools (shell, filesystem, git, sync) return 403 TOOL_NOT_SUPPORTED.
+# Maximum timeout: 15 seconds (Cloudflare Worker isolation constraint).
 # No shell execution, no filesystem access, no external subprocess spawning.
 
 # SECRETS

@@ -5,11 +5,12 @@ compatibility_flags = ["nodejs_compat"]
 
 # PHASE 1 CLOUDFLARE-FIRST ARCHITECTURE
 #
-# Primary path: Service binding to executor Worker (below).
-# Fallback path (Phase 0 compat): HTTP proxy to EXECUTOR_PROXY_URL (optional).
+# Phase 1 is Cloudflare-first with no external executor required.
+# Main Worker invokes executor Worker via service binding [[services]].
+# Execution is contained entirely within Cloudflare.
 #
-# For Phase 1, configure service binding [[services]] below.
-# EXECUTOR_PROXY_URL is for backward compatibility or future VPS executor.
+# EXECUTOR_PROXY_URL is optional — only needed for backward compatibility
+# with Phase 0 or as a seam for a future Phase 2 VPS executor.
 
 # SECRETS — Set via: wrangler secret put <NAME> --env <ENV>
 # ----------
@@ -25,7 +26,8 @@ compatibility_flags = ["nodejs_compat"]
 # DEFAULT ENVIRONMENT (Production)
 [vars]
 ENVIRONMENT = "production"
-# Phase 0 compat only: HTTP proxy URL for external executor (not required for Phase 1)
+# EXECUTOR_PROXY_URL is optional. Phase 1 uses service binding (see [[services]] below).
+# Only set this if you need Phase 0 backward compatibility or a future Phase 2 VPS executor.
 EXECUTOR_PROXY_URL = "https://remote-executor.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
 
@@ -44,11 +46,12 @@ bucket_name = "ai-config-os-artefacts"
 
 [env.staging.vars]
 ENVIRONMENT = "staging"
-# Phase 0 compat only: HTTP proxy URL for external executor (not required for Phase 1)
+# EXECUTOR_PROXY_URL is optional. Phase 1 uses service binding (see [[env.staging.services]] below).
+# Only set this if you need Phase 0 backward compatibility or a future Phase 2 VPS executor.
 EXECUTOR_PROXY_URL = "https://executor-staging.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
 
-# Phase 1 primary path: Service binding to staging executor Worker
+# PHASE 1: Service binding to staging executor Worker (primary path)
 [[env.staging.services]]
 binding = "EXECUTOR"
 service = "ai-config-os-executor-staging"
@@ -67,7 +70,7 @@ bucket_name = "ai-config-os-artefacts-staging"
 # The dist/ registry and client bundles are bundled into the worker at deploy time.
 # See scripts/build/compile.mjs to regenerate dist/ before deploying.
 
-# Phase 1 primary path: Service binding to production executor Worker
+# PHASE 1: Service binding to production executor Worker (primary path)
 [[services]]
 binding = "EXECUTOR"
 service = "ai-config-os-executor"

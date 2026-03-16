@@ -8,7 +8,7 @@ import * as TOML from '@iarna/toml';
  * @param {string} environment - 'production' or 'staging' for URL-specific checks
  * @returns {boolean} true if value looks like a placeholder
  */
-function isPlaceholder(value, environment = 'production') {
+export function isPlaceholder(value, environment = 'production') {
   if (!value) return false;
   const value_str = String(value);
 
@@ -82,8 +82,8 @@ export function validateWranglerConfigForEnv(config, environment = 'production')
   // Get vars from the target environment
   const vars = envConfig.vars || {};
 
-  // Phase 1: Service binding is the primary path
-  // EXECUTOR_PROXY_URL is optional, for Phase 0 compat or Phase 2 future
+  // PHASE 1 PRIMARY PATH: Service binding is required or strongly preferred
+  // EXECUTOR_PROXY_URL is optional, only for Phase 0 backward compat or Phase 2 future
   const sbResult = validateServiceBindingsForEnv(config, environment);
   const hasServiceBinding = sbResult.valid;
   const executorUrl = vars.EXECUTOR_PROXY_URL;
@@ -92,7 +92,7 @@ export function validateWranglerConfigForEnv(config, environment = 'production')
   if (!hasServiceBinding && !hasValidProxyUrl) {
     if (!executorUrl) {
       errors.push(`Missing executor configuration for Phase 1: service binding [[services]] required for ${environment}. ` +
-                  `(EXECUTOR_PROXY_URL is optional, for backward compat only.)`);
+                  `(EXECUTOR_PROXY_URL is optional, for Phase 0 backward compat or Phase 2 only.)`);
     } else if (isPlaceholder(executorUrl, environment)) {
       errors.push(`Invalid EXECUTOR_PROXY_URL for ${environment}: "${executorUrl}" is a placeholder. ` +
                   `For Phase 1, configure service binding [[services]]. ` +
@@ -140,6 +140,9 @@ export function validateWranglerConfigForEnv(config, environment = 'production')
 
 /**
  * Validates wrangler.toml configuration structure and required fields.
+ * This is a basic structural check. Environment-specific validation
+ * (which checks Phase 1 service binding or Phase 0 proxy) is done separately
+ * in validateWranglerConfigForEnv.
  * @param {Object} config - Parsed TOML config object
  * @returns {{valid: boolean, errors: string[]}}
  */
@@ -150,16 +153,9 @@ export function validateWranglerConfig(config) {
   if (!config.name) errors.push('Missing required field: name');
   if (!config.main) errors.push('Missing required field: main');
 
-  // Check vars section (can be at top level or in env blocks)
+  // EXECUTOR_TIMEOUT_MS should be a valid number if present
   const vars = config.vars || {};
   const stagingVars = config.env?.staging?.vars || {};
-
-  // EXECUTOR_PROXY_URL is required (root level)
-  if (!vars.EXECUTOR_PROXY_URL && !stagingVars.EXECUTOR_PROXY_URL) {
-    errors.push('Missing required var: EXECUTOR_PROXY_URL (set in [vars] or [env.staging.vars])');
-  }
-
-  // EXECUTOR_TIMEOUT_MS should be a valid number if present
   const timeout = vars.EXECUTOR_TIMEOUT_MS || stagingVars.EXECUTOR_TIMEOUT_MS;
   if (timeout && isNaN(parseInt(timeout, 10))) {
     errors.push(`Invalid EXECUTOR_TIMEOUT_MS: "${timeout}" is not a valid number`);
@@ -182,6 +178,9 @@ export function validateWranglerConfig(config) {
   if (!hasR2Binding) {
     errors.push('Missing R2 bucket binding (add [[r2_buckets]] section with binding="ARTEFACTS_R2")');
   }
+
+  // Note: EXECUTOR_PROXY_URL is NOT required here. Phase 1 uses service binding
+  // which is checked in validateWranglerConfigForEnv.
 
   return {
     valid: errors.length === 0,
