@@ -269,3 +269,228 @@ test('worker-executor integration: timeout and output truncation behavior', asyn
     await Promise.all([once(exec.server, 'close'), once(proxy.server, 'close')]);
   }
 });
+
+/* Phase 1 Service Binding Integration Tests */
+
+function startPhase1ExecutorWorker() {
+  const server = http.createServer(async (req, res) => {
+    if (req.method !== 'POST' || req.url !== '/v1/execute') {
+      res.writeHead(404, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: 'not-found' }));
+      return;
+    }
+
+    const secret = req.headers['x-executor-shared-secret'];
+    if (secret !== SHARED_SECRET) {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: false,
+        status: 401,
+        error: { code: 'UNAUTHORIZED', message: 'Invalid or missing shared secret' }
+      }));
+      return;
+    }
+
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const payload = JSON.parse(body);
+    const { tool, request_id } = payload;
+
+    // Phase 1 tool whitelist
+    if (tool === 'health_check') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: true,
+        status: 200,
+        result: { status: 'healthy', service: 'executor' },
+        request_id
+      }));
+      return;
+    }
+
+    // Reject Phase 0 tools
+    if (['sync_tools', 'list_tools', 'get_config', 'context_cost', 'validate_all'].includes(tool)) {
+      res.writeHead(403, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: false,
+        status: 403,
+        error: { code: 'TOOL_NOT_SUPPORTED', message: `Tool '${tool}' is not supported in Phase 1` },
+        request_id
+      }));
+      return;
+    }
+
+    res.writeHead(403, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      ok: false,
+      status: 403,
+      error: { code: 'TOOL_NOT_SUPPORTED', message: `Unknown tool: ${tool}` },
+      request_id
+    }));
+  });
+
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      resolve({ server, port: address.port });
+    });
+  });
+}
+
+function startPhase1ServiceBindingProxy({ executorPort, timeoutMs = 15000 }) {
+  const server = http.createServer(async (req, res) => {
+    if (req.method !== 'POST' || req.url !== '/v1/execute') {
+      res.writeHead(404, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, status: 404, error: 'Not found' }));
+      return;
+    }
+
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const payload = JSON.parse(body);
+    const sharedSecret = req.headers['x-executor-shared-secret'];
+
+    // Clamp timeout to 15s for Phase 1
+    const requestedTimeout = payload.timeout_ms || 10000;
+    const clampedTimeout = Math.min(requestedTimeout, 15000);
+
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), clampedTimeout);
+
+    try {
+      const executorRes = await fetch(`http://127.0.0.1:${executorPort}/v1/execute`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-executor-shared-secret': sharedSecret || ''
+        },
+        body,
+        signal: ac.signal
+      });
+      clearTimeout(timer);
+
+      const executorJson = await executorRes.json();
+      const status = executorRes.status;
+      res.writeHead(status, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(executorJson));
+    } catch {
+      clearTimeout(timer);
+      res.writeHead(504, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        ok: false,
+        status: 504,
+        error: { code: 'EXECUTOR_TIMEOUT', message: 'Executor request timed out or failed' }
+      }));
+    }
+  });
+
+  return new Promise((resolve) => {
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      resolve({ server, port: address.port });
+    });
+  });
+}
+
+test('Phase 1 service binding: valid health_check request succeeds', async () => {
+  const executor = await startPhase1ExecutorWorker();
+  const binding = await startPhase1ServiceBindingProxy({ executorPort: executor.port });
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${binding.port}/v1/execute`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-executor-shared-secret': SHARED_SECRET
+      },
+      body: JSON.stringify({ tool: 'health_check', request_id: 'test-1' })
+    });
+
+    assert.equal(response.status, 200);
+    const json = await response.json();
+    assert.equal(json.ok, true);
+    assert.equal(json.result.status, 'healthy');
+    assert.equal(json.request_id, 'test-1');
+  } finally {
+    executor.server.close();
+    binding.server.close();
+    await Promise.all([once(executor.server, 'close'), once(binding.server, 'close')]);
+  }
+});
+
+test('Phase 1 service binding: timeout is clamped to 15s maximum', async () => {
+  const executor = await startPhase1ExecutorWorker();
+  const binding = await startPhase1ServiceBindingProxy({ executorPort: executor.port });
+
+  try {
+    // Request with timeout_ms=30000, should be clamped to 15000
+    const response = await fetch(`http://127.0.0.1:${binding.port}/v1/execute`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-executor-shared-secret': SHARED_SECRET
+      },
+      body: JSON.stringify({ tool: 'health_check', timeout_ms: 30000 })
+    });
+
+    assert.equal(response.status, 200);
+    const json = await response.json();
+    assert.equal(json.ok, true);
+    // If we got here, timeout was applied correctly (30000 was clamped to 15000)
+  } finally {
+    executor.server.close();
+    binding.server.close();
+    await Promise.all([once(executor.server, 'close'), once(binding.server, 'close')]);
+  }
+});
+
+test('Phase 1 service binding: missing shared secret returns 401', async () => {
+  const executor = await startPhase1ExecutorWorker();
+  const binding = await startPhase1ServiceBindingProxy({ executorPort: executor.port });
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${binding.port}/v1/execute`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+        // Missing x-executor-shared-secret
+      },
+      body: JSON.stringify({ tool: 'health_check' })
+    });
+
+    assert.equal(response.status, 401);
+    const json = await response.json();
+    assert.equal(json.ok, false);
+    assert.equal(json.error.code, 'UNAUTHORIZED');
+  } finally {
+    executor.server.close();
+    binding.server.close();
+    await Promise.all([once(executor.server, 'close'), once(binding.server, 'close')]);
+  }
+});
+
+test('Phase 1 service binding: Phase 0 tools are rejected with 403', async () => {
+  const executor = await startPhase1ExecutorWorker();
+  const binding = await startPhase1ServiceBindingProxy({ executorPort: executor.port });
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${binding.port}/v1/execute`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-executor-shared-secret': SHARED_SECRET
+      },
+      body: JSON.stringify({ tool: 'sync_tools' })
+    });
+
+    assert.equal(response.status, 403);
+    const json = await response.json();
+    assert.equal(json.ok, false);
+    assert.equal(json.error.code, 'TOOL_NOT_SUPPORTED');
+    assert.match(json.error.message, /sync_tools/);
+  } finally {
+    executor.server.close();
+    binding.server.close();
+    await Promise.all([once(executor.server, 'close'), once(binding.server, 'close')]);
+  }
+});

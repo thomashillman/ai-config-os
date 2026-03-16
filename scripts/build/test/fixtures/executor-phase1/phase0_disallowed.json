@@ -1,0 +1,29 @@
+{
+  "sync_tools": {
+    "tool": "sync_tools",
+    "request_id": "test-disallow-1",
+    "expectedCode": "TOOL_NOT_SUPPORTED",
+    "expectedStatus": 403
+  },
+  "list_tools": {
+    "tool": "list_tools",
+    "expectedCode": "TOOL_NOT_SUPPORTED",
+    "expectedStatus": 403
+  },
+  "get_config": {
+    "tool": "get_config",
+    "args": ["some_config"],
+    "expectedCode": "TOOL_NOT_SUPPORTED",
+    "expectedStatus": 403
+  },
+  "context_cost": {
+    "tool": "context_cost",
+    "expectedCode": "TOOL_NOT_SUPPORTED",
+    "expectedStatus": 403
+  },
+  "validate_all": {
+    "tool": "validate_all",
+    "expectedCode": "TOOL_NOT_SUPPORTED",
+    "expectedStatus": 403
+  }
+}

@@ -41,6 +41,12 @@ ENVIRONMENT = "staging"
 EXECUTOR_PROXY_URL = "https://executor-staging.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
 
+# Phase 1: Staging executor service binding
+[[env.staging.services]]
+binding = "EXECUTOR"
+service = "ai-config-os-executor-staging"
+environment = "staging"
+
 [[env.staging.kv_namespaces]]
 binding = "MANIFEST_KV"
 id = "REPLACE_WITH_STAGING_MANIFEST_KV_ID"
@@ -54,6 +60,13 @@ bucket_name = "ai-config-os-artefacts-staging"
 # --------------------------------------------
 # The dist/ registry and client bundles are bundled into the worker at deploy time.
 # See scripts/build/compile.mjs to regenerate dist/ before deploying.
+
+# Phase 1: Service binding to executor Worker (primary execution path)
+[[services]]
+binding = "EXECUTOR"
+service = "ai-config-os-executor"
+environment = "production"
+
 #
 # Deploy staging:
 #   npm run build

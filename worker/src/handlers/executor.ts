@@ -13,6 +13,8 @@ function parseTimeoutMs(raw: string | undefined): number {
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return 10000;
   }
+  // Phase 1: Clamp to 15s (15000ms) for service binding path
+  // Phase 0: 120s for HTTP proxy path (handled separately if needed)
   return Math.min(parsed, 120000);
 }
 
@@ -63,35 +65,73 @@ function validateExecutePayload(payload: unknown): { ok: true; value: ExecutePay
   };
 }
 
-export async function handleExecute(request: Request, env: Env): Promise<Response> {
-  if (!env.EXECUTOR_PROXY_URL || !env.EXECUTOR_SHARED_SECRET) {
-    return jsonResponse({ error: 'Executor proxy is not configured' }, 500);
-  }
+/**
+ * Invoke executor via service binding (Phase 1 primary path)
+ */
+async function invokeExecutorServiceBinding(
+  env: Env,
+  payload: ExecutePayload,
+  forwardedSignature: string,
+): Promise<Response> {
+  // Phase 1: Clamp to 15s max
+  const timeoutMs = Math.min(payload.timeout_ms ?? 10000, 15000);
 
-  let payload: unknown;
   try {
-    payload = await request.json();
+    const response = await env.EXECUTOR!.fetch(
+      new Request('https://executor.internal/v1/execute', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Executor-Shared-Secret': env.EXECUTOR_SHARED_SECRET,
+          'X-Request-Signature': forwardedSignature,
+        },
+        body: JSON.stringify(payload),
+      }),
+    );
+
+    const responseBody: Record<string, unknown> = await response
+      .json()
+      .then((body) => (typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}))
+      .catch(() => ({}));
+
+    return jsonResponse({
+      ok: response.ok,
+      status: response.status,
+      result: responseBody.result ?? null,
+      error: response.ok
+        ? null
+        : (responseBody.error ?? { code: 'UPSTREAM_ERROR', message: 'Executor returned an error' }),
+      request_id: payload.request_id ?? null,
+    }, response.ok ? 200 : response.status);
   } catch {
-    return jsonResponse({ error: 'Invalid JSON body' }, 400);
+    return jsonResponse({
+      ok: false,
+      status: 504,
+      error: { code: 'UPSTREAM_TIMEOUT', message: 'Executor request timed out or failed' },
+      request_id: payload.request_id ?? null,
+    }, 504);
   }
+}
 
-  const validation = validateExecutePayload(payload);
-  if (!validation.ok) {
-    return jsonResponse({ error: validation.error }, 400);
-  }
-
+/**
+ * Invoke executor via HTTP proxy (Phase 0 fallback)
+ */
+async function invokeExecutorProxy(
+  env: Env,
+  payload: ExecutePayload,
+  forwardedSignature: string,
+): Promise<Response> {
   const timeoutMs = parseTimeoutMs(env.EXECUTOR_TIMEOUT_MS);
-  const forwardedSignature = request.headers.get('X-Request-Signature') ?? '';
 
   try {
-    const response = await fetch(`${env.EXECUTOR_PROXY_URL.replace(/\/$/, '')}/v1/execute`, {
+    const response = await fetch(`${env.EXECUTOR_PROXY_URL!.replace(/\/$/, '')}/v1/execute`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Executor-Shared-Secret': env.EXECUTOR_SHARED_SECRET,
         'X-Request-Signature': forwardedSignature,
       },
-      body: JSON.stringify(validation.value),
+      body: JSON.stringify(payload),
       signal: AbortSignal.timeout(timeoutMs),
     });
 
@@ -107,14 +147,50 @@ export async function handleExecute(request: Request, env: Env): Promise<Respons
       error: response.ok
         ? null
         : (responseBody.error ?? { code: 'UPSTREAM_ERROR', message: 'Executor returned an error' }),
-      request_id: validation.value.request_id ?? null,
+      request_id: payload.request_id ?? null,
     }, response.ok ? 200 : response.status);
   } catch {
     return jsonResponse({
       ok: false,
       status: 504,
       error: { code: 'UPSTREAM_TIMEOUT', message: 'Executor request timed out or failed' },
-      request_id: validation.value.request_id ?? null,
+      request_id: payload.request_id ?? null,
     }, 504);
   }
+}
+
+export async function handleExecute(request: Request, env: Env): Promise<Response> {
+  // Validate that we have shared secret
+  if (!env.EXECUTOR_SHARED_SECRET) {
+    return jsonResponse({ error: 'Executor shared secret is not configured' }, 500);
+  }
+
+  // Parse request body
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON body' }, 400);
+  }
+
+  // Validate payload
+  const validation = validateExecutePayload(payload);
+  if (!validation.ok) {
+    return jsonResponse({ error: validation.error }, 400);
+  }
+
+  const forwardedSignature = request.headers.get('X-Request-Signature') ?? '';
+
+  // Phase 1 primary path: Service binding (if available)
+  if (env.EXECUTOR) {
+    return invokeExecutorServiceBinding(env, validation.value, forwardedSignature);
+  }
+
+  // Phase 0 fallback: HTTP proxy (for backward compatibility)
+  if (env.EXECUTOR_PROXY_URL) {
+    return invokeExecutorProxy(env, validation.value, forwardedSignature);
+  }
+
+  // Neither configured
+  return jsonResponse({ error: 'Executor is not configured (neither service binding nor proxy URL available)' }, 500);
 }

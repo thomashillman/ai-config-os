@@ -29,6 +29,33 @@ function isPlaceholder(value, environment = 'production') {
 }
 
 /**
+ * Validates service binding configuration for Phase 1 executor
+ * @param {Object} config - Parsed TOML config object
+ * @param {string} environment - 'production' or 'staging'
+ * @returns {{valid: boolean, errors: string[]}}
+ */
+function validateServiceBindingsForEnv(config, environment = 'production') {
+  const errors = [];
+  const envConfig = environment === 'staging' ? (config.env?.staging || {}) : config;
+  const services = envConfig.services || [];
+  const executorService = services.find(s => s.binding === 'EXECUTOR');
+
+  if (!executorService) {
+    errors.push(`Missing EXECUTOR service binding for ${environment}`);
+  } else {
+    const expectedServiceName = environment === 'production'
+      ? 'ai-config-os-executor'
+      : 'ai-config-os-executor-staging';
+
+    if (executorService.service !== expectedServiceName) {
+      errors.push(`Service binding for ${environment} should point to ${expectedServiceName}, got ${executorService.service}`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+/**
  * Validates wrangler.toml configuration for a specific environment (production or staging).
  * @param {Object} config - Parsed TOML config object
  * @param {string} environment - 'production' or 'staging'
@@ -55,12 +82,26 @@ export function validateWranglerConfigForEnv(config, environment = 'production')
   // Get vars from the target environment
   const vars = envConfig.vars || {};
 
-  // EXECUTOR_PROXY_URL is required
+  // Phase 1: Check for service binding OR valid EXECUTOR_PROXY_URL
+  const sbResult = validateServiceBindingsForEnv(config, environment);
+  const hasServiceBinding = sbResult.valid;
   const executorUrl = vars.EXECUTOR_PROXY_URL;
-  if (!executorUrl) {
-    errors.push(`Missing required var: EXECUTOR_PROXY_URL in [${environment === 'staging' ? 'env.staging.vars' : 'vars'}]`);
-  } else if (isPlaceholder(executorUrl, environment)) {
-    errors.push(`Invalid EXECUTOR_PROXY_URL for ${environment}: "${executorUrl}" appears to be a placeholder. Set a real executor endpoint.`);
+  const hasValidProxyUrl = !!executorUrl && !isPlaceholder(executorUrl, environment);
+
+  if (!hasServiceBinding && !hasValidProxyUrl) {
+    if (!executorUrl) {
+      errors.push(`Missing executor configuration: either service binding or EXECUTOR_PROXY_URL required for ${environment}`);
+    } else if (isPlaceholder(executorUrl, environment)) {
+      errors.push(`Invalid EXECUTOR_PROXY_URL for ${environment}: "${executorUrl}" appears to be a placeholder. Set a real executor endpoint or configure service binding.`);
+    }
+  }
+
+  // Add service binding errors if any
+  if (!hasServiceBinding && !sbResult.errors.every(e => e.includes('Missing EXECUTOR'))) {
+    // Only add non-critical service binding errors if we don't already have a valid proxy URL
+    if (!hasValidProxyUrl) {
+      errors.push(...sbResult.errors);
+    }
   }
 
   // EXECUTOR_TIMEOUT_MS should be a valid number if present

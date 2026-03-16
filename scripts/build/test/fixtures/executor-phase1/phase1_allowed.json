@@ -1,0 +1,22 @@
+{
+  "health_check": {
+    "tool": "health_check",
+    "request_id": "test-health-1"
+  },
+  "list_phase1_tools": {
+    "tool": "list_phase1_tools"
+  },
+  "get_skill_metadata_valid": {
+    "tool": "get_skill_metadata",
+    "args": ["skill-name"],
+    "request_id": "test-skill-1"
+  },
+  "get_artifact_valid": {
+    "tool": "get_artifact",
+    "args": ["1.0.0", "manifest.json"],
+    "request_id": "test-artifact-1"
+  },
+  "skill_stats_cached": {
+    "tool": "skill_stats_cached"
+  }
+}

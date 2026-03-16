@@ -324,6 +324,37 @@ wrangler secret put AUTH_TOKEN         # set bearer token
 wrangler deploy                        # deploy to Cloudflare
 ```
 
+### Executor Worker (Phase 1)
+
+The executor Worker is a separate Cloudflare Worker that implements Phase 1 tools only:
+- **health_check** — Worker health status
+- **list_phase1_tools** — Available Phase 1 tools
+- **get_skill_metadata** — Fetch skill metadata from KV
+- **get_artifact** — Fetch versioned artifacts from R2
+- **skill_stats_cached** — Pre-computed statistics from KV
+
+Phase 0 tools (sync_tools, list_tools, get_config, context_cost, validate_all) are **not** available and return 403 TOOL_NOT_SUPPORTED (they require shell/filesystem access).
+
+**Architecture:**
+- Service binding from main Worker to executor Worker (primary Phase 1 path)
+- HTTP proxy fallback to `EXECUTOR_PROXY_URL` (Phase 0 legacy, being phased out)
+- Timeout clamped to 15s maximum
+- All data pre-computed and stored in KV/R2
+
+**Deployment (Phase 1 primary path):**
+```bash
+# Deploy executor Worker first
+cd worker/executor
+npm install
+wrangler deploy
+
+# Then deploy main Worker (includes service binding)
+cd ../
+wrangler deploy
+```
+
+See `worker/executor/README.md` for configuration and local development.
+
 ### Fetching from Worker (local)
 ```bash
 export AI_CONFIG_TOKEN=<your-token>

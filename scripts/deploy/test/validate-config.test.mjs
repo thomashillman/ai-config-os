@@ -164,7 +164,7 @@ test('validateExecutorEnv - allows optional REMOTE_EXECUTOR_SIGNATURE_PUBLIC_KEY
   assert.equal(result.valid, true);
 });
 
-// ===== Phase 2: Environment-specific validation tests =====
+/* Environment-specific validation tests */
 
 test('validateWranglerConfigForEnv - staging with valid staging config', () => {
   const config = {
@@ -370,4 +370,64 @@ test('validateWranglerConfigForEnv - production missing required binding names',
     result.errors.some(e => e.includes('MANIFEST_KV')),
     'Error should mention MANIFEST_KV'
   );
+});
+
+/* Service Binding Tests for Phase 1 */
+
+test('validateWranglerConfigForEnv - accepts service binding instead of EXECUTOR_PROXY_URL', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    services: [
+      {
+        binding: 'EXECUTOR',
+        service: 'ai-config-os-executor',
+        environment: 'production'
+      }
+    ],
+    vars: {
+      EXECUTOR_TIMEOUT_MS: '10000'
+      // No EXECUTOR_PROXY_URL
+    },
+    kv_namespaces: [
+      { binding: 'MANIFEST_KV', id: 'prod-kv-id' }
+    ],
+    r2_buckets: [
+      { binding: 'ARTEFACTS_R2', bucket_name: 'prod-bucket' }
+    ]
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'production');
+  assert.equal(result.valid, true, 'Should accept service binding without EXECUTOR_PROXY_URL');
+});
+
+test('validateWranglerConfigForEnv - accepts staging service binding with correct service name', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    env: {
+      staging: {
+        services: [
+          {
+            binding: 'EXECUTOR',
+            service: 'ai-config-os-executor-staging',
+            environment: 'staging'
+          }
+        ],
+        vars: {
+          EXECUTOR_TIMEOUT_MS: '10000'
+          // No EXECUTOR_PROXY_URL
+        },
+        kv_namespaces: [
+          { binding: 'MANIFEST_KV', id: 'staging-kv-id' }
+        ],
+        r2_buckets: [
+          { binding: 'ARTEFACTS_R2', bucket_name: 'staging-bucket' }
+        ]
+      }
+    }
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'staging');
+  assert.equal(result.valid, true, 'Should accept staging service binding with correct name');
 });
