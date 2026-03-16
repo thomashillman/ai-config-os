@@ -1,26 +1,42 @@
 // @ts-ignore - runtime JS module
 import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/lib/task-store-worker.mjs';
 // @ts-ignore - runtime JS module
+import { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';
+// @ts-ignore - runtime JS module
 import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service.mjs';
 // @ts-ignore - runtime JS module
 import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service-worker.mjs';
 import { jsonResponse } from './http';
 import type { Env } from './types';
 
-let taskStore: TaskStore | null = null;
+let taskStore: TaskStore | KvTaskStore | null = null;
 let taskStoreSecret: string | null = null;
+let taskStoreKvRef: unknown | null = null;
 
 const MAX_CONTINUATION_FINGERPRINTS = 5000;
 const continuationFingerprints = new Map<string, string>();
 
-function ensureTaskStore(env: Env): TaskStore {
+function ensureTaskStore(env: Env): TaskStore | KvTaskStore {
   const secret = env.HANDOFF_TOKEN_SIGNING_KEY ?? null;
+  const kv = env.MANIFEST_KV ?? null;
 
-  if (!taskStore || secret !== taskStoreSecret) {
+  // Use KV-backed store when available (durable, survives Worker instance recycling)
+  if (kv) {
+    if (!taskStore || kv !== taskStoreKvRef) {
+      taskStore = new KvTaskStore(kv, secret ? createHandoffTokenService({ secret }) : null);
+      taskStoreSecret = secret;
+      taskStoreKvRef = kv;
+    }
+    return taskStore;
+  }
+
+  // Fallback: in-memory store for local dev (ephemeral)
+  if (!taskStore || secret !== taskStoreSecret || taskStoreKvRef !== null) {
     taskStore = secret
       ? new TaskStore({ handoffTokenService: createHandoffTokenService({ secret }) })
       : new TaskStore();
     taskStoreSecret = secret;
+    taskStoreKvRef = null;
   }
 
   return taskStore;

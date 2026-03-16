@@ -66,26 +66,9 @@ function validateContinuationPayload(payload: unknown): { ok: true; value: Conti
   return { ok: true, value: data as unknown as ContinuationPayload };
 }
 
-export async function handleTaskCreate(request: Request, env: Env): Promise<Response> {
-  const body = await readJsonBody(request);
-  if (!body.ok) return body.response;
-
-  const validation = validateTaskCreatePayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
-
+export async function handleTaskGet(env: Env, taskId: string): Promise<Response> {
   try {
-    const created = getTaskService(env).createTask(validation.value);
-    return jsonResponse({ task: created }, 201);
-  } catch (error) {
-    const mapped = taskErrorResponse(error);
-    if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to create task');
-  }
-}
-
-export function handleTaskGet(env: Env, taskId: string): Response {
-  try {
-    return jsonResponse({ task: getTaskService(env).getTask(taskId) });
+    return jsonResponse({ task: await getTaskService(env).getTask(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task load error' } }, 500);
   }
@@ -99,7 +82,7 @@ export async function handleTaskTransitionState(request: Request, env: Env, task
   if (!validation.ok) return badRequest(validation.error);
 
   try {
-    const updated = getTaskService(env).transitionState(taskId, validation.value);
+    const updated = await getTaskService(env).transitionState(taskId, validation.value);
     return jsonResponse({ task: updated });
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -116,7 +99,7 @@ export async function handleTaskRouteSelection(request: Request, env: Env, taskI
   if (!validation.ok) return badRequest(validation.error);
 
   try {
-    const updated = getTaskService(env).selectRoute(taskId, validation.value);
+    const updated = await getTaskService(env).selectRoute(taskId, validation.value);
     return jsonResponse({ task: updated });
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -159,7 +142,7 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
   const replayed = Boolean(tokenId && getContinuationFingerprint(tokenId) === fingerprint);
 
   try {
-    const continuation_package = getTaskService(env).createContinuation(taskId, validation.value);
+    const continuation_package = await getTaskService(env).createContinuation(taskId, validation.value);
 
     if (tokenId && !getContinuationFingerprint(tokenId)) {
       setContinuationFingerprint(tokenId, fingerprint);
@@ -173,34 +156,95 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
   }
 }
 
-export function handleTaskProgressEvents(env: Env, taskId: string): Response {
+export async function handleTaskProgressEvents(env: Env, taskId: string): Promise<Response> {
   try {
-    return jsonResponse({ events: getTaskService(env).listProgressEvents(taskId) });
+    return jsonResponse({ events: await getTaskService(env).listProgressEvents(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task progress event error' } }, 500);
   }
 }
 
-export function handleTaskReadiness(env: Env, taskId: string): Response {
+export async function handleTaskReadiness(env: Env, taskId: string): Promise<Response> {
   try {
-    return jsonResponse({ readiness: getTaskService(env).getReadiness(taskId) });
+    return jsonResponse({ readiness: await getTaskService(env).getReadiness(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task readiness error' } }, 500);
   }
 }
 
-export function handleTaskSnapshots(env: Env, taskId: string, version: string | null): Response {
+export async function handleTaskSnapshots(env: Env, taskId: string, version: string | null): Promise<Response> {
   try {
     if (!version) {
-      return jsonResponse({ snapshots: getTaskService(env).listSnapshots(taskId) });
+      return jsonResponse({ snapshots: await getTaskService(env).listSnapshots(taskId) });
     }
 
     const snapshotVersion = Number(version);
     if (!Number.isInteger(snapshotVersion) || snapshotVersion <= 0) {
       return badRequest("Path parameter 'version' must be a positive integer");
     }
-    return jsonResponse({ snapshot: getTaskService(env).getSnapshot(taskId, snapshotVersion) });
+    return jsonResponse({ snapshot: await getTaskService(env).getSnapshot(taskId, snapshotVersion) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task snapshot error' } }, 500);
+  }
+}
+
+export async function handleTaskList(env: Env, url: URL): Promise<Response> {
+  const status = url.searchParams.get('status') ?? undefined;
+  const limit = Math.min(Number(url.searchParams.get('limit') ?? '20'), 100);
+  const updatedWithin = url.searchParams.get('updated_within');
+  const updatedWithinSeconds = updatedWithin ? parseFloat(updatedWithin) : undefined;
+
+  try {
+    const tasks = await getTaskService(env).listRecentTasks({ status, limit, updatedWithinSeconds });
+    return jsonResponse({ tasks });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task list error' } }, 500);
+  }
+}
+
+export async function handleTaskByCode(env: Env, shortCode: string): Promise<Response> {
+  try {
+    const task = await getTaskService(env).getTaskByCode(shortCode);
+    return jsonResponse({ task });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error looking up task by code' } }, 500);
+  }
+}
+
+export async function handleTaskByName(env: Env, nameOrSlug: string): Promise<Response> {
+  try {
+    const task = await getTaskService(env).getTaskByName(nameOrSlug);
+    return jsonResponse({ task });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error looking up task by name' } }, 500);
+  }
+}
+
+export async function handleHubLatest(env: Env): Promise<Response> {
+  try {
+    const task = await getTaskService(env).getLatestActiveTask();
+    if (!task) {
+      return jsonResponse({ task: null, message: 'No active tasks found' });
+    }
+    return jsonResponse({ task });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error fetching latest task' } }, 500);
+  }
+}
+
+export async function handleTaskCreate(request: Request, env: Env): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const validation = validateTaskCreatePayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const created = await getTaskService(env).createTask(validation.value);
+    return jsonResponse({ task: created }, 201);
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to create task');
   }
 }

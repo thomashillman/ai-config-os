@@ -24,6 +24,7 @@ function assertTaskStore(taskStore) {
     'listSnapshots',
     'getSnapshot',
   ];
+  // Optional methods: listRecentTasks, getLatestActiveTask, loadByCode, loadByName
 
   for (const methodName of requiredMethods) {
     if (typeof taskStore?.[methodName] !== 'function') {
@@ -87,6 +88,32 @@ export function createTaskControlPlaneService({ taskStore = new TaskStore() } = 
     getSnapshot(taskId, version) {
       assertString('taskId', taskId);
       return taskStore.getSnapshot(taskId, version);
+    },
+    listRecentTasks(options = {}) {
+      if (typeof taskStore.listRecentTasks !== 'function') {
+        return Promise.resolve([]);
+      }
+      return taskStore.listRecentTasks(options);
+    },
+    getLatestActiveTask() {
+      if (typeof taskStore.getLatestActiveTask !== 'function') {
+        return Promise.resolve(null);
+      }
+      return taskStore.getLatestActiveTask();
+    },
+    getTaskByCode(shortCode) {
+      assertString('shortCode', shortCode);
+      if (typeof taskStore.loadByCode !== 'function') {
+        return Promise.reject(new Error('loadByCode not supported by current task store'));
+      }
+      return taskStore.loadByCode(shortCode);
+    },
+    getTaskByName(nameOrSlug) {
+      assertString('nameOrSlug', nameOrSlug);
+      if (typeof taskStore.loadByName !== 'function') {
+        return Promise.reject(new Error('loadByName not supported by current task store'));
+      }
+      return taskStore.loadByName(nameOrSlug);
     },
   };
 }

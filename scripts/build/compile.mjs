@@ -17,6 +17,7 @@ import { fileURLToPath } from 'url';
 import { parseSkill } from './lib/parse-skill.mjs';
 import { emitClaudeCode } from './lib/emit-claude-code.mjs';
 import { emitCursor } from './lib/emit-cursor.mjs';
+import { emitCodex } from './lib/emit-codex.mjs';
 import { emitRegistry } from './lib/emit-registry.mjs';
 import { emitRuntime } from './lib/emit-runtime.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
@@ -335,6 +336,7 @@ async function main() {
   const emitterRegistry = {
     'claude-code': true,
     'cursor': true,
+    'codex': true,
   };
   const actuallyEmittedPlatforms = selectEmittedPlatforms(platformSkills, emitterRegistry);
 
@@ -346,6 +348,8 @@ async function main() {
       emitClaudeCode(skills, { distDir: platformDist, releaseVersion, provenance });
     } else if (platformId === 'cursor') {
       emitCursor(skills, { distDir: platformDist, releaseVersion, provenance, compatMatrix });
+    } else if (platformId === 'codex') {
+      emitCodex(skills, { distDir: platformDist, releaseVersion, provenance, compatMatrix });
     } else {
       console.log(`  [${platformId}] emitter not yet implemented — skipping (${skills.length} skill(s))`);
     }

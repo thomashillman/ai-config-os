@@ -12,9 +12,13 @@ import {
 } from './handlers/artifacts';
 import { handleExecute } from './handlers/executor';
 import {
+  handleHubLatest,
+  handleTaskByCode,
+  handleTaskByName,
   handleTaskContinuation,
   handleTaskCreate,
   handleTaskGet,
+  handleTaskList,
   handleTaskProgressEvents,
   handleTaskReadiness,
   handleTaskRouteSelection,
@@ -85,6 +89,24 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
         const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);
         if (skillMatch) {
           return handleSkill(skillMatch[1], registry);
+        }
+
+        if (path === '/v1/tasks') {
+          return handleTaskList(env, url);
+        }
+
+        if (path === '/v1/hub/latest') {
+          return handleHubLatest(env);
+        }
+
+        const taskByCodeMatch = path.match(/^\/v1\/t\/([^/]+)$/);
+        if (taskByCodeMatch) {
+          return handleTaskByCode(env, taskByCodeMatch[1]);
+        }
+
+        const taskByNameMatch = path.match(/^\/v1\/tasks\/by-name\/([^/]+)$/);
+        if (taskByNameMatch) {
+          return handleTaskByName(env, decodeURIComponent(taskByNameMatch[1]));
         }
 
         const taskGetMatch = path.match(/^\/v1\/tasks\/([^/]+)$/);

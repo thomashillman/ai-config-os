@@ -14,6 +14,7 @@ const mod = await import('../../../worker/src/task-runtime.ts').catch(async () =
 
   src = src
     .replace("import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/lib/task-store-worker.mjs';", `import { TaskConflictError, TaskNotFoundError, TaskStore } from '${new URL('../../../runtime/lib/task-store-worker.mjs', import.meta.url).href}';`)
+    .replace("import { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';", `import { KvTaskStore } from '${new URL('../../../runtime/lib/task-store-kv.mjs', import.meta.url).href}';`)
     .replace("import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service.mjs';", `import { createTaskControlPlaneService } from '${new URL('../../../runtime/lib/task-control-plane-service.mjs', import.meta.url).href}';`)
     .replace("import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service-worker.mjs';", `import { createHandoffTokenService } from '${new URL('../../../runtime/lib/handoff-token-service-worker.mjs', import.meta.url).href}';`)
     .replace("import { jsonResponse } from './http';", "const jsonResponse = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });")
