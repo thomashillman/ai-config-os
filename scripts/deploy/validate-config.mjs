@@ -8,7 +8,7 @@ import * as TOML from '@iarna/toml';
  * @param {string} environment - 'production' or 'staging' for URL-specific checks
  * @returns {boolean} true if value looks like a placeholder
  */
-function isPlaceholder(value, environment = 'production') {
+export function isPlaceholder(value, environment = 'production') {
   if (!value) return false;
   const value_str = String(value);
 

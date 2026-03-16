@@ -34,12 +34,24 @@ function assertTestDependencies() {
 
 assertTestDependencies();
 
-// Find all .test.mjs files in current directory
-const files = readdirSync(__dirname);
-const testFiles = files
+// Find all .test.mjs files in build/test/ and scripts/deploy/test/
+const buildTestDir = __dirname;
+const deployTestDir = `${dirname(__dirname)}/../deploy/test`;
+
+const buildFiles = readdirSync(buildTestDir)
   .filter(f => f.endsWith('.test.mjs'))
-  .map(f => `${__dirname}/${f}`)
-  .sort();
+  .map(f => `${buildTestDir}/${f}`);
+
+let deployFiles = [];
+try {
+  deployFiles = readdirSync(deployTestDir)
+    .filter(f => f.endsWith('.test.mjs'))
+    .map(f => `${deployTestDir}/${f}`);
+} catch {
+  // deploy/test directory may not exist, that's ok
+}
+
+const testFiles = [...buildFiles, ...deployFiles].sort();
 
 if (testFiles.length === 0) {
   console.error('No test files found');
