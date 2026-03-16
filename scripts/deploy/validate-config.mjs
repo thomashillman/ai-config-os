@@ -34,7 +34,7 @@ function isPlaceholder(value, environment = 'production') {
  * @param {string} environment - 'production' or 'staging'
  * @returns {{valid: boolean, errors: string[]}}
  */
-function validateServiceBindingsForEnv(config, environment = 'production') {
+export function validateServiceBindingsForEnv(config, environment = 'production') {
   const errors = [];
   const envConfig = environment === 'staging' ? (config.env?.staging || {}) : config;
   const services = envConfig.services || [];

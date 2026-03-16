@@ -1,12 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { validateServiceBindingsForEnv } from '../validate-config.mjs';
 
 /**
  * Test suite for service binding configuration validation
  *
  * Phase 1: Validates that Wrangler config has service binding for executor Worker
+ * Tests import validateServiceBindingsForEnv from the main validator module.
  */
 
+/**
+ * Helper function: validate root-level service binding
+ */
 function validateServiceBindings(config) {
   const errors = [];
   const services = config.services || [];
@@ -20,27 +25,6 @@ function validateServiceBindings(config) {
     }
     if (!executorService.environment) {
       errors.push('Service binding EXECUTOR missing "environment" field');
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-function validateServiceBindingsForEnv(config, environment = 'production') {
-  const errors = [];
-  const envConfig = environment === 'staging' ? (config.env?.staging || {}) : config;
-  const services = envConfig.services || [];
-  const executorService = services.find(s => s.binding === 'EXECUTOR');
-
-  if (!executorService) {
-    errors.push(`Missing EXECUTOR service binding for ${environment}`);
-  } else {
-    const expectedServiceName = environment === 'production'
-      ? 'ai-config-os-executor'
-      : 'ai-config-os-executor-staging';
-
-    if (executorService.service !== expectedServiceName) {
-      errors.push(`Service binding for ${environment} should point to ${expectedServiceName}, got ${executorService.service}`);
     }
   }
 
