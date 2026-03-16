@@ -3,6 +3,97 @@ import path from 'path';
 import * as TOML from '@iarna/toml';
 
 /**
+ * Checks if a value is a placeholder (unsafe for production).
+ * @param {string} value - Value to check
+ * @param {string} environment - 'production' or 'staging' for URL-specific checks
+ * @returns {boolean} true if value looks like a placeholder
+ */
+function isPlaceholder(value, environment = 'production') {
+  if (!value) return false;
+  const value_str = String(value);
+
+  // Always reject REPLACE_WITH_* patterns
+  if (value_str.includes('REPLACE_WITH')) {
+    return true;
+  }
+
+  // Environment-specific placeholder URLs
+  if (environment === 'staging' && value_str === 'https://executor-staging.example.com') {
+    return true;
+  }
+  if (environment === 'production' && value_str === 'https://remote-executor.example.com') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Validates wrangler.toml configuration for a specific environment (production or staging).
+ * @param {Object} config - Parsed TOML config object
+ * @param {string} environment - 'production' or 'staging'
+ * @returns {{valid: boolean, errors: string[]}}
+ */
+export function validateWranglerConfigForEnv(config, environment = 'production') {
+  const errors = [];
+
+  // Determine which config section to use
+  let envConfig;
+  if (environment === 'staging') {
+    envConfig = config.env?.staging || {};
+  } else if (environment === 'production') {
+    envConfig = config;
+  } else {
+    errors.push(`Unknown environment: ${environment}`);
+    return { valid: false, errors };
+  }
+
+  // Check required top-level fields in root config
+  if (!config.name) errors.push('Missing required field: name');
+  if (!config.main) errors.push('Missing required field: main');
+
+  // Get vars from the target environment
+  const vars = envConfig.vars || {};
+
+  // EXECUTOR_PROXY_URL is required
+  const executorUrl = vars.EXECUTOR_PROXY_URL;
+  if (!executorUrl) {
+    errors.push(`Missing required var: EXECUTOR_PROXY_URL in [${environment === 'staging' ? 'env.staging.vars' : 'vars'}]`);
+  } else if (isPlaceholder(executorUrl, environment)) {
+    errors.push(`Invalid EXECUTOR_PROXY_URL for ${environment}: "${executorUrl}" appears to be a placeholder. Set a real executor endpoint.`);
+  }
+
+  // EXECUTOR_TIMEOUT_MS should be a valid number if present
+  const timeout = vars.EXECUTOR_TIMEOUT_MS;
+  if (timeout && isNaN(parseInt(timeout, 10))) {
+    errors.push(`Invalid EXECUTOR_TIMEOUT_MS: "${timeout}" is not a valid number`);
+  }
+
+  // Check KV bindings
+  const kvBindings = envConfig.kv_namespaces || [];
+  const manifestKv = kvBindings.find(b => b.binding === 'MANIFEST_KV');
+
+  if (!manifestKv) {
+    errors.push(`Missing KV binding: MANIFEST_KV in [${environment === 'staging' ? 'env.staging.kv_namespaces' : 'kv_namespaces'}]`);
+  } else if (isPlaceholder(manifestKv.id)) {
+    errors.push(`Invalid KV namespace ID for ${environment}: "${manifestKv.id}" appears to be a placeholder. Set a real KV namespace ID.`);
+  }
+
+  // Check R2 bindings
+  const r2Bindings = envConfig.r2_buckets || [];
+  const artefactsR2 = r2Bindings.find(b => b.binding === 'ARTEFACTS_R2');
+
+  if (!artefactsR2) {
+    errors.push(`Missing R2 binding: ARTEFACTS_R2 in [${environment === 'staging' ? 'env.staging.r2_buckets' : 'r2_buckets'}]`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+/**
  * Validates wrangler.toml configuration structure and required fields.
  * @param {Object} config - Parsed TOML config object
  * @returns {{valid: boolean, errors: string[]}}
@@ -191,28 +282,63 @@ export function validateDeploymentConfig(options = {}) {
 
 // CLI invocation
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const result = validateDeploymentConfig({
-    workerDir: process.argv[2] || 'worker'
-  });
+  const workerDir = process.argv[2] || 'worker';
+  const environment = process.argv[3] || 'production';
+
+  // Validate environment parameter
+  if (!['production', 'staging'].includes(environment)) {
+    console.error(`\n✗ Unknown environment: "${environment}"`);
+    console.error('Valid environments: production, staging\n');
+    process.exit(1);
+  }
+
+  // Load and validate config for the specified environment
+  const wranglerResult = loadAndValidateWranglerConfig(workerDir);
+
+  if (!wranglerResult.valid) {
+    console.log('\nDeployment Configuration Validation\n');
+    console.log('------------------------------------\n');
+    console.log('Wrangler Config:');
+    console.log('  ✗ Invalid');
+    for (const err of wranglerResult.errors) {
+      console.log(`    - ${err}`);
+    }
+    console.log();
+    process.exit(1);
+  }
+
+  // Validate for the specific environment
+  const envResult = validateWranglerConfigForEnv(wranglerResult.config, environment);
 
   console.log('\nDeployment Configuration Validation\n');
   console.log('------------------------------------\n');
+  console.log(`Environment: ${environment}`);
+  console.log(`Worker Config: ${workerDir}/wrangler.toml\n`);
 
-  for (const check of result.results) {
-    console.log(`${check.name}:`);
-    if (check.valid) {
-      console.log('  ✓ Valid\n');
-    } else {
-      console.log('  ✗ Invalid');
-      for (const err of check.errors) {
-        console.log(`    - ${err}`);
-      }
-      console.log();
+  console.log('Wrangler Config Structure:');
+  if (wranglerResult.valid) {
+    console.log('  ✓ Valid\n');
+  } else {
+    console.log('  ✗ Invalid');
+    for (const err of wranglerResult.errors) {
+      console.log(`    - ${err}`);
     }
+    console.log();
   }
 
-  if (result.valid) {
-    console.log('All checks passed. Ready to deploy.');
+  console.log(`Configuration for [${environment}]:`);
+  if (envResult.valid) {
+    console.log('  ✓ Valid\n');
+  } else {
+    console.log('  ✗ Invalid');
+    for (const err of envResult.errors) {
+      console.log(`    - ${err}`);
+    }
+    console.log();
+  }
+
+  if (wranglerResult.valid && envResult.valid) {
+    console.log('All checks passed. Ready to deploy to ' + environment + '.');
     process.exit(0);
   } else {
     console.log('Some checks failed. Fix the issues above before deploying.');

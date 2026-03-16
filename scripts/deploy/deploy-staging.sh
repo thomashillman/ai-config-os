@@ -24,9 +24,9 @@ WORKER_DIR="$REPO_ROOT/worker"
 echo "Deploying to Staging"
 echo
 
-# Step 1: Validate config
-echo "Step 1: Validating configuration..."
-node "$REPO_ROOT/scripts/deploy/validate-config.mjs" "$WORKER_DIR"
+# Step 1: Validate config for staging environment
+echo "Step 1: Validating configuration for staging..."
+node "$REPO_ROOT/scripts/deploy/validate-config.mjs" "$WORKER_DIR" staging
 
 if [ $? -ne 0 ]; then
   echo "✗ Configuration validation failed"
@@ -62,15 +62,8 @@ echo
 echo "Step 3: Deploying to staging environment..."
 cd "$WORKER_DIR"
 
-# Check if wrangler is installed
-if ! command -v wrangler &> /dev/null; then
-  echo "✗ wrangler not found"
-  echo "  Run: npm install in worker/ directory"
-  exit 1
-fi
-
-# Deploy
-wrangler deploy --env staging
+# Deploy using npx wrangler for better portability
+npx wrangler deploy --env staging
 
 if [ $? -eq 0 ]; then
   echo

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateWranglerConfig, validateWorkerSecrets, validateExecutorEnv } from '../validate-config.mjs';
+import { validateWranglerConfig, validateWorkerSecrets, validateExecutorEnv, validateWranglerConfigForEnv } from '../validate-config.mjs';
 
 test('validateWranglerConfig - passes with all required fields', () => {
   const config = {
@@ -162,4 +162,212 @@ test('validateExecutorEnv - allows optional REMOTE_EXECUTOR_SIGNATURE_PUBLIC_KEY
   const result = validateExecutorEnv(env);
 
   assert.equal(result.valid, true);
+});
+
+// ===== Phase 2: Environment-specific validation tests =====
+
+test('validateWranglerConfigForEnv - staging with valid staging config', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    vars: {
+      EXECUTOR_PROXY_URL: 'https://production.example.com',
+      EXECUTOR_TIMEOUT_MS: '10000'
+    },
+    kv_namespaces: [
+      { binding: 'MANIFEST_KV', id: 'prod-kv-id' }
+    ],
+    r2_buckets: [
+      { binding: 'ARTEFACTS_R2', bucket_name: 'prod-bucket' }
+    ],
+    env: {
+      staging: {
+        vars: {
+          EXECUTOR_PROXY_URL: 'https://real-executor-staging.example.com',
+          EXECUTOR_TIMEOUT_MS: '10000'
+        },
+        kv_namespaces: [
+          { binding: 'MANIFEST_KV', id: 'staging-real-kv-id' }
+        ],
+        r2_buckets: [
+          { binding: 'ARTEFACTS_R2', bucket_name: 'real-staging-bucket' }
+        ]
+      }
+    }
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'staging');
+  assert.equal(result.valid, true, 'Should validate staging with real values');
+});
+
+test('validateWranglerConfigForEnv - staging rejects placeholder EXECUTOR_PROXY_URL', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    env: {
+      staging: {
+        vars: {
+          EXECUTOR_PROXY_URL: 'https://executor-staging.example.com',
+          EXECUTOR_TIMEOUT_MS: '10000'
+        },
+        kv_namespaces: [
+          { binding: 'MANIFEST_KV', id: 'staging-kv-id' }
+        ],
+        r2_buckets: [
+          { binding: 'ARTEFACTS_R2', bucket_name: 'staging-bucket' }
+        ]
+      }
+    }
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'staging');
+  assert.equal(result.valid, false, 'Should reject placeholder executor URL');
+  assert.ok(
+    result.errors.some(e => e.includes('EXECUTOR_PROXY_URL') || e.includes('executor-staging.example.com')),
+    'Error should mention placeholder executor URL'
+  );
+});
+
+test('validateWranglerConfigForEnv - staging rejects placeholder KV ID', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    env: {
+      staging: {
+        vars: {
+          EXECUTOR_PROXY_URL: 'https://real-executor.example.com',
+          EXECUTOR_TIMEOUT_MS: '10000'
+        },
+        kv_namespaces: [
+          { binding: 'MANIFEST_KV', id: 'REPLACE_WITH_STAGING_MANIFEST_KV_ID' }
+        ],
+        r2_buckets: [
+          { binding: 'ARTEFACTS_R2', bucket_name: 'staging-bucket' }
+        ]
+      }
+    }
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'staging');
+  assert.equal(result.valid, false, 'Should reject placeholder KV ID');
+  assert.ok(
+    result.errors.some(e => e.includes('REPLACE_WITH_STAGING_MANIFEST_KV_ID')),
+    'Error should mention placeholder KV ID'
+  );
+});
+
+test('validateWranglerConfigForEnv - production with valid production config', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    vars: {
+      EXECUTOR_PROXY_URL: 'https://real-production-executor.example.com',
+      EXECUTOR_TIMEOUT_MS: '10000'
+    },
+    kv_namespaces: [
+      { binding: 'MANIFEST_KV', id: 'prod-real-kv-id' }
+    ],
+    r2_buckets: [
+      { binding: 'ARTEFACTS_R2', bucket_name: 'prod-real-bucket' }
+    ]
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'production');
+  assert.equal(result.valid, true, 'Should validate production with real values');
+});
+
+test('validateWranglerConfigForEnv - production rejects placeholder EXECUTOR_PROXY_URL', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    vars: {
+      EXECUTOR_PROXY_URL: 'https://remote-executor.example.com',
+      EXECUTOR_TIMEOUT_MS: '10000'
+    },
+    kv_namespaces: [
+      { binding: 'MANIFEST_KV', id: 'prod-kv-id' }
+    ],
+    r2_buckets: [
+      { binding: 'ARTEFACTS_R2', bucket_name: 'prod-bucket' }
+    ]
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'production');
+  assert.equal(result.valid, false, 'Should reject placeholder production executor URL');
+  assert.ok(
+    result.errors.some(e => e.includes('EXECUTOR_PROXY_URL') || e.includes('remote-executor.example.com')),
+    'Error should mention placeholder executor URL'
+  );
+});
+
+test('validateWranglerConfigForEnv - production rejects placeholder KV ID', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    vars: {
+      EXECUTOR_PROXY_URL: 'https://real-production.example.com',
+      EXECUTOR_TIMEOUT_MS: '10000'
+    },
+    kv_namespaces: [
+      { binding: 'MANIFEST_KV', id: 'REPLACE_WITH_MANIFEST_KV_ID' }
+    ],
+    r2_buckets: [
+      { binding: 'ARTEFACTS_R2', bucket_name: 'prod-bucket' }
+    ]
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'production');
+  assert.equal(result.valid, false, 'Should reject placeholder KV ID');
+  assert.ok(
+    result.errors.some(e => e.includes('REPLACE_WITH_MANIFEST_KV_ID')),
+    'Error should mention placeholder KV ID'
+  );
+});
+
+test('validateWranglerConfigForEnv - staging missing requires binding names', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    env: {
+      staging: {
+        vars: {
+          EXECUTOR_PROXY_URL: 'https://real-executor.example.com'
+        },
+        kv_namespaces: [
+          { binding: 'WRONG_NAME', id: 'staging-kv-id' }
+        ],
+        r2_buckets: [
+          { binding: 'ARTEFACTS_R2', bucket_name: 'staging-bucket' }
+        ]
+      }
+    }
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'staging');
+  assert.equal(result.valid, false, 'Should reject wrong KV binding name');
+  assert.ok(
+    result.errors.some(e => e.includes('MANIFEST_KV')),
+    'Error should mention MANIFEST_KV'
+  );
+});
+
+test('validateWranglerConfigForEnv - production missing required binding names', () => {
+  const config = {
+    name: 'ai-config-os',
+    main: 'src/index.ts',
+    vars: {
+      EXECUTOR_PROXY_URL: 'https://real-executor.example.com'
+    },
+    kv_namespaces: [],
+    r2_buckets: [
+      { binding: 'ARTEFACTS_R2', bucket_name: 'prod-bucket' }
+    ]
+  };
+
+  const result = validateWranglerConfigForEnv(config, 'production');
+  assert.equal(result.valid, false, 'Should reject missing KV binding');
+  assert.ok(
+    result.errors.some(e => e.includes('MANIFEST_KV')),
+    'Error should mention MANIFEST_KV'
+  );
 });
