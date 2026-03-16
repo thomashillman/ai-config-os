@@ -66,7 +66,7 @@ jobs:
       - name: Verify
         run: npm run -s verify
 
-      - name: Guard: no conflict markers in tracked files
+      - name: "Guard: no conflict markers in tracked files"
         run: |
           if rg -n "(^<{7}|^={7}|^>{7})" \
             --glob '!**/node_modules/**' \
