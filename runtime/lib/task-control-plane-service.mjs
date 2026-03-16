@@ -1,5 +1,4 @@
-import { TaskStore } from './task-store.mjs';
-import { startReviewRepositoryTask, resumeReviewRepositoryTask } from './review-repository-journey.mjs';
+import { TaskStore } from './task-store-worker.mjs';
 
 function assertObject(name, value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -88,14 +87,6 @@ export function createTaskControlPlaneService({ taskStore = new TaskStore() } = 
     getSnapshot(taskId, version) {
       assertString('taskId', taskId);
       return taskStore.getSnapshot(taskId, version);
-    },
-    startReviewRepositoryTask(args) {
-      assertObject('args', args);
-      return startReviewRepositoryTask({ taskStore, ...args });
-    },
-    resumeReviewRepositoryTask(args) {
-      assertObject('args', args);
-      return resumeReviewRepositoryTask({ taskStore, ...args });
     },
   };
 }

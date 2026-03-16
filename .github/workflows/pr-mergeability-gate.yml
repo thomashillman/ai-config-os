@@ -49,10 +49,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Validate
         run: npm run -s validate
@@ -66,7 +65,7 @@ jobs:
       - name: Verify
         run: npm run -s verify
 
-      - name: Guard: no conflict markers in tracked files
+      - name: "Guard: no conflict markers in tracked files"
         run: |
           if rg -n "(^<{7}|^={7}|^>{7})" \
             --glob '!**/node_modules/**' \
