@@ -336,10 +336,10 @@ The executor Worker is a separate Cloudflare Worker that implements Phase 1 tool
 Phase 0 tools (sync_tools, list_tools, get_config, context_cost, validate_all) are **not** available and return 403 TOOL_NOT_SUPPORTED (they require shell/filesystem access).
 
 **Architecture:**
-- Service binding from main Worker to executor Worker (primary Phase 1 path)
-- HTTP proxy fallback to `EXECUTOR_PROXY_URL` (Phase 0 legacy, being phased out)
-- Timeout clamped to 15s maximum
-- All data pre-computed and stored in KV/R2
+- Service binding from main Worker to executor Worker (primary Phase 1 path, Cloudflare-only)
+- HTTP proxy fallback to `EXECUTOR_PROXY_URL` (optional, preserved for Phase 2 seam or Phase 0 backward compat)
+- Timeout clamped to 15s maximum (Cloudflare Worker constraint)
+- All data pre-computed and stored in KV/R2 (no shell or filesystem)
 
 **Deployment (Phase 1 primary path):**
 ```bash

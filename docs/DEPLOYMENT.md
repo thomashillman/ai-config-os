@@ -107,13 +107,19 @@ These bucket names are already referenced in `worker/wrangler.toml`:
 
 The executor Worker is deployed **from `worker/executor/`** after the main Worker. No external service needed for Phase 1.
 
-**Phase 0 compat (optional):**
-If you need backward compatibility with external executor, set up a service outside Cloudflare:
+**Phase 0 compat (optional) / Phase 2 future:**
+The external executor path is preserved for:
+1. Backward compatibility with Phase 0 external executors
+2. Future Phase 2 with a VPS-backed executor
+
+If you need this path, set up a service outside Cloudflare:
 - Listen on an HTTP endpoint (e.g., `https://executor-staging.example.com`)
 - Support `POST /v1/execute` route
 - Use the same `EXECUTOR_SHARED_SECRET` as the Workers
 
-See `runtime/remote-executor/` for the legacy reference implementation.
+See:
+- `runtime/remote-executor/` for the Phase 0 reference implementation
+- `docs/PHASE2-SEAM.md` for how Phase 2 can reuse this path
 
 #### 4. Worker Secrets
 
