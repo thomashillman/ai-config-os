@@ -166,7 +166,7 @@ async function runTest(name, endpoint, method, body, options = {}) {
  */
 export async function runAllTests() {
   console.log('\nSmoke Tests — Deployment Readiness Check\n');
-  console.log('=========================================\n');
+  console.log('------------------------------------------\n');
 
   const tests = [
     {

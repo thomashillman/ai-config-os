@@ -25,7 +25,7 @@ EXECUTOR_DIR="$REPO_ROOT/runtime/remote-executor"
 REMOTE_EXECUTOR_PORT="${REMOTE_EXECUTOR_PORT:-8788}"
 
 echo "Starting Remote Executor"
-echo "======================="
+echo "--------------------------------------------"
 echo
 echo "Executor will listen on: http://localhost:$REMOTE_EXECUTOR_PORT"
 echo

@@ -165,7 +165,7 @@ Tests verify:
 **Success output:**
 ```
 Smoke Tests — Deployment Readiness Check
-=========================================
+------------------------------------------
 
 GET /health ✓ 200 - OK
 GET /manifest/latest ✓ 200 - OK

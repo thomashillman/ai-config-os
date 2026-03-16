@@ -328,7 +328,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   });
 
   console.log('\nDeployment Configuration Validation\n');
-  console.log('=====================================\n');
+  console.log('------------------------------------\n');
 
   for (const check of result.results) {
     console.log(`${check.name}:`);
