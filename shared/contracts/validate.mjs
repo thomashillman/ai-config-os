@@ -31,6 +31,8 @@ const provenanceMarkerSchema = loadSchema('shared/contracts/schemas/v1/provenanc
 const findingsLedgerEntrySchema = loadSchema('shared/contracts/schemas/v1/findings-ledger-entry.schema.json');
 const continuationPackageSchema = loadSchema('shared/contracts/schemas/v1/continuation-package.schema.json');
 const handoffTokenSchema = loadSchema('shared/contracts/schemas/v1/handoff-token.schema.json');
+const narrationOutputSchema = loadSchema('shared/contracts/schemas/v1/narration-output.schema.json');
+const shelfEntrySchema = loadSchema('shared/contracts/schemas/v1/shelf-entry.schema.json');
 
 const kindToSchemaId = {
   manifest: manifestSchema.$id,
@@ -50,6 +52,8 @@ const kindToSchemaId = {
   findingsLedgerEntry: findingsLedgerEntrySchema.$id,
   continuationPackage: continuationPackageSchema.$id,
   handoffToken: handoffTokenSchema.$id,
+  narrationOutput: narrationOutputSchema.$id,
+  shelfEntry: shelfEntrySchema.$id,
 };
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -73,6 +77,8 @@ ajv.addSchema(taskStateSnapshotSchema);
 ajv.addSchema(progressEventSchema);
 ajv.addSchema(continuationPackageSchema);
 ajv.addSchema(handoffTokenSchema);
+ajv.addSchema(narrationOutputSchema);
+ajv.addSchema(shelfEntrySchema);
 
 const validators = Object.fromEntries(
   Object.entries(kindToSchemaId).map(([kind, schemaId]) => [kind, ajv.getSchema(schemaId)])

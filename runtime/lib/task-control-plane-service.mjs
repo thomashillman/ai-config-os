@@ -1,4 +1,8 @@
 import { TaskStore } from './task-store-worker.mjs';
+import {
+  startReviewRepositoryTask as journeyStart,
+  resumeReviewRepositoryTask as journeyResume,
+} from './review-repository-journey.mjs';
 
 function assertObject(name, value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -133,6 +137,31 @@ export function createTaskControlPlaneService({ taskStore = new TaskStore() } = 
         return Promise.reject(new Error('loadByName not supported by current task store'));
       }
       return taskStore.loadByName(nameOrSlug);
+    },
+    startReviewRepositoryTask({ taskId, goal, routeInputs, capabilityProfile, narrator, observer } = {}) {
+      assertString('taskId', taskId);
+      assertString('goal', goal);
+      assertObject('routeInputs', routeInputs);
+      return journeyStart({
+        taskStore,
+        taskId,
+        goal,
+        routeInputs,
+        capabilityProfile,
+        narrator: narrator || null,
+        observer: observer || null,
+      });
+    },
+    resumeReviewRepositoryTask({ taskId, capabilityProfile, narrator, observer, previousContract } = {}) {
+      assertString('taskId', taskId);
+      return journeyResume({
+        taskStore,
+        taskId,
+        capabilityProfile,
+        narrator: narrator || null,
+        observer: observer || null,
+        previousContract: previousContract || null,
+      });
     },
   };
 }

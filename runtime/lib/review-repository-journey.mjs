@@ -241,9 +241,9 @@ export function buildTaskReadinessView({ task, effectiveExecutionContract, progr
 
   const narration = narrator && strongerRouteAvailable
     ? narrator.onUpgradeAvailable(task, effectiveExecutionContract, null)
-    : undefined;
+    : null;
 
-  const view = {
+  return {
     task_id: task.task_id,
     task_type: task.task_type,
     current_route: task.current_route,
@@ -257,11 +257,6 @@ export function buildTaskReadinessView({ task, effectiveExecutionContract, progr
     },
     findings_provenance: summariseFindings(task.findings || []),
     progress_event_count: progressEvents.length,
+    narration,
   };
-
-  if (narration !== undefined) {
-    view.narration = narration;
-  }
-
-  return view;
 }

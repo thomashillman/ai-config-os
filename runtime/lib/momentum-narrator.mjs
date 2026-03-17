@@ -1,7 +1,9 @@
 // Momentum Narrator — produces structured prose from task state.
 // Pure function: no side effects, no I/O.
 // Takes PortableTaskObject + EffectiveExecutionContract → narration output.
+// All outputs are contract-validated against narration-output.schema.json.
 
+import { validateContract } from '../../shared/contracts/validate.mjs';
 import {
   TEMPLATE_VERSION,
   strengthLabels,
@@ -10,6 +12,10 @@ import {
   templates,
   upgradeUnlocksDescriptions,
 } from './momentum-templates.mjs';
+
+function validateNarrationOutput(output) {
+  return validateContract('narrationOutput', output);
+}
 
 const ROUTE_STRENGTH_ORDER = ['pasted_diff', 'github_pr', 'uploaded_bundle', 'local_repo'];
 
@@ -125,14 +131,14 @@ export function createNarrator(options = {}) {
 
       const findings = (task.findings || []).map(buildFindingNarrative);
 
-      return {
+      return validateNarrationOutput({
         headline,
         progress: null,
         strength,
         next_action: task.next_action || contract?.required_inputs?.join(', ') || null,
         upgrade: strongerRoute ? buildUpgradeBlock(routeId, strongerRoute) : null,
         findings,
-      };
+      });
     },
 
     onResume(task, contract, previousContract) {
@@ -165,20 +171,20 @@ export function createNarrator(options = {}) {
       const findings = (task.findings || []).map(buildFindingNarrative);
       const upgrade = upgraded ? buildUpgradeBlock(previousRoute, routeId) : null;
 
-      return {
+      return validateNarrationOutput({
         headline,
         progress,
         strength,
         next_action: task.next_action || null,
         upgrade,
         findings,
-      };
+      });
     },
 
     onFindingEvolved(task, finding, previousConfidence, newConfidence) {
       const narrative = buildFindingNarrativeWithEvolution(finding, previousConfidence, newConfidence);
 
-      return {
+      return validateNarrationOutput({
         headline: interpolate(tmpl.onFindingEvolved.headline, {
           provenancePrefix: provenancePrefixes[newConfidence] || 'Possible',
           findingSummary: finding?.summary || 'unknown finding',
@@ -188,7 +194,7 @@ export function createNarrator(options = {}) {
         next_action: task.next_action || null,
         upgrade: null,
         findings: [narrative],
-      };
+      });
     },
 
     onUpgradeAvailable(task, currentContract, availableContract) {
@@ -201,14 +207,14 @@ export function createNarrator(options = {}) {
         findingsCount,
       });
 
-      return {
+      return validateNarrationOutput({
         headline,
         progress: null,
         strength: getStrength(currentRoute),
         next_action: tmpl.onUpgradeAvailable.prompt,
         upgrade: buildUpgradeBlock(currentRoute, strongerRoute),
         findings: (task.findings || []).map(buildFindingNarrative),
-      };
+      });
     },
 
     onShelfView(tasks, currentCapabilities) {

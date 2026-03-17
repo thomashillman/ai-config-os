@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/narration-output.schema.json",
+  "title": "NarrationOutput",
+  "description": "Structured narrator output from Momentum Engine narration points (onStart, onResume, onFindingEvolved, onUpgradeAvailable).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "headline",
+    "progress",
+    "strength",
+    "next_action",
+    "upgrade",
+    "findings"
+  ],
+  "properties": {
+    "headline": {
+      "type": "string",
+      "minLength": 1
+    },
+    "progress": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "null" }
+      ]
+    },
+    "strength": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "label", "description"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["limited", "degraded", "full"]
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "next_action": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "null" }
+      ]
+    },
+    "upgrade": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["before", "now", "unlocks"],
+          "properties": {
+            "before": { "type": "string", "minLength": 1 },
+            "now": { "type": "string", "minLength": 1 },
+            "unlocks": { "type": "string", "minLength": 1 }
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_id", "narrative", "confidence_change", "evidence_summary"],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "narrative": {
+            "type": "string",
+            "minLength": 1
+          },
+          "confidence_change": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["from", "to"],
+                "properties": {
+                  "from": { "type": "string", "minLength": 1 },
+                  "to": { "type": "string", "minLength": 1 }
+                }
+              },
+              { "type": "null" }
+            ]
+          },
+          "evidence_summary": {
+            "oneOf": [
+              { "type": "string", "minLength": 1 },
+              { "type": "null" }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

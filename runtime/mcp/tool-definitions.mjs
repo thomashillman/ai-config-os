@@ -184,7 +184,102 @@ export const MCP_TOOL_DEFINITIONS = [
     outputSchema: { type: 'object' },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Use worker /v1/tasks/:taskId/readiness directly.' }
-  }
+  },
+  {
+    name: 'momentum_narrate',
+    description: 'Produce a narration for a task lifecycle event (start, resume, finding evolved, upgrade available)',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id', 'narration_point'],
+      properties: {
+        task_id: { type: 'string', description: 'Task to narrate' },
+        narration_point: {
+          type: 'string',
+          enum: ['onStart', 'onResume', 'onFindingEvolved', 'onUpgradeAvailable'],
+          description: 'Which lifecycle event to narrate'
+        },
+        finding_id: { type: 'string', description: 'For onFindingEvolved: the finding that changed' },
+        previous_confidence: { type: 'string', description: 'For onFindingEvolved: prior provenance status' },
+        new_confidence: { type: 'string', description: 'For onFindingEvolved: new provenance status' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 5000, maxOutputBytes: 100000 },
+    fallbackPolicy: { mode: 'prompt-only', notes: 'Narrator output is advisory; task proceeds without it.' }
+  },
+  {
+    name: 'momentum_shelf',
+    description: 'Get ranked continuable tasks ordered by environment-aware continuation value',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        capability_profile: { type: 'object', description: 'Current capability profile for environment fit scoring' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 5000, maxOutputBytes: 100000 },
+    fallbackPolicy: { mode: 'prompt-only', notes: 'Shelf is advisory; tasks can be resumed without it.' }
+  },
+  {
+    name: 'momentum_reflect',
+    description: 'Analyze narration effectiveness and produce improvement insights',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        since: { type: 'string', description: 'ISO 8601 timestamp; look back from this point (default: 24h ago)' },
+        auto_apply: { type: 'boolean', description: 'Auto-apply high-confidence insights (default: false)', default: false },
+        min_confidence: { type: 'number', description: 'Minimum confidence for auto-apply (default: 0.7)', default: 0.7 },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 500000 },
+    fallbackPolicy: { mode: 'prompt-only', notes: 'Reflection is advisory; system works without it.' }
+  },
+  {
+    name: 'momentum_resolve_intent',
+    description: 'Resolve a natural language phrase to a task type and route hints',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      required: ['phrase'],
+      properties: {
+        phrase: { type: 'string', description: 'Natural language user intent (e.g. "review this repository")' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 2000, maxOutputBytes: 10000 },
+    fallbackPolicy: { mode: 'prompt-only', notes: 'Intent resolution is advisory; task can be started manually.' }
+  },
+  {
+    name: 'momentum_record_response',
+    description: 'Record user response to a narration event for self-improvement tracking',
+    executionClass: 'local',
+    requiredCapabilities: [],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id', 'narration_event_id', 'response_type'],
+      properties: {
+        task_id: { type: 'string' },
+        narration_event_id: { type: 'string', description: 'event_id from the narration_shown progress event' },
+        response_type: {
+          type: 'string',
+          enum: ['engaged', 'ignored', 'follow_up', 'changed_course', 'accepted_upgrade', 'declined_upgrade']
+        },
+        time_to_action_ms: { type: 'number', description: 'Milliseconds between narration and user action' },
+        follow_up_text: { type: 'string', description: 'User follow-up text (for follow_up response type)' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 2000, maxOutputBytes: 10000 },
+    fallbackPolicy: { mode: 'prompt-only', notes: 'Response recording is non-critical; system works without it.' }
+  },
 ];
 
 export const MCP_TOOL_MAP = new Map(MCP_TOOL_DEFINITIONS.map((tool) => [tool.name, tool]));
