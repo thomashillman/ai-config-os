@@ -3,7 +3,7 @@ import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/l
 // @ts-ignore - runtime JS module
 import { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';
 // @ts-ignore - runtime JS module
-import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service.mjs';
+import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service-worker.mjs';
 // @ts-ignore - runtime JS module
 import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service-worker.mjs';
 import { jsonResponse } from './http';
