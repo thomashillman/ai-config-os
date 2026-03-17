@@ -59,6 +59,19 @@ export type ContinuationPayload = {
   created_at?: string;
 };
 
+export type AppendFindingPayload = {
+  expected_version: number;
+  finding: Record<string, unknown>;
+  updated_at: string;
+};
+
+export type TransitionFindingsPayload = {
+  expected_version: number;
+  to_route_id: string;
+  upgraded_at: string;
+  to_equivalence_level: string;
+};
+
 export type JsonReadResult =
   | { ok: true; value: unknown }
   | { ok: false; response: Response };

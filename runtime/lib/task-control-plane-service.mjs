@@ -89,6 +89,25 @@ export function createTaskControlPlaneService({ taskStore = new TaskStore() } = 
       assertString('taskId', taskId);
       return taskStore.getSnapshot(taskId, version);
     },
+    appendFinding(taskId, payload) {
+      assertString('taskId', taskId);
+      assertObject('payload', payload);
+      return taskStore.appendFinding(taskId, {
+        expectedVersion: payload.expected_version,
+        finding: payload.finding,
+        updatedAt: payload.updated_at,
+      });
+    },
+    transitionFindingsForRouteUpgrade(taskId, payload) {
+      assertString('taskId', taskId);
+      assertObject('payload', payload);
+      return taskStore.transitionFindingsForRouteUpgrade(taskId, {
+        expectedVersion: payload.expected_version,
+        toRouteId: payload.to_route_id,
+        upgradedAt: payload.upgraded_at,
+        toEquivalenceLevel: payload.to_equivalence_level,
+      });
+    },
     listRecentTasks(options = {}) {
       if (typeof taskStore.listRecentTasks !== 'function') {
         return Promise.resolve([]);

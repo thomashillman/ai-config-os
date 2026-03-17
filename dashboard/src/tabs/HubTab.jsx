@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import ResumeSheet from "../components/ResumeSheet"
+import TaskDetailTab from "./TaskDetailTab"
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL || "https://ai-config-os.workers.dev"
 
@@ -27,7 +28,7 @@ function timeAgo(iso) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-function TaskCard({ task, onResume }) {
+function TaskCard({ task, onResume, onView }) {
   const route = getRouteLabel(task.current_route)
   const state = getStateLabel(task.state)
   const findings = task.findings || []
@@ -37,7 +38,10 @@ function TaskCard({ task, onResume }) {
   const verifiedCount = findings.filter(f => f.provenance?.status === "verified").length
 
   return (
-    <div className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 transition-colors">
+    <div
+      className="border border-gray-800 rounded-lg p-4 hover:border-gray-700 transition-colors cursor-pointer"
+      onClick={() => onView(task.task_id)}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
@@ -62,7 +66,7 @@ function TaskCard({ task, onResume }) {
         <div className="flex flex-col gap-2 flex-shrink-0">
           {task.state === "active" && (
             <button
-              onClick={() => onResume(task)}
+              onClick={e => { e.stopPropagation(); onResume(task) }}
               className="text-xs bg-gray-700 hover:bg-gray-600 text-white rounded px-3 py-1.5 transition-colors whitespace-nowrap"
             >
               Continue here →
@@ -83,6 +87,11 @@ export default function HubTab({ api }) {
   const [error, setError] = useState(null)
   const [resumeTask, setResumeTask] = useState(null)
   const [filter, setFilter] = useState("active")
+  const [detailTaskId, setDetailTaskId] = useState(null)
+
+  if (detailTaskId) {
+    return <TaskDetailTab taskId={detailTaskId} onBack={() => setDetailTaskId(null)} />
+  }
 
   const token = import.meta.env.VITE_AUTH_TOKEN || ""
 
@@ -169,6 +178,7 @@ export default function HubTab({ api }) {
               key={task.task_id}
               task={task}
               onResume={setResumeTask}
+              onView={setDetailTaskId}
             />
           ))}
         </div>

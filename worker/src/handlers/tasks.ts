@@ -1,6 +1,6 @@
 import { badRequest, jsonResponse, readJsonBody } from '../http';
 import { getContinuationFingerprint, getTaskService, setContinuationFingerprint, taskErrorResponse } from '../task-runtime';
-import type { ContinuationPayload, Env, RouteSelectionPayload, TransitionTaskStatePayload } from '../types';
+import type { AppendFindingPayload, ContinuationPayload, Env, RouteSelectionPayload, TransitionFindingsPayload, TransitionTaskStatePayload } from '../types';
 
 function asObject(payload: unknown): Record<string, unknown> | null {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
@@ -64,6 +64,25 @@ function validateContinuationPayload(payload: unknown): { ok: true; value: Conti
   }
 
   return { ok: true, value: data as unknown as ContinuationPayload };
+}
+
+function validateAppendFindingPayload(payload: unknown): { ok: true; value: AppendFindingPayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+  if (!Number.isInteger(data.expected_version)) return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (!asObject(data.finding)) return { ok: false, error: "Field 'finding' must be an object" };
+  if (!isIsoDateTime(data.updated_at)) return { ok: false, error: "Field 'updated_at' must be an ISO timestamp" };
+  return { ok: true, value: data as unknown as AppendFindingPayload };
+}
+
+function validateTransitionFindingsPayload(payload: unknown): { ok: true; value: TransitionFindingsPayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+  if (!Number.isInteger(data.expected_version)) return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (typeof data.to_route_id !== 'string' || data.to_route_id.length === 0) return { ok: false, error: "Field 'to_route_id' must be a non-empty string" };
+  if (!isIsoDateTime(data.upgraded_at)) return { ok: false, error: "Field 'upgraded_at' must be an ISO timestamp" };
+  if (typeof data.to_equivalence_level !== 'string' || data.to_equivalence_level.length === 0) return { ok: false, error: "Field 'to_equivalence_level' must be a non-empty string" };
+  return { ok: true, value: data as unknown as TransitionFindingsPayload };
 }
 
 export async function handleTaskGet(env: Env, taskId: string): Promise<Response> {
@@ -229,6 +248,40 @@ export async function handleHubLatest(env: Env): Promise<Response> {
     return jsonResponse({ task });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error fetching latest task' } }, 500);
+  }
+}
+
+export async function handleTaskAppendFinding(request: Request, env: Env, taskId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const validation = validateAppendFindingPayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const updated = await getTaskService(env).appendFinding(taskId, validation.value);
+    return jsonResponse({ task: updated }, 201);
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to append finding');
+  }
+}
+
+export async function handleTaskTransitionFindings(request: Request, env: Env, taskId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const validation = validateTransitionFindingsPayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const updated = await getTaskService(env).transitionFindingsForRouteUpgrade(taskId, validation.value);
+    return jsonResponse({ task: updated });
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to transition findings');
   }
 }
 
