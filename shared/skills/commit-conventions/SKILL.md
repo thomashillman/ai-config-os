@@ -44,8 +44,8 @@ variants:
     latency_baseline_ms: 150
   fallback_chain:
     - "sonnet"
-    - "haiku"
     - "opus"
+    - "haiku"
 tests:
   - id: "test-feat-prefix"
     type: "prompt-validation"
@@ -64,7 +64,31 @@ tests:
     input: "Updated README with installation instructions"
     expected_substring: "docs:"
     models_to_test:
-      - "haiku"
+      - "sonnet"
+  - id: "test-style-prefix"
+    type: "prompt-validation"
+    input: "Updated CSS for button styling"
+    expected_substring: "style:"
+    models_to_test:
+      - "sonnet"
+  - id: "test-refactor-prefix"
+    type: "prompt-validation"
+    input: "Reorganized module structure without behavior change"
+    expected_substring: "refactor:"
+    models_to_test:
+      - "sonnet"
+  - id: "test-build-prefix"
+    type: "prompt-validation"
+    input: "Updated webpack configuration and build scripts"
+    expected_substring: "build:"
+    models_to_test:
+      - "sonnet"
+  - id: "test-chore-prefix"
+    type: "prompt-validation"
+    input: "Bumped package version and updated lock file"
+    expected_substring: "chore:"
+    models_to_test:
+      - "sonnet"
 docs:
   auto_generate_readme: true
   sections_to_include:
@@ -149,7 +173,7 @@ docs: add CLAUDE.md with dev conventions and git workflow
 
 ### Multi-line commit (complex change)
 ```
-refactor: split marketplace discovery from skill loading
+refactor: split marketplace discovery from loading
 
 Decouples the plugin scan from the install step so that
 scan failures do not abort partial installs.
