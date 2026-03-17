@@ -12,13 +12,19 @@ import {
 } from './handlers/artifacts';
 import { handleExecute } from './handlers/executor';
 import {
+  handleHubLatest,
+  handleTaskAppendFinding,
+  handleTaskByCode,
+  handleTaskByName,
   handleTaskContinuation,
   handleTaskCreate,
   handleTaskGet,
+  handleTaskList,
   handleTaskProgressEvents,
   handleTaskReadiness,
   handleTaskRouteSelection,
   handleTaskSnapshots,
+  handleTaskTransitionFindings,
   handleTaskTransitionState,
 } from './handlers/tasks';
 import type { Env } from './types';
@@ -87,6 +93,24 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
           return handleSkill(skillMatch[1], registry);
         }
 
+        if (path === '/v1/tasks') {
+          return handleTaskList(env, url);
+        }
+
+        if (path === '/v1/hub/latest') {
+          return handleHubLatest(env);
+        }
+
+        const taskByCodeMatch = path.match(/^\/v1\/t\/([^/]+)$/);
+        if (taskByCodeMatch) {
+          return handleTaskByCode(env, taskByCodeMatch[1]);
+        }
+
+        const taskByNameMatch = path.match(/^\/v1\/tasks\/by-name\/([^/]+)$/);
+        if (taskByNameMatch) {
+          return handleTaskByName(env, decodeURIComponent(taskByNameMatch[1]));
+        }
+
         const taskGetMatch = path.match(/^\/v1\/tasks\/([^/]+)$/);
         if (taskGetMatch) {
           return handleTaskGet(env, taskGetMatch[1]);
@@ -134,6 +158,16 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
       const taskStatePatchMatch = path.match(/^\/v1\/tasks\/([^/]+)\/state$/);
       if (request.method === 'PATCH' && taskStatePatchMatch) {
         return handleTaskTransitionState(request, env, taskStatePatchMatch[1]);
+      }
+
+      const taskFindingsMatch = path.match(/^\/v1\/tasks\/([^/]+)\/findings$/);
+      if (request.method === 'POST' && taskFindingsMatch) {
+        return handleTaskAppendFinding(request, env, taskFindingsMatch[1]);
+      }
+
+      const taskFindingsTransitionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/findings\/transition$/);
+      if (request.method === 'POST' && taskFindingsTransitionMatch) {
+        return handleTaskTransitionFindings(request, env, taskFindingsTransitionMatch[1]);
       }
 
       if (request.method !== 'GET' && request.method !== 'POST' && request.method !== 'PATCH') {

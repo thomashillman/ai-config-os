@@ -22,6 +22,9 @@ export interface Env {
 
   MANIFEST_KV?: {
     get(key: string): Promise<string | null> | string | null;
+    put(key: string, value: string): Promise<void>;
+    list(options?: { prefix?: string; limit?: number; cursor?: string }): Promise<{ keys: { name: string }[]; list_complete: boolean; cursor?: string }>;
+    delete(key: string): Promise<void>;
   };
   ARTEFACTS_R2?: {
     get(key: string): Promise<{ text(): Promise<string> } | null> | { text(): Promise<string> } | null;
@@ -54,6 +57,19 @@ export type ContinuationPayload = {
   handoff_token: Record<string, unknown>;
   effective_execution_contract: Record<string, unknown>;
   created_at?: string;
+};
+
+export type AppendFindingPayload = {
+  expected_version: number;
+  finding: Record<string, unknown>;
+  updated_at: string;
+};
+
+export type TransitionFindingsPayload = {
+  expected_version: number;
+  to_route_id: string;
+  upgraded_at: string;
+  to_equivalence_level: string;
 };
 
 export type JsonReadResult =

@@ -113,14 +113,13 @@ describe('selectEmittedPlatforms — pure platform selection logic', () => {
     // Registry should only list platforms with actual emitters
     assert.ok(Array.isArray(indexContent.platforms), 'registry.platforms should be an array');
 
-    // Both claude-code and cursor should be present (they have emitters)
+    // Platforms with emitters should be present in registry
     const registryPlatforms = indexContent.platforms;
     assert.ok(registryPlatforms.includes('claude-code'), 'claude-code should be in registry');
     assert.ok(registryPlatforms.includes('cursor'), 'cursor should be in registry');
+    assert.ok(registryPlatforms.includes('codex'), 'codex should be in registry (emitter added)');
 
-    // Unimplemented platforms should NOT be in registry
-    // (codex, claude-ios, claude-web exist in the repo but have no emitters)
-    assert.ok(!registryPlatforms.includes('codex'), 'codex should not be in registry (no emitter)');
+    // Platforms without emitters should NOT be in registry
     assert.ok(!registryPlatforms.includes('claude-ios'), 'claude-ios should not be in registry (no emitter)');
     assert.ok(!registryPlatforms.includes('claude-web'), 'claude-web should not be in registry (no emitter)');
   });

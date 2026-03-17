@@ -1,6 +1,6 @@
 import { badRequest, jsonResponse, readJsonBody } from '../http';
 import { getContinuationFingerprint, getTaskService, setContinuationFingerprint, taskErrorResponse } from '../task-runtime';
-import type { ContinuationPayload, Env, RouteSelectionPayload, TransitionTaskStatePayload } from '../types';
+import type { AppendFindingPayload, ContinuationPayload, Env, RouteSelectionPayload, TransitionFindingsPayload, TransitionTaskStatePayload } from '../types';
 
 function asObject(payload: unknown): Record<string, unknown> | null {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
@@ -66,26 +66,28 @@ function validateContinuationPayload(payload: unknown): { ok: true; value: Conti
   return { ok: true, value: data as unknown as ContinuationPayload };
 }
 
-export async function handleTaskCreate(request: Request, env: Env): Promise<Response> {
-  const body = await readJsonBody(request);
-  if (!body.ok) return body.response;
-
-  const validation = validateTaskCreatePayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
-
-  try {
-    const created = getTaskService(env).createTask(validation.value);
-    return jsonResponse({ task: created }, 201);
-  } catch (error) {
-    const mapped = taskErrorResponse(error);
-    if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to create task');
-  }
+function validateAppendFindingPayload(payload: unknown): { ok: true; value: AppendFindingPayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+  if (!Number.isInteger(data.expected_version)) return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (!asObject(data.finding)) return { ok: false, error: "Field 'finding' must be an object" };
+  if (!isIsoDateTime(data.updated_at)) return { ok: false, error: "Field 'updated_at' must be an ISO timestamp" };
+  return { ok: true, value: data as unknown as AppendFindingPayload };
 }
 
-export function handleTaskGet(env: Env, taskId: string): Response {
+function validateTransitionFindingsPayload(payload: unknown): { ok: true; value: TransitionFindingsPayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+  if (!Number.isInteger(data.expected_version)) return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (typeof data.to_route_id !== 'string' || data.to_route_id.length === 0) return { ok: false, error: "Field 'to_route_id' must be a non-empty string" };
+  if (!isIsoDateTime(data.upgraded_at)) return { ok: false, error: "Field 'upgraded_at' must be an ISO timestamp" };
+  if (typeof data.to_equivalence_level !== 'string' || data.to_equivalence_level.length === 0) return { ok: false, error: "Field 'to_equivalence_level' must be a non-empty string" };
+  return { ok: true, value: data as unknown as TransitionFindingsPayload };
+}
+
+export async function handleTaskGet(env: Env, taskId: string): Promise<Response> {
   try {
-    return jsonResponse({ task: getTaskService(env).getTask(taskId) });
+    return jsonResponse({ task: await getTaskService(env).getTask(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task load error' } }, 500);
   }
@@ -99,7 +101,7 @@ export async function handleTaskTransitionState(request: Request, env: Env, task
   if (!validation.ok) return badRequest(validation.error);
 
   try {
-    const updated = getTaskService(env).transitionState(taskId, validation.value);
+    const updated = await getTaskService(env).transitionState(taskId, validation.value);
     return jsonResponse({ task: updated });
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -116,7 +118,7 @@ export async function handleTaskRouteSelection(request: Request, env: Env, taskI
   if (!validation.ok) return badRequest(validation.error);
 
   try {
-    const updated = getTaskService(env).selectRoute(taskId, validation.value);
+    const updated = await getTaskService(env).selectRoute(taskId, validation.value);
     return jsonResponse({ task: updated });
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -159,7 +161,7 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
   const replayed = Boolean(tokenId && getContinuationFingerprint(tokenId) === fingerprint);
 
   try {
-    const continuation_package = getTaskService(env).createContinuation(taskId, validation.value);
+    const continuation_package = await getTaskService(env).createContinuation(taskId, validation.value);
 
     if (tokenId && !getContinuationFingerprint(tokenId)) {
       setContinuationFingerprint(tokenId, fingerprint);
@@ -173,34 +175,129 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
   }
 }
 
-export function handleTaskProgressEvents(env: Env, taskId: string): Response {
+export async function handleTaskProgressEvents(env: Env, taskId: string): Promise<Response> {
   try {
-    return jsonResponse({ events: getTaskService(env).listProgressEvents(taskId) });
+    return jsonResponse({ events: await getTaskService(env).listProgressEvents(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task progress event error' } }, 500);
   }
 }
 
-export function handleTaskReadiness(env: Env, taskId: string): Response {
+export async function handleTaskReadiness(env: Env, taskId: string): Promise<Response> {
   try {
-    return jsonResponse({ readiness: getTaskService(env).getReadiness(taskId) });
+    return jsonResponse({ readiness: await getTaskService(env).getReadiness(taskId) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task readiness error' } }, 500);
   }
 }
 
-export function handleTaskSnapshots(env: Env, taskId: string, version: string | null): Response {
+export async function handleTaskSnapshots(env: Env, taskId: string, version: string | null): Promise<Response> {
   try {
     if (!version) {
-      return jsonResponse({ snapshots: getTaskService(env).listSnapshots(taskId) });
+      return jsonResponse({ snapshots: await getTaskService(env).listSnapshots(taskId) });
     }
 
     const snapshotVersion = Number(version);
     if (!Number.isInteger(snapshotVersion) || snapshotVersion <= 0) {
       return badRequest("Path parameter 'version' must be a positive integer");
     }
-    return jsonResponse({ snapshot: getTaskService(env).getSnapshot(taskId, snapshotVersion) });
+    return jsonResponse({ snapshot: await getTaskService(env).getSnapshot(taskId, snapshotVersion) });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task snapshot error' } }, 500);
+  }
+}
+
+export async function handleTaskList(env: Env, url: URL): Promise<Response> {
+  const status = url.searchParams.get('status') ?? undefined;
+  const limit = Math.min(Number(url.searchParams.get('limit') ?? '20'), 100);
+  const updatedWithin = url.searchParams.get('updated_within');
+  const updatedWithinSeconds = updatedWithin ? parseFloat(updatedWithin) : undefined;
+
+  try {
+    const tasks = await getTaskService(env).listRecentTasks({ status, limit, updatedWithinSeconds });
+    return jsonResponse({ tasks });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task list error' } }, 500);
+  }
+}
+
+export async function handleTaskByCode(env: Env, shortCode: string): Promise<Response> {
+  try {
+    const task = await getTaskService(env).getTaskByCode(shortCode);
+    return jsonResponse({ task });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error looking up task by code' } }, 500);
+  }
+}
+
+export async function handleTaskByName(env: Env, nameOrSlug: string): Promise<Response> {
+  try {
+    const task = await getTaskService(env).getTaskByName(nameOrSlug);
+    return jsonResponse({ task });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error looking up task by name' } }, 500);
+  }
+}
+
+export async function handleHubLatest(env: Env): Promise<Response> {
+  try {
+    const task = await getTaskService(env).getLatestActiveTask();
+    if (!task) {
+      return jsonResponse({ task: null, message: 'No active tasks found' });
+    }
+    return jsonResponse({ task });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error fetching latest task' } }, 500);
+  }
+}
+
+export async function handleTaskAppendFinding(request: Request, env: Env, taskId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const validation = validateAppendFindingPayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const updated = await getTaskService(env).appendFinding(taskId, validation.value);
+    return jsonResponse({ task: updated }, 201);
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to append finding');
+  }
+}
+
+export async function handleTaskTransitionFindings(request: Request, env: Env, taskId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const validation = validateTransitionFindingsPayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const updated = await getTaskService(env).transitionFindingsForRouteUpgrade(taskId, validation.value);
+    return jsonResponse({ task: updated });
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to transition findings');
+  }
+}
+
+export async function handleTaskCreate(request: Request, env: Env): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const validation = validateTaskCreatePayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  try {
+    const created = await getTaskService(env).createTask(validation.value);
+    return jsonResponse({ task: created }, 201);
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to create task');
   }
 }

@@ -29,6 +29,9 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `review-pr` | Review incoming pull requests for correctness, breaking changes, test coverage, and security | `shared/skills/review-pr/SKILL.md` |
 | `issue-triage` | Analyze and classify GitHub issues by severity, suggest labels, identify affected areas | `shared/skills/issue-triage/SKILL.md` |
 | `simplify` | Review code for complexity reduction and removal of duplication/overengineering | `shared/skills/simplify/SKILL.md` |
+| `task-start` | Silently begin a portable review task, detect capability mode, auto-save findings — works in any environment | `shared/skills/task-start/SKILL.md` |
+| `task-resume` | Resume a task from any prior environment; presents findings as narrative, upgrades route with one "yes" | `shared/skills/task-resume/SKILL.md` |
+| `task-save` | Explicitly checkpoint task state and emit a short URL for cross-device recovery | `shared/skills/task-save/SKILL.md` |
 
 ## Workflows
 

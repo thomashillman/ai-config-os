@@ -5,8 +5,10 @@ import ContextCostTab from "./tabs/ContextCostTab"
 import ConfigTab from "./tabs/ConfigTab"
 import AuditTab from "./tabs/AuditTab"
 import AnalyticsTab from "./tabs/AnalyticsTab"
+import HubTab from "./tabs/HubTab"
 
 const TABS = [
+  { id: "hub", label: "Tasks" },
   { id: "tools", label: "Tools" },
   { id: "skills", label: "Skills" },
   { id: "context", label: "Context Cost" },
@@ -18,7 +20,7 @@ const TABS = [
 const API = "http://localhost:4242/api"
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("tools")
+  const [activeTab, setActiveTab] = useState("hub")
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-mono text-sm">
@@ -41,6 +43,7 @@ export default function App() {
         </nav>
       </header>
       <main className="p-6">
+        {activeTab === "hub" && <HubTab api={API} />}
         {activeTab === "tools" && <ToolsTab api={API} />}
         {activeTab === "skills" && <SkillsTab api={API} />}
         {activeTab === "context" && <ContextCostTab api={API} />}
