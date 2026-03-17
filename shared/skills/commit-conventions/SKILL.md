@@ -44,8 +44,8 @@ variants:
     latency_baseline_ms: 150
   fallback_chain:
     - "sonnet"
-    - "haiku"
     - "opus"
+    - "haiku"
 tests:
   - id: "test-feat-prefix"
     type: "prompt-validation"
@@ -64,7 +64,31 @@ tests:
     input: "Updated README with installation instructions"
     expected_substring: "docs:"
     models_to_test:
-      - "haiku"
+      - "sonnet"
+  - id: "test-style-prefix"
+    type: "prompt-validation"
+    input: "Updated CSS for button styling"
+    expected_substring: "style:"
+    models_to_test:
+      - "sonnet"
+  - id: "test-refactor-prefix"
+    type: "prompt-validation"
+    input: "Reorganized module structure without behavior change"
+    expected_substring: "refactor:"
+    models_to_test:
+      - "sonnet"
+  - id: "test-build-prefix"
+    type: "prompt-validation"
+    input: "Updated webpack configuration and build scripts"
+    expected_substring: "build:"
+    models_to_test:
+      - "sonnet"
+  - id: "test-chore-prefix"
+    type: "prompt-validation"
+    input: "Bumped package version and updated lock file"
+    expected_substring: "chore:"
+    models_to_test:
+      - "sonnet"
 docs:
   auto_generate_readme: true
   sections_to_include:
@@ -109,15 +133,16 @@ When you are about to commit and need to:
 
 ## Prefix reference
 
-| Prefix | Use for |
-|--------|---------|
-| `feat:` | New feature or capability |
-| `fix:` | Bug fix |
-| `style:` | CSS or formatting-only change (no logic change) |
-| `refactor:` | Restructure without behaviour change |
-| `docs:` | Documentation only |
-| `build:` | Build system, tooling, CI/CD |
-| `chore:` | Maintenance (deps, version bumps, cleanup) |
+See the [Git Commit Conventions](../../../CLAUDE.md#git-commit-conventions) section in CLAUDE.md for the canonical prefix reference table.
+
+**Quick reference:**
+- `feat:` — New feature or capability
+- `fix:` — Bug fix
+- `style:` — CSS or formatting-only change (no logic change)
+- `refactor:` — Restructure without behaviour change
+- `docs:` — Documentation only
+- `build:` — Build system, tooling, CI/CD
+- `chore:` — Maintenance (deps, version bumps, cleanup)
 
 ## Instructions
 
@@ -149,7 +174,7 @@ docs: add CLAUDE.md with dev conventions and git workflow
 
 ### Multi-line commit (complex change)
 ```
-refactor: split marketplace discovery from skill loading
+refactor: split marketplace discovery from loading
 
 Decouples the plugin scan from the install step so that
 scan failures do not abort partial installs.
