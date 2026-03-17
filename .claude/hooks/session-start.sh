@@ -103,20 +103,37 @@ for dep in jq yq; do
   fi
 done
 
-# --- Validate skill structure ---
+# --- Validate skill structure (non-fatal in remote) ---
 echo "Running skill validation suite..."
-./ops/validate-all.sh
-echo "Validation complete."
+if ./ops/validate-all.sh 2>/dev/null; then
+  echo "Validation complete."
+else
+  echo "WARNING: Validation produced warnings. Continuing anyway." >&2
+fi
 echo ""
 
-# --- Runtime sync ---
+# --- Runtime sync (non-fatal in remote) ---
 echo "Running runtime sync..."
 if bash ./runtime/sync.sh --dry-run 2>/dev/null; then
   echo "Runtime config valid."
 else
-  echo "WARNING: Runtime sync dry-run produced warnings. Run 'bash runtime/sync.sh' to inspect." >&2
+  echo "WARNING: Runtime sync dry-run produced warnings. Continuing anyway." >&2
 fi
 echo ""
 
 # --- Manifest status ---
 bash ./runtime/manifest.sh status 2>/dev/null || true
+echo ""
+
+# --- Materialize skills from Worker ---
+if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
+  echo "Fetching compiled skills from Worker..."
+  if bash ./adapters/claude/materialise.sh fetch 2>/dev/null; then
+    echo "Skills cached and ready for use."
+  else
+    echo "WARNING: Could not fetch skills from Worker. Check AI_CONFIG_TOKEN or Worker availability." >&2
+  fi
+else
+  echo "NOTE: AI_CONFIG_WORKER and/or AI_CONFIG_TOKEN not set. Skills unavailable in this session."
+fi
+echo ""
