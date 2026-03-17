@@ -1073,7 +1073,8 @@ Additional implementation (2026-03-17):
 - ✓ `shared/contracts/schemas/v1/shelf-entry.schema.json` — JSON Schema for shelf entries
 - ✓ `shared/contracts/schemas/v1/progress-event.schema.json` — extended progress event schema covering new event types
 - ✓ MCP handler updates in `runtime/mcp/handlers.mjs` and tool definitions in `runtime/mcp/tool-definitions.mjs` — exposes narrator, shelf, and lexicon operations as MCP tools
-- ✓ New test suites: `momentum-narrator.test.mjs`, `momentum-observer.test.mjs`, `momentum-shelf.test.mjs`, `intent-lexicon.test.mjs`, `momentum-reflector.test.mjs`
+- ✓ `runtime/lib/momentum-engine.mjs` — top-level façade wiring narrator, observer, shelf, and lexicon
+- ✓ New test suites in `scripts/build/test/`: `momentum-narrator.test.mjs`, `momentum-observer.test.mjs`, `momentum-shelf.test.mjs`, `intent-lexicon.test.mjs`, `momentum-reflector.test.mjs`, `momentum-engine.test.mjs` (6 files)
 
 **Slice execution order (reference):**
 
@@ -1293,9 +1294,9 @@ Multiple Codex-contributed branches merged to main:
 <details>
 <summary>Phase 10: KV persistence + Momentum Engine (v0.8.0)</summary>
 
-**Branch:** merged to main 2026-03-17 (PRs #125–#129)
+**Branch:** merged to main 2026-03-17
 
-**KV persistence (#125–#127):**
+**KV persistence:**
 - `runtime/lib/task-store-kv.mjs` — portable task persistence via Cloudflare KV; tasks survive across sessions and environments
 - `runtime/lib/task-store-worker.mjs` — thin Worker-side adapter over the KV store
 - `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer (parallel to existing `task-control-plane-service.mjs`)
@@ -1307,15 +1308,16 @@ Multiple Codex-contributed branches merged to main:
 - Session-start hook enhanced: queries `GET /v1/tasks?status=active&limit=1&updated_within=86400` on session start; presents resume prompt when active task found
 - Codex emitter (`scripts/build/lib/emit-codex.mjs`) and materialise adapter (`adapters/codex/materialise.sh`)
 
-**Momentum Engine (#128–#129):**
+**Momentum Engine:**
 - Slice 1: `runtime/lib/momentum-narrator.mjs` + `runtime/lib/momentum-templates.mjs`
 - Slice 2: `runtime/lib/momentum-observer.mjs` — extends ProgressEventPipeline with `narration_shown` + `user_response` event types
 - Slice 3: `review-repository-journey.mjs` updated with optional narrator/observer injection
 - Slice 4: `runtime/lib/momentum-shelf.mjs` — environment-aware task ranking
 - Slice 5: `runtime/lib/intent-lexicon.mjs` + `runtime/lib/intent-lexicon-definitions.mjs` — phrase-to-task resolver
 - Slice 6: `runtime/lib/momentum-reflector.mjs` + `shared/skills/momentum-reflect/SKILL.md`
-- New schemas: `narration-output.schema.json`, `shelf-entry.schema.json`, `progress-event.schema.json` (extended)
-- New test suites: 5 test files covering all engine modules
+- Additional façade: `runtime/lib/momentum-engine.mjs` — top-level wiring of narrator, observer, shelf, and lexicon
+- New schemas in `shared/contracts/schemas/v1/`: `narration-output.schema.json`, `shelf-entry.schema.json`, `progress-event.schema.json` (extended)
+- New test suites in `scripts/build/test/`: 6 files covering all engine modules (narrator, observer, shelf, reflector, engine, intent-lexicon)
 - Total skills: 26 (up from 22)
 </details>
 
