@@ -459,6 +459,647 @@ Before broadening to more task types or hosts:
 
 ---
 
+## Momentum Engine — The Experience Layer (NEXT)
+
+**Goal:** Make the task control plane *speak*. The MVA proved that tasks can start weak, resume strong, and preserve findings. The Momentum Engine makes the user *feel* that — through intelligent narration, confidence evolution, self-improvement, and a shelf that surfaces what to continue next.
+
+**Core principle:** The narrator is the product. Schemas serve the narrator, not the other way around. Every component exists to produce the exact right sentence at the exact right moment.
+
+**Version:** v0.8.0
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│               Self-Improvement Loop                     │
+│      /loop 10m /momentum-reflect                        │
+│  reads observations → proposes narrator improvements    │
+└────────────────────────┬────────────────────────────────┘
+                         │ improves
+┌────────────────────────▼────────────────────────────────┐
+│              Momentum Narrator                          │
+│   narrate(task, event, contract) → prose + structured   │
+│                                                         │
+│   Calls into:                                           │
+│   ┌──────────┐ ┌──────────┐ ┌────────────┐             │
+│   │Confidence│ │ Strength │ │  Upgrade   │             │
+│   │  Rules   │ │  Labels  │ │Explanation │             │
+│   └──────────┘ └──────────┘ └────────────┘             │
+└────────────────────────┬────────────────────────────────┘
+                         │ emits narrations
+┌────────────────────────▼────────────────────────────────┐
+│              Momentum Observer                          │
+│   Records: narration_shown, user_response               │
+│   Feeds: self-improvement reflector                     │
+│   Plugs into: existing ProgressEventPipeline            │
+└────────────────────────┬────────────────────────────────┘
+                         │ reads
+┌────────────────────────▼────────────────────────────────┐
+│   Shelf + Intent Lexicon                                │
+│   Shelf: ranks continuable tasks by environment fit     │
+│   Lexicon: resolves natural language → task outcomes     │
+└─────────────────────────────────────────────────────────┘
+                         │ reads
+┌────────────────────────▼────────────────────────────────┐
+│  Task + Contract + Findings (existing MVA substrate)    │
+│  PortableTaskObject, EffectiveExecutionContract,        │
+│  FindingsLedger, ProgressEventPipeline, TaskStore       │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Design principles
+
+1. **Narrator-first:** Every component feeds the narrator. The narrator produces prose + structured output. The prose *is* the UX.
+2. **Templates as data:** Narration templates are mutable data objects, not hardcoded strings. The self-improvement loop modifies templates, not code.
+3. **Workflow-agnostic protocol:** The narrator accepts any PortableTaskObject + EffectiveExecutionContract. `review_repository` is the first consumer, not the only one.
+4. **Observation is non-negotiable:** Every narration emitted is recorded. Every user response is recorded. Without observation, self-improvement is impossible.
+5. **Confidence evolves narratives, not just metadata:** Finding summaries change text as confidence grows — "Possible null pointer risk" → "Confirmed null pointer risk".
+6. **The shelf surfaces environment-aware continuation value:** A task with 3 findings waiting for `local_repo` verification ranks higher when the user *has* local repo access.
+
+### Slice 1 — Momentum Narrator (core)
+
+**Files:**
+- `runtime/lib/momentum-narrator.mjs` — narrator engine
+- `runtime/lib/momentum-templates.mjs` — mutable narration templates (data, not code)
+- `scripts/build/test/momentum-narrator.test.mjs` — tests
+
+**What it does:**
+
+The narrator takes task state and produces structured prose. It is the single integration point between the task control plane and user-facing surfaces.
+
+**Narrator protocol — five narration points:**
+
+```javascript
+// Each returns { headline, progress, strength, next_action, upgrade, findings[] }
+
+narrator.onStart(task, contract)
+// → "Starting repository review with the diff you provided. I can begin analysis
+//    now. If you continue on your computer later, I can verify findings against
+//    the full repository."
+
+narrator.onResume(task, contract, previousContract)
+// → "Continuing your repository review. 2 earlier findings are ready.
+//    Full repository access is now available — I can verify call sites
+//    and dependency impact."
+
+narrator.onFindingEvolved(task, finding, previousConfidence, newConfidence)
+// → "Earlier I flagged a possible null pointer risk based on the diff.
+//    I've now verified it against the full repository — confirmed."
+
+narrator.onUpgradeAvailable(task, currentContract, availableContract)
+// → "With full repository access, I can verify these 2 findings against
+//    call sites and related tests. Continue with deeper inspection?"
+
+narrator.onShelfView(tasks[], currentCapabilities)
+// → [{ task_id, headline, continuation_reason, environment_fit }]
+```
+
+**Narration output shape:**
+
+```javascript
+{
+  headline: "Continuing your repository review",           // string — the lead sentence
+  progress: "2 findings from earlier session, ready for full verification",
+  strength: {
+    level: "full",                                         // "limited" | "degraded" | "full"
+    label: "Full repository access",
+    description: "Can verify call sites, run tests, inspect dependencies"
+  },
+  next_action: "Verify earlier findings against call sites and related tests",
+  upgrade: null,                                           // or { before, now, unlocks }
+  findings: [
+    {
+      finding_id: "f1",
+      narrative: "Confirmed null pointer risk in webhook handler",   // evolves with confidence
+      confidence_change: { from: "hypothesis", to: "verified" },
+      evidence_summary: "Verified against repository — no null check before access on line 42"
+    }
+  ]
+}
+```
+
+**Template structure:**
+
+Templates are plain objects. The narrator engine interpolates them with task state. The self-improvement loop can replace any template without code changes.
+
+```javascript
+// momentum-templates.mjs — initial handcrafted templates
+export const templates = {
+  onStart: {
+    headline: "Starting {taskType} with {routeLabel}",
+    progress: null,
+    strength: "{strengthDescription}",
+    next_action: "{contract.next_action}",
+    upgrade: {
+      available: "If you continue in {strongerRoute}, I can {upgradeUnlocks}",
+      not_available: null,
+    },
+  },
+  onResume: {
+    headline: "Continuing your {taskType}",
+    progress: "{findingsCount} findings from earlier session{upgradeClause}",
+    // ...
+  },
+  // ...
+};
+```
+
+**Strength labels (embedded in narrator, not separate module):**
+
+| Route | Level | Label | Description |
+|-------|-------|-------|-------------|
+| `pasted_diff` | `limited` | Diff-only review | Can spot patterns in changed lines; cannot verify broader impact |
+| `github_pr` | `degraded` | PR metadata + diff | Can see PR context and diff; cannot run local analysis |
+| `uploaded_bundle` | `degraded` | Uploaded snapshot | Can inspect files; cannot run tools or verify live state |
+| `local_repo` | `full` | Full repository access | Can verify call sites, run tests, inspect dependencies |
+
+**Confidence-driven narrative evolution:**
+
+The narrator changes finding *text* based on provenance status, not just metadata badges:
+
+| Provenance | Narrative prefix | Example |
+|------------|-----------------|---------|
+| `hypothesis` | "Possible" / "Potential" | "Possible null pointer risk in webhook handler" |
+| `reused` | "Previously identified" | "Previously identified null pointer risk — awaiting verification" |
+| `verified` | "Confirmed" / "Verified" | "Confirmed null pointer risk in webhook handler" |
+
+The narrator applies this transformation when producing finding narratives, using the finding's `provenance.status` field from the existing FindingsLedger.
+
+**Upgrade explanation (embedded in narrator):**
+
+When `contract.stronger_host_guidance` exists or when the current route is not the strongest available, the narrator produces an upgrade block:
+
+```javascript
+{
+  before: "Diff-only review — pattern matching without repository context",
+  now: "Full repository access",
+  unlocks: "Verify call sites, check related tests, inspect dependency graph"
+}
+```
+
+**Implementation rules:**
+- Pure function — no side effects, no I/O
+- Takes only existing types: `PortableTaskObject`, `EffectiveExecutionContract`, `FindingsLedgerEntry[]`
+- Returns structured output that any surface (MCP, dashboard, CLI, skill) can render
+- Templates imported from separate module for self-improvement mutability
+- All narration points tested with fixture tasks covering each route and provenance state
+
+**Tests (minimum):**
+- `onStart` produces correct headline, strength, and upgrade for each of the 4 routes
+- `onResume` with route upgrade shows correct before/after strength and finding evolution
+- `onResume` without upgrade shows progress without upgrade block
+- `onFindingEvolved` produces correct narrative prefix for each provenance transition
+- `onUpgradeAvailable` describes what becomes possible
+- Strength labels are correct for all 4 routes
+- Narrator returns valid structured output (not just strings)
+
+### Slice 2 — Momentum Observer
+
+**Files:**
+- `runtime/lib/momentum-observer.mjs` — observation recording
+- `scripts/build/test/momentum-observer.test.mjs` — tests
+
+**What it does:**
+
+Records what the narrator produced and how the user responded. Extends the existing `ProgressEventPipeline` with two new event types. No new storage system — uses the same append-only event store.
+
+**Two new progress event types:**
+
+```javascript
+// Type: narration_shown
+{
+  taskId,
+  eventId: "evt_{version}_narration_{point}",
+  type: "narration_shown",
+  message: "Narration shown: onResume",
+  createdAt: now,
+  metadata: {
+    narration_point: "onResume",       // onStart | onResume | onFindingEvolved | onUpgradeAvailable | onShelfView
+    template_version: "1.0.0",         // tracks which template produced this
+    narration_output: { /* full narrator output */ },
+    route_at_narration: "pasted_diff",
+    findings_count_at_narration: 2,
+  }
+}
+
+// Type: user_response
+{
+  taskId,
+  eventId: "evt_{version}_user_response_{point}",
+  type: "user_response",
+  message: "User responded to narration: engaged",
+  createdAt: now,
+  metadata: {
+    narration_event_id: "evt_3_narration_onResume",  // links to the narration
+    response_type: "engaged",           // engaged | ignored | follow_up | changed_course | accepted_upgrade | declined_upgrade
+    time_to_action_ms: 4200,            // time between narration and user action
+    follow_up_text: null,               // if response_type is follow_up, what they said
+  }
+}
+```
+
+**Observer API:**
+
+```javascript
+// Record a narration being shown to the user
+observer.recordNarration({ taskId, narrationPoint, templateVersion, narratorOutput, taskSnapshot })
+
+// Record the user's response to a narration
+observer.recordResponse({ taskId, narrationEventId, responseType, timeToActionMs, followUpText })
+
+// Query observation pairs for analysis
+observer.getObservationPairs({ taskId })  // returns [{ narration, response }]
+observer.getRecentObservations({ since, limit })  // for the reflector
+```
+
+**Implementation rules:**
+- Uses existing `ProgressEventStore.append()` — no new storage
+- Validates event metadata shape before appending
+- Observation pairs are linked by `narration_event_id` reference
+- `time_to_action_ms` is computed by the caller (the integration layer), not the observer
+
+**Tests (minimum):**
+- Recording a narration event produces valid ProgressEvent with correct type and metadata
+- Recording a response event links correctly to its narration event
+- `getObservationPairs` returns matched narration+response pairs
+- `getRecentObservations` filters by time window
+- Invalid response types are rejected
+- Duplicate event IDs are rejected (existing pipeline behavior)
+
+### Slice 3 — Journey Integration
+
+**Files:**
+- `runtime/lib/review-repository-journey.mjs` — modify existing functions
+- `scripts/build/test/review-repository-journey.test.mjs` — extend existing tests
+
+**What it does:**
+
+Wires the narrator and observer into the existing `review_repository` journey. This is where narration reaches the user. The journey functions return narrator output alongside their existing return values.
+
+**Changes to `startReviewRepositoryTask()`:**
+
+```javascript
+// Current return:
+return { task, effective_execution_contract };
+
+// New return:
+return { task, effective_execution_contract, narration };
+// where narration = narrator.onStart(task, effective_execution_contract)
+```
+
+The narrator is injected as an optional dependency (default: the real narrator). When omitted, `narration` is `null` — preserving backward compatibility with all existing tests and consumers.
+
+**Changes to `resumeReviewRepositoryTask()`:**
+
+```javascript
+// Current return:
+return { task, effective_execution_contract, upgraded };
+
+// New return:
+return { task, effective_execution_contract, upgraded, narration };
+// where narration = narrator.onResume(task, effective_execution_contract, previousContract)
+// If upgraded: narration includes upgrade explanation and finding evolution narratives
+```
+
+**Changes to `buildTaskReadinessView()`:**
+
+Add optional `narration` field to the readiness view when a narrator is provided:
+
+```javascript
+return {
+  // ... existing fields ...
+  narration: narrator ? narrator.onUpgradeAvailable(task, contract, strongerContract) : undefined,
+};
+```
+
+**Observer integration:**
+
+After producing narration, the journey emits a `narration_shown` event via the observer. The observer is also injected as an optional dependency.
+
+**Implementation rules:**
+- Narrator and observer are optional constructor/parameter injections
+- All existing tests pass without modification (narrator defaults to null)
+- New tests verify narration output shape when narrator is provided
+- No changes to task lifecycle, state transitions, or findings provenance — those are settled
+
+**Tests (minimum):**
+- `startReviewRepositoryTask` returns narration when narrator is injected
+- `startReviewRepositoryTask` returns `narration: null` when narrator is not injected (backward compat)
+- `resumeReviewRepositoryTask` with upgrade returns narration with upgrade explanation
+- `resumeReviewRepositoryTask` without upgrade returns narration without upgrade block
+- Narration event is emitted to observer when observer is injected
+- Existing journey tests still pass without changes
+
+### Slice 4 — Momentum Shelf
+
+**Files:**
+- `runtime/lib/momentum-shelf.mjs` — shelf ranking engine
+- `scripts/build/test/momentum-shelf.test.mjs` — tests
+
+**What it does:**
+
+Given a list of tasks and the current environment's capabilities, produces a ranked list of tasks ordered by continuation value. The shelf answers: "What should I continue next, given what this environment can do?"
+
+**Shelf API:**
+
+```javascript
+buildMomentumShelf({ tasks, currentCapabilities, narrator })
+// Returns:
+[
+  {
+    task_id: "task_abc",
+    rank: 1,
+    headline: "Repository review — 2 findings ready for full verification",
+    continuation_reason: "Full repository access unlocks verification of 2 earlier findings",
+    environment_fit: "strong",     // "strong" | "neutral" | "weak"
+    findings_pending_verification: 2,
+    route_upgrade_available: true,
+    current_route: "pasted_diff",
+    best_route: "local_repo",
+  },
+  // ...
+]
+```
+
+**Ranking factors (ordered by weight):**
+
+1. **Environment fit** — tasks that would upgrade to a stronger route in the current environment rank highest. A task stuck on `pasted_diff` when `local_repo` is available has high continuation value.
+2. **Findings awaiting verification** — tasks with `hypothesis` or `reused` findings that would transition to `verified` on route upgrade rank higher.
+3. **Recency** — more recently active tasks rank higher when other factors are equal.
+4. **Progress** — tasks closer to completion (higher `completed_steps / total_steps`) rank higher when other factors are equal.
+
+**Environment fit classification:**
+
+| Scenario | Fit |
+|----------|-----|
+| Current environment supports a stronger route than the task's current route | `strong` |
+| Current environment supports the same route | `neutral` |
+| Current environment supports only a weaker route | `weak` |
+
+**Implementation rules:**
+- Pure function — no side effects
+- Uses `buildEffectiveExecutionContract` to determine what route each task would get in the current environment
+- Uses narrator to produce `headline` and `continuation_reason` for each shelf entry (calls `narrator.onShelfView`)
+- Tasks in `completed` or `failed` state are excluded
+- Empty task list returns empty shelf
+
+**Tests (minimum):**
+- Task with route upgrade available in current environment ranks above task without
+- Task with more unverified findings ranks above task with fewer (same environment fit)
+- Completed/failed tasks are excluded
+- Empty input returns empty output
+- Shelf entries have correct environment_fit classification
+- Narrator is called to produce headline/continuation_reason
+
+### Slice 5 — Intent Lexicon
+
+**Files:**
+- `runtime/lib/intent-lexicon.mjs` — intent resolution engine
+- `runtime/lib/intent-lexicon-definitions.mjs` — intent definitions (mutable data)
+- `scripts/build/test/intent-lexicon.test.mjs` — tests
+
+**What it does:**
+
+Resolves natural language user phrases into structured task outcomes. The same request resolves reliably everywhere — web, CLI, IDE. The lexicon is a lookup layer, not NLP. It maps known phrases and patterns to task type + initial parameters.
+
+**Lexicon API:**
+
+```javascript
+resolveIntent(phrase)
+// Returns: { resolved: true, taskType, routeHints, goal, confidence } or { resolved: false, suggestions[] }
+
+// Examples:
+resolveIntent("review this repository")
+// → { resolved: true, taskType: "review_repository", routeHints: {}, goal: "Review repository", confidence: 1.0 }
+
+resolveIntent("review this PR")
+// → { resolved: true, taskType: "review_repository", routeHints: { prefer_route: "github_pr" }, goal: "Review pull request", confidence: 1.0 }
+
+resolveIntent("check this diff")
+// → { resolved: true, taskType: "review_repository", routeHints: { prefer_route: "pasted_diff" }, goal: "Review diff", confidence: 0.9 }
+
+resolveIntent("something unknown")
+// → { resolved: false, suggestions: [{ phrase: "review this repository", taskType: "review_repository" }] }
+```
+
+**Intent definitions (mutable data, not code):**
+
+```javascript
+// intent-lexicon-definitions.mjs — the self-improvement loop can modify this
+export const definitions = [
+  {
+    patterns: ["review this repository", "review the repo", "review repo", "audit this repo"],
+    taskType: "review_repository",
+    routeHints: {},
+    goal: "Review repository",
+    confidence: 1.0,
+  },
+  {
+    patterns: ["review this PR", "review the pull request", "review PR #*", "check this PR"],
+    taskType: "review_repository",
+    routeHints: { prefer_route: "github_pr" },
+    goal: "Review pull request",
+    confidence: 1.0,
+  },
+  {
+    patterns: ["check this diff", "review this diff", "look at this diff"],
+    taskType: "review_repository",
+    routeHints: { prefer_route: "pasted_diff" },
+    goal: "Review diff",
+    confidence: 0.9,
+  },
+  {
+    patterns: ["review this bundle", "check this archive", "review uploaded code"],
+    taskType: "review_repository",
+    routeHints: { prefer_route: "uploaded_bundle" },
+    goal: "Review uploaded code bundle",
+    confidence: 0.9,
+  },
+];
+```
+
+**Pattern matching:**
+- Case-insensitive exact match first
+- Wildcard `*` matches any token (for "PR #123" → captures PR number)
+- Longest match wins when multiple patterns match
+- Unresolved phrases return suggestions based on Levenshtein distance to known patterns
+- New task types added by appending to definitions — no code changes required
+
+**Implementation rules:**
+- Pure function — no I/O, no side effects
+- Definitions imported from separate module for self-improvement mutability
+- Pattern matching is deterministic — same input always produces same output
+- When `resolved: false`, suggestions are ordered by edit distance to input phrase
+- Wildcard captures are returned in `routeHints.captures` (e.g., `{ pr_number: "123" }`)
+
+**Tests (minimum):**
+- Each defined pattern resolves to correct taskType and routeHints
+- Case-insensitive matching works
+- Wildcard patterns capture values correctly
+- Unknown phrases return `resolved: false` with suggestions
+- Suggestions are ordered by relevance
+- Empty/null input returns `resolved: false`
+- Multiple definitions for same taskType with different routeHints resolve distinctly
+
+### Slice 6 — Momentum Reflector (Self-Improvement)
+
+**Files:**
+- `runtime/lib/momentum-reflector.mjs` — analysis engine
+- `shared/skills/momentum-reflect/SKILL.md` — skill definition (enables `/momentum-reflect`)
+- `shared/skills/momentum-reflect/prompts/balanced.md` — sonnet prompt
+- `scripts/build/test/momentum-reflector.test.mjs` — tests
+
+**What it does:**
+
+Reads observation data (narration+response pairs) and produces improvement insights. Initially report-only — logs what's working and what isn't. Designed so that future iterations can auto-apply template changes.
+
+**Reflector API:**
+
+```javascript
+reflect({ observations, currentTemplates, currentDefinitions })
+// Returns:
+{
+  report: {
+    period: { from, to },
+    total_narrations: 47,
+    total_responses: 38,
+    engagement_rate: 0.81,
+    insights: [
+      {
+        id: "insight_001",
+        type: "template_effectiveness",
+        finding: "Resume headlines with finding counts get 3x more engagement than generic progress",
+        evidence: { narrations_with_counts: 12, engaged: 10, narrations_without: 15, engaged: 4 },
+        suggestion: {
+          target: "templates.onResume.headline",
+          current: "Continuing your {taskType}",
+          proposed: "Continuing your {taskType} — {findingsCount} findings ready",
+          confidence: 0.85,
+        },
+      },
+      {
+        id: "insight_002",
+        type: "intent_coverage",
+        finding: "3 unresolved phrases could map to review_repository",
+        evidence: { phrases: ["look at my code", "scan this project", "check the codebase"] },
+        suggestion: {
+          target: "definitions",
+          action: "add_patterns",
+          patterns: ["look at my code", "scan this project", "check the codebase"],
+          taskType: "review_repository",
+          confidence: 0.7,
+        },
+      },
+    ],
+  },
+  applied: [],  // empty in v1 — future: auto-applied changes
+}
+```
+
+**Analysis capabilities (v1 — report only):**
+
+1. **Template effectiveness** — which narration points get engagement vs. are ignored
+2. **Upgrade acceptance rate** — how often users accept upgrade narrations
+3. **Finding narrative impact** — do evolved finding narratives drive engagement?
+4. **Intent coverage gaps** — unresolved phrases that could map to known task types
+5. **Response time patterns** — do certain narrations get faster responses?
+
+**Self-improvement loop via `/loop`:**
+
+```bash
+/loop 10m /momentum-reflect
+```
+
+Every 10 minutes:
+1. Load recent observations (since last reflection)
+2. Run `reflect()` to produce insights
+3. Log insights as a `system_improvement` progress event
+4. (Future v2: apply high-confidence suggestions automatically)
+
+**Skill definition (`SKILL.md` frontmatter):**
+
+```yaml
+---
+skill: momentum-reflect
+description: Analyzes momentum narration effectiveness and proposes improvements.
+type: agent
+status: experimental
+capabilities:
+  required: [fs.read]
+  optional: [fs.write]
+  fallback_mode: prompt-only
+version: "1.0.0"
+---
+```
+
+**Implementation rules:**
+- `reflect()` is a pure function — takes data in, returns report out
+- The skill wrapper calls `reflect()` and formats the report for the user
+- Insights include evidence (observation counts) and confidence scores
+- Suggestions with confidence < 0.6 are flagged as "needs human review"
+- The reflector never modifies templates directly in v1 — it proposes changes
+- All improvement events are logged as progress events so they're themselves observable
+
+**Tests (minimum):**
+- Reflector produces insights from mock observation pairs
+- Template effectiveness insight is generated when engagement rate differs across narration points
+- Intent coverage gap is identified for unresolved phrases
+- Empty observations produce empty insights (no crash)
+- Insight confidence scores are within [0, 1]
+- Reflector does not modify templates (v1 constraint)
+
+### Sprint plan
+
+**Slice execution order:**
+
+| Order | Slice | Depends on | Estimated scope |
+|-------|-------|------------|-----------------|
+| 1 | Narrator (Slice 1) | Existing MVA substrate | New module + templates |
+| 2 | Observer (Slice 2) | Existing ProgressEventPipeline | Extend existing module |
+| 3 | Integration (Slice 3) | Slices 1 + 2 | Modify existing journey |
+| 4 | Shelf (Slice 4) | Slice 1 (narrator) | New module |
+| 5 | Lexicon (Slice 5) | None (independent) | New module |
+| 6 | Reflector (Slice 6) | Slices 1 + 2 | New module + skill |
+
+Slices 4 and 5 can be built in parallel after Slice 3 is complete. Slice 6 requires Slices 1 and 2.
+
+### Definition of done
+
+- Narrator produces correct prose for all 4 routes at start, resume, upgrade, and finding evolution points
+- Observer records narration+response pairs via existing ProgressEventPipeline
+- `startReviewRepositoryTask` and `resumeReviewRepositoryTask` return narration output
+- Existing journey tests pass without modification (backward compatibility)
+- Shelf ranks tasks by environment-aware continuation value
+- Intent lexicon resolves known phrases to task types and returns suggestions for unknown phrases
+- Reflector produces improvement insights from observation data
+- `/momentum-reflect` skill is defined and can be invoked via `/loop`
+- All new modules are pure functions with no I/O side effects (except observer which uses existing event store)
+- All new modules have tests covering success paths, edge cases, and backward compatibility
+
+### Key success metrics
+
+| KPI | Target | When |
+|---|---|---|
+| Narrator coverage (all journey points produce prose) | 100% | Slice 3 complete |
+| Observer event capture rate | 100% of narrations recorded | Slice 3 complete |
+| Shelf ranking correctness (fixture scenarios) | >= 95% | Slice 4 complete |
+| Intent resolution accuracy (known phrases) | 100% | Slice 5 complete |
+| Reflector insight generation (from mock data) | >= 3 insight types | Slice 6 complete |
+| Backward compatibility (existing tests pass) | 100% | All slices |
+| Template mutability (reflector can propose changes) | Demonstrated | Slice 6 complete |
+
+### Risk register
+
+| Risk | Mitigation |
+|---|---|
+| Narrator templates feel generic/robotic | Handcraft initial templates with real task scenarios; reflector improves over time |
+| Observer adds overhead to hot path | Observer is append-only to existing store; no new I/O system |
+| Self-improvement loop modifies templates unsafely | v1 is report-only; auto-apply gated behind confidence threshold in v2 |
+| Shelf ranking is meaningless with one task type | Design ranking factors to generalize; prove with fixture scenarios using mock task types |
+| Intent lexicon is too rigid without NLP | Start with exact+wildcard matching; reflector identifies coverage gaps; expand patterns over time |
+
+---
+
 ## Deferred work
 
 | Item | Why deferred |
