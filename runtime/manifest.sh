@@ -69,7 +69,7 @@ EOF
     STATUS="${3:?update requires status}"
     acquire_lock
     [ ! -f "$MANIFEST" ] && bash "$0" init
-    updated=$(yq ".tools.$TOOL_ID = {\"status\": \"$STATUS\", \"last_updated\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" "$MANIFEST")
+    updated=$(yq ".tools[\"$TOOL_ID\"] = {\"status\": \"$STATUS\", \"last_updated\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" "$MANIFEST")
     atomic_write "$MANIFEST" "$updated"
     echo "[ok] Updated manifest: $TOOL_ID = $STATUS"
     ;;
@@ -80,11 +80,11 @@ EOF
     echo "==> Manifest diff (desired vs installed)"
     echo ""
     # Compare desired MCP servers against manifest
-    desired_mcps=$(yq -o=json '.mcps // {}' "$MERGED_CONFIG" | jq 'keys[]' -r 2>/dev/null || echo "")
+    desired_mcps=$(yq '.mcps // {} | keys[]' "$MERGED_CONFIG" 2>/dev/null || echo "")
     if [ -n "$desired_mcps" ]; then
       echo "MCP servers desired:"
       echo "$desired_mcps" | while read -r name; do
-        installed=$(yq ".tools.$name.status // \"not-installed\"" "$MANIFEST" 2>/dev/null || echo "not-installed")
+        installed=$(yq ".tools[\"$name\"].status // \"not-installed\"" "$MANIFEST" 2>/dev/null || echo "not-installed")
         echo "  $name: $installed"
       done
     else
