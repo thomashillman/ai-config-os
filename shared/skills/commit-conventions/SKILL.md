@@ -133,16 +133,15 @@ When you are about to commit and need to:
 
 ## Prefix reference
 
-See the [Git Commit Conventions](../../../CLAUDE.md#git-commit-conventions) section in CLAUDE.md for the canonical prefix reference table.
-
-**Quick reference:**
-- `feat:` — New feature or capability
-- `fix:` — Bug fix
-- `style:` — CSS or formatting-only change (no logic change)
-- `refactor:` — Restructure without behaviour change
-- `docs:` — Documentation only
-- `build:` — Build system, tooling, CI/CD
-- `chore:` — Maintenance (deps, version bumps, cleanup)
+| Prefix | Use for |
+|--------|---------|
+| `feat:` | New feature or capability |
+| `fix:` | Bug fix |
+| `style:` | CSS or formatting-only change (no logic change) |
+| `refactor:` | Restructure without behaviour change |
+| `docs:` | Documentation only |
+| `build:` | Build system, tooling, CI/CD |
+| `chore:` | Maintenance (deps, version bumps, cleanup) |
 
 ## Instructions
 
