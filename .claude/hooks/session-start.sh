@@ -103,6 +103,12 @@ for dep in jq yq; do
   fi
 done
 
+# --- Install Node dependencies (needed by validation scripts) ---
+if [ -f "package.json" ] && [ ! -d "node_modules" ]; then
+  echo "Installing npm dependencies..."
+  npm install --silent 2>/dev/null || echo "WARNING: npm install failed" >&2
+fi
+
 # --- Validate skill structure (non-fatal in remote) ---
 echo "Running skill validation suite..."
 if ./ops/validate-all.sh 2>/dev/null; then
