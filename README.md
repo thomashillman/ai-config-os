@@ -66,24 +66,27 @@ Phase 1 **does** support:
 
 A future phase may add VPS-backed executor for shell, filesystem, git, and long-running tasks. The seam for Phase 2 is preserved in code but not implemented yet. Phase 1 will remain the primary fast path for metadata operations.
 
-## Current implementation focus
+## Current state
 
-The flagship workflow is now `review_repository`:
+The `review_repository` portable task journey is complete end-to-end:
 
-- start in a weaker environment such as web, mobile, pasted diff, or uploaded bundle
+- start in a weaker environment (web, mobile, pasted diff, uploaded bundle)
 - create a canonical task object with route-specific inputs
-- continue in a stronger environment such as `local_repo`
+- continue in a stronger environment (`local_repo`)
 - preserve findings with explicit provenance (`verified`, `reused`, `hypothesis`)
 - finish without asking the user to restate the task
 
-The next implementation work is concentrated in four areas:
+The **Momentum Engine** (v0.8.0) is now complete — it adds the experience layer on top of the task control plane:
 
-1. Finish the end-to-end `review_repository` flow on top of the task-control-plane.
-2. Converge script-driven runtime flows and contract-driven runtime flows so MCP, dashboard, and Worker do not drift.
-3. Decompose the Worker into smaller modules while preserving the public API.
-4. Extend emitted runtime metadata only where task orchestration needs it, without weakening determinism.
+- **Narrator:** produces structured prose from task state at start, resume, finding-evolution, and upgrade-available moments
+- **Observer:** records narrations and user responses via the existing ProgressEventPipeline
+- **Shelf:** ranks continuable tasks by environment-aware continuation value
+- **Intent Lexicon:** resolves natural language phrases to task types and route hints
+- **Reflector:** analyzes observation data and proposes narrator/lexicon improvements; invoke via `/momentum-reflect` or `/loop 10m /momentum-reflect`
 
-The detailed planning notes for this work live in `PLAN.md`, with supporting research documents in `specs/`.
+Task state is now persisted cross-session via **Cloudflare KV** (`runtime/lib/task-store-kv.mjs`). The session-start hook queries the Worker for active tasks and surfaces resume prompts automatically.
+
+The detailed planning notes live in `PLAN.md`, with supporting research documents in `specs/`.
 
 ---
 
@@ -149,13 +152,15 @@ cd dashboard && npm run dev
 
 Security note: dashboard API requests are denied by default unless they originate from loopback or provide tunnel assertions (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS verification header). Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
-The dashboard provides six tabs:
+The dashboard provides eight tabs:
 - **Tools:** Runtime status and sync for Claude Code, Cursor, Codex
 - **Skills:** Complete skill library with metadata and variants
 - **Context Cost:** Real-time token footprint tracking
 - **Config:** View merged configuration across all tiers
 - **Audit:** Run validation checks on the entire setup
 - **Analytics:** Track which skills you use most and their performance
+- **Hub:** Active task shelf ranked by environment-aware continuation value
+- **Task Detail:** Task state, route history, findings provenance, and readiness view
 
 ---
 
@@ -277,7 +282,7 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `runtime/adapters/` | Tool integration layer (Claude Code, Cursor, Codex) |
 | `runtime/mcp/` | MCP server exposing runtime operations as Claude Code tools |
 | `runtime/remote-executor/` | HTTP service that executes proxied tool requests from the worker (Phase 0, being phased out) |
-| `runtime/lib/` | Task-control-plane core: route resolution, task lifecycle, findings provenance, continuation, and runtime contracts |
+| `runtime/lib/` | Task-control-plane core: route resolution, task lifecycle, findings provenance, continuation, runtime contracts, and Momentum Engine (narrator, observer, shelf, lexicon, reflector) |
 | `dashboard/` | React SPA for runtime visibility and control |
 | `ops/` | Developer scripts (new-skill, merge-open-prs, lint, validate, docs generator) |
 | `.claude/hooks/` | Startup and post-tool hooks for Claude Code |
@@ -354,8 +359,8 @@ Run it: `Claude Code → Run Workflow → daily-standup`
 |-------|--------|-------------|
 | Phase 1–7 | ✅ Complete | 22 skills, skill metadata, testing, composition, multi-device sync |
 | Phase 8 | ✅ Complete | Runtime config layer, MCP server, React dashboard, desired-state sync |
-| Phase 9.1 | ✅ Complete | Skill schema, build compiler, Cloudflare Worker distribution, CI build workflow |
-| Phase 9.x | 🔄 Planned | Multi-platform emitters (cursor, codex), Worker deployment, analytics refinement |
+| Phase 9.1–9.7 | ✅ Complete | Build compiler, distribution pipeline, capability contracts, delivery contract (28 tests), portability contract (76 tests), manifest feature flags |
+| Phase 10 (v0.8.0) | ✅ Complete | KV-backed task persistence, Codex emitter, Hub + Task Detail dashboard tabs, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
 
 ### Platform maturity
 
@@ -363,9 +368,10 @@ Run it: `Claude Code → Run Workflow → daily-standup`
 |----------|----------|--------|-------------|--------|
 | Claude Code | Full emitter | Serves latest bundle | Full desired-state sync | **Production** |
 | Cursor | Emits rules | Not served | No runtime adapter | **Partial** |
-| claude-web, claude-ios, codex | Capability model loaded | Not served | No adapter | **Model only** |
+| Codex | Emits Codex package | Not served | `adapters/codex/materialise.sh` | **Partial** |
+| claude-web, claude-ios | Capability model loaded | Not served | No adapter | **Model only** |
 
-The capability contract and compatibility model cover all platforms, but operational tooling (worker distribution, runtime sync, materialise) is currently Claude Code only. Cursor gets compiler output but no runtime management. Other platforms are tracked for compatibility but have no emitters or adapters yet.
+The capability contract and compatibility model cover all platforms. Operational tooling (Worker distribution, runtime sync, materialise) is complete for Claude Code. Cursor and Codex get compiler output but no runtime management. Other platforms are tracked for compatibility only.
 
 See [PLAN.md](PLAN.md) for detailed implementation progress and [CLAUDE.md](CLAUDE.md) for development conventions.
 

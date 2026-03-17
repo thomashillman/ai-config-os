@@ -16,15 +16,15 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — v0.5.4+, updated 2026-03-14
+## Current state — v0.5.4+, updated 2026-03-17
 
 ### Completed infrastructure
 
 | Area | Version | Notes |
 |---|---|---|
 | Repo scaffold, .gitignore, marketplace.json | v0.1.0 | Phase 1 |
-| core-skills plugin.json | v0.5.4 | 22 skills, all symlinked |
-| shared/manifest.md (skill index) | — | 22 skills, 2 workflows listed |
+| core-skills plugin.json | v0.5.4 | 26 skills, all symlinked |
+| shared/manifest.md (skill index) | — | 26 skills, 2 workflows listed |
 | shared/principles.md | — | Opinionated AI behaviour defaults |
 | adapters/claude/dev-test.sh | — | Non-interactive validation |
 | CLAUDE.md (dev context) | — | Extended with self-improvement, portability contract, delivery contract, CI pitfalls |
@@ -32,7 +32,7 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | .github/workflows/ | — | `validate.yml` (structure), `build.yml` (compile + test + dist artifact) |
 | .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics |
 
-### Skills (22 total, all with multi-model variants)
+### Skills (26 total, all with multi-model variants)
 
 | Skill | Type | Phase |
 |---|---|---|
@@ -40,8 +40,10 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | code-review, context-budget, pr-description | prompt | Phase 2 |
 | debug, changelog, task-decompose, explain-code, skill-audit, release-checklist | prompt/agent/workflow-blueprint | Phase 6 |
 | memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify | prompt/agent | Phase 7 |
+| task-start, task-save, task-resume | agent | Phase 10 (KV persistence) |
+| momentum-reflect | agent | Phase 10 (Momentum Engine) |
 
-All 22 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured capability contracts, tests defined in frontmatter.
+All 26 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured capability contracts, tests defined in frontmatter.
 
 ### Workflows (5 total)
 
@@ -64,11 +66,13 @@ All 22 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 | Capability-driven compatibility resolver | Done | Skills declare required/optional caps; compiler resolves |
 | Claude Code emitter | Done | Full package: plugin.json + skill copies + prompts/ |
 | Cursor emitter | Done | .cursorrules from compatible skills with degradation notes |
+| Codex emitter | Done | `scripts/build/lib/emit-codex.mjs` — emits Codex-compatible package |
 | Registry emitter | Done | dist/registry/index.json with compatibility matrix |
 | Node linters (skill + platform) | Done | `scripts/lint/skill.mjs`, `scripts/lint/platform.mjs` |
 | Shared validation layer | Done | `scripts/build/lib/validate-skill-policy.mjs` — used by both compiler and linter |
 | Materialiser core | Done | `scripts/build/lib/materialise-client.mjs` — path validation, security, extraction |
-| Materialise adapter | Done | `adapters/claude/materialise.sh` — fetch from Worker to local cache |
+| Materialise adapter (claude) | Done | `adapters/claude/materialise.sh` — fetch from Worker to local cache |
+| Materialise adapter (codex) | Done | `adapters/codex/materialise.sh` — Codex-compatible fetch and cache |
 | Worker | Done | `worker/src/index.ts` — Cloudflare Worker, bearer-auth REST API |
 | CI build workflow | Done | `.github/workflows/build.yml` — validate + build + upload dist/ |
 | Deterministic builds | Done | No timestamps in local builds; provenance only in `--release` mode |
@@ -96,8 +100,12 @@ All 22 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 | Watch mode | Done | `runtime/watch.sh` — auto-sync on config changes |
 | MCP server | Done | `runtime/mcp/server.js` — exposes runtime ops as Claude Code tools |
 | Dashboard API | Done | `runtime/mcp/dashboard-api.mjs` with tunnel security |
-| React dashboard | Done | `dashboard/` — 6 tabs: Tools, Skills, Context Cost, Config, Audit, Analytics |
+| React dashboard | Done | `dashboard/` — 8 tabs: Tools, Skills, Context Cost, Config, Audit, Analytics, Hub, Task Detail |
 | Ops tools | Done | `ops/runtime-status.sh`, `ops/validate-all.sh`, etc. |
+| KV-backed task store | Done | `runtime/lib/task-store-kv.mjs` — portable task persistence via Cloudflare KV |
+| Worker task store adapter | Done | `runtime/lib/task-store-worker.mjs` — thin Worker-side adapter over KV store |
+| Worker task control plane service | Done | `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer |
+| Session-start task resumption | Done | `.claude/hooks/session-start.sh` — queries Worker KV for active tasks on session start |
 
 ### Execution & contracts layer (v0.5.3+)
 
@@ -459,7 +467,7 @@ Before broadening to more task types or hosts:
 
 ---
 
-## Momentum Engine — The Experience Layer (NEXT)
+## Momentum Engine — The Experience Layer (COMPLETE)
 
 **Goal:** Make the task control plane *speak*. The MVA proved that tasks can start weak, resume strong, and preserve findings. The Momentum Engine makes the user *feel* that — through intelligent narration, confidence evolution, self-improvement, and a shelf that surfaces what to continue next.
 
@@ -1050,18 +1058,34 @@ version: "1.0.0"
 
 ### Sprint plan
 
-**Slice execution order:**
+**Completion update (2026-03-17):** All 6 slices implemented and merged.
 
-| Order | Slice | Depends on | Estimated scope |
-|-------|-------|------------|-----------------|
-| 1 | Narrator (Slice 1) | Existing MVA substrate | New module + templates |
-| 2 | Observer (Slice 2) | Existing ProgressEventPipeline | Extend existing module |
-| 3 | Integration (Slice 3) | Slices 1 + 2 | Modify existing journey |
-| 4 | Shelf (Slice 4) | Slice 1 (narrator) | New module |
-| 5 | Lexicon (Slice 5) | None (independent) | New module |
-| 6 | Reflector (Slice 6) | Slices 1 + 2 | New module + skill |
+- ✓ Slice 1: `runtime/lib/momentum-narrator.mjs` + `runtime/lib/momentum-templates.mjs` — narrator engine with confidence-driven finding evolution and strength labels for all 4 routes
+- ✓ Slice 2: `runtime/lib/momentum-observer.mjs` — records `narration_shown` and `user_response` events via existing ProgressEventPipeline
+- ✓ Slice 3: `runtime/lib/review-repository-journey.mjs` updated — narrator and observer injected as optional dependencies; `startReviewRepositoryTask` and `resumeReviewRepositoryTask` return narration; full backward compatibility preserved
+- ✓ Slice 4: `runtime/lib/momentum-shelf.mjs` — ranks tasks by environment-aware continuation value (environment fit, pending findings, recency, progress)
+- ✓ Slice 5: `runtime/lib/intent-lexicon.mjs` + `runtime/lib/intent-lexicon-definitions.mjs` — resolves natural language phrases to task types with wildcard matching and Levenshtein suggestions
+- ✓ Slice 6: `runtime/lib/momentum-reflector.mjs` + `shared/skills/momentum-reflect/SKILL.md` — produces improvement insights from observation data; `/momentum-reflect` skill invocable via `/loop`
 
-Slices 4 and 5 can be built in parallel after Slice 3 is complete. Slice 6 requires Slices 1 and 2.
+Additional implementation (2026-03-17):
+- ✓ `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible task control plane service (parallel to existing `task-control-plane-service.mjs`)
+- ✓ `shared/contracts/schemas/v1/narration-output.schema.json` — JSON Schema for narrator output
+- ✓ `shared/contracts/schemas/v1/shelf-entry.schema.json` — JSON Schema for shelf entries
+- ✓ `shared/contracts/schemas/v1/progress-event.schema.json` — extended progress event schema covering new event types
+- ✓ MCP handler updates in `runtime/mcp/handlers.mjs` and tool definitions in `runtime/mcp/tool-definitions.mjs` — exposes narrator, shelf, and lexicon operations as MCP tools
+- ✓ `runtime/lib/momentum-engine.mjs` — top-level façade wiring narrator, observer, shelf, and lexicon
+- ✓ New test suites in `scripts/build/test/`: `momentum-narrator.test.mjs`, `momentum-observer.test.mjs`, `momentum-shelf.test.mjs`, `intent-lexicon.test.mjs`, `momentum-reflector.test.mjs`, `momentum-engine.test.mjs` (6 files)
+
+**Slice execution order (reference):**
+
+| Order | Slice | Depends on | Status |
+|-------|-------|------------|--------|
+| 1 | Narrator (Slice 1) | Existing MVA substrate | ✓ Done |
+| 2 | Observer (Slice 2) | Existing ProgressEventPipeline | ✓ Done |
+| 3 | Integration (Slice 3) | Slices 1 + 2 | ✓ Done |
+| 4 | Shelf (Slice 4) | Slice 1 (narrator) | ✓ Done |
+| 5 | Lexicon (Slice 5) | None (independent) | ✓ Done |
+| 6 | Reflector (Slice 6) | Slices 1 + 2 | ✓ Done |
 
 ### Definition of done
 
@@ -1127,7 +1151,7 @@ Slices 4 and 5 can be built in parallel after Slice 3 is complete. Slice 6 requi
 - [x] No secrets in tracked files
 - [x] Delivery contract: 28 tests protecting dist/ artifacts
 - [x] Portability contract: 76 tests protecting materialisation
-- [x] All 22 skills have structured capability contracts
+- [x] All 26 skills have structured capability contracts
 - [x] Compiler resolves compatibility from platform capabilities (not hardcoded)
 - [x] Phase 9.7 runtime gating wired and tested (Steps 2-4)
 - [x] T004: outcome resolver moved from hardcoded mappings to loader-backed definitions with tests
@@ -1142,6 +1166,12 @@ Slices 4 and 5 can be built in parallel after Slice 3 is complete. Slice 6 requi
 - [x] T010: FindingsLedger implemented with provenance transitions for route upgrades, plus TaskStore integration/tests
 - [x] T011: ProgressEvent pipeline implemented with validated event emission + TaskStore integration tests
 - [x] MVA: `review_repository` portable journey proven end-to-end
+- [x] Portable task persistence: KV-backed TaskStore (`runtime/lib/task-store-kv.mjs`) for cross-environment continuity
+- [x] Codex emitter: `scripts/build/lib/emit-codex.mjs` and `adapters/codex/materialise.sh`
+- [x] Dashboard: Hub and Task Detail tabs added (`dashboard/src/tabs/HubTab.jsx`, `TaskDetailTab.jsx`)
+- [x] Session-start hook: queries Worker KV for active tasks to surface resume opportunities
+- [x] Momentum Engine (v0.8.0): narrator, observer, shelf, intent lexicon, and reflector — all 6 slices complete
+- [x] `momentum-reflect` skill: enables `/momentum-reflect` and `/loop 10m /momentum-reflect` self-improvement workflow
 
 ---
 
@@ -1261,6 +1291,36 @@ Multiple Codex-contributed branches merged to main:
 - **Manifest feature flags:** `runtime/manifest.sh` + validation (Phase 9.7 Step 1)
 </details>
 
+<details>
+<summary>Phase 10: KV persistence + Momentum Engine (v0.8.0)</summary>
+
+**Branch:** merged to main 2026-03-17
+
+**KV persistence:**
+- `runtime/lib/task-store-kv.mjs` — portable task persistence via Cloudflare KV; tasks survive across sessions and environments
+- `runtime/lib/task-store-worker.mjs` — thin Worker-side adapter over the KV store
+- `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer (parallel to existing `task-control-plane-service.mjs`)
+- `worker/src/task-runtime.ts` — Worker task runtime wiring KV into the control plane
+- 3 new skills: `task-start`, `task-save`, `task-resume` — user-facing MCP skills for task lifecycle management
+- Dashboard Hub tab (`dashboard/src/tabs/HubTab.jsx`): active task list with shelf ranking
+- Dashboard Task Detail tab (`dashboard/src/tabs/TaskDetailTab.jsx`): task state, findings, route history
+- ResumeSheet component (`dashboard/src/components/ResumeSheet.jsx`): surfaces continuable tasks at session start
+- Session-start hook enhanced: queries `GET /v1/tasks?status=active&limit=1&updated_within=86400` on session start; presents resume prompt when active task found
+- Codex emitter (`scripts/build/lib/emit-codex.mjs`) and materialise adapter (`adapters/codex/materialise.sh`)
+
+**Momentum Engine:**
+- Slice 1: `runtime/lib/momentum-narrator.mjs` + `runtime/lib/momentum-templates.mjs`
+- Slice 2: `runtime/lib/momentum-observer.mjs` — extends ProgressEventPipeline with `narration_shown` + `user_response` event types
+- Slice 3: `review-repository-journey.mjs` updated with optional narrator/observer injection
+- Slice 4: `runtime/lib/momentum-shelf.mjs` — environment-aware task ranking
+- Slice 5: `runtime/lib/intent-lexicon.mjs` + `runtime/lib/intent-lexicon-definitions.mjs` — phrase-to-task resolver
+- Slice 6: `runtime/lib/momentum-reflector.mjs` + `shared/skills/momentum-reflect/SKILL.md`
+- Additional façade: `runtime/lib/momentum-engine.mjs` — top-level wiring of narrator, observer, shelf, and lexicon
+- New schemas in `shared/contracts/schemas/v1/`: `narration-output.schema.json`, `shelf-entry.schema.json`, `progress-event.schema.json` (extended)
+- New test suites in `scripts/build/test/`: 6 files covering all engine modules (narrator, observer, shelf, reflector, engine, intent-lexicon)
+- Total skills: 26 (up from 22)
+</details>
+
 ---
 
 ## Platform maturity
@@ -1269,6 +1329,7 @@ Multiple Codex-contributed branches merged to main:
 |----------|----------|--------|-------------|--------|
 | Claude Code | Full emitter | Serves latest bundle | Full desired-state sync | **Production** |
 | Cursor | Emits rules | Not served | No runtime adapter | **Partial** |
-| claude-web, claude-ios, codex | Capability model loaded | Not served | No adapter | **Model only** |
+| Codex | Emits Codex package | Not served | `adapters/codex/materialise.sh` | **Partial** |
+| claude-web, claude-ios | Capability model loaded | Not served | No adapter | **Model only** |
 </content>
 </invoke>
