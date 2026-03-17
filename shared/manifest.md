@@ -32,6 +32,7 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `task-start` | Silently begin a portable review task, detect capability mode, auto-save findings — works in any environment | `shared/skills/task-start/SKILL.md` |
 | `task-resume` | Resume a task from any prior environment; presents findings as narrative, upgrades route with one "yes" | `shared/skills/task-resume/SKILL.md` |
 | `task-save` | Explicitly checkpoint task state and emit a short URL for cross-device recovery | `shared/skills/task-save/SKILL.md` |
+| `momentum-reflect` | Analyzes momentum narration effectiveness and proposes improvements | `shared/skills/momentum-reflect/SKILL.md` |
 
 ## Workflows
 

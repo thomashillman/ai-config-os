@@ -31,7 +31,9 @@
         "route_selected",
         "finding_recorded",
         "finding_transitioned",
-        "continuation_created"
+        "continuation_created",
+        "narration_shown",
+        "user_response"
       ]
     },
     "message": {
