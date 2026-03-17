@@ -80,7 +80,7 @@ EOF
     echo "==> Manifest diff (desired vs installed)"
     echo ""
     # Compare desired MCP servers against manifest
-    desired_mcps=$(yq '.mcps // {} | keys[]' "$MERGED_CONFIG" 2>/dev/null || echo "")
+    desired_mcps=$(yq -r '.mcps // {} | keys[]' "$MERGED_CONFIG" 2>/dev/null || echo "")
     if [ -n "$desired_mcps" ]; then
       echo "MCP servers desired:"
       echo "$desired_mcps" | while read -r name; do
