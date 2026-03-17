@@ -1,6 +1,12 @@
 // Momentum Shelf — ranks continuable tasks by environment-aware continuation value.
 // Pure function: no side effects.
 
+import { validateContract } from '../../shared/contracts/validate.mjs';
+
+function validateShelfEntry(entry) {
+  return validateContract('shelfEntry', entry);
+}
+
 const ROUTE_STRENGTH_ORDER = ['pasted_diff', 'github_pr', 'uploaded_bundle', 'local_repo'];
 
 function routeStrengthIndex(routeId) {
@@ -83,7 +89,7 @@ export function buildMomentumShelf({ tasks, currentCapabilities, narrator } = {}
     const narratorEntry = narratorOutputs ? narratorOutputs[index] : null;
     const findingsCount = (entry.task.findings || []).length;
 
-    return {
+    return validateShelfEntry({
       task_id: entry.task.task_id,
       rank: index + 1,
       headline: narratorEntry?.headline || `${entry.task.task_type} — ${findingsCount} findings`,
@@ -97,6 +103,6 @@ export function buildMomentumShelf({ tasks, currentCapabilities, narrator } = {}
       route_upgrade_available: entry.routeUpgradeAvailable,
       current_route: entry.task.current_route,
       best_route: entry.bestRoute,
-    };
+    });
   });
 }
