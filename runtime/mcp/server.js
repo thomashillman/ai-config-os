@@ -24,6 +24,7 @@ import { createDashboardApi } from "./dashboard-api.mjs";
 import { MCP_TOOL_DEFINITIONS } from './tool-definitions.mjs';
 import { TaskStore } from "../lib/task-store.mjs";
 import { createTaskControlPlaneService } from "../lib/task-control-plane-service.mjs";
+import { createMomentumEngine } from "../lib/momentum-engine.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
@@ -51,7 +52,9 @@ function runScript(script, args = []) {
 }
 
 const capabilityProfileResolver = createCapabilityProfileResolver();
-const taskService = createTaskControlPlaneService({ taskStore: new TaskStore() });
+const taskStore = new TaskStore();
+const taskService = createTaskControlPlaneService({ taskStore });
+const momentumEngine = createMomentumEngine({ taskStore });
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
@@ -76,6 +79,7 @@ const handleCallTool = createCallToolHandler({
   toolError,
   getCapabilityProfile: () => capabilityProfileResolver.getProfile(),
   taskService,
+  momentumEngine,
 });
 
 server.setRequestHandler(CallToolRequestSchema, handleCallTool);

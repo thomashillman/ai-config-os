@@ -1,8 +1,11 @@
+// Worker-safe variant of task-control-plane-service without review-repository-journey import.
+// The journey module transitively imports shared/contracts/validate.mjs which uses
+// Node.js fs and import.meta.url — both unavailable in Cloudflare Workers.
+// The Worker never calls startReviewRepositoryTask or resumeReviewRepositoryTask,
+// so this variant omits those methods entirely.
+// Node-only version with full journey support remains in task-control-plane-service.mjs.
+
 import { TaskStore } from './task-store-worker.mjs';
-import {
-  startReviewRepositoryTask as journeyStart,
-  resumeReviewRepositoryTask as journeyResume,
-} from './review-repository-journey.mjs';
 
 function assertObject(name, value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
@@ -138,30 +141,9 @@ export function createTaskControlPlaneService({ taskStore = new TaskStore() } = 
       }
       return taskStore.loadByName(nameOrSlug);
     },
-    startReviewRepositoryTask({ taskId, goal, routeInputs, capabilityProfile, narrator, observer } = {}) {
-      assertString('taskId', taskId);
-      assertString('goal', goal);
-      assertObject('routeInputs', routeInputs);
-      return journeyStart({
-        taskStore,
-        taskId,
-        goal,
-        routeInputs,
-        capabilityProfile,
-        narrator: narrator || null,
-        observer: observer || null,
-      });
-    },
-    resumeReviewRepositoryTask({ taskId, capabilityProfile, narrator, observer, previousContract } = {}) {
-      assertString('taskId', taskId);
-      return journeyResume({
-        taskStore,
-        taskId,
-        capabilityProfile,
-        narrator: narrator || null,
-        observer: observer || null,
-        previousContract: previousContract || null,
-      });
-    },
+    // startReviewRepositoryTask and resumeReviewRepositoryTask are intentionally
+    // omitted — they require Node.js filesystem access (via review-repository-journey.mjs
+    // → effective-execution-contract.mjs → shared/contracts/validate.mjs).
+    // Use the Node-only task-control-plane-service.mjs for journey operations.
   };
 }

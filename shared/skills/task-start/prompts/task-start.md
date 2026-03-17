@@ -8,9 +8,13 @@ Check what tools you have available:
 - **Full mode** (`local_repo`): `fs.read` + `git.read` + `shell.exec` all available → you can read files, run git, execute commands
 - **Cloud mode** (`pasted_diff` / `github_pr`): only pasted content or a PR URL → no local filesystem access
 
-Acknowledge mode in your first sentence (one sentence only):
+Acknowledge mode in your first sentence (one sentence only). If the `momentum_narrate` MCP tool is available, call it with `narration_point: "onStart"` after creating the task and use the returned `headline` and `upgrade` fields to construct your opening. Otherwise, use these defaults:
 - Full mode: *"Full mode — using your local codebase. I can trace the full call graph and check git history."*
 - Cloud mode: *"I'm reviewing this in Cloud mode — I can see structure and patterns here. Once you switch to a machine with your full codebase, I'll be able to verify these findings properly."*
+
+## Step 1b — Resolve intent (if MCP available)
+
+If the `momentum_resolve_intent` MCP tool is available, call it with the user's original phrase. If it resolves (`resolved: true`), use `taskType` and `routeHints` to pre-fill Step 2. If `routeHints.prefer_route` is set, use it as the initial route selection hint. This replaces manual intent classification.
 
 ## Step 2 — Create the task (silently)
 

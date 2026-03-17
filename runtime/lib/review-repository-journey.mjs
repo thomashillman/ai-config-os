@@ -72,6 +72,8 @@ export function startReviewRepositoryTask({
   now = new Date().toISOString(),
   totalSteps = 6,
   taskType = REVIEW_REPOSITORY_TASK_TYPE,
+  narrator = null,
+  observer = null,
 } = {}) {
   assertObject('taskStore', taskStore);
   assertObject('routeInputs', routeInputs);
@@ -121,9 +123,24 @@ export function startReviewRepositoryTask({
     },
   });
 
+  const narration = narrator
+    ? narrator.onStart(activeTask, effectiveExecutionContract)
+    : null;
+
+  if (narration && observer) {
+    observer.recordNarration({
+      taskId,
+      narrationPoint: 'onStart',
+      templateVersion: narrator.templateVersion || '1.0.0',
+      narratorOutput: narration,
+      taskSnapshot: activeTask,
+    });
+  }
+
   return {
     task: activeTask,
     effective_execution_contract: effectiveExecutionContract,
+    narration,
   };
 }
 
@@ -133,6 +150,9 @@ export function resumeReviewRepositoryTask({
   capabilityProfile,
   now = new Date().toISOString(),
   taskType = REVIEW_REPOSITORY_TASK_TYPE,
+  narrator = null,
+  observer = null,
+  previousContract = null,
 } = {}) {
   assertObject('taskStore', taskStore);
   assertNonEmptyString('taskId', taskId);
@@ -180,14 +200,29 @@ export function resumeReviewRepositoryTask({
     });
   }
 
+  const narration = narrator
+    ? narrator.onResume(task, effectiveExecutionContract, previousContract)
+    : null;
+
+  if (narration && observer) {
+    observer.recordNarration({
+      taskId,
+      narrationPoint: 'onResume',
+      templateVersion: narrator.templateVersion || '1.0.0',
+      narratorOutput: narration,
+      taskSnapshot: task,
+    });
+  }
+
   return {
     task,
     effective_execution_contract: effectiveExecutionContract,
     upgraded,
+    narration,
   };
 }
 
-export function buildTaskReadinessView({ task, effectiveExecutionContract, progressEvents = [] } = {}) {
+export function buildTaskReadinessView({ task, effectiveExecutionContract, progressEvents = [], narrator = null } = {}) {
   assertObject('task', task);
   if (effectiveExecutionContract !== undefined) {
     assertObject('effectiveExecutionContract', effectiveExecutionContract);
@@ -199,6 +234,15 @@ export function buildTaskReadinessView({ task, effectiveExecutionContract, progr
   const totalSteps = task.progress?.total_steps || 0;
   const completedSteps = task.progress?.completed_steps || 0;
 
+  const strongerRouteAvailable = Boolean(
+    effectiveExecutionContract?.stronger_host_guidance
+    || (task.task_type === REVIEW_REPOSITORY_TASK_TYPE && task.current_route !== 'local_repo')
+  );
+
+  const narration = narrator && strongerRouteAvailable
+    ? narrator.onUpgradeAvailable(task, effectiveExecutionContract, null)
+    : null;
+
   return {
     task_id: task.task_id,
     task_type: task.task_type,
@@ -208,13 +252,11 @@ export function buildTaskReadinessView({ task, effectiveExecutionContract, progr
     route_history: task.route_history,
     readiness: {
       is_ready: task.state === 'active' && completedSteps < totalSteps,
-      stronger_route_available: Boolean(
-        effectiveExecutionContract?.stronger_host_guidance
-        || (task.task_type === REVIEW_REPOSITORY_TASK_TYPE && task.current_route !== 'local_repo')
-      ),
+      stronger_route_available: strongerRouteAvailable,
       progress_ratio: totalSteps === 0 ? 1 : Number((completedSteps / totalSteps).toFixed(4)),
     },
     findings_provenance: summariseFindings(task.findings || []),
     progress_event_count: progressEvents.length,
+    narration,
   };
 }

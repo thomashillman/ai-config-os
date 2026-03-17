@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/shelf-entry.schema.json",
+  "title": "ShelfEntry",
+  "description": "A single ranked task entry in the Momentum Shelf.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "rank",
+    "headline",
+    "continuation_reason",
+    "environment_fit",
+    "findings_pending_verification",
+    "route_upgrade_available",
+    "current_route",
+    "best_route"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "rank": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "headline": {
+      "type": "string",
+      "minLength": 1
+    },
+    "continuation_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "environment_fit": {
+      "type": "string",
+      "enum": ["strong", "neutral", "weak"]
+    },
+    "findings_pending_verification": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "route_upgrade_available": {
+      "type": "boolean"
+    },
+    "current_route": {
+      "type": "string",
+      "minLength": 1
+    },
+    "best_route": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

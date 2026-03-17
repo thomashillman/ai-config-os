@@ -11,7 +11,7 @@ const WORKER_INDEX_TS = resolve(REPO_ROOT, 'worker/src/index.ts');
 const TASK_STORE_FILE_URL = new URL('../../../runtime/lib/task-store-worker.mjs', import.meta.url).href;
 const KV_TASK_STORE_FILE_URL = new URL('../../../runtime/lib/task-store-kv.mjs', import.meta.url).href;
 const HANDOFF_SERVICE_FILE_URL = new URL('../../../runtime/lib/handoff-token-service-worker.mjs', import.meta.url).href;
-const TASK_CONTROL_PLANE_SERVICE_FILE_URL = new URL('../../../runtime/lib/task-control-plane-service.mjs', import.meta.url).href;
+const TASK_CONTROL_PLANE_SERVICE_FILE_URL = new URL('../../../runtime/lib/task-control-plane-service-worker.mjs', import.meta.url).href;
 const REGISTRY_PATH = resolve(REPO_ROOT, 'dist/registry/index.json');
 const PLUGIN_PATH = resolve(REPO_ROOT, 'dist/clients/claude-code/.claude-plugin/plugin.json');
 
@@ -41,7 +41,7 @@ async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
       `import { createHandoffTokenService } from '${HANDOFF_SERVICE_FILE_URL}';`
     )
     .replace(
-      /import \{ createTaskControlPlaneService \} from '..\/..\/runtime\/lib\/task-control-plane-service.mjs';/,
+      /import \{ createTaskControlPlaneService \} from '..\/..\/runtime\/lib\/task-control-plane-service-worker\.mjs';/,
       `import { createTaskControlPlaneService } from '${TASK_CONTROL_PLANE_SERVICE_FILE_URL}';`
     );
 
@@ -69,7 +69,7 @@ async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
         tsSource = tsSource
           .replace("import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/lib/task-store-worker.mjs';", `import { TaskStore, TaskConflictError, TaskNotFoundError } from '${TASK_STORE_FILE_URL}';`)
           .replace("import { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';", `import { KvTaskStore } from '${KV_TASK_STORE_FILE_URL}';`)
-          .replace("import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service.mjs';", `import { createTaskControlPlaneService } from '${TASK_CONTROL_PLANE_SERVICE_FILE_URL}';`)
+          .replace("import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service-worker.mjs';", `import { createTaskControlPlaneService } from '${TASK_CONTROL_PLANE_SERVICE_FILE_URL}';`)
           .replace("import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service-worker.mjs';", `import { createHandoffTokenService } from '${HANDOFF_SERVICE_FILE_URL}';`);
       }
       const transpiled = ts.transpileModule(tsSource, {

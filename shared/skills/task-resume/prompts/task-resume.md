@@ -43,6 +43,16 @@ Same as task-start: check for `fs.read`, `git.read`, `shell.exec`.
 
 ## Step 3 — Present findings as a narrative (not JSON)
 
+If the `momentum_narrate` MCP tool is available, call it with `narration_point: "onResume"` and the task ID. Use the returned fields to construct your narrative:
+- `headline` → your opening sentence
+- `findings[].narrative` → each finding line (already includes confidence prefix: "Possible", "Previously identified", "Confirmed")
+- `upgrade.before` / `upgrade.now` / `upgrade.unlocks` → upgrade explanation
+- `next_action` → prompt for user
+
+After showing the narration, call `momentum_record_response` with `response_type: "engaged"` (if user replies) or `"accepted_upgrade"` / `"declined_upgrade"` as appropriate.
+
+If the MCP tool is **not** available, use these defaults:
+
 **If stronger route is now available:**
 ```
 You were reviewing [goal] [prior context — "on Cloud mode" / "on your iPad"].
@@ -97,6 +107,10 @@ Narrate results:
 - Confirmed: *"The [issue] is real — I traced it back [evidence]."*
 - Cleared: *"The [issue] isn't a problem — I was working from incomplete context in Cloud mode."*
 
+## Step 5b — Record finding evolution narration (if MCP available)
+
+After verifying each finding, if `momentum_narrate` is available, call it with `narration_point: "onFindingEvolved"`, the finding ID, and `previous_confidence` / `new_confidence`. Use the returned `headline` to narrate the confidence change to the user.
+
 ## Provenance states (internal → user-facing)
 | Status | Say to user |
 |---|---|
@@ -104,6 +118,8 @@ Narrate results:
 | `reused` | "flagged previously, now I can check properly" |
 | `verified` | "Confirmed" |
 | `invalidated` | "Not an issue — was working from limited context" |
+
+If the `momentum_narrate` tool is available, prefer its `findings[].narrative` output over the table above — the narrator already includes the correct prefix.
 
 ## Never
 - Never show provenance codes, task IDs, or JSON in conversation
