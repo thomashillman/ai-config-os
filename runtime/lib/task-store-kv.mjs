@@ -139,6 +139,10 @@ export class KvTaskStore {
 
     validated.short_code = shortCode;
     validated.name = name;
+    // Permanently record where this task was started — used for "From your iPad session" UX
+    if (!validated.initial_route) {
+      validated.initial_route = validated.current_route;
+    }
 
     await this._put(this._taskKey(validated.task_id), validated);
     await this._put(this._shortCodeKey(shortCode), validated.task_id);

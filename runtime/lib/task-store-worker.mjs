@@ -88,6 +88,10 @@ export class TaskStore {
       throw new TaskConflictError(`Task already exists: ${validated.task_id}`, { taskId: validated.task_id });
     }
 
+    if (!validated.initial_route) {
+      validated.initial_route = validated.current_route;
+    }
+
     this.tasks.set(validated.task_id, validated);
     this.snapshots.set(validated.task_id, [createSnapshot(validated)]);
     return clone(validated);

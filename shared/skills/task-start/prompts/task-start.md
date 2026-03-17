@@ -54,12 +54,23 @@ NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || node -e "process.stdout.write
 curl -sf -X POST \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"expected_version\":<CURRENT_VERSION>,\"finding\":{\"finding_id\":\"f_$(date +%s)\",\"summary\":\"<SUMMARY>\",\"description\":\"<DETAIL>\",\"location\":\"<FILE:LINE>\",\"provenance\":{\"status\":\"<STATUS>\",\"recorded_by_route\":\"<ROUTE>\",\"recorded_at\":\"$NOW\"}},\"updated_at\":\"$NOW\"}" \
+  -d "{\"expected_version\":<CURRENT_VERSION>,\"finding\":{\"finding_id\":\"f_$(date +%s)\",\"type\":\"finding\",\"summary\":\"<SUMMARY>\",\"description\":\"<DETAIL>\",\"location\":\"<FILE:LINE>\",\"provenance\":{\"status\":\"<STATUS>\",\"recorded_by_route\":\"<ROUTE>\",\"recorded_at\":\"$NOW\"}},\"updated_at\":\"$NOW\"}" \
   "$WORKER/v1/tasks/$TASK_ID/findings" > /dev/null 2>&1 || true
 ```
 - `<STATUS>`: use `verified` if you can confirm with local tools, `hypothesis` if you can't fully verify yet
+- `<TYPE>`: use `finding` (default) for observations/issues; use `question` for things you need the user to answer
 - `<CURRENT_VERSION>`: track the version from task creation (starts at 1, increments with each write)
 - Keep `<SUMMARY>` to one plain-English sentence. No jargon.
+
+**Recording open questions** — when you encounter something you can't determine from the available context (e.g. "Is token revocation implemented?", "Does this codepath get called in production?"), record it as a question finding:
+```bash
+curl -sf -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"expected_version\":<CURRENT_VERSION>,\"finding\":{\"finding_id\":\"q_$(date +%s)\",\"type\":\"question\",\"summary\":\"<QUESTION_TEXT>\",\"provenance\":{\"status\":\"hypothesis\",\"recorded_by_route\":\"<ROUTE>\",\"recorded_at\":\"$NOW\"}},\"updated_at\":\"$NOW\"}" \
+  "$WORKER/v1/tasks/$TASK_ID/findings" > /dev/null 2>&1 || true
+```
+The hub will show these as "Open questions" with Answer / Dismiss buttons for the user.
 
 **If no Worker** — keep findings in your working context, emit them at checkpoint.
 
