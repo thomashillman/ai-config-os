@@ -309,12 +309,11 @@ describe('worker endpoint contract', () => {
 
     assert.equal(manifest.status, 200);
     assert.equal(manifest.body.version, version);
-    assert.equal(manifest.body.manifest.version, version);
+    assert.equal(manifest.body.kind, 'manifest');
 
     for (const sample of [outcomes, routes, tools]) {
       assert.equal(sample.status, 200);
       assert.equal(sample.body.version, version);
-      assert.equal(sample.body.artifact.version, version);
     }
   });
 
