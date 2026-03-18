@@ -1,6 +1,8 @@
 ---
 # Identity & Description
 skill: {{SKILL_NAME}}
+# name: {{SKILL_NAME}}  # Optional — auto-injected from 'skill' during claude-code emission.
+#                         # Set explicitly only to override the slash-command name.
 description: |
   One sentence: what this skill does and when to use it.
   Additional context (one paragraph max).

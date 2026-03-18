@@ -75,6 +75,26 @@ function emitSkills(skills, distDir) {
   console.log(`  [claude-code] emitted ${skills.length} skill(s) to ${distDir}/skills/`);
 }
 
+/**
+ * Read SKILL.md and inject `name:` field for Claude Code skill discovery.
+ *
+ * Claude Code uses `name:` in YAML frontmatter to register a skill as a
+ * user-invocable slash command. Source skills use `skill:` as the canonical
+ * identifier, so we inject `name:` from `skill:` during emission.
+ *
+ * We normalize to LF before injection so emitted files are byte-identical
+ * across all build platforms (Windows git checkout may produce CRLF).
+ */
 function readSkillMd(skill) {
-  return readFileSync(skill.filePath, 'utf8');
+  // Normalize to LF for deterministic cross-platform emission
+  const raw = readFileSync(skill.filePath, 'utf8').replace(/\r\n/g, '\n');
+  const skillName = skill.frontmatter?.skill || skill.skillName;
+
+  // If the source already declares `name:`, emit as-is (normalized)
+  if (skill.frontmatter?.name) {
+    return raw;
+  }
+
+  // Insert `name:` after the opening frontmatter delimiter
+  return raw.replace(/^---\n/, `---\nname: ${skillName}\n`);
 }

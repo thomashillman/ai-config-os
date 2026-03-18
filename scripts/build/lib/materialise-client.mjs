@@ -10,8 +10,8 @@
  * - Guarantee: zero filesystem access to source-tree (shared/skills/) is required
  */
 
-import { readFileSync, statSync, copyFileSync, mkdirSync } from 'fs';
-import { join, dirname, resolve, relative } from 'path';
+import { readFileSync, statSync, copyFileSync, mkdirSync, readdirSync, existsSync, cpSync } from 'fs';
+import { join, dirname, resolve, relative, sep } from 'path';
 
 /**
  * Validation error with structured context
@@ -187,9 +187,10 @@ export function materializePackage(packageRoot, destinationRoot, options = {}) {
 
   const extracted = [];
 
-  // Extract all skills
+  // Extract all skills (copy full skill directory: SKILL.md + prompts/ etc.)
   for (const skill of metadata.skills) {
     const sourceFile = resolve(join(resolvedRoot, skill.path));
+    const sourceSkillDir = dirname(sourceFile);
     const destSkillDir = join(resolvedDest, 'skills', skill.name);
     const destFile = join(destSkillDir, 'SKILL.md');
 
@@ -200,6 +201,9 @@ export function materializePackage(packageRoot, destinationRoot, options = {}) {
     if (!dryRun) {
       mkdirSync(destSkillDir, { recursive: true });
       copyFileSync(sourceFile, destFile);
+
+      // Copy supporting directories (prompts/, etc.) if present
+      copySkillResources(sourceSkillDir, destSkillDir);
     }
 
     extracted.push({
@@ -217,6 +221,45 @@ export function materializePackage(packageRoot, destinationRoot, options = {}) {
     skillsExtracted: extracted,
     dryRun: dryRun,
   };
+}
+
+/**
+ * Copy supporting resource directories (prompts/, etc.) from a skill source
+ * directory to its materialised destination.
+ *
+ * Only copies subdirectories — loose files other than SKILL.md are already
+ * handled by the main extraction loop. Uses cpSync for recursive directory
+ * copies (Node 16.7+).
+ *
+ * @param {string} sourceDir - Source skill directory (contains SKILL.md)
+ * @param {string} destDir - Destination skill directory
+ */
+function copySkillResources(sourceDir, destDir) {
+  if (!existsSync(sourceDir)) return;
+
+  let entries;
+  try {
+    entries = readdirSync(sourceDir, { withFileTypes: true });
+  } catch {
+    return; // Source dir unreadable — skip silently
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const srcSubDir = join(sourceDir, entry.name);
+    const destSubDir = join(destDir, entry.name);
+
+    // Security: reject directory names with path traversal
+    if (entry.name.includes('..') || entry.name.includes('\0')) continue;
+
+    // Verify the resolved destination stays within the skill directory
+    const resolvedDest = resolve(destSubDir);
+    const resolvedParent = resolve(destDir);
+    if (!resolvedDest.startsWith(resolvedParent + sep) && resolvedDest !== resolvedParent) continue;
+
+    cpSync(srcSubDir, destSubDir, { recursive: true });
+  }
 }
 
 /**

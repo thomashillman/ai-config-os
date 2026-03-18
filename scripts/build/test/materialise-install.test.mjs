@@ -74,16 +74,16 @@ describe('materialise.sh install command', () => {
       // Setup: git repo
       spawnSync('git', ['init', '-b', 'main'], { cwd: tmpProject, encoding: 'utf8' });
 
-      // Setup: Create mock cached skills
+      // Setup: Create mock cached skills (materialise-client extracts to skills/ subdir)
       mkdirSync(cacheDir, { recursive: true });
       writeFileSync(join(cacheDir, 'latest.version'), '1.0.0');
 
-      // Create two mock skill directories
-      mkdirSync(join(cacheDir, 'skill-a'), { recursive: true });
-      writeFileSync(join(cacheDir, 'skill-a', 'SKILL.md'), '# Skill A');
+      // Create two mock skill directories under skills/ (matches materialise-client output)
+      mkdirSync(join(cacheDir, 'skills', 'skill-a'), { recursive: true });
+      writeFileSync(join(cacheDir, 'skills', 'skill-a', 'SKILL.md'), '# Skill A');
 
-      mkdirSync(join(cacheDir, 'skill-b'), { recursive: true });
-      writeFileSync(join(cacheDir, 'skill-b', 'SKILL.md'), '# Skill B');
+      mkdirSync(join(cacheDir, 'skills', 'skill-b'), { recursive: true });
+      writeFileSync(join(cacheDir, 'skills', 'skill-b', 'SKILL.md'), '# Skill B');
 
       // Run install
       const result = runBash(MATERIALISE_SCRIPT, {
@@ -122,11 +122,11 @@ describe('materialise.sh install command', () => {
       // Setup: git repo
       spawnSync('git', ['init', '-b', 'main'], { cwd: tmpProject, encoding: 'utf8' });
 
-      // Setup: Create cached version and skills
+      // Setup: Create cached version and skills (under skills/ subdir)
       mkdirSync(cacheDir, { recursive: true });
       writeFileSync(join(cacheDir, 'latest.version'), '1.0.0');
-      mkdirSync(join(cacheDir, 'skill-a'), { recursive: true });
-      writeFileSync(join(cacheDir, 'skill-a', 'SKILL.md'), '# Skill A');
+      mkdirSync(join(cacheDir, 'skills', 'skill-a'), { recursive: true });
+      writeFileSync(join(cacheDir, 'skills', 'skill-a', 'SKILL.md'), '# Skill A');
 
       // First run: install
       let result = runBash(MATERIALISE_SCRIPT, {
@@ -172,11 +172,11 @@ describe('materialise.sh install command', () => {
       // Setup: git repo
       spawnSync('git', ['init', '-b', 'main'], { cwd: tmpProject, encoding: 'utf8' });
 
-      // First version: v1.0.0
+      // First version: v1.0.0 (skills under skills/ subdir)
       mkdirSync(cacheDir, { recursive: true });
       writeFileSync(join(cacheDir, 'latest.version'), '1.0.0');
-      mkdirSync(join(cacheDir, 'skill-a'), { recursive: true });
-      writeFileSync(join(cacheDir, 'skill-a', 'SKILL.md'), '# Skill A v1');
+      mkdirSync(join(cacheDir, 'skills', 'skill-a'), { recursive: true });
+      writeFileSync(join(cacheDir, 'skills', 'skill-a', 'SKILL.md'), '# Skill A v1');
 
       // First install
       let result = runBash(MATERIALISE_SCRIPT, {
@@ -192,7 +192,7 @@ describe('materialise.sh install command', () => {
 
       // Update version and skill content
       writeFileSync(join(cacheDir, 'latest.version'), '1.1.0');
-      writeFileSync(join(cacheDir, 'skill-a', 'SKILL.md'), '# Skill A v2 (updated)');
+      writeFileSync(join(cacheDir, 'skills', 'skill-a', 'SKILL.md'), '# Skill A v2 (updated)');
 
       // Second install with new version
       result = runBash(MATERIALISE_SCRIPT, {
