@@ -22,6 +22,7 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { classifyAll, loadProbeResults } from './filter-skills.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -108,27 +109,6 @@ export function selectVariant(skill, modelHint, surfaceHint) {
   return pick('sonnet') || variantKeys[0] || 'sonnet';
 }
 
-// ─── Capability classifier (inline, no dep on filter-skills.mjs) ──────────
-
-function classifySkill(skill, supported) {
-  const caps = skill.capabilities || {};
-  const required = Array.isArray(caps.required) ? caps.required : [];
-  const optional = Array.isArray(caps.optional) ? caps.optional : [];
-  const fallbackMode = caps.fallback_mode || null;
-
-  const missingRequired = supported
-    ? required.filter(c => !supported.has(c))
-    : [];
-  const missingOptional = supported
-    ? optional.filter(c => !supported.has(c))
-    : [];
-
-  if (missingRequired.length === 0) {
-    return missingOptional.length === 0 ? 'available' : 'degraded';
-  }
-  return fallbackMode ? 'excluded' : 'unavailable';
-}
-
 // ─── Content builder ───────────────────────────────────────────────────────
 
 /**
@@ -199,14 +179,8 @@ export async function generateCommands({
   const resolvedCommandsDir = commandsDir || join(projectDir, '.claude', 'commands');
 
   // ── Load probe report ────────────────────────────────────────────────────
-  const probe = loadJSON(probeFile);
-  const surfaceHint = probe?.surface_hint || 'desktop-cli';
-  const supported = new Set();
-  if (probe?.results) {
-    for (const [cap, entry] of Object.entries(probe.results)) {
-      if (entry?.status === 'supported') supported.add(cap);
-    }
-  }
+  const probe = loadProbeResults(probeFile);
+  const surfaceHint = probe.surface_hint || 'desktop-cli';
 
   // ── Resolve model hint ───────────────────────────────────────────────────
   const resolvedModelHint = modelHint
@@ -220,6 +194,11 @@ export async function generateCommands({
   }
 
   const skillsDir = join(cacheDir, 'skills');
+
+  // ── Classify skills against probe ─────────────────────────────────────────
+  const bucketById = new Map(
+    classifyAll(manifest.skills, probe.supported).map(c => [c.id, c.bucket])
+  );
 
   // ── Ensure commands dir exists ───────────────────────────────────────────
   if (!dryRun) {
@@ -236,7 +215,7 @@ export async function generateCommands({
   const nowGenerated = new Set();
 
   for (const skill of manifest.skills) {
-    const bucket = classifySkill(skill, supported.size > 0 ? supported : null);
+    const bucket = bucketById.get(skill.id) ?? 'available';
 
     if (bucket === 'excluded' || bucket === 'unavailable') {
       skipped.push(skill.id);
