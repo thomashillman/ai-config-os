@@ -1347,15 +1347,21 @@ Multiple Codex-contributed branches merged to main:
 
 **New surfaces discovered in documentation research (2026-03-18):**
 
-| Surface | Detection signal | Capability profile |
-|---|---|---|
-| `claude-desktop` | Desktop spawns CLI; no unique env var yet | + preview.server, + connectors, - remote by default |
-| `claude-vscode` | `VSCODE_*` env vars (e.g. `VSCODE_INJECTION`) | same as claude-code + IDE diff tools |
-| `claude-jetbrains` | `IDEA_HOME` or `JETBRAINS_TOOLBOX_*` env vars | same as claude-vscode |
-| `github-actions` | `GITHUB_ACTIONS=true` | headless CI; no user interaction |
-| `gitlab-ci` | `GITLAB_CI=true` | headless CI; `AI_FLOW_*` context vars |
-| `claude-slack` | routes to web session; no local env | treat as `claude-web` |
-| `claude-ssh` | Desktop SSH session; `SSH_CONNECTION` set | shell access; no local UI |
+| Surface | Detection signal | Runtime detectable? | Capability profile |
+|---|---|---|---|
+| `claude-desktop` | No unique env var yet; spawns local CLI | No (compile-time only) | + preview.server, + connectors |
+| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | same as claude-code + IDE diff |
+| `claude-jetbrains` | `IDEA_HOME` or `JETBRAINS_TOOLBOX_TOOL_NAME` | Yes | same as claude-vscode |
+| `github-actions` | `GITHUB_ACTIONS=true` | Yes | headless CI; no user interaction |
+| `gitlab-ci` | `GITLAB_CI=true` | Yes | headless CI; `AI_FLOW_*` context vars |
+| `claude-ssh` | `SSH_CONNECTION` set; no `CLAUDE_CODE_REMOTE` | Yes | shell access; no local UI |
+| `codex-cli` | `$CODEX_SURFACE=cli` (Codex-set env var) | Yes | shell/fs/git; cloud-sandbox |
+| `codex-desktop` | `$CODEX_SURFACE=desktop` (Codex-set env var) | Yes | parallel agents; isolated worktrees |
+| `chatgpt-web` | `CLAUDE_CODE_ENTRYPOINT=web` (our runtime) | Yes (via Claude entrypoint) | prompt-only; no shell |
+| `chatgpt-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Yes (via Claude entrypoint) | prompt-only; no shell |
+
+**Web/mobile fundamental limitation (confirmed by Codex/ChatGPT docs):**
+ChatGPT web, iOS, and Android code execution environments are intentionally surface-agnostic — they expose no `$CODEX_SURFACE`, `$VSCODE_*`, or equivalent env var to user code. Surface detection for these is only possible via entrypoint signals set by the Claude/Codex _runtime_ (not user code), or via compile-time package selection. The probe correctly relies on `CLAUDE_CODE_ENTRYPOINT` (runtime-set) for these surfaces. Skill filtering for web/mobile falls back to the compiled `compatible_platforms[]` list in the registry, not runtime probe results.
 
 **Probe already captures:** `platform_hint`, `surface_hint`, `hostname`, all capability results. Session-start hook already runs the probe in remote sessions. Registry already has per-platform capability definitions embedded.
 
@@ -1365,28 +1371,32 @@ Multiple Codex-contributed branches merged to main:
 
 ### Atom A — New platform YAML definitions
 
-**What:** Add 4 platform YAML files to `shared/targets/platforms/`. Follows identical schema to existing files.
+**What:** Add 5 platform YAML files to `shared/targets/platforms/`. Identical schema to existing files.
 
 **Platforms to add:**
-- `github-actions.yaml` — surface: `ci-pipeline`; shell/fs/git/network supported; mcp unsupported
-- `gitlab-ci.yaml` — surface: `ci-pipeline`; same as github-actions + `AI_FLOW_*` context vars noted
-- `claude-vscode.yaml` — surface: `desktop-ide`; same as claude-code; mcp medium-confidence
-- `claude-desktop.yaml` — surface: `desktop-app`; same as claude-code + preview.server capability noted
+- `github-actions.yaml` — surface: `ci-pipeline`; shell/fs/git/network supported; mcp.client unsupported; detection: `GITHUB_ACTIONS=true`
+- `gitlab-ci.yaml` — surface: `ci-pipeline`; same as github-actions; detection: `GITLAB_CI=true`
+- `claude-vscode.yaml` — surface: `desktop-ide`; same as claude-code; mcp medium-confidence; detection: `VSCODE_INJECTION`
+- `claude-desktop.yaml` — surface: `desktop-app`; same as claude-code; detection: compile-time only (no unique env var); add `preview.server` as an `unknown`-status capability
+- `codex-desktop.yaml` — surface: `desktop-app`; shell/fs/git supported; parallel agents noted; detection: `CODEX_SURFACE=desktop`
+
+**Note on `codex` vs `codex-desktop`:** The existing `codex.yaml` (surface: `cloud-sandbox`) maps to `CODEX_CLI` env var — which is the CLI/cloud path. `codex-desktop.yaml` is the Codex Desktop App (Windows/macOS) where `$CODEX_SURFACE=desktop` is set by Codex. These are different surfaces with different capability profiles.
 
 **Test first (red):** The delivery-contract suite (`scripts/build/test/delivery-contract.test.mjs`) already checks that all platform definitions used in the registry are valid. Add assertions:
 ```js
-// In delivery-contract.test.mjs (add 4 new assertions)
-assert(platforms.includes('github-actions'), 'github-actions platform must exist')
-assert(platforms.includes('gitlab-ci'), 'gitlab-ci platform must exist')
-assert(platforms.includes('claude-vscode'), 'claude-vscode platform must exist')
-assert(platforms.includes('claude-desktop'), 'claude-desktop platform must exist')
+// In delivery-contract.test.mjs (add 5 new assertions)
+assert(platforms.includes('github-actions'),  'github-actions platform must exist')
+assert(platforms.includes('gitlab-ci'),        'gitlab-ci platform must exist')
+assert(platforms.includes('claude-vscode'),    'claude-vscode platform must exist')
+assert(platforms.includes('claude-desktop'),   'claude-desktop platform must exist')
+assert(platforms.includes('codex-desktop'),    'codex-desktop platform must exist')
 ```
 
 **Implement:** Create each YAML file. Compiler picks them up automatically. Run `node scripts/build/compile.mjs`.
 
 **Verify (green):** `npm test -- scripts/build/test/delivery-contract.test.mjs` passes.
 
-**Commit:** `feat: add platform definitions for vscode, desktop, github-actions, gitlab-ci`
+**Commit:** `feat: add platform definitions for vscode, desktop, github-actions, gitlab-ci, codex-desktop`
 
 ---
 
@@ -1394,51 +1404,70 @@ assert(platforms.includes('claude-desktop'), 'claude-desktop platform must exist
 
 **What:** Extend `detect_platform()` and `detect_surface()` in `ops/capability-probe.sh` with 5 new signals. Check CI env vars before falling back to `claude-code`.
 
-**Signals to add (in priority order, before the existing `CLAUDE_CODE_REMOTE` check):**
+**Priority order matters.** More-specific signals must come before generic ones. `CODEX_SURFACE` (set by Codex runtime) is the most authoritative Codex signal; `CLAUDE_CODE_ENTRYPOINT` (set by Claude runtime) is the most authoritative Claude signal. Both must be checked before any generic env var heuristics.
+
+**Signals to add (in priority order, inserted before the existing `CLAUDE_CODE_REMOTE` check):**
 ```bash
+# Codex Desktop App — Codex runtime sets $CODEX_SURFACE explicitly
+case "${CODEX_SURFACE:-}" in
+  desktop) echo "codex-desktop"; return ;;
+  cli)     echo "codex";         return ;;  # overrides existing CODEX_CLI heuristic
+esac
+
 # CI surfaces — most specific signals, check first
 if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "github-actions"; return; fi
 if [ "${GITLAB_CI:-}" = "true" ];      then echo "gitlab-ci";      return; fi
 if [ "${CI:-}" = "true" ];             then echo "ci-generic";      return; fi
-# IDE surfaces
+
+# IDE surfaces (checked after CI to avoid misidentifying CI runners with IDE vars)
 if [ -n "${VSCODE_INJECTION:-}" ] || [ -n "${VSCODE_IPC_HOOK_CLI:-}" ]; then
   echo "claude-vscode"; return
 fi
 if [ -n "${IDEA_HOME:-}" ] || [ -n "${JETBRAINS_TOOLBOX_TOOL_NAME:-}" ]; then
   echo "claude-jetbrains"; return
 fi
-# SSH sessions
+
+# SSH sessions (checked last among heuristics — broadest signal)
 if [ -n "${SSH_CONNECTION:-}" ] && [ -z "${CLAUDE_CODE_REMOTE:-}" ]; then
   echo "claude-ssh"; return
 fi
 ```
 
-**Surface mappings to add:**
+**Surface mappings to add to `detect_surface()`:**
 ```bash
-github-actions)  echo "ci-pipeline" ;;
-gitlab-ci)       echo "ci-pipeline" ;;
-ci-generic)      echo "ci-pipeline" ;;
-claude-vscode)   echo "desktop-ide" ;;
+codex-desktop)    echo "desktop-app" ;;
+github-actions)   echo "ci-pipeline" ;;
+gitlab-ci)        echo "ci-pipeline" ;;
+ci-generic)       echo "ci-pipeline" ;;
+claude-vscode)    echo "desktop-ide" ;;
 claude-jetbrains) echo "desktop-ide" ;;
-claude-ssh)      echo "remote-shell" ;;
+claude-ssh)       echo "remote-shell" ;;
 ```
 
 **Test first (red):** New Node.js test `scripts/build/test/capability-probe-detection.test.mjs`:
 ```js
-// Tests platform detection logic by running probe with mocked env vars
-// Uses process.env overrides + child_process.execFileSync with env argument
-// Asserts platform_hint and surface_hint in emitted JSON
+// Runs probe with injected env vars; asserts platform_hint + surface_hint
+// Shell-based; skipped in Windows CI (follow CI pitfall rules from CLAUDE.md)
 const probeWith = (env) => JSON.parse(
-  execFileSync('bash', ['ops/capability-probe.sh', '--quiet'], { env, encoding: 'utf8' })
+  execFileSync('bash', ['ops/capability-probe.sh', '--quiet'],
+    { env: { ...minimalEnv, ...env }, encoding: 'utf8' })
 );
-assert.equal(probeWith({ ...base, GITHUB_ACTIONS: 'true' }).platform_hint, 'github-actions');
-assert.equal(probeWith({ ...base, GITLAB_CI: 'true' }).platform_hint, 'gitlab-ci');
-assert.equal(probeWith({ ...base, VSCODE_INJECTION: '1' }).platform_hint, 'claude-vscode');
+assert.equal(probeWith({ CODEX_SURFACE: 'desktop' }).platform_hint,  'codex-desktop');
+assert.equal(probeWith({ CODEX_SURFACE: 'desktop' }).surface_hint,   'desktop-app');
+assert.equal(probeWith({ CODEX_SURFACE: 'cli' }).platform_hint,      'codex');
+assert.equal(probeWith({ GITHUB_ACTIONS: 'true' }).platform_hint,    'github-actions');
+assert.equal(probeWith({ GITHUB_ACTIONS: 'true' }).surface_hint,     'ci-pipeline');
+assert.equal(probeWith({ GITLAB_CI: 'true' }).platform_hint,         'gitlab-ci');
+assert.equal(probeWith({ VSCODE_INJECTION: '1' }).platform_hint,     'claude-vscode');
+assert.equal(probeWith({ VSCODE_INJECTION: '1' }).surface_hint,      'desktop-ide');
+// Web/mobile: controlled by CLAUDE_CODE_ENTRYPOINT (already tested in existing probe tests)
 ```
+
+**Note on web/mobile:** ChatGPT web, iOS, Android — no user-discoverable env var exists. Detection for these surfaces relies entirely on `CLAUDE_CODE_ENTRYPOINT` (already handled by existing `detect_platform()` logic). No new probe logic needed; skill filtering for these surfaces uses compile-time `compatible_platforms[]` from the registry.
 
 **Verify (green):** New test passes; existing probe tests unaffected.
 
-**Commit:** `feat: probe detects CI pipelines, VS Code, JetBrains, SSH surfaces`
+**Commit:** `feat: probe detects Codex Desktop, CI pipelines, VS Code, JetBrains, SSH`
 
 ---
 
@@ -1577,16 +1606,19 @@ All 70+ tests pass. The new skill is in `dist/`. The probe correctly identifies 
 
 ### Updated platform maturity table
 
-| Platform | Detection | Compiler | Probe | Status |
-|---|---|---|---|---|
-| `claude-code` | env: `CLAUDE_CODE` | Full emitter | ✓ | Production |
-| `cursor` | env: `CURSOR_SESSION` | Rules emitter | ✓ | Partial |
-| `codex` | env: `CODEX_CLI` | Codex emitter | ✓ | Partial |
-| `claude-web` | entrypoint: `web` | Model only | ✓ | Model only |
-| `claude-ios` | entrypoint: `remote_mobile` | Model only | ✓ | Model only |
-| `github-actions` | env: `GITHUB_ACTIONS=true` | **Atom A** | **Atom B** | **Planned** |
-| `gitlab-ci` | env: `GITLAB_CI=true` | **Atom A** | **Atom B** | **Planned** |
-| `claude-vscode` | env: `VSCODE_INJECTION` | **Atom A** | **Atom B** | **Planned** |
-| `claude-desktop` | no unique signal yet | **Atom A** | future | **Planned** |
-| `claude-ssh` | env: `SSH_CONNECTION` | future | **Atom B** | **Planned** |
+| Platform | Detection signal | Detectable at runtime? | Compiler | Probe | Status |
+|---|---|---|---|---|---|
+| `claude-code` | `CLAUDE_CODE` env var | Yes | Full emitter | ✓ | Production |
+| `cursor` | `CURSOR_SESSION` env var | Yes | Rules emitter | ✓ | Partial |
+| `codex` (CLI/cloud) | `CODEX_CLI` env var OR `CODEX_SURFACE=cli` | Yes | Codex emitter | ✓ existing → **Atom B** | Partial |
+| `claude-web` | `CLAUDE_CODE_ENTRYPOINT=web` | Via Claude runtime only | Model only | ✓ | Model only |
+| `claude-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Via Claude runtime only | Model only | ✓ | Model only |
+| `github-actions` | `GITHUB_ACTIONS=true` | Yes | **Atom A** | **Atom B** | Planned |
+| `gitlab-ci` | `GITLAB_CI=true` | Yes | **Atom A** | **Atom B** | Planned |
+| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | **Atom A** | **Atom B** | Planned |
+| `codex-desktop` | `CODEX_SURFACE=desktop` (Codex-set) | Yes | **Atom A** | **Atom B** | Planned |
+| `claude-desktop` | No unique env var (compile-time only) | No — registry filtering only | **Atom A** | n/a | Planned |
+| `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Planned |
+| `chatgpt-web` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
+| `chatgpt-mobile` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
 
