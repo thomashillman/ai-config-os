@@ -82,18 +82,19 @@ function emitSkills(skills, distDir) {
  * user-invocable slash command. Source skills use `skill:` as the canonical
  * identifier, so we inject `name:` from `skill:` during emission.
  *
- * The injection is a simple text insertion after the opening `---` marker,
- * preserving the rest of the file byte-for-byte.
+ * We normalize to LF before injection so emitted files are byte-identical
+ * across all build platforms (Windows git checkout may produce CRLF).
  */
 function readSkillMd(skill) {
-  const raw = readFileSync(skill.filePath, 'utf8');
+  // Normalize to LF for deterministic cross-platform emission
+  const raw = readFileSync(skill.filePath, 'utf8').replace(/\r\n/g, '\n');
   const skillName = skill.frontmatter?.skill || skill.skillName;
 
-  // If the source already declares `name:`, emit as-is
+  // If the source already declares `name:`, emit as-is (normalized)
   if (skill.frontmatter?.name) {
     return raw;
   }
 
   // Insert `name:` after the opening frontmatter delimiter
-  return raw.replace(/^---\r?\n/, `---\nname: ${skillName}\n`);
+  return raw.replace(/^---\n/, `---\nname: ${skillName}\n`);
 }

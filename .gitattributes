@@ -1,0 +1,30 @@
+# Enforce LF line endings for all text files so emitted artefacts and source
+# files are byte-identical across macOS, Linux, and Windows build agents.
+# The compiler and materialiser explicitly normalise to LF; this attribute
+# ensures git checkout does not re-introduce CRLF on Windows.
+
+* text=auto eol=lf
+
+# Explicitly mark source and artefact types as LF
+*.md     text eol=lf
+*.json   text eol=lf
+*.yaml   text eol=lf
+*.yml    text eol=lf
+*.mjs    text eol=lf
+*.js     text eol=lf
+*.ts     text eol=lf
+*.sh     text eol=lf
+*.txt    text eol=lf
+
+# Compiled artefacts (dist/) should also be LF
+dist/**  text eol=lf
+
+# Binary files — do not mangle
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.ico    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.eot    binary

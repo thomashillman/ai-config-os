@@ -57,21 +57,28 @@ test('Source Change Flow', async (t) => {
     // For each skill, verify that the content in dist/ matches source with
     // the expected `name:` injection (claude-code emitter injects name: for
     // slash-command discovery).
+    //
+    // Both sides are normalized to LF before comparison — the emitter always
+    // emits LF, and source files may be CRLF on Windows after git checkout.
     const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
 
     manifest.skills.forEach(skill => {
       const sourceFile = join(SKILLS_DIR, skill.name, 'SKILL.md');
       const distFile = join(DIST_PACKAGE, skill.path);
 
-      const sourceContent = readFileSync(sourceFile, 'utf8');
-      const distContent = readFileSync(distFile, 'utf8');
+      // Normalize to LF — emitter always writes LF; source may be CRLF on Windows
+      const sourceContent = readFileSync(sourceFile, 'utf8').replace(/\r\n/g, '\n');
+      const distContent = readFileSync(distFile, 'utf8').replace(/\r\n/g, '\n');
 
       // The emitter injects `name: <skill-name>` after the opening `---`
       // delimiter if the source doesn't already have a `name:` field.
-      // Compute the expected output and compare.
-      const hasName = /^---[\s\S]*?\nname:\s/m.test(
-        sourceContent.slice(0, sourceContent.indexOf('\n---\n', 4) + 5)
-      );
+      // Compute the expected LF-normalised output and compare.
+      const frontmatterEnd = sourceContent.indexOf('\n---\n', 4);
+      const frontmatterBlock = frontmatterEnd >= 0
+        ? sourceContent.slice(0, frontmatterEnd + 5)
+        : sourceContent;
+      const hasName = /\nname:\s/.test(frontmatterBlock);
+
       const expectedContent = hasName
         ? sourceContent
         : sourceContent.replace(/^---\n/, `---\nname: ${skill.name}\n`);
