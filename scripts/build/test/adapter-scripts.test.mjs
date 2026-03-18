@@ -268,4 +268,24 @@ describe('session-start hook — structural checks', () => {
     assert.ok(exitIdx  > -1,  'CLAUDE_CODE_REMOTE guard must exist');
     assert.ok(probeIdx < exitIdx, 'probe must run before the CLAUDE_CODE_REMOTE exit guard');
   });
+
+  test('session-start builds dist/ when absent (CLAUDE_CODE_REMOTE path)', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    // Must contain a guard that triggers compile.mjs when dist/clients/claude-code is missing
+    assert.ok(
+      content.includes('compile.mjs') && content.includes('dist/clients/claude-code'),
+      'session-start.sh must build skills when dist/clients/claude-code is absent'
+    );
+  });
+
+  test('session-start calls materialise.sh extract after fetch', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    // Both fetch and extract must be present
+    const fetchIdx = content.indexOf('materialise.sh fetch');
+    const extractIdx = content.indexOf('materialise.sh extract');
+    assert.ok(fetchIdx > -1, 'session-start.sh must call materialise.sh fetch');
+    assert.ok(extractIdx > -1, 'session-start.sh must call materialise.sh extract');
+    // extract must come after fetch
+    assert.ok(extractIdx > fetchIdx, 'materialise.sh extract must be called after fetch');
+  });
 });
