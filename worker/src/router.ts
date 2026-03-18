@@ -1,5 +1,5 @@
 import { isAuthorized, unauthorizedResponse } from './auth';
-import { jsonResponse, notFound } from './http';
+import { jsonResponse, notFound, corsPreflightResponse } from './http';
 import {
   handleClientLatest,
   handleEffectiveContractPreview,
@@ -10,6 +10,11 @@ import {
   handleVersionedArtifact,
   type RegistryLike,
 } from './handlers/artifacts';
+import {
+  handleCapabilitiesForPlatform,
+  handleSkillsCompatible,
+  type RegistryWithPlatforms,
+} from './handlers/capabilities';
 import { handleExecute } from './handlers/executor';
 import {
   handleHubLatest,
@@ -30,16 +35,14 @@ import {
 import type { Env } from './types';
 
 export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown): ExportedHandler<Env> {
+  // Cast once — capability handlers need the extended registry type
+  const registryWithPlatforms = registry as RegistryWithPlatforms;
+
   return {
     async fetch(request: Request, env: Env): Promise<Response> {
+      // CORS preflight — no auth required
       if (request.method === 'OPTIONS') {
-        return new Response(null, {
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
-            'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Signature',
-          },
-        });
+        return corsPreflightResponse();
       }
 
       const url = new URL(request.url);
@@ -50,6 +53,7 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
       }
 
       if (request.method === 'GET') {
+        // ── Health & manifests ──────────────────────────────────────────────
         if (path === '/v1/health') {
           return handleHealth(env, registry);
         }
@@ -66,6 +70,7 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
           return handleLatestArtifact(env, registry, 'tools.json');
         }
 
+        // ── Versioned artifacts ─────────────────────────────────────────────
         const outcomesVersionedMatch = path.match(/^\/v1\/outcomes\/([^/]+)$/);
         if (outcomesVersionedMatch) {
           return handleVersionedArtifact(env, outcomesVersionedMatch[1], 'outcomes.json');
@@ -79,10 +84,12 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
           return handleVersionedArtifact(env, toolsVersionedMatch[1], 'tools.json');
         }
 
+        // ── Effective contract ──────────────────────────────────────────────
         if (path === '/v1/effective-contract/preview') {
           return handleEffectiveContractPreview(env, registry);
         }
 
+        // ── Client & skills ─────────────────────────────────────────────────
         const clientMatch = path.match(/^\/v1\/client\/([^/]+)\/latest$/);
         if (clientMatch) {
           return handleClientLatest(clientMatch[1], registry, pluginJson);
@@ -93,10 +100,21 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
           return handleSkill(skillMatch[1], registry);
         }
 
+        // ── Capability discovery (web/mobile-safe, CORS-enabled) ────────────
+        const capabilitiesMatch = path.match(/^\/v1\/capabilities\/platform\/([^/]+)$/);
+        if (capabilitiesMatch) {
+          return handleCapabilitiesForPlatform(capabilitiesMatch[1], registryWithPlatforms);
+        }
+
+        if (path === '/v1/skills/compatible') {
+          const capsParam = url.searchParams.get('caps');
+          return handleSkillsCompatible(registryWithPlatforms, capsParam);
+        }
+
+        // ── Tasks ───────────────────────────────────────────────────────────
         if (path === '/v1/tasks') {
           return handleTaskList(env, url);
         }
-
         if (path === '/v1/hub/latest') {
           return handleHubLatest(env);
         }
@@ -105,42 +123,36 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
         if (taskByCodeMatch) {
           return handleTaskByCode(env, taskByCodeMatch[1]);
         }
-
         const taskByNameMatch = path.match(/^\/v1\/tasks\/by-name\/([^/]+)$/);
         if (taskByNameMatch) {
           return handleTaskByName(env, decodeURIComponent(taskByNameMatch[1]));
         }
-
         const taskGetMatch = path.match(/^\/v1\/tasks\/([^/]+)$/);
         if (taskGetMatch) {
           return handleTaskGet(env, taskGetMatch[1]);
         }
-
         const taskProgressMatch = path.match(/^\/v1\/tasks\/([^/]+)\/progress-events$/);
         if (taskProgressMatch) {
           return handleTaskProgressEvents(env, taskProgressMatch[1]);
         }
-
         const taskReadinessMatch = path.match(/^\/v1\/tasks\/([^/]+)\/readiness$/);
         if (taskReadinessMatch) {
           return handleTaskReadiness(env, taskReadinessMatch[1]);
         }
-
         const taskSnapshotByVersionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/snapshots\/([^/]+)$/);
         if (taskSnapshotByVersionMatch) {
           return handleTaskSnapshots(env, taskSnapshotByVersionMatch[1], taskSnapshotByVersionMatch[2]);
         }
-
         const taskSnapshotsMatch = path.match(/^\/v1\/tasks\/([^/]+)\/snapshots$/);
         if (taskSnapshotsMatch) {
           return handleTaskSnapshots(env, taskSnapshotsMatch[1], null);
         }
       }
 
+      // ── Mutations ─────────────────────────────────────────────────────────
       if (request.method === 'POST' && path === '/v1/execute') {
         return handleExecute(request, env);
       }
-
       if (request.method === 'POST' && path === '/v1/tasks') {
         return handleTaskCreate(request, env);
       }
@@ -149,22 +161,18 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
       if (request.method === 'POST' && taskRouteSelectionMatch) {
         return handleTaskRouteSelection(request, env, taskRouteSelectionMatch[1]);
       }
-
       const taskContinuationMatch = path.match(/^\/v1\/tasks\/([^/]+)\/continuation$/);
       if (request.method === 'POST' && taskContinuationMatch) {
         return handleTaskContinuation(request, env, taskContinuationMatch[1]);
       }
-
       const taskStatePatchMatch = path.match(/^\/v1\/tasks\/([^/]+)\/state$/);
       if (request.method === 'PATCH' && taskStatePatchMatch) {
         return handleTaskTransitionState(request, env, taskStatePatchMatch[1]);
       }
-
       const taskFindingsMatch = path.match(/^\/v1\/tasks\/([^/]+)\/findings$/);
       if (request.method === 'POST' && taskFindingsMatch) {
         return handleTaskAppendFinding(request, env, taskFindingsMatch[1]);
       }
-
       const taskFindingsTransitionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/findings\/transition$/);
       if (request.method === 'POST' && taskFindingsTransitionMatch) {
         return handleTaskTransitionFindings(request, env, taskFindingsTransitionMatch[1]);

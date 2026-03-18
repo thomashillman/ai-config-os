@@ -13,10 +13,27 @@ import { join, dirname } from 'path';
  * @param {string} opts.releaseVersion - release version from VERSION file
  * @param {object|null} [opts.provenance] - optional provenance (release mode only)
  * @param {Map<string, Map<string, object>>} [opts.compatMatrix] - Compatibility matrix
+ * @param {Map<string, object>} [opts.platformDefs] - Full platform definitions from YAML
  */
-export function emitRegistry(skills, platforms, { distDir, releaseVersion, provenance, compatMatrix }) {
+export function emitRegistry(skills, platforms, { distDir, releaseVersion, provenance, compatMatrix, platformDefs }) {
   const indexPath = join(distDir, 'registry', 'index.json');
   mkdirSync(dirname(indexPath), { recursive: true });
+
+  // Build platform_definitions block from loaded YAML definitions.
+  // This lets the Worker serve canonical capability data without YAML access.
+  const platform_definitions = {};
+  if (platformDefs) {
+    for (const [id, def] of platformDefs) {
+      platform_definitions[id] = {
+        id: def.id,
+        name: def.name || id,
+        surface: def.surface || 'unknown',
+        default_package: def.default_package || 'api',
+        capabilities: def.capabilities || {},
+        ...(def.notes ? { notes: def.notes } : {}),
+      };
+    }
+  }
 
   const index = {
     version: releaseVersion,
@@ -27,6 +44,7 @@ export function emitRegistry(skills, platforms, { distDir, releaseVersion, prove
     skill_count: skills.length,
     platform_count: platforms.length,
     platforms,
+    platform_definitions,
     skills: skills.map(s => {
       const caps = s.frontmatter.capabilities || {};
       const entry = {

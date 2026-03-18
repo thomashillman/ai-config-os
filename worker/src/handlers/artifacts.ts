@@ -158,3 +158,6 @@ export function handleSkill(skillId: string, registry: RegistryLike): Response {
     skill,
   });
 }
+
+// Capability handlers have moved to handlers/capabilities.ts
+// This file retains artifact/manifest/skill handlers only.
