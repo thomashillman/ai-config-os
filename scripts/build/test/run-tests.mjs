@@ -3,9 +3,13 @@
  * Test runner for cross-platform compatibility.
  * Discovers test files using Node.js fs module instead of shell glob patterns,
  * so it works on Windows CMD where *.test.mjs doesn't expand.
+ *
+ * Performance: pure logic tests (no dist/ interaction) run in parallel;
+ * tests that compile or read from dist/ run sequentially to avoid race conditions.
  */
-import { readdirSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
+import { cpus } from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createRequire } from 'module';
@@ -51,17 +55,55 @@ try {
   // deploy/test directory may not exist, that's ok
 }
 
-const testFiles = [...buildFiles, ...deployFiles].sort();
+const allTestFiles = [...buildFiles, ...deployFiles].sort();
 
-if (testFiles.length === 0) {
+if (allTestFiles.length === 0) {
   console.error('No test files found');
   process.exit(1);
 }
 
-// Run node --test with concurrency=1 to prevent dist/ race conditions.
-// Multiple test files compile to the same dist/ directory; parallel execution
-// causes ENOENT when one test's compile overwrites files another test is reading.
-const proc = spawn('node', ['--test', '--test-concurrency=1', ...testFiles], { stdio: 'inherit' });
-proc.on('exit', (code) => {
-  process.exitCode = code;
-});
+// Detect whether a test file writes to or reads from dist/ by scanning its content.
+// Tests that touch dist/ must run sequentially (one at a time) to prevent race
+// conditions when multiple compiles overwrite files that another test is reading.
+const DIST_PATTERN = /COMPILE_MJS|ensureFreshDist|spawnSync[^)]*compile|DIST_DIR|['"`]dist\/clients|['"`]dist\/registry|['"`]dist\/runtime/;
+
+function touchesDist(filePath) {
+  try {
+    return DIST_PATTERN.test(readFileSync(filePath, 'utf8'));
+  } catch {
+    return true; // conservative: treat unreadable files as dist-touching
+  }
+}
+
+const distTests = allTestFiles.filter(touchesDist);
+const pureTests = allTestFiles.filter(f => !touchesDist(f));
+
+// Pure tests run in parallel; cap at 4 to avoid overwhelming the test reporter
+const parallelism = Math.max(1, Math.min(cpus().length, 4));
+
+/**
+ * Run a set of test files with node --test and the given concurrency.
+ * Returns a Promise that resolves with the exit code.
+ */
+function runTestGroup(files, concurrency) {
+  return new Promise((resolve) => {
+    if (files.length === 0) {
+      resolve(0);
+      return;
+    }
+    const proc = spawn(
+      process.execPath,
+      ['--test', `--test-concurrency=${concurrency}`, ...files],
+      { stdio: 'inherit' }
+    );
+    proc.on('exit', resolve);
+  });
+}
+
+// Phase 1: run pure logic tests in parallel
+const pureExitCode = await runTestGroup(pureTests, parallelism);
+
+// Phase 2: run dist-touching tests sequentially (prevents dist/ race conditions)
+const distExitCode = await runTestGroup(distTests, 1);
+
+process.exitCode = pureExitCode !== 0 ? pureExitCode : distExitCode;

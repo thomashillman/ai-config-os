@@ -108,7 +108,7 @@ describe('selectEmittedPlatforms — pure platform selection logic', () => {
     ensureFreshDist();
 
     const indexPath = join(REGISTRY_DIR, 'index.json');
-    const indexContent = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const indexContent = readJsonCached(indexPath);
 
     // Registry should only list platforms with actual emitters
     assert.ok(Array.isArray(indexContent.platforms), 'registry.platforms should be an array');
@@ -126,10 +126,13 @@ describe('selectEmittedPlatforms — pure platform selection logic', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// Helper: Run compiler to ensure dist/ is fresh (with retry logic)
+// Helper: Run compiler to ensure dist/ is fresh — memoised (runs at most once)
 // ───────────────────────────────────────────────────────────────────────────
 
+let _distBuilt = false;
+
 function ensureFreshDist() {
+  if (_distBuilt) return;
   const result = spawnSync(process.execPath, [COMPILE_MJS], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
@@ -140,13 +143,21 @@ function ensureFreshDist() {
     console.error('Compiler stdout:', result.stdout);
     assert.equal(result.status, 0, `Compiler failed with status ${result.status}`);
   }
+  _distBuilt = true;
+  // Invalidate file and JSON caches so subsequent reads reflect the new dist/
+  _fileListCache.clear();
+  _jsonCache.clear();
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// Helper: Recursively get all files in a directory
+// Helper: Recursively get all files in a directory — cached per directory
 // ───────────────────────────────────────────────────────────────────────────
 
+// Cache: dir → string[] of absolute paths
+const _fileListCache = new Map();
+
 function getAllFilesRecursive(dir) {
+  if (_fileListCache.has(dir)) return _fileListCache.get(dir);
   const files = [];
   function walk(currentDir) {
     for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
@@ -159,7 +170,21 @@ function getAllFilesRecursive(dir) {
     }
   }
   walk(dir);
+  _fileListCache.set(dir, files);
   return files;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Helper: Parse JSON from disk — cached per file path
+// ───────────────────────────────────────────────────────────────────────────
+
+const _jsonCache = new Map();
+
+function readJsonCached(filePath) {
+  if (_jsonCache.has(filePath)) return _jsonCache.get(filePath);
+  const data = JSON.parse(readFileSync(filePath, 'utf8'));
+  _jsonCache.set(filePath, data);
+  return data;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -187,7 +212,11 @@ describe('delivery contract — directory structure', () => {
 
   test('no empty files in dist/', () => {
     const allFiles = getAllFilesRecursive(DIST_DIR);
-    const emptyFiles = allFiles.filter(f => statSync(f).size === 0);
+    // Collect sizes during a single stat pass rather than re-statting in a filter
+    const emptyFiles = [];
+    for (const f of allFiles) {
+      if (statSync(f).size === 0) emptyFiles.push(f);
+    }
     assert.equal(
       emptyFiles.length,
       0,
@@ -313,7 +342,7 @@ describe('delivery contract — plugin.json validity', () => {
 
   test('each skill in plugin.json has required fields', () => {
     const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
-    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+    const plugin = readJsonCached(pluginPath);
 
     for (const skill of plugin.skills) {
       assert.ok(skill.name, `Skill should have name: ${JSON.stringify(skill)}`);
@@ -327,7 +356,7 @@ describe('delivery contract — plugin.json validity', () => {
 
   test('all skill paths in plugin.json exist on disk', () => {
     const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
-    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+    const plugin = readJsonCached(pluginPath);
 
     for (const skill of plugin.skills) {
       const skillPath = join(CLIENTS_DIR, 'claude-code', skill.path);
@@ -365,7 +394,7 @@ describe('delivery contract — registry index.json', () => {
 
   test('registry skill_count matches actual skills', () => {
     const indexPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const registry = readJsonCached(indexPath);
 
     assert.equal(
       registry.skill_count,
@@ -376,7 +405,7 @@ describe('delivery contract — registry index.json', () => {
 
   test('registry platform_count matches actual platforms', () => {
     const indexPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const registry = readJsonCached(indexPath);
 
     assert.equal(
       registry.platform_count,
@@ -387,7 +416,7 @@ describe('delivery contract — registry index.json', () => {
 
   test('all registry skills have id and compatibility', () => {
     const indexPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const registry = readJsonCached(indexPath);
 
     for (const skill of registry.skills) {
       assert.ok(skill.id, `Skill should have id: ${JSON.stringify(skill)}`);
@@ -404,7 +433,7 @@ describe('delivery contract — registry index.json', () => {
 
   test('registry platforms list is non-empty', () => {
     const indexPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const registry = readJsonCached(indexPath);
 
     assert.ok(registry.platforms.length > 0, 'registry should list at least one platform');
     assert.ok(
@@ -415,7 +444,7 @@ describe('delivery contract — registry index.json', () => {
 
   test('registry platform_definitions includes new CI/IDE/desktop platforms', () => {
     const indexPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const registry = readJsonCached(indexPath);
 
     const defs = registry.platform_definitions || {};
     assert.ok(defs['github-actions'],  'registry must have github-actions platform definition');
@@ -427,7 +456,7 @@ describe('delivery contract — registry index.json', () => {
 
   test('registry skills each have capabilities.required array', () => {
     const indexPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+    const registry = readJsonCached(indexPath);
 
     assert.ok(Array.isArray(registry.skills), 'registry.skills must be an array');
     for (const skill of registry.skills) {
@@ -496,7 +525,7 @@ describe('delivery contract — version consistency', () => {
     for (const platform of platforms) {
       const pluginPath = join(CLIENTS_DIR, platform, '.claude-plugin', 'plugin.json');
       if (existsSync(pluginPath)) {
-        const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+        const plugin = readJsonCached(pluginPath);
         versions[platform] = plugin.version;
       }
     }
@@ -512,10 +541,10 @@ describe('delivery contract — version consistency', () => {
 
   test('registry and plugin.json versions match', () => {
     const registryPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+    const registry = readJsonCached(registryPath);
 
     const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
-    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+    const plugin = readJsonCached(pluginPath);
 
     assert.equal(
       registry.version,
@@ -532,10 +561,10 @@ describe('delivery contract — version consistency', () => {
 describe('delivery contract — reference integrity', () => {
   test('all registry skill IDs are present in plugin.json', () => {
     const registryPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+    const registry = readJsonCached(registryPath);
 
     const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
-    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+    const plugin = readJsonCached(pluginPath);
 
     const pluginSkillNames = new Set(plugin.skills.map(s => s.name));
     const registrySkillIds = new Set(registry.skills.map(s => s.id));
@@ -551,10 +580,10 @@ describe('delivery contract — reference integrity', () => {
 
   test('all plugin.json skills are in registry', () => {
     const registryPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+    const registry = readJsonCached(registryPath);
 
     const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
-    const plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+    const plugin = readJsonCached(pluginPath);
 
     const registrySkillIds = new Set(registry.skills.map(s => s.id));
 
@@ -615,7 +644,7 @@ describe('delivery contract — prompt file existence', () => {
 describe('delivery contract — build truthfulness (Slice 4)', () => {
   test('registry only lists platforms with actual emitted artefacts', () => {
     const registryPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+    const registry = readJsonCached(registryPath);
 
     // All platforms in registry.platforms should have a dist/clients/<platform> directory
     for (const platformId of registry.platforms) {
@@ -636,7 +665,7 @@ describe('delivery contract — build truthfulness (Slice 4)', () => {
 
   test('all dist/clients/<platform> directories are listed in registry', () => {
     const registryPath = join(REGISTRY_DIR, 'index.json');
-    const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
+    const registry = readJsonCached(registryPath);
 
     const emittedPlatforms = readdirSync(CLIENTS_DIR, { withFileTypes: true })
       .filter(d => d.isDirectory())

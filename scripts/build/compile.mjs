@@ -11,6 +11,7 @@
 //   node scripts/build/compile.mjs --validate-only
 
 import { readdirSync, existsSync, readFileSync, mkdirSync, rmSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -57,21 +58,36 @@ const releaseMode = process.argv.includes('--release') || process.env.AI_CONFIG_
 // Note: provenance is calculated in main() to ensure current env is used
 
 async function loadValidators() {
-  const { default: Ajv } = await import('ajv/dist/2020.js');
-  const { default: addFormats } = await import('ajv-formats');
+  // Load Ajv and schema files in parallel
+  const [
+    { default: Ajv },
+    { default: addFormats },
+    skillSchemaText,
+    platformSchemaText,
+    routeSchemaText,
+    outcomeSchemaText,
+  ] = await Promise.all([
+    import('ajv/dist/2020.js'),
+    import('ajv-formats'),
+    readFile(SCHEMA_PATH, 'utf8'),
+    readFile(PLATFORM_SCHEMA_PATH, 'utf8'),
+    readFile(ROUTE_SCHEMA_PATH, 'utf8'),
+    readFile(OUTCOME_SCHEMA_PATH, 'utf8'),
+  ]);
+
   const ajv = new Ajv({ allErrors: true, strict: false });
   addFormats(ajv);
 
-  const skillSchema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8'));
+  const skillSchema = JSON.parse(skillSchemaText);
   const skillValidator = ajv.compile(skillSchema);
 
-  const platformSchema = JSON.parse(readFileSync(PLATFORM_SCHEMA_PATH, 'utf8'));
+  const platformSchema = JSON.parse(platformSchemaText);
   const platformValidator = ajv.compile(platformSchema);
 
-  const routeSchema = JSON.parse(readFileSync(ROUTE_SCHEMA_PATH, 'utf8'));
+  const routeSchema = JSON.parse(routeSchemaText);
   const routeValidator = ajv.compile(routeSchema);
 
-  const outcomeSchema = JSON.parse(readFileSync(OUTCOME_SCHEMA_PATH, 'utf8'));
+  const outcomeSchema = JSON.parse(outcomeSchemaText);
   const outcomeValidator = ajv.compile(outcomeSchema);
 
   return { skillValidator, platformValidator, routeValidator, outcomeValidator, skillSchema };
@@ -217,12 +233,22 @@ async function main() {
     process.exit(1);
   }
 
+  // Pre-read all skill files in parallel to minimise sequential I/O
+  const skillContents = await Promise.all(
+    skillEntries.map(({ skillMdPath }) =>
+      readFile(skillMdPath, 'utf8').catch(() => null)
+    )
+  );
+  const skillContentMap = new Map(
+    skillEntries.map(({ skillMdPath }, i) => [skillMdPath, skillContents[i]])
+  );
+
   // Validate all skills
   console.log('\n[skills]');
   for (const { skillName, skillDir, skillMdPath } of skillEntries) {
     let skill;
     try {
-      skill = parseSkill(skillMdPath);
+      skill = parseSkill(skillMdPath, skillContentMap.get(skillMdPath));
       skill.skillName = skillName;
       skill.skillDir = skillDir;
     } catch (err) {

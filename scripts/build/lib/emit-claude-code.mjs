@@ -14,7 +14,7 @@
  *     skills/<skill-name>/SKILL.md
  *     skills/<skill-name>/prompts/   (if present in source)
  */
-import { mkdirSync, writeFileSync, cpSync, existsSync, readFileSync } from 'fs';
+import { mkdirSync, writeFileSync, cpSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 
 /**
@@ -63,13 +63,13 @@ function emitSkills(skills, distDir) {
     const destSkillMd = join(skillOutDir, 'SKILL.md');
     writeFileSync(destSkillMd, readSkillMd(skill));
 
-    // Copy prompts/ dir if present
+    // Copy prompts/ dir if present (use try/catch to avoid double stat)
     const promptsSrc = join(skill.skillDir, 'prompts');
     const promptsDest = join(skillOutDir, 'prompts');
-    if (existsSync(promptsSrc)) {
-      // Ensure parent of destination exists, then copy
-      mkdirSync(dirname(promptsDest), { recursive: true });
+    try {
       cpSync(promptsSrc, promptsDest, { recursive: true });
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
     }
   }
   console.log(`  [claude-code] emitted ${skills.length} skill(s) to ${distDir}/skills/`);

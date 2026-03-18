@@ -17,8 +17,12 @@ _detect_resume_task() {
       "${AI_CONFIG_WORKER}/v1/tasks?status=active&limit=1&updated_within=86400" 2>/dev/null) || true
 
     if [ -n "$response" ]; then
-      # Extract first task goal and short_code in a single node invocation
-      if command -v node &>/dev/null; then
+      # Extract first task goal and short_code using jq (avoids Node.js spawn overhead)
+      if command -v jq &>/dev/null; then
+        local _jq_filter='(if type=="array" then . elif .tasks then .tasks else [] end)[0] | (.goal // .name // .task_type // ""), (.short_code // "")'
+        task_goal=$(echo "$response" | jq -r "$_jq_filter" 2>/dev/null | head -n1) || true
+        task_code=$(echo "$response" | jq -r "$_jq_filter" 2>/dev/null | tail -n+2 | head -n1) || true
+      elif command -v node &>/dev/null; then
         _task_info=$(echo "$response" | node -e "
           let d='';
           process.stdin.resume();
@@ -104,22 +108,26 @@ fi
 
 cd "$CLAUDE_PROJECT_DIR"
 
-# --- Install dependencies ---
+# --- Install dependencies (batched into a single package-manager invocation) ---
+_missing_deps=()
 for dep in jq yq; do
-  if ! command -v "$dep" &>/dev/null; then
-    echo "Installing $dep..."
-    if command -v apt-get &>/dev/null; then
-      sudo apt-get update -qq && sudo apt-get install -y -qq "$dep" 2>/dev/null || \
-        echo "WARNING: Could not install $dep via apt-get" >&2
-    elif command -v apk &>/dev/null; then
-      apk add --no-cache "$dep" 2>/dev/null || echo "WARNING: Could not install $dep via apk" >&2
-    elif command -v brew &>/dev/null; then
-      brew install "$dep" 2>/dev/null || echo "WARNING: Could not install $dep via brew" >&2
-    else
-      echo "WARNING: Cannot install $dep — no supported package manager found" >&2
-    fi
-  fi
+  command -v "$dep" &>/dev/null || _missing_deps+=("$dep")
 done
+if [[ ${#_missing_deps[@]} -gt 0 ]]; then
+  echo "Installing ${_missing_deps[*]}..."
+  if command -v apt-get &>/dev/null; then
+    sudo apt-get update -qq && sudo apt-get install -y -qq "${_missing_deps[@]}" 2>/dev/null || \
+      echo "WARNING: Could not install ${_missing_deps[*]} via apt-get" >&2
+  elif command -v apk &>/dev/null; then
+    apk add --no-cache "${_missing_deps[@]}" 2>/dev/null || \
+      echo "WARNING: Could not install ${_missing_deps[*]} via apk" >&2
+  elif command -v brew &>/dev/null; then
+    brew install "${_missing_deps[@]}" 2>/dev/null || \
+      echo "WARNING: Could not install ${_missing_deps[*]} via brew" >&2
+  else
+    echo "WARNING: Cannot install ${_missing_deps[*]} — no supported package manager found" >&2
+  fi
+fi
 
 # --- Install Node dependencies (needed by validation scripts) ---
 if [ -f "package.json" ] && [ ! -d "node_modules" ]; then
@@ -127,10 +135,19 @@ if [ -f "package.json" ] && [ ! -d "node_modules" ]; then
   npm install --silent 2>/dev/null || echo "WARNING: npm install failed" >&2
 fi
 
-# --- Build skill distribution if absent (required for materialise extract) ---
-if [ ! -d "dist/clients/claude-code" ]; then
+# --- Build skill distribution (skipped when source is unchanged) ---
+# Cache key: git HEAD commit hash stored in .ai-config-os/build.hash
+_BUILD_HASH_FILE=".ai-config-os/build.hash"
+_CURRENT_GIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "")
+_CACHED_BUILD_HASH=$(cat "$_BUILD_HASH_FILE" 2>/dev/null || echo "")
+if [ ! -d "dist/clients/claude-code" ] || [ -z "$_CACHED_BUILD_HASH" ] || [ "$_CURRENT_GIT_HASH" != "$_CACHED_BUILD_HASH" ]; then
   echo "Building skill distribution..."
-  node scripts/build/compile.mjs 2>/dev/null || echo "WARNING: skill build failed, materialise may be incomplete" >&2
+  if node scripts/build/compile.mjs 2>/dev/null; then
+    mkdir -p "$(dirname "$_BUILD_HASH_FILE")"
+    echo "$_CURRENT_GIT_HASH" > "$_BUILD_HASH_FILE"
+  else
+    echo "WARNING: skill build failed, materialise may be incomplete" >&2
+  fi
 fi
 
 # --- Validate skill structure (non-fatal in remote) ---
