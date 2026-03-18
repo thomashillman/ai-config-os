@@ -36,6 +36,8 @@ export function jsonResponse(data: unknown, status = 200): Response {
  * Versioned cached response for immutable resources.
  * Resources with the same version hash are cached forever.
  * CORS headers are included so browsers can read these responses.
+ * @param data - JSON payload
+ * @param version - Version string used as immutable cache key
  */
 export function versionedCachedResponse(data: unknown, version: string): Response {
   const etag = `"${version}"`;
