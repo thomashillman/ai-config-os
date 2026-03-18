@@ -1331,5 +1331,262 @@ Multiple Codex-contributed branches merged to main:
 | Cursor | Emits rules | Not served | No runtime adapter | **Partial** |
 | Codex | Emits Codex package | Not served | `adapters/codex/materialise.sh` | **Partial** |
 | claude-web, claude-ios | Capability model loaded | Not served | No adapter | **Model only** |
-</content>
-</invoke>
+
+---
+
+## Surface-Aware Skill Discovery — branch `claude/list-available-skills-NSuJq`
+
+**Goal:** Claude presents only skills that work on the current surface. Detection is automatic at every session start and re-runs when the device changes. No user configuration required.
+
+**Design principles (KISS):**
+- Use existing compiled registry + existing probe output — no new runtime services
+- Each atom is independently committable and independently testable
+- Probe stays bash; filtering logic lives in the skill prompt itself
+- No new Worker endpoints; no schema changes unless essential
+- Tests are written before implementation (red → green → commit)
+
+**New surfaces discovered in documentation research (2026-03-18):**
+
+| Surface | Detection signal | Capability profile |
+|---|---|---|
+| `claude-desktop` | Desktop spawns CLI; no unique env var yet | + preview.server, + connectors, - remote by default |
+| `claude-vscode` | `VSCODE_*` env vars (e.g. `VSCODE_INJECTION`) | same as claude-code + IDE diff tools |
+| `claude-jetbrains` | `IDEA_HOME` or `JETBRAINS_TOOLBOX_*` env vars | same as claude-vscode |
+| `github-actions` | `GITHUB_ACTIONS=true` | headless CI; no user interaction |
+| `gitlab-ci` | `GITLAB_CI=true` | headless CI; `AI_FLOW_*` context vars |
+| `claude-slack` | routes to web session; no local env | treat as `claude-web` |
+| `claude-ssh` | Desktop SSH session; `SSH_CONNECTION` set | shell access; no local UI |
+
+**Probe already captures:** `platform_hint`, `surface_hint`, `hostname`, all capability results. Session-start hook already runs the probe in remote sessions. Registry already has per-platform capability definitions embedded.
+
+**What's missing (the 5 atoms):**
+
+---
+
+### Atom A — New platform YAML definitions
+
+**What:** Add 4 platform YAML files to `shared/targets/platforms/`. Follows identical schema to existing files.
+
+**Platforms to add:**
+- `github-actions.yaml` — surface: `ci-pipeline`; shell/fs/git/network supported; mcp unsupported
+- `gitlab-ci.yaml` — surface: `ci-pipeline`; same as github-actions + `AI_FLOW_*` context vars noted
+- `claude-vscode.yaml` — surface: `desktop-ide`; same as claude-code; mcp medium-confidence
+- `claude-desktop.yaml` — surface: `desktop-app`; same as claude-code + preview.server capability noted
+
+**Test first (red):** The delivery-contract suite (`scripts/build/test/delivery-contract.test.mjs`) already checks that all platform definitions used in the registry are valid. Add assertions:
+```js
+// In delivery-contract.test.mjs (add 4 new assertions)
+assert(platforms.includes('github-actions'), 'github-actions platform must exist')
+assert(platforms.includes('gitlab-ci'), 'gitlab-ci platform must exist')
+assert(platforms.includes('claude-vscode'), 'claude-vscode platform must exist')
+assert(platforms.includes('claude-desktop'), 'claude-desktop platform must exist')
+```
+
+**Implement:** Create each YAML file. Compiler picks them up automatically. Run `node scripts/build/compile.mjs`.
+
+**Verify (green):** `npm test -- scripts/build/test/delivery-contract.test.mjs` passes.
+
+**Commit:** `feat: add platform definitions for vscode, desktop, github-actions, gitlab-ci`
+
+---
+
+### Atom B — Probe detects CI and IDE surfaces
+
+**What:** Extend `detect_platform()` and `detect_surface()` in `ops/capability-probe.sh` with 5 new signals. Check CI env vars before falling back to `claude-code`.
+
+**Signals to add (in priority order, before the existing `CLAUDE_CODE_REMOTE` check):**
+```bash
+# CI surfaces — most specific signals, check first
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "github-actions"; return; fi
+if [ "${GITLAB_CI:-}" = "true" ];      then echo "gitlab-ci";      return; fi
+if [ "${CI:-}" = "true" ];             then echo "ci-generic";      return; fi
+# IDE surfaces
+if [ -n "${VSCODE_INJECTION:-}" ] || [ -n "${VSCODE_IPC_HOOK_CLI:-}" ]; then
+  echo "claude-vscode"; return
+fi
+if [ -n "${IDEA_HOME:-}" ] || [ -n "${JETBRAINS_TOOLBOX_TOOL_NAME:-}" ]; then
+  echo "claude-jetbrains"; return
+fi
+# SSH sessions
+if [ -n "${SSH_CONNECTION:-}" ] && [ -z "${CLAUDE_CODE_REMOTE:-}" ]; then
+  echo "claude-ssh"; return
+fi
+```
+
+**Surface mappings to add:**
+```bash
+github-actions)  echo "ci-pipeline" ;;
+gitlab-ci)       echo "ci-pipeline" ;;
+ci-generic)      echo "ci-pipeline" ;;
+claude-vscode)   echo "desktop-ide" ;;
+claude-jetbrains) echo "desktop-ide" ;;
+claude-ssh)      echo "remote-shell" ;;
+```
+
+**Test first (red):** New Node.js test `scripts/build/test/capability-probe-detection.test.mjs`:
+```js
+// Tests platform detection logic by running probe with mocked env vars
+// Uses process.env overrides + child_process.execFileSync with env argument
+// Asserts platform_hint and surface_hint in emitted JSON
+const probeWith = (env) => JSON.parse(
+  execFileSync('bash', ['ops/capability-probe.sh', '--quiet'], { env, encoding: 'utf8' })
+);
+assert.equal(probeWith({ ...base, GITHUB_ACTIONS: 'true' }).platform_hint, 'github-actions');
+assert.equal(probeWith({ ...base, GITLAB_CI: 'true' }).platform_hint, 'gitlab-ci');
+assert.equal(probeWith({ ...base, VSCODE_INJECTION: '1' }).platform_hint, 'claude-vscode');
+```
+
+**Verify (green):** New test passes; existing probe tests unaffected.
+
+**Commit:** `feat: probe detects CI pipelines, VS Code, JetBrains, SSH surfaces`
+
+---
+
+### Atom C — Probe runs on every session start; re-runs on device change
+
+**What:** Two changes to `.claude/hooks/session-start.sh`:
+1. Move `bash ops/capability-probe.sh --quiet` out of the `if CLAUDE_CODE_REMOTE` block — run it unconditionally
+2. Before running the probe, check if the cached report's hostname matches the current hostname; if different (device change), force re-run even if cache is fresh
+
+**Implementation (minimal diff):**
+```bash
+# After the existing remote-only block, add unconditional probe:
+CURRENT_HOSTNAME="$(hostname 2>/dev/null || echo 'unknown')"
+CACHED_HOSTNAME="$(python3 -c "import json,sys; d=json.load(open('$HOME/.ai-config-os/probe-report.json')); print(d.get('hostname',''))" 2>/dev/null || echo '')"
+
+if [ "$CURRENT_HOSTNAME" != "$CACHED_HOSTNAME" ] || [ ! -f "$HOME/.ai-config-os/probe-report.json" ]; then
+  echo "[probe] Device changed or no cache — running capability probe..."
+  bash ops/capability-probe.sh --quiet
+else
+  echo "[probe] Same device ($CURRENT_HOSTNAME) — using cached probe"
+fi
+```
+
+**Test:** This is a shell script; tested locally with `adapters/claude/dev-test.sh`. Document in test file as local-only. For CI: add a smoke-test assertion in `scripts/build/test/adapter-scripts.test.mjs` that the session-start hook file contains the hostname-check pattern.
+
+**Commit:** `feat: session-start always probes; re-probes on device change`
+
+---
+
+### Atom D — Registry emits per-skill capability requirements
+
+**What:** Add a `skills` array to `dist/registry/index.json`. Each entry: `{name, description, capabilities: {required[], optional[]}, compatible_platforms[]}`. This lets the `list-available-skills` skill do runtime filtering without re-parsing SKILL.md files.
+
+**Compiler change (`scripts/build/compile.mjs`):** After resolving compatibility, add skills array to the registry output:
+```js
+skills: parsedSkills.map(s => ({
+  name: s.skill,
+  description: s.description,
+  type: s.type,
+  status: s.status,
+  capabilities: s.capabilities ?? { required: [], optional: [] },
+  compatible_platforms: compatibilityMatrix[s.skill] ?? [],
+}))
+```
+
+**Test first (red):** Extend `scripts/build/test/delivery-contract.test.mjs`:
+```js
+assert(Array.isArray(index.skills), 'registry must have skills array')
+assert(index.skills.length > 0, 'skills array must not be empty')
+const firstSkill = index.skills[0];
+assert(firstSkill.name, 'skill must have name');
+assert(firstSkill.capabilities, 'skill must have capabilities');
+assert(Array.isArray(firstSkill.capabilities.required), 'capabilities.required must be array');
+```
+
+**Verify (green):** `npm test -- scripts/build/test/delivery-contract.test.mjs` passes.
+
+**Commit:** `feat: registry emits per-skill capability requirements for runtime filtering`
+
+---
+
+### Atom E — `list-available-skills` skill
+
+**What:** Create `shared/skills/list-available-skills/SKILL.md`. This is a prompt-type skill that:
+1. Reads `~/.ai-config-os/probe-report.json` (cached probe)
+2. Reads the cached manifest at `~/.ai-config-os/cache/claude-code/latest.json`
+3. Filters skills: `compatible` (all required caps supported), `degraded` (some optional caps missing), `unavailable` (required cap unsupported), `ci-only` (headless skills in CI surface)
+4. Presents a clean, grouped list with surface context at the top
+
+**Key surface-aware groupings:**
+- `ci-pipeline` surface: suppress interactive skills (`context-budget`, `momentum-reflect`, `plugin-setup`, `memory`); surface CI-appropriate skills first (`code-review`, `commit-conventions`, `changelog`, `pr-description`)
+- `mobile-app` / `web-app`: suppress shell-dependent skills; surface prompt-only skills
+- `desktop-cli` / `desktop-ide` / `desktop-app`: show all compatible skills
+
+**Frontmatter skeleton:**
+```yaml
+---
+skill: list-available-skills
+description: List skills available on the current surface, filtered by detected runtime capabilities.
+type: prompt
+status: stable
+capabilities:
+  required: [fs.read, env.read]
+  optional: [shell.exec]
+  fallback_mode: prompt-only
+  fallback_notes: "Without shell.exec, probe data may be stale"
+variants:
+  sonnet:
+    prompt_file: prompts/default.md
+    description: Standard skill listing
+    cost_factor: 1.0
+    latency_baseline_ms: 300
+  haiku:
+    prompt_file: prompts/brief.md
+    description: Compact listing
+    cost_factor: 0.3
+    latency_baseline_ms: 150
+  fallback_chain: [sonnet, haiku]
+version: "1.0.0"
+---
+```
+
+**Test first (red):** Delivery-contract checks new skill exists and has required frontmatter. Then structure-check test confirms prompts/ files exist.
+
+**Verify (green):** `npm test` passes. `node scripts/build/compile.mjs` emits the new skill to `dist/clients/claude-code/`.
+
+**Commit:** `feat: add list-available-skills skill with surface-aware capability filtering`
+
+---
+
+### Atom F — Compile, full test suite, push
+
+```bash
+node scripts/build/compile.mjs
+npm test
+git push -u origin claude/list-available-skills-NSuJq
+```
+
+All 70+ tests pass. The new skill is in `dist/`. The probe correctly identifies 11 surfaces. Session start always probes and re-probes on device change.
+
+---
+
+### Acceptance criteria
+
+| Check | How to verify |
+|---|---|
+| Probe detects `github-actions` surface | `GITHUB_ACTIONS=true bash ops/capability-probe.sh \| jq .platform_hint` → `"github-actions"` |
+| Probe detects `claude-vscode` surface | `VSCODE_INJECTION=1 bash ops/capability-probe.sh \| jq .platform_hint` → `"claude-vscode"` |
+| Session-start re-probes on device change | Change `hostname` in cached probe-report.json; confirm hook re-runs probe |
+| Registry has skills array | `jq '.skills \| length' dist/registry/index.json` → 27+ |
+| `list-available-skills` skill emitted | `ls dist/clients/claude-code/skills/list-available-skills/` |
+| CI surface suppresses interactive skills | Read `list-available-skills` prompt: confirm CI-mode logic present |
+| Full test suite passes | `npm test` → 0 failures |
+
+---
+
+### Updated platform maturity table
+
+| Platform | Detection | Compiler | Probe | Status |
+|---|---|---|---|---|
+| `claude-code` | env: `CLAUDE_CODE` | Full emitter | ✓ | Production |
+| `cursor` | env: `CURSOR_SESSION` | Rules emitter | ✓ | Partial |
+| `codex` | env: `CODEX_CLI` | Codex emitter | ✓ | Partial |
+| `claude-web` | entrypoint: `web` | Model only | ✓ | Model only |
+| `claude-ios` | entrypoint: `remote_mobile` | Model only | ✓ | Model only |
+| `github-actions` | env: `GITHUB_ACTIONS=true` | **Atom A** | **Atom B** | **Planned** |
+| `gitlab-ci` | env: `GITLAB_CI=true` | **Atom A** | **Atom B** | **Planned** |
+| `claude-vscode` | env: `VSCODE_INJECTION` | **Atom A** | **Atom B** | **Planned** |
+| `claude-desktop` | no unique signal yet | **Atom A** | future | **Planned** |
+| `claude-ssh` | env: `SSH_CONNECTION` | future | **Atom B** | **Planned** |
+
