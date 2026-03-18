@@ -133,14 +133,14 @@ export function handleClientLatest(client: string, registry: RegistryLike, plugi
     return notFound(`Client '${client}' not found. Available: claude-code`);
   }
 
-  return jsonResponse({
+  return versionedCachedResponse({
     version: registry.version,
     built_at: registry.built_at,
     client: 'claude-code',
     plugin_json: pluginJson,
     skills: registry.skills,
     note: 'Fetch individual skill content via GET /v1/skill/:skillId',
-  });
+  }, registry.version);
 }
 
 export function handleSkill(skillId: string, registry: RegistryLike): Response {
