@@ -1,12 +1,14 @@
 import { isAuthorized, unauthorizedResponse } from './auth';
 import { jsonResponse, notFound } from './http';
 import {
+  handleCapabilitiesForPlatform,
   handleClientLatest,
   handleEffectiveContractPreview,
   handleHealth,
   handleLatestArtifact,
   handleManifestLatest,
   handleSkill,
+  handleSkillsCompatible,
   handleVersionedArtifact,
   type RegistryLike,
 } from './handlers/artifacts';
@@ -91,6 +93,23 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
         const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);
         if (skillMatch) {
           return handleSkill(skillMatch[1], registry);
+        }
+
+        const capabilitiesMatch = path.match(/^\/v1\/capabilities\/platform\/([^/]+)$/);
+        if (capabilitiesMatch) {
+          return handleCapabilitiesForPlatform(capabilitiesMatch[1]);
+        }
+
+        if (path === '/v1/skills/compatible') {
+          const capsParam = url.searchParams.get('caps');
+          if (!capsParam) {
+            return new Response(
+              JSON.stringify({ error: 'Missing query parameter: caps' }),
+              { status: 400, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+          const capabilities = decodeURIComponent(capsParam).split(',').filter((c) => c.trim());
+          return handleSkillsCompatible(registry, capabilities);
         }
 
         if (path === '/v1/tasks') {
