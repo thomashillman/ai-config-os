@@ -288,4 +288,12 @@ describe('session-start hook — structural checks', () => {
     // extract must come after fetch
     assert.ok(extractIdx > fetchIdx, 'materialise.sh extract must be called after fetch');
   });
+
+  test('session-start calls materialise.sh install after extract', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    const extractIdx = content.indexOf('materialise.sh extract');
+    const installIdx = content.indexOf('materialise.sh install');
+    assert.ok(installIdx > -1, 'session-start.sh must call materialise.sh install');
+    assert.ok(installIdx > extractIdx, 'materialise.sh install must be called after extract');
+  });
 });

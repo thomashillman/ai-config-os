@@ -175,6 +175,12 @@ if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
     # Materialise skill files from local dist/ into cache (makes skills loadable)
     if bash ./adapters/claude/materialise.sh extract 2>/dev/null; then
       echo "Skills materialised successfully."
+      # Install skills to ~/.claude/skills for Skill tool availability
+      if bash ./adapters/claude/materialise.sh install 2>/dev/null; then
+        echo "Skills installed to ~/.claude/skills"
+      else
+        echo "WARNING: Skill installation failed. Skill tool may not work." >&2
+      fi
     else
       echo "WARNING: Skill materialise failed. Skills may be unavailable." >&2
     fi
