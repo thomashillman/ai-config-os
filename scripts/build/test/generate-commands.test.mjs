@@ -27,10 +27,11 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const GENERATE_COMMANDS = pathToFileURL(resolve(__dirname, '../../../adapters/claude/generate-commands.mjs')).href;
+// Use new URL with import.meta.url to avoid OS-specific path issues on Windows
+const GENERATE_COMMANDS = new URL('../../../adapters/claude/generate-commands.mjs', import.meta.url).href;
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
