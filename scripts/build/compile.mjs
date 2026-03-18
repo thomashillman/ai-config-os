@@ -356,7 +356,7 @@ async function main() {
   }
 
   console.log('\n[registry]');
-  emitRegistry(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix });
+  emitRegistry(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix, platformDefs: platforms });
 
   console.log('\n[runtime]');
   const { taskTypes: taskRouteDefinitions } = loadTaskRouteDefinitions(TASK_ROUTE_DEFINITIONS_PATH);

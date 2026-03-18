@@ -356,6 +356,21 @@ The compiler reads the release version from the root `VERSION` file. Local build
 
 Output: `dist/clients/<platform>/` (claude-code, cursor) + `dist/registry/index.json`
 
+The registry now includes `platform_definitions` — full capability definitions from `shared/targets/platforms/*.yaml` embedded at build time. This lets the Worker serve canonical capability data without YAML file access. See `docs/CAPABILITY_API.md`.
+
+### Capability Discovery API
+
+The Worker exposes two CORS-enabled endpoints for all platforms (web, iOS, desktop):
+
+```
+GET /v1/capabilities/platform/{platform}   → capability profile (immutable by platform)
+GET /v1/skills/compatible?caps=cap1,cap2   → filtered skills (immutable by version+caps)
+```
+
+**Reference client:** `adapters/claude/capabilities-client.mjs`
+**API docs:** `docs/CAPABILITY_API.md`
+**Web integration guide:** `docs/WEB_INTEGRATION.md`
+
 ### Skill capability contract
 Skills declare structured capability requirements in YAML frontmatter:
 
