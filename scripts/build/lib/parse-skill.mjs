@@ -9,10 +9,11 @@ const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
 /**
  * @param {string} filePath - Absolute path to SKILL.md
+ * @param {string} [content] - Pre-read file content (skips readFileSync when provided)
  * @returns {{ frontmatter: object, body: string, filePath: string }}
  */
-export function parseSkill(filePath) {
-  const raw = readFileSync(filePath, 'utf8');
+export function parseSkill(filePath, content = null) {
+  const raw = content ?? readFileSync(filePath, 'utf8');
   const match = raw.match(FRONTMATTER_RE);
 
   if (!match) {

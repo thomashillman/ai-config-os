@@ -63,7 +63,7 @@ read_cached_version() {
   fi
 
   if [[ -f "${CACHE_DIR}/latest.json" ]]; then
-    python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(d.get('version','?'))" 2>/dev/null || echo "?"
+    jq -r '.version // "?"' "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?"
     return
   fi
 
@@ -88,7 +88,7 @@ cmd_status() {
   local cached_at="(never)"
   if [[ -f "${CACHE_DIR}/latest.json" ]]; then
     cached_version=$(read_cached_version)
-    cached_at=$(python3 -c "import json; d=json.load(open('${CACHE_DIR}/latest.json')); print(d.get('built_at','?'))" 2>/dev/null || echo "?")
+    cached_at=$(jq -r '.built_at // "?"' "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?")
   fi
   echo "  Cached:  ${cached_version} (built ${cached_at})"
 
@@ -96,7 +96,7 @@ cmd_status() {
   local remote_json
   if remote_json=$(api_get /v1/health 2>/dev/null); then
     local remote_info remote_version remote_at
-    remote_info=$(echo "${remote_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('version','?')+'\t'+d.get('built_at','?'))" 2>/dev/null || echo "?\t?")
+    remote_info=$(echo "${remote_json}" | jq -r '[(.version // "?"), (.built_at // "?")] | join("\t")' 2>/dev/null || echo "?\t?")
     remote_version="${remote_info%%$'\t'*}"
     remote_at="${remote_info##*$'\t'}"
     echo "  Remote:  ${remote_version} (built ${remote_at})"
@@ -180,7 +180,7 @@ cmd_fetch() {
   if [[ "${http_status}" == "401" || "${http_status}" == "403" ]]; then
     local err_detail=""
     if [[ -s "${payload_file}" ]]; then
-      err_detail=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('hint', d.get('error','')))" "${payload_file}" 2>/dev/null || true)
+      err_detail=$(jq -r '.hint // .error // ""' "${payload_file}" 2>/dev/null || true)
     fi
     die "Authentication failed (HTTP ${http_status}). AI_CONFIG_TOKEN is not accepted by the Worker.${err_detail:+ Detail: ${err_detail}}"
   fi
@@ -194,7 +194,7 @@ cmd_fetch() {
   [[ -n "${response_etag}" ]] || die "Response missing ETag header"
 
   local version
-  version=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('version','?'))" "${payload_file}" 2>/dev/null || echo "?")
+  version=$(jq -r '.version // "?"' "${payload_file}" 2>/dev/null || echo "?")
   [[ "${version}" != "?" ]] || die "Payload missing version field"
 
   local latest_tmp="${CACHE_DIR}/latest.json.tmp"
@@ -210,7 +210,7 @@ cmd_fetch() {
   mv "${etag_tmp}" "${ETAG_FILE}"
 
   local skill_count
-  skill_count=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d.get('skills',[])))" "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?")
+  skill_count=$(jq '.skills | length' "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?")
 
   echo "Cached version: ${version}"
   echo "Skills available: ${skill_count}"
