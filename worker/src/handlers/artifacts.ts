@@ -1,4 +1,4 @@
-import { jsonResponse, notFound } from '../http';
+import { jsonResponse, notFound, versionedCachedResponse } from '../http';
 import type { Env } from '../types';
 
 export type RegistryLike = {
@@ -56,7 +56,8 @@ export function handleHealth(env: Env, registry: RegistryLike): Response {
 
 export async function handleManifestLatest(env: Env, registry: RegistryLike): Promise<Response> {
   if (!env.MANIFEST_KV || !env.ARTEFACTS_R2) {
-    return jsonResponse(registry);
+    // Fallback: return registry directly, cacheable by version
+    return versionedCachedResponse(registry, registry.version);
   }
 
   const version = await readLatestVersion(env, registry);
@@ -70,7 +71,8 @@ export async function handleManifestLatest(env: Env, registry: RegistryLike): Pr
     return manifest;
   }
 
-  return jsonResponse({ version, key, manifest });
+  // Return manifest directly with immutable cache headers
+  return versionedCachedResponse(manifest, version);
 }
 
 export async function handleVersionedArtifact(env: Env, version: string, artifactName: string): Promise<Response> {

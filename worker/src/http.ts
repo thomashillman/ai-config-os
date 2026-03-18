@@ -7,6 +7,25 @@ export function jsonResponse(data: unknown, status = 200): Response {
   });
 }
 
+/**
+ * Versioned cached response for immutable resources.
+ * Resources with the same version hash are cached forever.
+ * @param data - JSON payload
+ * @param version - Version string used as immutable cache key
+ */
+export function versionedCachedResponse(data: unknown, version: string): Response {
+  const etag = `"${version}"`;
+  return new Response(JSON.stringify(data, null, 2), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'ETag': etag,
+      'Vary': 'Accept-Encoding',
+    },
+  });
+}
+
 export function notFound(message: string): Response {
   return jsonResponse({ error: 'Not Found', message }, 404);
 }

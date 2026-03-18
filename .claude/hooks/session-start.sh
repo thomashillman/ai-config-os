@@ -131,7 +131,16 @@ echo ""
 bash ./runtime/manifest.sh status 2>/dev/null || true
 echo ""
 
-# --- Materialize skills from Worker ---
+# --- Capability probe ---
+echo "Probing runtime capabilities..."
+if bash ./ops/capability-probe.sh --quiet 2>/dev/null; then
+  echo "Capability probe complete."
+else
+  echo "WARNING: Capability probe produced warnings. Continuing anyway." >&2
+fi
+echo ""
+
+# --- Fetch latest manifest from Worker (background, non-blocking) ---
 if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
   echo "Fetching compiled skills from Worker..."
   if bash ./adapters/claude/materialise.sh fetch 2>/dev/null; then
