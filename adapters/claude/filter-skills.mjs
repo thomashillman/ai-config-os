@@ -14,7 +14,7 @@
  * All functions are pure (no side effects) except loadProbeResults / loadManifest.
  */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // ─── Default paths ────────────────────────────────────────────────────────────
@@ -60,15 +60,6 @@ const DEFAULT_MANIFEST_PATH = join(HOME, '.ai-config-os', 'cache', 'claude-code'
  *  - Cap absent from JSON → treated as unsupported (conservative)
  */
 export function loadProbeResults(probePath = DEFAULT_PROBE_PATH) {
-  if (!existsSync(probePath)) {
-    return {
-      supported: null,
-      surface_hint: 'unknown',
-      platform_hint: 'unknown',
-      warning: `Probe file not found: ${probePath}`,
-    };
-  }
-
   let data;
   try {
     data = JSON.parse(readFileSync(probePath, 'utf8'));
@@ -77,7 +68,9 @@ export function loadProbeResults(probePath = DEFAULT_PROBE_PATH) {
       supported: null,
       surface_hint: 'unknown',
       platform_hint: 'unknown',
-      warning: `Failed to parse probe file: ${err.message}`,
+      warning: err.code === 'ENOENT'
+        ? `Probe file not found: ${probePath}`
+        : `Failed to parse probe file: ${err.message}`,
     };
   }
 
@@ -103,14 +96,6 @@ export function loadProbeResults(probePath = DEFAULT_PROBE_PATH) {
  * Returns { skills[], version } or { skills: [], warning }.
  */
 export function loadManifest(manifestPath = DEFAULT_MANIFEST_PATH) {
-  if (!existsSync(manifestPath)) {
-    return {
-      skills: [],
-      version: null,
-      warning: `Manifest not found: ${manifestPath}`,
-    };
-  }
-
   let data;
   try {
     data = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -118,7 +103,9 @@ export function loadManifest(manifestPath = DEFAULT_MANIFEST_PATH) {
     return {
       skills: [],
       version: null,
-      warning: `Failed to parse manifest: ${err.message}`,
+      warning: err.code === 'ENOENT'
+        ? `Manifest not found: ${manifestPath}`
+        : `Failed to parse manifest: ${err.message}`,
     };
   }
 

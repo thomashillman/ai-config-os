@@ -16,10 +16,10 @@ _detect_resume_task() {
       --max-time 3 \
       "${AI_CONFIG_WORKER}/v1/tasks?status=active&limit=1&updated_within=86400" 2>/dev/null) || true
 
-    if [ -n "$response" ] && [ "$response" != "[]" ] && [ "$response" != '{"tasks":[]}' ]; then
-      # Extract first task goal and short_code using node (available in Claude Code envs)
+    if [ -n "$response" ]; then
+      # Extract first task goal and short_code in a single node invocation
       if command -v node &>/dev/null; then
-        task_goal=$(echo "$response" | node -e "
+        _task_info=$(echo "$response" | node -e "
           let d='';
           process.stdin.resume();
           process.stdin.on('data',c=>d+=c);
@@ -28,23 +28,15 @@ _detect_resume_task() {
               const body = JSON.parse(d);
               const tasks = body.tasks || body;
               const t = Array.isArray(tasks) ? tasks[0] : null;
-              if (t) process.stdout.write(t.goal || t.name || t.task_type || '');
+              if (t) {
+                console.log(t.goal || t.name || t.task_type || '');
+                console.log(t.short_code || '');
+              }
             } catch(e) {}
           });
         " 2>/dev/null) || true
-        task_code=$(echo "$response" | node -e "
-          let d='';
-          process.stdin.resume();
-          process.stdin.on('data',c=>d+=c);
-          process.stdin.on('end',()=>{
-            try {
-              const body = JSON.parse(d);
-              const tasks = body.tasks || body;
-              const t = Array.isArray(tasks) ? tasks[0] : null;
-              if (t) process.stdout.write(t.short_code || '');
-            } catch(e) {}
-          });
-        " 2>/dev/null) || true
+        task_goal=$(printf '%s\n' "$_task_info" | head -n1)
+        task_code=$(printf '%s\n' "$_task_info" | tail -n+2 | head -n1)
       fi
     fi
   fi
@@ -96,17 +88,14 @@ else
   echo "[probe] Same device ($CURRENT_HOSTNAME) — using cached probe"
 fi
 
-# --- Skill availability summary (non-blocking) ---
+# --- Skill availability summary + command generation (parallel, non-blocking) ---
 if command -v node &>/dev/null; then
-  node "${_PROJECT_DIR}/adapters/claude/filter-skills-cli.mjs" --summary 2>/dev/null || true
+  node "${_PROJECT_DIR}/adapters/claude/filter-skills-cli.mjs" --summary 2>/dev/null &
+  node "${_PROJECT_DIR}/adapters/claude/generate-commands.mjs" \
+    --project-dir "${_PROJECT_DIR}" 2>/dev/null &
+  wait
 fi
 echo ""
-
-# --- Generate .claude/commands/ from compiled skills (surface-aware) ---
-if command -v node &>/dev/null; then
-  node "${_PROJECT_DIR}/adapters/claude/generate-commands.mjs" \
-    --project-dir "${_PROJECT_DIR}" 2>/dev/null || true
-fi
 
 # Only run validation/sync in remote Claude Code environments
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
@@ -117,15 +106,15 @@ cd "$CLAUDE_PROJECT_DIR"
 
 # --- Install dependencies ---
 for dep in jq yq; do
-  if ! command -v $dep &>/dev/null; then
+  if ! command -v "$dep" &>/dev/null; then
     echo "Installing $dep..."
     if command -v apt-get &>/dev/null; then
-      sudo apt-get update -qq && sudo apt-get install -y -qq $dep 2>/dev/null || \
+      sudo apt-get update -qq && sudo apt-get install -y -qq "$dep" 2>/dev/null || \
         echo "WARNING: Could not install $dep via apt-get" >&2
     elif command -v apk &>/dev/null; then
-      apk add --no-cache $dep 2>/dev/null || echo "WARNING: Could not install $dep via apk" >&2
+      apk add --no-cache "$dep" 2>/dev/null || echo "WARNING: Could not install $dep via apk" >&2
     elif command -v brew &>/dev/null; then
-      brew install $dep 2>/dev/null || echo "WARNING: Could not install $dep via brew" >&2
+      brew install "$dep" 2>/dev/null || echo "WARNING: Could not install $dep via brew" >&2
     else
       echo "WARNING: Cannot install $dep — no supported package manager found" >&2
     fi
@@ -169,7 +158,6 @@ echo ""
 # --- Fetch latest manifest from Worker (background, non-blocking) ---
 if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
   echo "Fetching compiled skills from Worker..."
-  fetch_output=""
   if fetch_output=$(bash ./adapters/claude/materialise.sh fetch 2>&1); then
     echo "${fetch_output}"
     # Materialise skill files from local dist/ into cache (makes skills loadable)

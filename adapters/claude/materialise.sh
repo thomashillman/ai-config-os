@@ -95,10 +95,10 @@ cmd_status() {
   # Remote
   local remote_json
   if remote_json=$(api_get /v1/health 2>/dev/null); then
-    local remote_version
-    remote_version=$(echo "${remote_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('version','?'))" 2>/dev/null || echo "?")
-    local remote_at
-    remote_at=$(echo "${remote_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('built_at','?'))" 2>/dev/null || echo "?")
+    local remote_info remote_version remote_at
+    remote_info=$(echo "${remote_json}" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('version','?')+'\t'+d.get('built_at','?'))" 2>/dev/null || echo "?\t?")
+    remote_version="${remote_info%%$'\t'*}"
+    remote_at="${remote_info##*$'\t'}"
     echo "  Remote:  ${remote_version} (built ${remote_at})"
 
     if [[ "${cached_version}" == "${remote_version}" ]]; then
