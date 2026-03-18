@@ -31,6 +31,14 @@ log() {
 
 # Detect platform hint
 detect_platform() {
+  # CLAUDE_CODE_ENTRYPOINT is set by the Claude Code runtime to identify the originating
+  # surface. Check it first — it is more specific than the generic CLAUDE_CODE_REMOTE flag,
+  # which is true for all remote sessions regardless of client device.
+  case "${CLAUDE_CODE_ENTRYPOINT:-}" in
+    remote_mobile) echo "claude-ios"; return ;;
+    web)           echo "claude-web"; return ;;
+  esac
+
   if [ -n "${CLAUDE_CODE_REMOTE:-}" ]; then
     echo "claude-code-remote"
   elif [ -n "${CLAUDE_CODE:-}" ] || command -v claude >/dev/null 2>&1; then
@@ -46,12 +54,22 @@ detect_platform() {
 
 # Detect surface hint
 detect_surface() {
+  # CLAUDE_SURFACE allows an explicit override for surfaces that cannot be auto-detected
+  # (e.g. mobile browser on claude.ai/code, which shares the same cloud environment as
+  # desktop browser). Set CLAUDE_SURFACE=<value> as a last resort when auto-detection
+  # is wrong and no other signal is available.
+  if [ -n "${CLAUDE_SURFACE:-}" ]; then
+    echo "$CLAUDE_SURFACE"
+    return
+  fi
   local platform="$1"
   case "$platform" in
+    claude-ios)   echo "mobile-app" ;;
+    claude-web)   echo "web-app" ;;
     claude-code*) echo "desktop-cli" ;;
-    codex) echo "cloud-sandbox" ;;
-    cursor) echo "desktop-ide" ;;
-    *) echo "unknown" ;;
+    codex)        echo "cloud-sandbox" ;;
+    cursor)       echo "desktop-ide" ;;
+    *)            echo "unknown" ;;
   esac
 }
 

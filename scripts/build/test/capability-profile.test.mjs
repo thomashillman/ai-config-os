@@ -6,6 +6,7 @@ const ENV_KEYS = [
   'AI_CONFIG_OS_REMOTE_EXECUTOR_URL',
   'AI_CONFIG_OS_REMOTE_EXECUTOR_PROBE',
   'AI_CONFIG_OS_REMOTE_EXECUTOR_TIMEOUT_MS',
+  'CLAUDE_CODE_ENTRYPOINT',
 ];
 
 function withEnv(overrides, fn) {
@@ -36,6 +37,7 @@ test('buildCapabilityProfile reports local-cli mode by default', async () => {
       AI_CONFIG_OS_RUNTIME_MODE: null,
       AI_CONFIG_OS_REMOTE_EXECUTOR_URL: null,
       AI_CONFIG_OS_REMOTE_EXECUTOR_PROBE: null,
+      CLAUDE_CODE_ENTRYPOINT: null,
     },
     async () => {
       const profile = await buildCapabilityProfile();
