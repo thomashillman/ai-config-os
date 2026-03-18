@@ -184,7 +184,7 @@ cmd_fetch() {
   fi
 
   local response_etag
-  response_etag=$(awk 'BEGIN{IGNORECASE=1} /^ETag:/{etag=$0; sub(/^[^:]+:[[:space:]]*/, "", etag); gsub(/\r$/, "", etag)} END{print etag}' "${headers_file}")
+  response_etag=$(awk '/^[Ee][Tt][Aa][Gg]:/{etag=$0; sub(/^[^:]+:[[:space:]]*/, "", etag); gsub(/\r$/, "", etag)} END{print etag}' "${headers_file}")
   [[ -n "${response_etag}" ]] || die "Response missing ETag header"
 
   local version
