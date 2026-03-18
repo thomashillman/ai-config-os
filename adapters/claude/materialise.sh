@@ -4,12 +4,13 @@
 # Usage:
 #   bash adapters/claude/materialise.sh fetch      # fetch from Worker and cache metadata
 #   bash adapters/claude/materialise.sh extract    # extract emitted package to cache
+#   bash adapters/claude/materialise.sh bootstrap  # fetch complete package from Worker, extract, install (fast path)
 #   bash adapters/claude/materialise.sh install    # install cached skills to ~/.claude/skills
 #   bash adapters/claude/materialise.sh status     # show cache vs remote versions
 #   bash adapters/claude/materialise.sh help       # show this help
 #
 # Environment variables:
-#   AI_CONFIG_TOKEN   - Bearer token for the Worker API (optional for extract command)
+#   AI_CONFIG_TOKEN   - Bearer token for the Worker API (required for fetch/bootstrap)
 #   AI_CONFIG_WORKER  - Worker base URL (default: https://ai-config-os.workers.dev)
 #   AI_CONFIG_PACKAGE - Package path for extract command (default: ./dist/clients/claude-code/)
 #
@@ -18,6 +19,7 @@
 # Commands:
 #   fetch         Fetch skill metadata from remote Worker (requires AI_CONFIG_TOKEN)
 #   extract       Extract/materialize local emitted package (Node.js API)
+#   bootstrap     Fast path: fetch complete package from Worker, extract, install (requires AI_CONFIG_TOKEN)
 #   install       Install cached skills to ~/.claude/skills (idempotent with version check)
 #   status        Compare cached vs remote versions
 #   help          Show this help text
@@ -248,6 +250,55 @@ cmd_extract() {
   node "${materialiser_cli}" "${resolved_package}" --dest "${CACHE_DIR}" --verbose
 }
 
+cmd_bootstrap() {
+  require_token
+
+  mkdir -p "${CACHE_DIR}"
+
+  # 1. Fetch full package from Worker (with all skill file contents embedded)
+  local package_json
+  if ! package_json=$(api_get /v1/client/claude-code/package); then
+    die "Failed to fetch skills package from Worker. Check token and network."
+  fi
+
+  # 2. Extract version and validate
+  local version
+  version=$(echo "${package_json}" | node -e "
+    let d=''; process.stdin.resume();
+    process.stdin.on('data',c=>d+=c);
+    process.stdin.on('end',()=>{ try { console.log(JSON.parse(d).version||''); } catch(e){} });
+  " <<< "${package_json}" 2>/dev/null) || true
+
+  if [[ -z "${version}" ]]; then
+    die "Invalid package response from Worker (no version field)"
+  fi
+
+  # 3. Check idempotence: if version already installed, skip extraction
+  if [[ -f "${VERSION_FILE}" ]]; then
+    local cached_version
+    cached_version=$(cat "${VERSION_FILE}")
+    if [[ "${cached_version}" == "${version}" ]]; then
+      echo "Skills already up to date (version ${version})."
+      # Still run install to ensure ~/.claude/skills is populated (in case it was deleted)
+      # (install is idempotent, so this is safe)
+    fi
+  fi
+
+  # 4. Extract skill files from JSON package
+  if ! echo "${package_json}" | node "$(dirname "$0")/lib/extract-package.mjs" "${CACHE_DIR}"; then
+    die "Failed to extract package from Worker response"
+  fi
+
+  # 5. Write version marker
+  mkdir -p "${CACHE_DIR}"
+  printf '%s' "${version}" > "${VERSION_FILE}"
+
+  echo "Package extracted from Worker (version ${version})."
+
+  # 6. Install to ~/.claude/skills for slash command discovery
+  cmd_install
+}
+
 cmd_install() {
   local skills_dir="${HOME}/.claude/skills"
   local version_marker="${skills_dir}/.version"
@@ -304,9 +355,10 @@ cmd_install() {
 case "${CMD}" in
   fetch)      cmd_fetch ;;
   extract)    cmd_extract ;;
+  bootstrap)  cmd_bootstrap ;;
   install)    cmd_install ;;
   status)     cmd_status ;;
   help|--help|-h) cmd_help ;;
   "")         cmd_fetch ;; # default: fetch
-  *)          die "Unknown command: ${CMD}. Try: fetch, extract, install, status, help" ;;
+  *)          die "Unknown command: ${CMD}. Try: fetch, bootstrap, extract, install, status, help" ;;
 esac

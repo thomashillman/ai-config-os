@@ -161,5 +161,50 @@ export function handleSkill(skillId: string, registry: RegistryLike): Response {
   });
 }
 
+/**
+ * Serve complete skills package (file contents embedded) from KV.
+ * Used by materialise.sh bootstrap for fast session startup.
+ * KV key: claude-code-package:latest or claude-code-package:<version>
+ */
+export async function handleClientPackage(client: string, env: Env): Promise<Response> {
+  if (client !== 'claude-code') {
+    return notFound(`Client '${client}' not found. Available: claude-code`);
+  }
+
+  if (!env.MANIFEST_KV) {
+    return jsonResponse({ error: 'Skills package storage not configured' }, 503);
+  }
+
+  // Fetch from KV: skills package with all file contents embedded
+  const pkg = await env.MANIFEST_KV.get('claude-code-package:latest');
+
+  if (!pkg) {
+    return notFound(
+      'Skills package not found. Trigger a release build to populate KV.'
+    );
+  }
+
+  // Parse and validate
+  let pkgData;
+  try {
+    pkgData = JSON.parse(pkg);
+  } catch (err) {
+    return jsonResponse(
+      { error: 'Skills package contains invalid JSON' },
+      502
+    );
+  }
+
+  if (!pkgData.version || !pkgData.skills) {
+    return jsonResponse(
+      { error: 'Skills package missing required fields (version, skills)' },
+      502
+    );
+  }
+
+  // Return with immutable cache headers (version is immutable by contract)
+  return versionedCachedResponse(pkgData, pkgData.version);
+}
+
 // Capability handlers have moved to handlers/capabilities.ts
 // This file retains artifact/manifest/skill handlers only.

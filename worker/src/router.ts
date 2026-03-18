@@ -2,6 +2,7 @@ import { isAuthorized, unauthorizedResponse } from './auth';
 import { jsonResponse, notFound, corsPreflightResponse } from './http';
 import {
   handleClientLatest,
+  handleClientPackage,
   handleEffectiveContractPreview,
   handleHealth,
   handleLatestArtifact,
@@ -93,6 +94,11 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
         const clientMatch = path.match(/^\/v1\/client\/([^/]+)\/latest$/);
         if (clientMatch) {
           return handleClientLatest(clientMatch[1], registry, pluginJson);
+        }
+
+        const clientPackageMatch = path.match(/^\/v1\/client\/([^/]+)\/package$/);
+        if (clientPackageMatch) {
+          return handleClientPackage(clientPackageMatch[1], env);
         }
 
         const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);

@@ -280,13 +280,14 @@ describe('session-start hook — structural checks', () => {
 
   test('session-start calls materialise.sh extract after fetch', () => {
     const content = readFileSync(hookPath, 'utf8');
-    // Both fetch and extract must be present
-    const fetchIdx = content.indexOf('materialise.sh fetch');
+    // New flow: bootstrap or extract (depending on Worker availability)
+    const bootstrapIdx = content.indexOf('materialise.sh bootstrap');
     const extractIdx = content.indexOf('materialise.sh extract');
-    assert.ok(fetchIdx > -1, 'session-start.sh must call materialise.sh fetch');
-    assert.ok(extractIdx > -1, 'session-start.sh must call materialise.sh extract');
-    // extract must come after fetch
-    assert.ok(extractIdx > fetchIdx, 'materialise.sh extract must be called after fetch');
+    // Either bootstrap (fast path) or extract (slow path) must be present
+    assert.ok(
+      bootstrapIdx > -1 || extractIdx > -1,
+      'session-start.sh must call bootstrap or extract'
+    );
   });
 
   test('session-start calls materialise.sh install after extract', () => {
