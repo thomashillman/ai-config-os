@@ -17,12 +17,14 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { resolve, dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT  = resolve(__dirname, '../../..');
 const MODULE_PATH = join(REPO_ROOT, 'adapters', 'claude', 'filter-skills.mjs');
 
-// Import module under test
+// Import module under test — use pathToFileURL for Windows compatibility
+// (bare path strings with drive letters fail on Windows in import())
 const {
   classifySkill,
   classifyAll,
@@ -31,7 +33,7 @@ const {
   filterSkills,
   formatSummary,
   formatText,
-} = await import(MODULE_PATH);
+} = await import(pathToFileURL(MODULE_PATH).href);
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
