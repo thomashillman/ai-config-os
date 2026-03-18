@@ -95,6 +95,11 @@ if [ "$CURRENT_HOSTNAME" != "$CACHED_HOSTNAME" ] || [ ! -f "$PROBE_CACHE" ]; the
 else
   echo "[probe] Same device ($CURRENT_HOSTNAME) — using cached probe"
 fi
+
+# --- Skill availability summary (non-blocking) ---
+if command -v node &>/dev/null; then
+  node "${_PROJECT_DIR}/adapters/claude/filter-skills-cli.mjs" --summary 2>/dev/null || true
+fi
 echo ""
 
 # Only run validation/sync in remote Claude Code environments
