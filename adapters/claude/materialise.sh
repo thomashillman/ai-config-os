@@ -32,8 +32,12 @@ VERSION_FILE="${CACHE_DIR}/latest.version"
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
-_CLEANUP_FILES=()
-_cleanup() { rm -f "${_CLEANUP_FILES[@]}" 2>/dev/null || true; }
+declare -a _CLEANUP_FILES=()
+_cleanup() {
+  if [[ ${#_CLEANUP_FILES[@]} -gt 0 ]]; then
+    rm -f "${_CLEANUP_FILES[@]}" 2>/dev/null || true
+  fi
+}
 trap '_cleanup' EXIT
 
 die() { echo "ERROR: $*" >&2; exit 1; }
