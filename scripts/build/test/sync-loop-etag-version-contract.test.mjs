@@ -30,5 +30,6 @@ test('sync loop contract: cached payload is persisted to latest.json', () => {
 test('sync loop contract: version is read from cached payload', () => {
   const script = readFileSync(join(REPO_ROOT, 'adapters', 'claude', 'materialise.sh'), 'utf8');
 
-  assert.match(script, /print\(d\.get\('version','\?'\)\)/);
+  // Version is now extracted with jq instead of python3
+  assert.match(script, /jq -r '\.version/);
 });

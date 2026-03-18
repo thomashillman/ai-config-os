@@ -418,11 +418,13 @@ test('assertRuntimePrereqsWith passes when bash check succeeds', async () => {
 test('assertRuntimePrereqsWith throws helpful error when bash unavailable', async () => {
   const { assertRuntimePrereqsWith } = await import('../../../runtime/mcp/runtime-prereqs.mjs');
 
+  // Pass 'local-cli' explicitly so the test is independent of the runtime environment
+  // (AI_CONFIG_OS_REMOTE_EXECUTOR_URL / AI_CONFIG_OS_RUNTIME_MODE env vars).
   assert.throws(
     () => {
       assertRuntimePrereqsWith(() => {
         throw new Error('spawn failed');
-      });
+      }, 'local-cli');
     },
     /runtime requires bash on PATH/
   );
@@ -433,10 +435,12 @@ test('assertRuntimePrereqsWith checks bash using expected invocation', async () 
 
   let captured = null;
 
+  // Pass 'local-cli' explicitly so the test captures the exec invocation regardless
+  // of environment variables that might select a different runtime mode.
   assertRuntimePrereqsWith((cmd, args, opts) => {
     captured = { cmd, args, opts };
     return '';
-  });
+  }, 'local-cli');
 
   assert.equal(captured.cmd, 'bash');
   assert.deepEqual(captured.args, ['-lc', 'command -v bash']);
