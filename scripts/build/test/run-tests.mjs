@@ -62,21 +62,26 @@ if (allTestFiles.length === 0) {
   process.exit(1);
 }
 
-// Detect whether a test file writes to or reads from dist/ by scanning its content.
-// Tests that touch dist/ must run sequentially (one at a time) to prevent race
-// conditions when multiple compiles overwrite files that another test is reading.
-const DIST_PATTERN = /COMPILE_MJS|ensureFreshDist|spawnSync[^)]*compile|DIST_DIR|['"`]dist\/clients|['"`]dist\/registry|['"`]dist\/runtime/;
+// Narrow pattern: tests that INVOKE THE COMPILER (write to dist/).
+// Only these need sequential execution — they re-compile, which overwrites
+// files that concurrent tests might be reading.
+const DIST_WRITE_PATTERN = /COMPILE_MJS|ensureFreshDist|spawnSync[^)]*compile/;
 
-function touchesDist(filePath) {
+// Broad pattern: tests that read OR write dist/ (superset of DIST_WRITE_PATTERN).
+// Read-only dist tests (matching broad but not narrow) can safely run in parallel
+// because the pretest build has already produced a stable dist/ snapshot.
+const DIST_READ_PATTERN = /DIST_DIR|['"`]dist\/clients|['"`]dist\/registry|['"`]dist\/runtime/;
+
+function writesToDist(filePath) {
   try {
-    return DIST_PATTERN.test(readFileSync(filePath, 'utf8'));
+    return DIST_WRITE_PATTERN.test(readFileSync(filePath, 'utf8'));
   } catch {
-    return true; // conservative: treat unreadable files as dist-touching
+    return true; // conservative: treat unreadable files as compiler-invoking
   }
 }
 
-const distTests = allTestFiles.filter(touchesDist);
-const pureTests = allTestFiles.filter(f => !touchesDist(f));
+const distTests = allTestFiles.filter(writesToDist);
+const pureTests = allTestFiles.filter(f => !writesToDist(f));
 
 // Pure tests run in parallel; cap at 4 to avoid overwhelming the test reporter
 const parallelism = Math.max(1, Math.min(cpus().length, 4));
