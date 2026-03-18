@@ -1,0 +1,67 @@
+id: claude-vscode
+name: Claude in VS Code
+surface: desktop-ide
+default_package: skill
+
+capabilities:
+  fs.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+  fs.write:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+  shell.exec:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+  shell.long-running:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+  git.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+  git.write:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+  network.http:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+  browser.fetch:
+    status: unsupported
+    confidence: high
+    source: vendor-doc
+  mcp.client:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: vendor-doc
+  env.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+  secrets.inject:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: inference
+  ui.prompt-only:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: manual-test
+
+notes: Claude Code running inside VS Code extension. Same capability profile as claude-code plus IDE diff context. Detection signals are VSCODE_INJECTION or VSCODE_IPC_HOOK_CLI env vars.

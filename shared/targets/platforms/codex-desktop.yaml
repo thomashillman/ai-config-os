@@ -1,0 +1,64 @@
+id: codex-desktop
+name: Codex Desktop
+surface: desktop-app
+default_package: file
+
+capabilities:
+  fs.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: vendor-doc
+  fs.write:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: vendor-doc
+  shell.exec:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: vendor-doc
+  shell.long-running:
+    status: unknown
+    confidence: low
+    source: inference
+  git.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: vendor-doc
+  git.write:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: vendor-doc
+  network.http:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: vendor-doc
+  browser.fetch:
+    status: unsupported
+    confidence: medium
+    source: inference
+  mcp.client:
+    status: unsupported
+    confidence: medium
+    source: vendor-doc
+  env.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: medium
+    source: vendor-doc
+  secrets.inject:
+    status: unknown
+    confidence: low
+    source: inference
+  ui.prompt-only:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+
+notes: Codex Desktop App (Windows/macOS). Runs in isolated worktrees; supports parallel agents. No MCP client support. Distinct from codex (CLI/cloud-sandbox) which uses CODEX_CLI or CODEX_SURFACE=cli. Detection signal is CODEX_SURFACE=desktop env var set by Codex runtime.

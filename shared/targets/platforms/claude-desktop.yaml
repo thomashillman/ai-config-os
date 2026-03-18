@@ -1,0 +1,67 @@
+id: claude-desktop
+name: Claude Desktop
+surface: desktop-app
+default_package: skill
+
+capabilities:
+  fs.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  fs.write:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  shell.exec:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  shell.long-running:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  git.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  git.write:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  network.http:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  browser.fetch:
+    status: unsupported
+    confidence: high
+    source: vendor-doc
+  mcp.client:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  env.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  secrets.inject:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  ui.prompt-only:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+
+notes: Claude Desktop App (macOS/Windows). Full local capability profile. No unique runtime env var — surface detection is compile-time only via package selection. preview.server capability status unknown.
