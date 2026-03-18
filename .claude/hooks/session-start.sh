@@ -102,6 +102,12 @@ if command -v node &>/dev/null; then
 fi
 echo ""
 
+# --- Generate .claude/commands/ from compiled skills (surface-aware) ---
+if command -v node &>/dev/null; then
+  node "${_PROJECT_DIR}/adapters/claude/generate-commands.mjs" \
+    --project-dir "${_PROJECT_DIR}" 2>/dev/null || true
+fi
+
 # Only run validation/sync in remote Claude Code environments
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0

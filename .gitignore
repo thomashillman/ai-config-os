@@ -16,6 +16,10 @@ Thumbs.db
 shared/test-results/
 ~/.claude/skill-analytics/
 
+# Generated commands (surface-aware skills materialized to .claude/commands/)
+.claude/commands/*.md
+.claude/commands/.generated-skills.json
+
 # Runtime: machine-specific and project-local config
 runtime/config/machines/*.yaml
 runtime/config/project.yaml
