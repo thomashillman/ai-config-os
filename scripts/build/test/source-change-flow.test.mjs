@@ -54,7 +54,9 @@ test('Source Change Flow', async (t) => {
   });
 
   await t.test('should have content hash consistency (same source → same dist file)', () => {
-    // For each skill, verify that the content in dist/ matches what was in shared/skills/
+    // For each skill, verify that the content in dist/ matches source with
+    // the expected `name:` injection (claude-code emitter injects name: for
+    // slash-command discovery).
     const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
 
     manifest.skills.forEach(skill => {
@@ -64,10 +66,20 @@ test('Source Change Flow', async (t) => {
       const sourceContent = readFileSync(sourceFile, 'utf8');
       const distContent = readFileSync(distFile, 'utf8');
 
+      // The emitter injects `name: <skill-name>` after the opening `---`
+      // delimiter if the source doesn't already have a `name:` field.
+      // Compute the expected output and compare.
+      const hasName = /^---[\s\S]*?\nname:\s/m.test(
+        sourceContent.slice(0, sourceContent.indexOf('\n---\n', 4) + 5)
+      );
+      const expectedContent = hasName
+        ? sourceContent
+        : sourceContent.replace(/^---\n/, `---\nname: ${skill.name}\n`);
+
       assert.equal(
-        sourceContent,
         distContent,
-        `${skill.name}/SKILL.md content must be identical between source and dist/`
+        expectedContent,
+        `${skill.name}/SKILL.md content must match source with expected name: injection`
       );
     });
   });

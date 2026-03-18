@@ -272,15 +272,23 @@ cmd_install() {
   # Ensure destination directory exists
   mkdir -p "${skills_dir}"
 
-  # Copy skill directories from cache to ~/.claude/skills
+  # Copy individual skill directories from cache to ~/.claude/skills
+  # The materialiser extracts to ${CACHE_DIR}/skills/<skill-name>/.
+  # We install each skill directly to ~/.claude/skills/<skill-name>/
+  # so Claude Code discovers them as slash commands.
+  local cache_skills_dir="${CACHE_DIR}/skills"
+  if [[ ! -d "${cache_skills_dir}" ]]; then
+    die "No skills directory found in cache. Run 'bash adapters/claude/materialise.sh extract' first."
+  fi
+
   echo "Installing skills to ${skills_dir}..."
-  for skill_dir in "${CACHE_DIR}"/*; do
-    if [[ -d "${skill_dir}" && "$(basename "${skill_dir}")" != "latest.json" ]]; then
+  for skill_dir in "${cache_skills_dir}"/*; do
+    if [[ -d "${skill_dir}" ]]; then
       local skill_name
       skill_name=$(basename "${skill_dir}")
       echo "  Installing: ${skill_name}"
       rm -rf "${skills_dir:?}/${skill_name}"
-      cp -r "${skill_dir}" "${skills_dir}/"
+      cp -r "${skill_dir}" "${skills_dir}/${skill_name}"
     fi
   done
 

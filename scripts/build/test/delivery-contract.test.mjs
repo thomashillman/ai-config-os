@@ -247,6 +247,48 @@ describe('delivery contract — distributed SKILL.md files', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// Test Group 2b: Claude Code skill discovery — `name:` field injection
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — claude-code skill discovery', () => {
+  test('all claude-code SKILL.md files have name: field for slash-command discovery', () => {
+    const claudeCodeSkillsDir = join(CLIENTS_DIR, 'claude-code', 'skills');
+    if (!existsSync(claudeCodeSkillsDir)) return;
+
+    const skillFiles = getAllFilesRecursive(claudeCodeSkillsDir).filter(f => f.endsWith('SKILL.md'));
+    assert.ok(skillFiles.length > 0, 'Should have at least one claude-code SKILL.md');
+
+    for (const skillPath of skillFiles) {
+      const { frontmatter } = parseSkill(skillPath);
+      assert.ok(
+        frontmatter.name,
+        `${relative(DIST_DIR, skillPath)}: must have 'name' field for Claude Code discovery`
+      );
+      assert.ok(
+        /^[a-z][a-z0-9-]*$/.test(frontmatter.name),
+        `${relative(DIST_DIR, skillPath)}: name '${frontmatter.name}' must be kebab-case`
+      );
+    }
+  });
+
+  test('name: field matches skill: field in all claude-code SKILL.md files', () => {
+    const claudeCodeSkillsDir = join(CLIENTS_DIR, 'claude-code', 'skills');
+    if (!existsSync(claudeCodeSkillsDir)) return;
+
+    const skillFiles = getAllFilesRecursive(claudeCodeSkillsDir).filter(f => f.endsWith('SKILL.md'));
+
+    for (const skillPath of skillFiles) {
+      const { frontmatter } = parseSkill(skillPath);
+      assert.equal(
+        frontmatter.name,
+        frontmatter.skill,
+        `${relative(DIST_DIR, skillPath)}: name '${frontmatter.name}' should match skill '${frontmatter.skill}'`
+      );
+    }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // Test Group 3: Plugin.json validity
 // ───────────────────────────────────────────────────────────────────────────
 

@@ -12,6 +12,11 @@
       "description": "Stable machine identifier for the skill (kebab-case)",
       "pattern": "^[a-z][a-z0-9-]*$"
     },
+    "name": {
+      "type": "string",
+      "description": "Display name used by Claude Code for slash-command discovery. Auto-injected from 'skill' during emission if not set.",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
     "version": {
       "type": "string",
       "description": "Semver version string",
