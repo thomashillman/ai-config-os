@@ -21,7 +21,8 @@ export async function readLatestVersion(env: Env, registry: RegistryLike): Promi
 
   const version = await env.MANIFEST_KV.get('latest');
   if (typeof version !== 'string' || version.length === 0) {
-    return jsonResponse({ error: 'Latest manifest version pointer missing' }, 503);
+    // Fallback to registry version if 'latest' key is missing in KV
+    return registry.version;
   }
 
   return version;
@@ -67,8 +68,9 @@ export async function handleManifestLatest(env: Env, registry: RegistryLike): Pr
 
   const key = `manifests/${version}/manifest.json`;
   const manifest = await readArtifactJson(env, key);
+  // If artifact fetch fails, fall back to registry version
   if (manifest instanceof Response) {
-    return manifest;
+    return versionedCachedResponse(registry, registry.version);
   }
 
   // Return manifest directly with immutable cache headers
