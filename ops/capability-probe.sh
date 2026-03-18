@@ -39,6 +39,30 @@ detect_platform() {
     web)           echo "claude-web"; return ;;
   esac
 
+  # Codex Desktop App — CODEX_SURFACE is set by Codex runtime; check before CODEX_CLI
+  case "${CODEX_SURFACE:-}" in
+    desktop) echo "codex-desktop"; return ;;
+    cli)     echo "codex";         return ;;
+  esac
+
+  # CI surfaces — check before generic env var heuristics
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "github-actions"; return; fi
+  if [ "${GITLAB_CI:-}" = "true" ];      then echo "gitlab-ci";      return; fi
+  if [ "${CI:-}" = "true" ];             then echo "ci-generic";      return; fi
+
+  # IDE surfaces (after CI — avoid misidentifying CI runners with IDE vars)
+  if [ -n "${VSCODE_INJECTION:-}" ] || [ -n "${VSCODE_IPC_HOOK_CLI:-}" ]; then
+    echo "claude-vscode"; return
+  fi
+  if [ -n "${IDEA_HOME:-}" ] || [ -n "${JETBRAINS_TOOLBOX_TOOL_NAME:-}" ]; then
+    echo "claude-jetbrains"; return
+  fi
+
+  # SSH sessions without CLAUDE_CODE_REMOTE (broadest signal — check last)
+  if [ -n "${SSH_CONNECTION:-}" ] && [ -z "${CLAUDE_CODE_REMOTE:-}" ]; then
+    echo "claude-ssh"; return
+  fi
+
   if [ -n "${CLAUDE_CODE_REMOTE:-}" ]; then
     echo "claude-code-remote"
   elif [ -n "${CLAUDE_CODE:-}" ] || command -v claude >/dev/null 2>&1; then
@@ -64,12 +88,16 @@ detect_surface() {
   fi
   local platform="$1"
   case "$platform" in
-    claude-ios)   echo "mobile-app" ;;
-    claude-web)   echo "web-app" ;;
-    claude-code*) echo "desktop-cli" ;;
-    codex)        echo "cloud-sandbox" ;;
-    cursor)       echo "desktop-ide" ;;
-    *)            echo "unknown" ;;
+    claude-ios)            echo "mobile-app" ;;
+    claude-web)            echo "web-app" ;;
+    claude-code*)          echo "desktop-cli" ;;
+    codex)                 echo "cloud-sandbox" ;;
+    codex-desktop)         echo "desktop-app" ;;
+    cursor)                echo "desktop-ide" ;;
+    github-actions|gitlab-ci|ci-generic) echo "ci-pipeline" ;;
+    claude-vscode|claude-jetbrains)      echo "desktop-ide" ;;
+    claude-ssh)            echo "remote-shell" ;;
+    *)                     echo "unknown" ;;
   esac
 }
 
