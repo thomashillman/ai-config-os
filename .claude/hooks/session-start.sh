@@ -132,6 +132,12 @@ if [ -f "package.json" ] && [ ! -d "node_modules" ]; then
   npm install --silent 2>/dev/null || echo "WARNING: npm install failed" >&2
 fi
 
+# --- Build skill distribution if absent (required for materialise extract) ---
+if [ ! -d "dist/clients/claude-code" ]; then
+  echo "Building skill distribution..."
+  node scripts/build/compile.mjs 2>/dev/null || echo "WARNING: skill build failed, materialise may be incomplete" >&2
+fi
+
 # --- Validate skill structure (non-fatal in remote) ---
 echo "Running skill validation suite..."
 if ./ops/validate-all.sh 2>/dev/null; then
@@ -160,7 +166,12 @@ if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
   fetch_output=""
   if fetch_output=$(bash ./adapters/claude/materialise.sh fetch 2>&1); then
     echo "${fetch_output}"
-    echo "Skills cached and ready for use."
+    # Materialise skill files from local dist/ into cache (makes skills loadable)
+    if bash ./adapters/claude/materialise.sh extract 2>/dev/null; then
+      echo "Skills materialised successfully."
+    else
+      echo "WARNING: Skill materialise failed. Skills may be unavailable." >&2
+    fi
   else
     echo "WARNING: Skill fetch failed. ${fetch_output}"
   fi
