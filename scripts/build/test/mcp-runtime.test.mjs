@@ -420,9 +420,11 @@ test('assertRuntimePrereqsWith throws helpful error when bash unavailable', asyn
 
   assert.throws(
     () => {
+      // Pass explicit runtimeMode to bypass environment's runtime detection
+      // (ensures bash check runs regardless of CLAUDE_CODE_ENTRYPOINT)
       assertRuntimePrereqsWith(() => {
         throw new Error('spawn failed');
-      });
+      }, 'local-cli');
     },
     /runtime requires bash on PATH/
   );
@@ -433,10 +435,12 @@ test('assertRuntimePrereqsWith checks bash using expected invocation', async () 
 
   let captured = null;
 
+  // Pass explicit runtimeMode to bypass environment's runtime detection
+  // (ensures bash check runs regardless of CLAUDE_CODE_ENTRYPOINT)
   assertRuntimePrereqsWith((cmd, args, opts) => {
     captured = { cmd, args, opts };
     return '';
-  });
+  }, 'local-cli');
 
   assert.equal(captured.cmd, 'bash');
   assert.deepEqual(captured.args, ['-lc', 'command -v bash']);
