@@ -108,58 +108,85 @@ fi
 
 cd "$CLAUDE_PROJECT_DIR"
 
-# --- Install dependencies (batched into a single package-manager invocation) ---
-_missing_deps=()
-for dep in jq yq; do
-  command -v "$dep" &>/dev/null || _missing_deps+=("$dep")
-done
-if [[ ${#_missing_deps[@]} -gt 0 ]]; then
-  echo "Installing ${_missing_deps[*]}..."
-  if command -v apt-get &>/dev/null; then
-    sudo apt-get update -qq && sudo apt-get install -y -qq "${_missing_deps[@]}" 2>/dev/null || \
-      echo "WARNING: Could not install ${_missing_deps[*]} via apt-get" >&2
-  elif command -v apk &>/dev/null; then
-    apk add --no-cache "${_missing_deps[@]}" 2>/dev/null || \
-      echo "WARNING: Could not install ${_missing_deps[*]} via apk" >&2
-  elif command -v brew &>/dev/null; then
-    brew install "${_missing_deps[@]}" 2>/dev/null || \
-      echo "WARNING: Could not install ${_missing_deps[*]} via brew" >&2
-  else
-    echo "WARNING: Cannot install ${_missing_deps[*]} — no supported package manager found" >&2
+# --- FAST PATH: Bootstrap skills from Worker (skips npm/build/validate) ---
+_BOOTSTRAP_OK=false
+if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
+  echo "Attempting fast-path: bootstrap skills from Worker..."
+  if bash ./adapters/claude/materialise.sh bootstrap 2>/dev/null; then
+    _BOOTSTRAP_OK=true
+    echo "Skills bootstrapped from Worker in <10s."
   fi
 fi
 
-# --- Install Node dependencies (needed by validation scripts) ---
-if [ -f "package.json" ] && [ ! -d "node_modules" ]; then
-  echo "Installing npm dependencies..."
-  npm install --silent 2>/dev/null || echo "WARNING: npm install failed" >&2
-fi
+# --- SLOW PATH: Local build (fallback when bootstrap unavailable) ---
+if [ "$_BOOTSTRAP_OK" != "true" ]; then
+  echo "[fallback] Worker unavailable; using local skills cache" >&2
 
-# --- Build skill distribution (skipped when source is unchanged) ---
-# Cache key: git HEAD commit hash stored in .ai-config-os/build.hash
-_BUILD_HASH_FILE=".ai-config-os/build.hash"
-_CURRENT_GIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "")
-_CACHED_BUILD_HASH=$(cat "$_BUILD_HASH_FILE" 2>/dev/null || echo "")
-if [ ! -d "dist/clients/claude-code" ] || [ -z "$_CACHED_BUILD_HASH" ] || [ "$_CURRENT_GIT_HASH" != "$_CACHED_BUILD_HASH" ]; then
-  echo "Building skill distribution..."
-  if node scripts/build/compile.mjs 2>/dev/null; then
-    mkdir -p "$(dirname "$_BUILD_HASH_FILE")"
-    echo "$_CURRENT_GIT_HASH" > "$_BUILD_HASH_FILE"
+  # --- Install dependencies (batched into a single package-manager invocation) ---
+  _missing_deps=()
+  for dep in jq yq; do
+    command -v "$dep" &>/dev/null || _missing_deps+=("$dep")
+  done
+  if [[ ${#_missing_deps[@]} -gt 0 ]]; then
+    echo "Installing ${_missing_deps[*]}..."
+    if command -v apt-get &>/dev/null; then
+      sudo apt-get update -qq && sudo apt-get install -y -qq "${_missing_deps[@]}" 2>/dev/null || \
+        echo "WARNING: Could not install ${_missing_deps[*]} via apt-get" >&2
+    elif command -v apk &>/dev/null; then
+      apk add --no-cache "${_missing_deps[@]}" 2>/dev/null || \
+        echo "WARNING: Could not install ${_missing_deps[*]} via apk" >&2
+    elif command -v brew &>/dev/null; then
+      brew install "${_missing_deps[@]}" 2>/dev/null || \
+        echo "WARNING: Could not install ${_missing_deps[*]} via brew" >&2
+    else
+      echo "WARNING: Cannot install ${_missing_deps[*]} — no supported package manager found" >&2
+    fi
+  fi
+
+  # --- Install Node dependencies (needed by validation scripts) ---
+  if [ -f "package.json" ] && [ ! -d "node_modules" ]; then
+    echo "Installing npm dependencies..."
+    npm install --silent 2>/dev/null || echo "WARNING: npm install failed" >&2
+  fi
+
+  # --- Build skill distribution (skipped when source is unchanged) ---
+  # Cache key: git HEAD commit hash stored in .ai-config-os/build.hash
+  _BUILD_HASH_FILE=".ai-config-os/build.hash"
+  _CURRENT_GIT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "")
+  _CACHED_BUILD_HASH=$(cat "$_BUILD_HASH_FILE" 2>/dev/null || echo "")
+  if [ ! -d "dist/clients/claude-code" ] || [ -z "$_CACHED_BUILD_HASH" ] || [ "$_CURRENT_GIT_HASH" != "$_CACHED_BUILD_HASH" ]; then
+    echo "Building skill distribution..."
+    if node scripts/build/compile.mjs 2>/dev/null; then
+      mkdir -p "$(dirname "$_BUILD_HASH_FILE")"
+      echo "$_CURRENT_GIT_HASH" > "$_BUILD_HASH_FILE"
+    else
+      echo "WARNING: skill build failed, materialise may be incomplete" >&2
+    fi
+  fi
+
+  # --- Validate skill structure (non-fatal in remote) ---
+  echo "Running skill validation suite..."
+  if ./ops/validate-all.sh 2>/dev/null; then
+    echo "Validation complete."
   else
-    echo "WARNING: skill build failed, materialise may be incomplete" >&2
+    echo "WARNING: Validation produced warnings. Continuing anyway." >&2
+  fi
+
+  # --- Materialise from local dist/ ---
+  if bash ./adapters/claude/materialise.sh extract 2>/dev/null; then
+    if bash ./adapters/claude/materialise.sh install 2>/dev/null; then
+      echo "Skills materialised from local dist/."
+    else
+      echo "WARNING: Skill installation failed. Skill tool may not work." >&2
+    fi
+  else
+    echo "WARNING: Skill materialise failed. Skills may be unavailable." >&2
   fi
 fi
 
-# --- Validate skill structure (non-fatal in remote) ---
-echo "Running skill validation suite..."
-if ./ops/validate-all.sh 2>/dev/null; then
-  echo "Validation complete."
-else
-  echo "WARNING: Validation produced warnings. Continuing anyway." >&2
-fi
 echo ""
 
-# --- Runtime sync (non-fatal in remote) ---
+# --- Runtime sync (always runs, independent of skills) ---
 echo "Running runtime sync..."
 if bash ./runtime/sync.sh --dry-run 2>/dev/null; then
   echo "Runtime config valid."
@@ -170,29 +197,4 @@ echo ""
 
 # --- Manifest status ---
 bash ./runtime/manifest.sh status 2>/dev/null || true
-echo ""
-
-# --- Fetch latest manifest from Worker (background, non-blocking) ---
-if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
-  echo "Fetching compiled skills from Worker..."
-  if fetch_output=$(bash ./adapters/claude/materialise.sh fetch 2>&1); then
-    echo "${fetch_output}"
-    # Materialise skill files from local dist/ into cache (makes skills loadable)
-    if bash ./adapters/claude/materialise.sh extract 2>/dev/null; then
-      echo "Skills materialised successfully."
-      # Install skills to ~/.claude/skills for Skill tool availability
-      if bash ./adapters/claude/materialise.sh install 2>/dev/null; then
-        echo "Skills installed to ~/.claude/skills"
-      else
-        echo "WARNING: Skill installation failed. Skill tool may not work." >&2
-      fi
-    else
-      echo "WARNING: Skill materialise failed. Skills may be unavailable." >&2
-    fi
-  else
-    echo "WARNING: Skill fetch failed. ${fetch_output}"
-  fi
-else
-  echo "NOTE: AI_CONFIG_WORKER and/or AI_CONFIG_TOKEN not set. Skills unavailable in this session."
-fi
 echo ""
