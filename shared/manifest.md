@@ -33,6 +33,8 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `task-resume` | Resume a task from any prior environment; presents findings as narrative, upgrades route with one "yes" | `shared/skills/task-resume/SKILL.md` |
 | `task-save` | Explicitly checkpoint task state and emit a short URL for cross-device recovery | `shared/skills/task-save/SKILL.md` |
 | `momentum-reflect` | Analyzes momentum narration effectiveness and proposes improvements | `shared/skills/momentum-reflect/SKILL.md` |
+| `surface-probe` | Investigates environment signals when a user manually states their surface; produces a structured report to improve automatic platform detection | `shared/skills/surface-probe/SKILL.md` |
+| `list-available-skills` | List skills available on the current surface, filtered by detected runtime capabilities. | `shared/skills/list-available-skills/SKILL.md` |
 
 ## Workflows
 

@@ -1,0 +1,65 @@
+id: github-actions
+name: GitHub Actions
+surface: ci-pipeline
+default_package: skill
+
+capabilities:
+  fs.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  fs.write:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  shell.exec:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  shell.long-running:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  git.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  git.write:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  network.http:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  browser.fetch:
+    status: unsupported
+    confidence: high
+    source: inference
+  mcp.client:
+    status: unsupported
+    confidence: high
+    source: inference
+  env.read:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  secrets.inject:
+    status: supported
+    verified_at: "2026-03-18"
+    confidence: high
+    source: vendor-doc
+  ui.prompt-only:
+    status: unsupported
+    confidence: high
+    source: inference
+
+notes: Headless CI runner. No interactive UI. Shell, filesystem, git, and network fully supported. Detection signal is GITHUB_ACTIONS=true env var.

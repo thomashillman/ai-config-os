@@ -99,6 +99,10 @@ export function getRuntimeMode() {
   const mode = String(process.env.AI_CONFIG_OS_RUNTIME_MODE || '').toLowerCase();
   if (mode === 'web' || mode === 'mobile' || mode === 'connector') return mode;
   if (process.env.AI_CONFIG_OS_REMOTE_EXECUTOR_URL) return 'connector';
+  // Auto-detect from CLAUDE_CODE_ENTRYPOINT (set by the Claude Code runtime per surface)
+  const entrypoint = process.env.CLAUDE_CODE_ENTRYPOINT;
+  if (entrypoint === 'remote_mobile') return 'mobile';
+  if (entrypoint === 'web') return 'web';
   return 'local-cli';
 }
 

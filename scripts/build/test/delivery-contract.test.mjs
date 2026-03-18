@@ -370,6 +370,32 @@ describe('delivery contract — registry index.json', () => {
       'registry should include claude-code platform'
     );
   });
+
+  test('registry platform_definitions includes new CI/IDE/desktop platforms', () => {
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+    const defs = registry.platform_definitions || {};
+    assert.ok(defs['github-actions'],  'registry must have github-actions platform definition');
+    assert.ok(defs['gitlab-ci'],       'registry must have gitlab-ci platform definition');
+    assert.ok(defs['claude-vscode'],   'registry must have claude-vscode platform definition');
+    assert.ok(defs['claude-desktop'],  'registry must have claude-desktop platform definition');
+    assert.ok(defs['codex-desktop'],   'registry must have codex-desktop platform definition');
+  });
+
+  test('registry skills each have capabilities.required array', () => {
+    const indexPath = join(REGISTRY_DIR, 'index.json');
+    const registry = JSON.parse(readFileSync(indexPath, 'utf8'));
+
+    assert.ok(Array.isArray(registry.skills), 'registry.skills must be an array');
+    for (const skill of registry.skills) {
+      assert.ok(skill.capabilities, `skill ${skill.id} must have capabilities`);
+      assert.ok(
+        Array.isArray(skill.capabilities.required),
+        `skill ${skill.id} capabilities.required must be an array`
+      );
+    }
+  });
 });
 
 // ───────────────────────────────────────────────────────────────────────────

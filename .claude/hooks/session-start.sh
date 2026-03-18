@@ -79,6 +79,29 @@ _detect_resume_task() {
 
 _detect_resume_task
 
+# --- Capability probe (unconditional; re-probes on device change) ---
+_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+CURRENT_HOSTNAME="$(hostname 2>/dev/null || echo 'unknown')"
+PROBE_CACHE="$HOME/.ai-config-os/probe-report.json"
+CACHED_HOSTNAME="$(node -e "try{process.stdout.write(JSON.parse(require('fs').readFileSync('${PROBE_CACHE}','utf8')).hostname||'')}catch(e){}" 2>/dev/null || echo '')"
+
+if [ "$CURRENT_HOSTNAME" != "$CACHED_HOSTNAME" ] || [ ! -f "$PROBE_CACHE" ]; then
+  echo "Probing runtime capabilities..."
+  if bash "${_PROJECT_DIR}/ops/capability-probe.sh" --quiet 2>/dev/null; then
+    echo "Capability probe complete."
+  else
+    echo "WARNING: Capability probe produced warnings. Continuing anyway." >&2
+  fi
+else
+  echo "[probe] Same device ($CURRENT_HOSTNAME) — using cached probe"
+fi
+
+# --- Skill availability summary (non-blocking) ---
+if command -v node &>/dev/null; then
+  node "${_PROJECT_DIR}/adapters/claude/filter-skills-cli.mjs" --summary 2>/dev/null || true
+fi
+echo ""
+
 # Only run validation/sync in remote Claude Code environments
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
@@ -129,15 +152,6 @@ echo ""
 
 # --- Manifest status ---
 bash ./runtime/manifest.sh status 2>/dev/null || true
-echo ""
-
-# --- Capability probe ---
-echo "Probing runtime capabilities..."
-if bash ./ops/capability-probe.sh --quiet 2>/dev/null; then
-  echo "Capability probe complete."
-else
-  echo "WARNING: Capability probe produced warnings. Continuing anyway." >&2
-fi
 echo ""
 
 # --- Fetch latest manifest from Worker (background, non-blocking) ---

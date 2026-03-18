@@ -239,3 +239,33 @@ describe('adapter scripts: cursor installer', () => {
     }
   });
 });
+
+describe('session-start hook — structural checks', () => {
+  const hookPath = join(REPO_ROOT, '.claude', 'hooks', 'session-start.sh');
+
+  test('session-start hook exists', () => {
+    assert.ok(existsSync(hookPath), 'session-start.sh must exist');
+  });
+
+  test('session-start runs probe unconditionally (hostname-change detection pattern)', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    assert.ok(
+      content.includes('CURRENT_HOSTNAME') && content.includes('CACHED_HOSTNAME'),
+      'session-start must contain hostname-change detection for unconditional probe'
+    );
+    assert.ok(
+      content.includes('capability-probe.sh'),
+      'session-start must invoke capability-probe.sh'
+    );
+  });
+
+  test('session-start probe runs before the CLAUDE_CODE_REMOTE exit guard', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    const probeIdx = content.indexOf('capability-probe.sh');
+    const exitIdx  = content.indexOf('CLAUDE_CODE_REMOTE');
+    // probe invocation should appear before the remote-only guard
+    assert.ok(probeIdx > -1,  'probe invocation must exist');
+    assert.ok(exitIdx  > -1,  'CLAUDE_CODE_REMOTE guard must exist');
+    assert.ok(probeIdx < exitIdx, 'probe must run before the CLAUDE_CODE_REMOTE exit guard');
+  });
+});

@@ -1331,5 +1331,294 @@ Multiple Codex-contributed branches merged to main:
 | Cursor | Emits rules | Not served | No runtime adapter | **Partial** |
 | Codex | Emits Codex package | Not served | `adapters/codex/materialise.sh` | **Partial** |
 | claude-web, claude-ios | Capability model loaded | Not served | No adapter | **Model only** |
-</content>
-</invoke>
+
+---
+
+## Surface-Aware Skill Discovery — branch `claude/list-available-skills-NSuJq`
+
+**Goal:** Claude presents only skills that work on the current surface. Detection is automatic at every session start and re-runs when the device changes. No user configuration required.
+
+**Design principles (KISS):**
+- Use existing compiled registry + existing probe output — no new runtime services
+- Each atom is independently committable and independently testable
+- Probe stays bash; filtering logic lives in the skill prompt itself
+- No new Worker endpoints; no schema changes unless essential
+- Tests are written before implementation (red → green → commit)
+
+**New surfaces discovered in documentation research (2026-03-18):**
+
+| Surface | Detection signal | Runtime detectable? | Capability profile |
+|---|---|---|---|
+| `claude-desktop` | No unique env var yet; spawns local CLI | No (compile-time only) | + preview.server, + connectors |
+| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | same as claude-code + IDE diff |
+| `claude-jetbrains` | `IDEA_HOME` or `JETBRAINS_TOOLBOX_TOOL_NAME` | Yes | same as claude-vscode |
+| `github-actions` | `GITHUB_ACTIONS=true` | Yes | headless CI; no user interaction |
+| `gitlab-ci` | `GITLAB_CI=true` | Yes | headless CI; `AI_FLOW_*` context vars |
+| `claude-ssh` | `SSH_CONNECTION` set; no `CLAUDE_CODE_REMOTE` | Yes | shell access; no local UI |
+| `codex-cli` | `$CODEX_SURFACE=cli` (Codex-set env var) | Yes | shell/fs/git; cloud-sandbox |
+| `codex-desktop` | `$CODEX_SURFACE=desktop` (Codex-set env var) | Yes | parallel agents; isolated worktrees |
+| `chatgpt-web` | `CLAUDE_CODE_ENTRYPOINT=web` (our runtime) | Yes (via Claude entrypoint) | prompt-only; no shell |
+| `chatgpt-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Yes (via Claude entrypoint) | prompt-only; no shell |
+
+**Web/mobile fundamental limitation (confirmed by Codex/ChatGPT docs):**
+ChatGPT web, iOS, and Android code execution environments are intentionally surface-agnostic — they expose no `$CODEX_SURFACE`, `$VSCODE_*`, or equivalent env var to user code. Surface detection for these is only possible via entrypoint signals set by the Claude/Codex _runtime_ (not user code), or via compile-time package selection. The probe correctly relies on `CLAUDE_CODE_ENTRYPOINT` (runtime-set) for these surfaces. Skill filtering for web/mobile falls back to the compiled `compatible_platforms[]` list in the registry, not runtime probe results.
+
+**Probe already captures:** `platform_hint`, `surface_hint`, `hostname`, all capability results. Session-start hook already runs the probe in remote sessions. Registry already has per-platform capability definitions embedded.
+
+**What's missing (the 5 atoms):**
+
+---
+
+### Atom A — New platform YAML definitions
+
+**What:** Add 5 platform YAML files to `shared/targets/platforms/`. Identical schema to existing files.
+
+**Platforms to add:**
+- `github-actions.yaml` — surface: `ci-pipeline`; shell/fs/git/network supported; mcp.client unsupported; detection: `GITHUB_ACTIONS=true`
+- `gitlab-ci.yaml` — surface: `ci-pipeline`; same as github-actions; detection: `GITLAB_CI=true`
+- `claude-vscode.yaml` — surface: `desktop-ide`; same as claude-code; mcp medium-confidence; detection: `VSCODE_INJECTION`
+- `claude-desktop.yaml` — surface: `desktop-app`; same as claude-code; detection: compile-time only (no unique env var); add `preview.server` as an `unknown`-status capability
+- `codex-desktop.yaml` — surface: `desktop-app`; shell/fs/git supported; parallel agents noted; detection: `CODEX_SURFACE=desktop`
+
+**Note on `codex` vs `codex-desktop`:** The existing `codex.yaml` (surface: `cloud-sandbox`) maps to `CODEX_CLI` env var — which is the CLI/cloud path. `codex-desktop.yaml` is the Codex Desktop App (Windows/macOS) where `$CODEX_SURFACE=desktop` is set by Codex. These are different surfaces with different capability profiles.
+
+**Test first (red):** The delivery-contract suite (`scripts/build/test/delivery-contract.test.mjs`) already checks that all platform definitions used in the registry are valid. Add assertions:
+```js
+// In delivery-contract.test.mjs (add 5 new assertions)
+assert(platforms.includes('github-actions'),  'github-actions platform must exist')
+assert(platforms.includes('gitlab-ci'),        'gitlab-ci platform must exist')
+assert(platforms.includes('claude-vscode'),    'claude-vscode platform must exist')
+assert(platforms.includes('claude-desktop'),   'claude-desktop platform must exist')
+assert(platforms.includes('codex-desktop'),    'codex-desktop platform must exist')
+```
+
+**Implement:** Create each YAML file. Compiler picks them up automatically. Run `node scripts/build/compile.mjs`.
+
+**Verify (green):** `npm test -- scripts/build/test/delivery-contract.test.mjs` passes.
+
+**Commit:** `feat: add platform definitions for vscode, desktop, github-actions, gitlab-ci, codex-desktop`
+
+---
+
+### Atom B — Probe detects CI and IDE surfaces
+
+**What:** Extend `detect_platform()` and `detect_surface()` in `ops/capability-probe.sh` with 5 new signals. Check CI env vars before falling back to `claude-code`.
+
+**Priority order matters.** More-specific signals must come before generic ones. `CODEX_SURFACE` (set by Codex runtime) is the most authoritative Codex signal; `CLAUDE_CODE_ENTRYPOINT` (set by Claude runtime) is the most authoritative Claude signal. Both must be checked before any generic env var heuristics.
+
+**Signals to add (in priority order, inserted before the existing `CLAUDE_CODE_REMOTE` check):**
+```bash
+# Codex Desktop App — Codex runtime sets $CODEX_SURFACE explicitly
+case "${CODEX_SURFACE:-}" in
+  desktop) echo "codex-desktop"; return ;;
+  cli)     echo "codex";         return ;;  # overrides existing CODEX_CLI heuristic
+esac
+
+# CI surfaces — most specific signals, check first
+if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "github-actions"; return; fi
+if [ "${GITLAB_CI:-}" = "true" ];      then echo "gitlab-ci";      return; fi
+if [ "${CI:-}" = "true" ];             then echo "ci-generic";      return; fi
+
+# IDE surfaces (checked after CI to avoid misidentifying CI runners with IDE vars)
+if [ -n "${VSCODE_INJECTION:-}" ] || [ -n "${VSCODE_IPC_HOOK_CLI:-}" ]; then
+  echo "claude-vscode"; return
+fi
+if [ -n "${IDEA_HOME:-}" ] || [ -n "${JETBRAINS_TOOLBOX_TOOL_NAME:-}" ]; then
+  echo "claude-jetbrains"; return
+fi
+
+# SSH sessions (checked last among heuristics — broadest signal)
+if [ -n "${SSH_CONNECTION:-}" ] && [ -z "${CLAUDE_CODE_REMOTE:-}" ]; then
+  echo "claude-ssh"; return
+fi
+```
+
+**Surface mappings to add to `detect_surface()`:**
+```bash
+codex-desktop)    echo "desktop-app" ;;
+github-actions)   echo "ci-pipeline" ;;
+gitlab-ci)        echo "ci-pipeline" ;;
+ci-generic)       echo "ci-pipeline" ;;
+claude-vscode)    echo "desktop-ide" ;;
+claude-jetbrains) echo "desktop-ide" ;;
+claude-ssh)       echo "remote-shell" ;;
+```
+
+**Test first (red):** New Node.js test `scripts/build/test/capability-probe-detection.test.mjs`:
+```js
+// Runs probe with injected env vars; asserts platform_hint + surface_hint
+// Shell-based; skipped in Windows CI (follow CI pitfall rules from CLAUDE.md)
+const probeWith = (env) => JSON.parse(
+  execFileSync('bash', ['ops/capability-probe.sh', '--quiet'],
+    { env: { ...minimalEnv, ...env }, encoding: 'utf8' })
+);
+assert.equal(probeWith({ CODEX_SURFACE: 'desktop' }).platform_hint,  'codex-desktop');
+assert.equal(probeWith({ CODEX_SURFACE: 'desktop' }).surface_hint,   'desktop-app');
+assert.equal(probeWith({ CODEX_SURFACE: 'cli' }).platform_hint,      'codex');
+assert.equal(probeWith({ GITHUB_ACTIONS: 'true' }).platform_hint,    'github-actions');
+assert.equal(probeWith({ GITHUB_ACTIONS: 'true' }).surface_hint,     'ci-pipeline');
+assert.equal(probeWith({ GITLAB_CI: 'true' }).platform_hint,         'gitlab-ci');
+assert.equal(probeWith({ VSCODE_INJECTION: '1' }).platform_hint,     'claude-vscode');
+assert.equal(probeWith({ VSCODE_INJECTION: '1' }).surface_hint,      'desktop-ide');
+// Web/mobile: controlled by CLAUDE_CODE_ENTRYPOINT (already tested in existing probe tests)
+```
+
+**Note on web/mobile:** ChatGPT web, iOS, Android — no user-discoverable env var exists. Detection for these surfaces relies entirely on `CLAUDE_CODE_ENTRYPOINT` (already handled by existing `detect_platform()` logic). No new probe logic needed; skill filtering for these surfaces uses compile-time `compatible_platforms[]` from the registry.
+
+**Verify (green):** New test passes; existing probe tests unaffected.
+
+**Commit:** `feat: probe detects Codex Desktop, CI pipelines, VS Code, JetBrains, SSH`
+
+---
+
+### Atom C — Probe runs on every session start; re-runs on device change
+
+**What:** Two changes to `.claude/hooks/session-start.sh`:
+1. Move `bash ops/capability-probe.sh --quiet` out of the `if CLAUDE_CODE_REMOTE` block — run it unconditionally
+2. Before running the probe, check if the cached report's hostname matches the current hostname; if different (device change), force re-run even if cache is fresh
+
+**Implementation (minimal diff):**
+```bash
+# After the existing remote-only block, add unconditional probe:
+CURRENT_HOSTNAME="$(hostname 2>/dev/null || echo 'unknown')"
+CACHED_HOSTNAME="$(python3 -c "import json,sys; d=json.load(open('$HOME/.ai-config-os/probe-report.json')); print(d.get('hostname',''))" 2>/dev/null || echo '')"
+
+if [ "$CURRENT_HOSTNAME" != "$CACHED_HOSTNAME" ] || [ ! -f "$HOME/.ai-config-os/probe-report.json" ]; then
+  echo "[probe] Device changed or no cache — running capability probe..."
+  bash ops/capability-probe.sh --quiet
+else
+  echo "[probe] Same device ($CURRENT_HOSTNAME) — using cached probe"
+fi
+```
+
+**Test:** This is a shell script; tested locally with `adapters/claude/dev-test.sh`. Document in test file as local-only. For CI: add a smoke-test assertion in `scripts/build/test/adapter-scripts.test.mjs` that the session-start hook file contains the hostname-check pattern.
+
+**Commit:** `feat: session-start always probes; re-probes on device change`
+
+---
+
+### Atom D — Registry emits per-skill capability requirements
+
+**What:** Add a `skills` array to `dist/registry/index.json`. Each entry: `{name, description, capabilities: {required[], optional[]}, compatible_platforms[]}`. This lets the `list-available-skills` skill do runtime filtering without re-parsing SKILL.md files.
+
+**Compiler change (`scripts/build/compile.mjs`):** After resolving compatibility, add skills array to the registry output:
+```js
+skills: parsedSkills.map(s => ({
+  name: s.skill,
+  description: s.description,
+  type: s.type,
+  status: s.status,
+  capabilities: s.capabilities ?? { required: [], optional: [] },
+  compatible_platforms: compatibilityMatrix[s.skill] ?? [],
+}))
+```
+
+**Test first (red):** Extend `scripts/build/test/delivery-contract.test.mjs`:
+```js
+assert(Array.isArray(index.skills), 'registry must have skills array')
+assert(index.skills.length > 0, 'skills array must not be empty')
+const firstSkill = index.skills[0];
+assert(firstSkill.name, 'skill must have name');
+assert(firstSkill.capabilities, 'skill must have capabilities');
+assert(Array.isArray(firstSkill.capabilities.required), 'capabilities.required must be array');
+```
+
+**Verify (green):** `npm test -- scripts/build/test/delivery-contract.test.mjs` passes.
+
+**Commit:** `feat: registry emits per-skill capability requirements for runtime filtering`
+
+---
+
+### Atom E — `list-available-skills` skill
+
+**What:** Create `shared/skills/list-available-skills/SKILL.md`. This is a prompt-type skill that:
+1. Reads `~/.ai-config-os/probe-report.json` (cached probe)
+2. Reads the cached manifest at `~/.ai-config-os/cache/claude-code/latest.json`
+3. Filters skills: `compatible` (all required caps supported), `degraded` (some optional caps missing), `unavailable` (required cap unsupported), `ci-only` (headless skills in CI surface)
+4. Presents a clean, grouped list with surface context at the top
+
+**Key surface-aware groupings:**
+- `ci-pipeline` surface: suppress interactive skills (`context-budget`, `momentum-reflect`, `plugin-setup`, `memory`); surface CI-appropriate skills first (`code-review`, `commit-conventions`, `changelog`, `pr-description`)
+- `mobile-app` / `web-app`: suppress shell-dependent skills; surface prompt-only skills
+- `desktop-cli` / `desktop-ide` / `desktop-app`: show all compatible skills
+
+**Frontmatter skeleton:**
+```yaml
+---
+skill: list-available-skills
+description: List skills available on the current surface, filtered by detected runtime capabilities.
+type: prompt
+status: stable
+capabilities:
+  required: [fs.read, env.read]
+  optional: [shell.exec]
+  fallback_mode: prompt-only
+  fallback_notes: "Without shell.exec, probe data may be stale"
+variants:
+  sonnet:
+    prompt_file: prompts/default.md
+    description: Standard skill listing
+    cost_factor: 1.0
+    latency_baseline_ms: 300
+  haiku:
+    prompt_file: prompts/brief.md
+    description: Compact listing
+    cost_factor: 0.3
+    latency_baseline_ms: 150
+  fallback_chain: [sonnet, haiku]
+version: "1.0.0"
+---
+```
+
+**Test first (red):** Delivery-contract checks new skill exists and has required frontmatter. Then structure-check test confirms prompts/ files exist.
+
+**Verify (green):** `npm test` passes. `node scripts/build/compile.mjs` emits the new skill to `dist/clients/claude-code/`.
+
+**Commit:** `feat: add list-available-skills skill with surface-aware capability filtering`
+
+---
+
+### Atom F — Compile, full test suite, push
+
+```bash
+node scripts/build/compile.mjs
+npm test
+git push -u origin claude/list-available-skills-NSuJq
+```
+
+All 70+ tests pass. The new skill is in `dist/`. The probe correctly identifies 11 surfaces. Session start always probes and re-probes on device change.
+
+---
+
+### Acceptance criteria
+
+| Check | How to verify |
+|---|---|
+| Probe detects `github-actions` surface | `GITHUB_ACTIONS=true bash ops/capability-probe.sh \| jq .platform_hint` → `"github-actions"` |
+| Probe detects `claude-vscode` surface | `VSCODE_INJECTION=1 bash ops/capability-probe.sh \| jq .platform_hint` → `"claude-vscode"` |
+| Session-start re-probes on device change | Change `hostname` in cached probe-report.json; confirm hook re-runs probe |
+| Registry has skills array | `jq '.skills \| length' dist/registry/index.json` → 27+ |
+| `list-available-skills` skill emitted | `ls dist/clients/claude-code/skills/list-available-skills/` |
+| CI surface suppresses interactive skills | Read `list-available-skills` prompt: confirm CI-mode logic present |
+| Full test suite passes | `npm test` → 0 failures |
+
+---
+
+### Updated platform maturity table
+
+| Platform | Detection signal | Detectable at runtime? | Compiler | Probe | Status |
+|---|---|---|---|---|---|
+| `claude-code` | `CLAUDE_CODE` env var | Yes | Full emitter | ✓ | Production |
+| `cursor` | `CURSOR_SESSION` env var | Yes | Rules emitter | ✓ | Partial |
+| `codex` (CLI/cloud) | `CODEX_CLI` env var OR `CODEX_SURFACE=cli` | Yes | Codex emitter | ✓ existing → **Atom B** | Partial |
+| `claude-web` | `CLAUDE_CODE_ENTRYPOINT=web` | Via Claude runtime only | Model only | ✓ | Model only |
+| `claude-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Via Claude runtime only | Model only | ✓ | Model only |
+| `github-actions` | `GITHUB_ACTIONS=true` | Yes | **Atom A** | **Atom B** | Planned |
+| `gitlab-ci` | `GITLAB_CI=true` | Yes | **Atom A** | **Atom B** | Planned |
+| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | **Atom A** | **Atom B** | Planned |
+| `codex-desktop` | `CODEX_SURFACE=desktop` (Codex-set) | Yes | **Atom A** | **Atom B** | Planned |
+| `claude-desktop` | No unique env var (compile-time only) | No — registry filtering only | **Atom A** | n/a | Planned |
+| `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Planned |
+| `chatgpt-web` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
+| `chatgpt-mobile` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
+
