@@ -4,6 +4,7 @@
 # Usage:
 #   bash adapters/claude/materialise.sh fetch      # fetch from Worker and cache metadata
 #   bash adapters/claude/materialise.sh extract    # extract emitted package to cache
+#   bash adapters/claude/materialise.sh install    # install cached skills to ~/.claude/skills
 #   bash adapters/claude/materialise.sh status     # show cache vs remote versions
 #   bash adapters/claude/materialise.sh help       # show this help
 #
@@ -17,6 +18,7 @@
 # Commands:
 #   fetch         Fetch skill metadata from remote Worker (requires AI_CONFIG_TOKEN)
 #   extract       Extract/materialize local emitted package (Node.js API)
+#   install       Install cached skills to ~/.claude/skills (idempotent with version check)
 #   status        Compare cached vs remote versions
 #   help          Show this help text
 
@@ -242,13 +244,57 @@ cmd_extract() {
   node "${materialiser_cli}" "${resolved_package}" --dest "${CACHE_DIR}" --verbose
 }
 
+cmd_install() {
+  local skills_dir="${HOME}/.claude/skills"
+  local version_marker="${skills_dir}/.version"
+
+  # Read cached version
+  if [[ ! -f "${VERSION_FILE}" ]]; then
+    die "No cached version found. Run 'bash adapters/claude/materialise.sh extract' first."
+  fi
+  local cached_version
+  cached_version=$(cat "${VERSION_FILE}")
+
+  # Check if installed version matches cached version (idempotent fast path)
+  if [[ -f "${version_marker}" ]]; then
+    local installed_version
+    installed_version=$(cat "${version_marker}")
+    if [[ "${installed_version}" == "${cached_version}" ]]; then
+      echo "Skills already up to date (version ${cached_version})."
+      return 0
+    fi
+  fi
+
+  # Ensure destination directory exists
+  mkdir -p "${skills_dir}"
+
+  # Copy skill directories from cache to ~/.claude/skills
+  echo "Installing skills to ${skills_dir}..."
+  for skill_dir in "${CACHE_DIR}"/*; do
+    if [[ -d "${skill_dir}" && "$(basename "${skill_dir}")" != "latest.json" ]]; then
+      local skill_name
+      skill_name=$(basename "${skill_dir}")
+      echo "  Installing: ${skill_name}"
+      rm -rf "${skills_dir:?}/${skill_name}"
+      cp -r "${skill_dir}" "${skills_dir}/"
+    fi
+  done
+
+  # Update version marker
+  printf '%s' "${cached_version}" > "${version_marker}"
+
+  echo "Installation complete (version ${cached_version})."
+  echo "Skills available at: ${skills_dir}"
+}
+
 # ── Dispatch ──────────────────────────────────────────────────────────────
 
 case "${CMD}" in
   fetch)      cmd_fetch ;;
   extract)    cmd_extract ;;
+  install)    cmd_install ;;
   status)     cmd_status ;;
   help|--help|-h) cmd_help ;;
   "")         cmd_fetch ;; # default: fetch
-  *)          die "Unknown command: ${CMD}. Try: fetch, extract, status, help" ;;
+  *)          die "Unknown command: ${CMD}. Try: fetch, extract, install, status, help" ;;
 esac
