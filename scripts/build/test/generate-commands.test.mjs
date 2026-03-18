@@ -27,10 +27,10 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const GENERATE_COMMANDS = resolve(__dirname, '../../../adapters/claude/generate-commands.mjs');
+const GENERATE_COMMANDS = pathToFileURL(resolve(__dirname, '../../../adapters/claude/generate-commands.mjs')).href;
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
