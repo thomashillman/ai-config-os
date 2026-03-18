@@ -143,10 +143,12 @@ echo ""
 # --- Fetch latest manifest from Worker (background, non-blocking) ---
 if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
   echo "Fetching compiled skills from Worker..."
-  if bash ./adapters/claude/materialise.sh fetch 2>/dev/null; then
+  fetch_output=""
+  if fetch_output=$(bash ./adapters/claude/materialise.sh fetch 2>&1); then
+    echo "${fetch_output}"
     echo "Skills cached and ready for use."
   else
-    echo "WARNING: Could not fetch skills from Worker. Check AI_CONFIG_TOKEN or Worker availability." >&2
+    echo "WARNING: Skill fetch failed. ${fetch_output}"
   fi
 else
   echo "NOTE: AI_CONFIG_WORKER and/or AI_CONFIG_TOKEN not set. Skills unavailable in this session."

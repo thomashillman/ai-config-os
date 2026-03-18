@@ -30,6 +30,10 @@ VERSION_FILE="${CACHE_DIR}/latest.version"
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
+_CLEANUP_FILES=()
+_cleanup() { rm -f "${_CLEANUP_FILES[@]}" 2>/dev/null || true; }
+trap '_cleanup' EXIT
+
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 require_token() {
@@ -111,7 +115,7 @@ cmd_fetch() {
   echo "Fetching from ${WORKER_URL}..."
 
   local curl_args=(
-    -sS
+    -s
     --fail-with-body
     -H "Authorization: Bearer ${AI_CONFIG_TOKEN}"
     -H "Accept: application/json"
@@ -122,16 +126,26 @@ cmd_fetch() {
   fi
 
   local headers_file
-  headers_file=$(mktemp "${CACHE_DIR}/headers.XXXXXX")
+  headers_file=$(mktemp /tmp/ai-config-headers.XXXXXX)
   local payload_file
-  payload_file=$(mktemp "${CACHE_DIR}/payload.XXXXXX")
-  trap 'rm -f "${headers_file}" "${payload_file}"' RETURN
+  payload_file=$(mktemp /tmp/ai-config-payload.XXXXXX)
+  _CLEANUP_FILES+=("${headers_file}" "${payload_file}")
 
   if ! curl \
     "${curl_args[@]}" \
     -D "${headers_file}" \
     -o "${payload_file}" \
     "${WORKER_URL}/v1/client/claude-code/latest"; then
+    # Distinguish auth failure from network failure using response headers
+    local fail_status=""
+    if [[ -s "${headers_file}" ]]; then
+      fail_status=$(awk '/^HTTP\/[0-9]/{code=$2} END{print code}' "${headers_file}")
+    fi
+
+    if [[ "${fail_status}" == "401" || "${fail_status}" == "403" ]]; then
+      die "Authentication failed (HTTP ${fail_status}). AI_CONFIG_TOKEN is not accepted by the Worker at ${WORKER_URL}."
+    fi
+
     if [[ -f "${CACHE_DIR}/latest.json" ]]; then
       echo "WARN: Worker unreachable. Using last-known-good cached version."
       local cached_version
@@ -143,8 +157,9 @@ cmd_fetch() {
     fi
   fi
 
+  # Extract the final HTTP status (proxy may prepend its own status line)
   local http_status
-  http_status=$(awk '/^HTTP/{code=$2} END{print code}' "${headers_file}")
+  http_status=$(awk '/^HTTP\/[0-9]/{code=$2} END{print code}' "${headers_file}")
 
   if [[ "${http_status}" == "304" ]]; then
     if [[ ! -f "${CACHE_DIR}/latest.json" ]]; then
@@ -154,6 +169,14 @@ cmd_fetch() {
     echo "Not modified (304)."
     echo "Cached version: $(read_cached_version)"
     return
+  fi
+
+  if [[ "${http_status}" == "401" || "${http_status}" == "403" ]]; then
+    local err_detail=""
+    if [[ -s "${payload_file}" ]]; then
+      err_detail=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('hint', d.get('error','')))" "${payload_file}" 2>/dev/null || true)
+    fi
+    die "Authentication failed (HTTP ${http_status}). AI_CONFIG_TOKEN is not accepted by the Worker.${err_detail:+ Detail: ${err_detail}}"
   fi
 
   if [[ "${http_status}" != "200" ]]; then
