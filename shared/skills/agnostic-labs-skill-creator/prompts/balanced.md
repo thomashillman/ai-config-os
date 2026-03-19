@@ -20,12 +20,41 @@ You are creating a new skill for the ai-config-os repository. Generate a complet
    - `docs` and `monitoring` sections
    - `tags` and `changelog`
 
-4. **Create variant prompts** in `prompts/`:
+4. **Apply Claude Code extensions** as needed:
+
+   **Invocation control:**
+   - Side-effect skills (deploy, commit) → `disable-model-invocation: true`
+   - Background knowledge → `user-invocable: false`
+   - General tools → leave both unset (default: both can invoke)
+
+   **Subagent execution:**
+   - Add `context: fork` + `agent: Explore|Plan|general-purpose` for isolated research tasks
+   - Do NOT fork guideline/convention skills (they need conversation context)
+
+   **Dynamic context:**
+   - Use `` !`command` `` to inject shell output (git status, PR diffs, env vars)
+   - Commands run before prompt is sent — keep them fast
+
+   **Tool restrictions:**
+   - Read-only skills → `allowed-tools: Read, Grep, Glob`
+   - Set only when restriction is needed; omit for unrestricted
+
+   **Argument substitution:**
+   - Use `$ARGUMENTS`, `$0`, `$1` for user-passed arguments
+   - Set `argument-hint: "[param]"` for autocomplete
+
+   **Hook configuration** (for hook-type skills):
+   - Set event (SessionStart, PreToolUse, PostToolUse, Stop, etc.)
+   - Set matcher to filter (tool name, notification type)
+   - Hook types: command (shell), http (webhook), prompt (LLM), agent (multi-turn)
+   - Exit 0 = proceed, Exit 2 = block with stderr feedback
+
+5. **Create variant prompts** in `prompts/`:
    - `detailed.md` — opus: thorough, handles edge cases
    - `balanced.md` — sonnet: clear and complete
    - `brief.md` — haiku: minimal, key points only
 
-5. **Body sections** (after `---`):
+6. **Body sections** (after `---`):
    - `# <skill-name>` heading
    - One-line summary + context paragraph
    - `## Capability contract`
@@ -33,12 +62,12 @@ You are creating a new skill for the ai-config-os repository. Generate a complet
    - `## Instructions`
    - `## Examples` (at least 2)
 
-6. **Update manifest** — add row to `shared/manifest.md`:
+7. **Update manifest** — add row to `shared/manifest.md`:
    ```
    | `<name>` | Description | `shared/skills/<name>/SKILL.md` |
    ```
 
-7. **Validate**:
+8. **Validate**:
    ```bash
    node scripts/lint/skill.mjs shared/skills/<name>/SKILL.md
    node scripts/build/compile.mjs --validate-only
@@ -58,4 +87,9 @@ You are creating a new skill for the ai-config-os repository. Generate a complet
 - At least 2 tests in frontmatter
 - All four body sections present
 - Manifest updated
+- Invocation control set if skill has side effects
+- `context: fork` only for explicit task skills (not guidelines)
+- Tool restrictions applied for read-only skills
+- `argument-hint` set if skill accepts arguments
+- Hook events/matchers configured for hook-type skills
 - Linter passes

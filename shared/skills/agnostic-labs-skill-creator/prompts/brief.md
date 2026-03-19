@@ -15,6 +15,23 @@ Create a new skill. Output the SKILL.md content and commands only.
 
 `skill`, `description`, `type`, `status`, `version`, `capabilities` (required, optional, fallback_mode)
 
+## Claude Code extensions (add when needed)
+
+| Feature | Frontmatter | When |
+|---------|-------------|------|
+| User-only invoke | `disable-model-invocation: true` | Side effects (deploy, commit) |
+| Model-only invoke | `user-invocable: false` | Background knowledge |
+| Subagent | `context: fork` + `agent: Explore` | Isolated research tasks |
+| Dynamic context | `` !`git status` `` in body | Inject shell output |
+| Tool restriction | `allowed-tools: Read, Grep, Glob` | Read-only skills |
+| Arguments | `$ARGUMENTS`, `$0`, `argument-hint` | User-passed params |
+| Hooks | `type: hook` + event + matcher | Lifecycle events |
+
 ## Required body sections
 
 `# <name>`, `## Capability contract`, `## When to use`, `## Instructions`, `## Examples`
+
+## Hook events (for hook-type skills)
+
+SessionStart, PreToolUse, PostToolUse, PermissionRequest, Stop, ConfigChange.
+Exit 0 = proceed, Exit 2 = block. Types: command, http, prompt, agent.
