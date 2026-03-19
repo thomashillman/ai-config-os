@@ -3,6 +3,15 @@ import ResumeSheet from "../components/ResumeSheet"
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL || "https://ai-config-os.workers.dev"
 
+async function readErrorMessage(response, fallbackMessage) {
+  try {
+    const payload = await response.json()
+    return payload?.error?.message || payload?.message || fallbackMessage
+  } catch {
+    return fallbackMessage
+  }
+}
+
 function sessionLabel(route) {
   if (route === "local_repo") return "Full session"
   if (route === "github_pr") return "Cloud session · PR"
@@ -118,7 +127,7 @@ function ProvenanceSection({ findings }) {
   )
 }
 
-function OpenQuestions({ questions, onAnswer, onDismiss }) {
+function OpenQuestions({ questions, onAnswer, onDismiss, dismissErrors, dismissingQuestionId }) {
   if (!questions.length) return null
 
   return (
@@ -127,25 +136,35 @@ function OpenQuestions({ questions, onAnswer, onDismiss }) {
         Open question{questions.length !== 1 ? "s" : ""}
       </h3>
       <div className="space-y-3">
-        {questions.map((q, i) => (
-          <div key={i} className="border border-gray-800 rounded-lg p-3 space-y-2">
-            <p className="text-sm text-gray-200">{q.summary || q.description}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onAnswer(q)}
-                className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded px-3 py-1.5 transition-colors"
-              >
-                Answer
-              </button>
-              <button
-                onClick={() => onDismiss(q)}
-                className="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 transition-colors"
-              >
-                Dismiss
-              </button>
+        {questions.map((q, i) => {
+          const questionId = q.finding_id || String(i)
+          const dismissError = dismissErrors[questionId]
+          const isDismissing = dismissingQuestionId === questionId
+
+          return (
+            <div key={questionId} className="border border-gray-800 rounded-lg p-3 space-y-2">
+              <p className="text-sm text-gray-200">{q.summary || q.description}</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onAnswer(q)}
+                  className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded px-3 py-1.5 transition-colors"
+                >
+                  Answer
+                </button>
+                <button
+                  onClick={() => onDismiss(q)}
+                  disabled={isDismissing}
+                  className="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 px-3 py-1.5 transition-colors"
+                >
+                  {isDismissing ? "Dismissing..." : "Dismiss"}
+                </button>
+              </div>
+              {dismissError && (
+                <p className="text-xs text-red-400" role="alert">{dismissError}</p>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -195,20 +214,28 @@ function EventStory({ events, task }) {
 function AnswerModal({ question, taskId, token, onClose, onSaved }) {
   const [answer, setAnswer] = useState("")
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
 
   async function handleSubmit(e) {
     e.preventDefault()
     if (!answer.trim()) return
     setSaving(true)
-    try {
-      const task = await fetch(`${WORKER_URL}/v1/tasks/${taskId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      }).then(r => r.json())
+    setError("")
 
+    try {
+      const taskResponse = await fetch(`${WORKER_URL}/v1/tasks/${taskId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+
+      if (!taskResponse.ok) {
+        throw new Error(await readErrorMessage(taskResponse, `Could not load task version (HTTP ${taskResponse.status})`))
+      }
+
+      const task = await taskResponse.json()
       const version = task.task?.version
       if (!version) throw new Error("Could not load task version")
 
-      await fetch(`${WORKER_URL}/v1/tasks/${taskId}/findings`, {
+      const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/findings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -220,7 +247,8 @@ function AnswerModal({ question, taskId, token, onClose, onSaved }) {
             finding_id: `answer_${Date.now()}`,
             type: "answer",
             summary: `Answer: ${answer.trim()}`,
-            description: `Question: ${question.summary}\nAnswer: ${answer.trim()}`,
+            description: `Question: ${question.summary}
+Answer: ${answer.trim()}`,
             provenance: {
               status: "verified",
               recorded_by_route: "hub",
@@ -230,10 +258,16 @@ function AnswerModal({ question, taskId, token, onClose, onSaved }) {
           updated_at: new Date().toISOString(),
         }),
       })
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, `Could not save answer (HTTP ${response.status})`))
+      }
+
       onSaved()
-    } catch {
-      // best-effort
-      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save answer")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -253,6 +287,7 @@ function AnswerModal({ question, taskId, token, onClose, onSaved }) {
             onChange={e => setAnswer(e.target.value)}
             autoFocus
           />
+          {error && <p className="text-xs text-red-400" role="alert">{error}</p>}
           <div className="flex gap-2 justify-end">
             <button type="button" onClick={onClose} className="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5">Cancel</button>
             <button
@@ -276,6 +311,8 @@ export default function TaskDetailTab({ taskId, onBack }) {
   const [error, setError] = useState(null)
   const [showResume, setShowResume] = useState(false)
   const [answerQuestion, setAnswerQuestion] = useState(null)
+  const [dismissErrors, setDismissErrors] = useState({})
+  const [dismissingQuestionId, setDismissingQuestionId] = useState(null)
 
   const token = import.meta.env.VITE_AUTH_TOKEN || ""
 
@@ -296,6 +333,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
 
       const taskData = await taskRes.json()
       setTask(taskData.task)
+      setDismissErrors({})
 
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json()
@@ -310,8 +348,17 @@ export default function TaskDetailTab({ taskId, onBack }) {
 
   async function handleDismiss(question) {
     if (!task) return
+
+    const questionId = question.finding_id || question.summary || question.description
+    setDismissingQuestionId(questionId)
+    setDismissErrors(current => {
+      const next = { ...current }
+      delete next[questionId]
+      return next
+    })
+
     try {
-      await fetch(`${WORKER_URL}/v1/tasks/${taskId}/findings`, {
+      const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/findings`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -332,9 +379,19 @@ export default function TaskDetailTab({ taskId, onBack }) {
           updated_at: new Date().toISOString(),
         }),
       })
-      fetchTask()
-    } catch {
-      // best-effort
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, `Could not dismiss question (HTTP ${response.status})`))
+      }
+
+      await fetchTask()
+    } catch (err) {
+      setDismissErrors(current => ({
+        ...current,
+        [questionId]: err instanceof Error ? err.message : "Could not dismiss question",
+      }))
+    } finally {
+      setDismissingQuestionId(null)
     }
   }
 
@@ -420,6 +477,8 @@ export default function TaskDetailTab({ taskId, onBack }) {
                 questions={openQuestions}
                 onAnswer={setAnswerQuestion}
                 onDismiss={handleDismiss}
+                dismissErrors={dismissErrors}
+                dismissingQuestionId={dismissingQuestionId}
               />
             </div>
           )}
