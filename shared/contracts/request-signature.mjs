@@ -1,3 +1,5 @@
+import { timingSafeEqual } from 'node:crypto';
+
 const encoder = new TextEncoder();
 
 export const SIGNATURE_HEADERS = {
@@ -30,6 +32,19 @@ async function hmacSha256Hex(secret, input) {
   );
   const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(input));
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const SIGNATURE_PATTERN = /^v1=([a-f0-9]{64})$/i;
+
+function signaturesMatch(actual, expected) {
+  const actualMatch = SIGNATURE_PATTERN.exec(actual);
+  const expectedMatch = SIGNATURE_PATTERN.exec(expected);
+
+  if (!actualMatch || !expectedMatch) {
+    return false;
+  }
+
+  return timingSafeEqual(Buffer.from(actualMatch[1], 'hex'), Buffer.from(expectedMatch[1], 'hex'));
 }
 
 function structuredError(status, code, message, details = {}) {
@@ -102,7 +117,7 @@ export async function verifySignedRequest({
   const canonical = canonicalSigningInput({ method, path, timestamp, nonce, bodyHash });
   const expected = `${SIGNATURE_VERSION}=${await hmacSha256Hex(secret, canonical)}`;
 
-  if (signatureHeader !== expected) {
+  if (!signaturesMatch(signatureHeader, expected)) {
     return structuredError(401, 'invalid_signature', 'Signature verification failed', {
       algorithm: SIGNATURE_ALGORITHM,
     });
