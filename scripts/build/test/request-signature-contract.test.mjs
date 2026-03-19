@@ -127,3 +127,37 @@ test('verifySignedRequest does not consume nonce when signature is invalid', asy
   assert.equal(invalid.error.code, 'invalid_signature');
   assert.equal(valid.ok, true, 'nonce should remain usable after invalid signature attempt');
 });
+
+test('verifySignedRequest rejects mismatched path with invalid_signature', async () => {
+  const headers = await makeHeaders({ path: '/v1/health' });
+
+  const result = await verifySignedRequest({
+    method: 'GET',
+    path: '/v1/other',
+    headers,
+    body: '',
+    secret: SECRET,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, 'invalid_signature');
+});
+
+test('verifySignedRequest fails safely for malformed signature length without throwing', async () => {
+  const headers = await makeHeaders({ nonce: 'n-malformed-signature' });
+  headers.set('X-AIOS-Signature', 'v1=abc');
+
+  await assert.doesNotReject(async () => {
+    const result = await verifySignedRequest({
+      method: 'GET',
+      path: '/v1/health',
+      headers,
+      body: '',
+      secret: SECRET,
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, 'invalid_signature');
+  });
+});
+
