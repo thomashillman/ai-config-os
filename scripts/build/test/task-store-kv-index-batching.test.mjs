@@ -123,4 +123,29 @@ describe('KvTaskStore index batching', () => {
     assert.ok(entry, 'Task should appear in listRecentTasks');
     assert.equal(entry.updated_at, lastTs, 'Index should reflect latest updated_at');
   });
+
+  test('index cap keeps newest 200 tasks, not oldest', async () => {
+    const { KvTaskStore } = await safeImport('../../../runtime/lib/task-store-kv.mjs', import.meta.url);
+
+    const kv = createMockKv();
+    const store = new KvTaskStore(kv);
+
+    const baseMs = Date.now();
+    for (let i = 0; i < 210; i++) {
+      await store.create(makeTask({
+        task_id: `cap-${i}`,
+        updated_at: new Date(baseMs + i * 1000).toISOString(),
+      }));
+    }
+
+    const recent = await store.listRecentTasks({ limit: 300 });
+    assert.equal(recent.length, 200, 'Index should be capped at 200 tasks');
+    assert.equal(recent[0].task_id, 'cap-209', 'Newest task should be first');
+    assert.equal(recent[199].task_id, 'cap-10', 'Oldest retained task should be the 200th newest');
+    assert.equal(
+      recent.some(item => item.task_id === 'cap-0'),
+      false,
+      'Oldest overflow tasks should be dropped from index'
+    );
+  });
 });

@@ -9,10 +9,10 @@
  */
 import { readdirSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
-import { cpus } from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { createRequire } from 'module';
+import { resolveTestConcurrency } from './lib/test-runner-config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -83,9 +83,8 @@ function writesToDist(filePath) {
 const distTests = allTestFiles.filter(writesToDist);
 const pureTests = allTestFiles.filter(f => !writesToDist(f));
 
-// Pure tests run in parallel; configurable via TEST_CONCURRENCY env var (default: min(cpus, 4))
-const envConcurrency = parseInt(process.env.TEST_CONCURRENCY, 10);
-const parallelism = Math.max(1, envConcurrency > 0 ? envConcurrency : Math.min(cpus().length, 4));
+// Pure tests run in parallel; default is platform-aware and env-overridable.
+const parallelism = resolveTestConcurrency();
 
 /**
  * Run a set of test files with node --test and the given concurrency.

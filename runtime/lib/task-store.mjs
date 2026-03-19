@@ -4,7 +4,13 @@ import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findin
 import { ProgressEventStore, ProgressEventConflictError } from './progress-event-pipeline.mjs';
 import { createHandoffTokenService } from './handoff-token-service.mjs';
 
-const clone = value => structuredClone(value);
+function clone(value) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return structuredClone(value);
+  }
+}
 
 
 function summariseFindingsProvenance(findings = []) {
