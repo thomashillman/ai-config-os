@@ -2,6 +2,8 @@
 
 **Purpose:** Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents. Skills are authored once in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed or materialised without requiring source-tree access.
 
+Skills in this repo follow the [Agent Skills](https://agentskills.io) open standard — a portable format supported by 30+ agent products (Claude Code, Cursor, VS Code, GitHub Copilot, Gemini CLI, OpenAI Codex, and others). This repo extends the standard with multi-model variants, capability contracts, and cross-platform distribution. See `docs/SKILLS.md` for the comprehensive skills reference.
+
 ## Structure
 
 ### Source & Distribution (Portability Contract)
@@ -32,6 +34,17 @@
 
 ## Creating a new skill
 Run `node scripts/build/new-skill.mjs <skill-name>` — this creates the skill directory, updates the manifest, and optionally creates a convenience symlink on Unix. Use `--no-link` to skip symlink creation. The Unix wrapper `ops/new-skill.sh` delegates to this command. It does **not** change `VERSION`, `package.json`, or `plugin.json`. Release version bumps are a separate, explicit action (edit `VERSION`, then `npm run version:sync`).
+
+### Skill format overview
+
+Skills follow the [Agent Skills open standard](https://agentskills.io/specification). At minimum, a SKILL.md needs `name` and `description` in YAML frontmatter. This repo extends the standard with additional fields — see `docs/SKILLS.md` for the full reference covering:
+- **Invocation control** (`disable-model-invocation`, `user-invocable`) — who can trigger the skill
+- **Subagent execution** (`context: fork`, `agent`) — run skills in isolated contexts
+- **Dynamic context** (`` !`command` ``) — inject shell command output into skill prompts
+- **Argument substitution** (`$ARGUMENTS`, `$0`, `${CLAUDE_SKILL_DIR}`) — pass data to skills
+- **Capability contracts** — declare required/optional capabilities for cross-platform compatibility
+- **Multi-model variants** — model-specific prompt files with cost/latency metadata
+- **Testing** — automated validation in frontmatter
 
 ## Portability Contract (v0.6.0+)
 
@@ -207,7 +220,7 @@ bash ops/capability-probe.sh --quiet              # re-run probe
 
 ## Phase 2: Enhanced SKILL.md Frontmatter
 
-All skills define metadata in YAML frontmatter (between `---` markers):
+All skills define metadata in YAML frontmatter (between `---` markers). The `skill` and `description` fields follow the [Agent Skills open standard](https://agentskills.io/specification); all other fields are repo-specific extensions. For the full skills reference including Claude Code-specific features (invocation control, subagents, hooks, dynamic context), see `docs/SKILLS.md`.
 
 ```yaml
 ---
@@ -324,7 +337,7 @@ See `shared/skills/_template/SKILL.md` for complete template.
 
 ## Living docs protocol
 
-Three docs stay in sync; each owns a distinct slice:
+Four docs stay in sync; each owns a distinct slice:
 
 | Doc | Update when |
 |---|---|
@@ -332,6 +345,7 @@ Three docs stay in sync; each owns a distinct slice:
 | `PLAN.md` | A phase completes, acceptance criteria are met, recommended next steps change |
 | `CLAUDE.md` | Dev conventions change, new ops scripts added, git/proxy workflow changes |
 | `shared/manifest.md` | A skill is added, renamed, or removed (one row per skill) |
+| `docs/SKILLS.md` | Skill format changes, new Claude Code skill features, hooks patterns, Agent Skills standard updates |
 
 **Rules for Claude agents:**
 - After any commit that creates or modifies a skill: update `shared/manifest.md` row + check if README or PLAN.md need a line.
