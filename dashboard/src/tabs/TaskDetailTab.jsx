@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import ResumeSheet from "../components/ResumeSheet"
 
 const WORKER_URL = import.meta.env.VITE_WORKER_URL || "https://ai-config-os.workers.dev"
@@ -341,10 +341,16 @@ export default function TaskDetailTab({ taskId, onBack }) {
   useEffect(() => { fetchTask() }, [taskId])
 
   const findings = task?.findings || []
-  const openQuestions = findings.filter(f => f.type === "question")
-  const openFindings = findings.filter(f =>
-    f.type !== "question" &&
-    (f.provenance?.status === "hypothesis" || f.provenance?.status === "reused")
+  const openQuestions = useMemo(
+    () => findings.filter(f => f.type === "question"),
+    [findings]
+  )
+  const openFindings = useMemo(
+    () => findings.filter(f =>
+      f.type !== "question" &&
+      (f.provenance?.status === "hypothesis" || f.provenance?.status === "reused")
+    ),
+    [findings]
   )
   const origin = sessionLabel(task?.initial_route || task?.current_route)
   const state = stateLabel(task?.state)

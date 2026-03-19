@@ -4,9 +4,7 @@ import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findin
 import { ProgressEventStore, ProgressEventConflictError } from './progress-event-pipeline.mjs';
 import { createHandoffTokenService } from './handoff-token-service.mjs';
 
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
+const clone = value => structuredClone(value);
 
 
 function summariseFindingsProvenance(findings = []) {
@@ -56,6 +54,8 @@ export class TaskNotFoundError extends Error {
   }
 }
 
+const MAX_SNAPSHOTS = 50;
+
 function createSnapshot(task) {
   return validateContract('taskStateSnapshot', {
     schema_version: '1.0.0',
@@ -64,6 +64,13 @@ function createSnapshot(task) {
     created_at: task.updated_at,
     task,
   });
+}
+
+function pushSnapshot(snapshots, snapshot) {
+  snapshots.push(snapshot);
+  if (snapshots.length > MAX_SNAPSHOTS) {
+    snapshots.splice(0, snapshots.length - MAX_SNAPSHOTS);
+  }
 }
 
 export class TaskStore {
@@ -121,7 +128,7 @@ export class TaskStore {
 
     const nextSnapshot = createSnapshot(validated);
     const snapshots = this.snapshots.get(taskId) || [];
-    snapshots.push(nextSnapshot);
+    pushSnapshot(snapshots, nextSnapshot);
     this.snapshots.set(taskId, snapshots);
 
     return clone(validated);
@@ -155,7 +162,7 @@ export class TaskStore {
 
     const nextSnapshot = createSnapshot(validated);
     const snapshots = this.snapshots.get(taskId) || [];
-    snapshots.push(nextSnapshot);
+    pushSnapshot(snapshots, nextSnapshot);
     this.snapshots.set(taskId, snapshots);
 
     this.progressEvents.append({
@@ -200,7 +207,7 @@ export class TaskStore {
 
     const nextSnapshot = createSnapshot(next);
     const snapshots = this.snapshots.get(taskId) || [];
-    snapshots.push(nextSnapshot);
+    pushSnapshot(snapshots, nextSnapshot);
     this.snapshots.set(taskId, snapshots);
 
     this.progressEvents.append({
@@ -250,7 +257,7 @@ export class TaskStore {
 
     const nextSnapshot = createSnapshot(next);
     const snapshots = this.snapshots.get(taskId) || [];
-    snapshots.push(nextSnapshot);
+    pushSnapshot(snapshots, nextSnapshot);
     this.snapshots.set(taskId, snapshots);
     const reclassifiedCount = transitionedFindings.reduce((count, nextFinding, index) => {
       const previousFinding = current.findings[index];
@@ -304,7 +311,7 @@ export class TaskStore {
 
     const nextSnapshot = createSnapshot(next);
     const snapshots = this.snapshots.get(taskId) || [];
-    snapshots.push(nextSnapshot);
+    pushSnapshot(snapshots, nextSnapshot);
     this.snapshots.set(taskId, snapshots);
 
     this.progressEvents.append({

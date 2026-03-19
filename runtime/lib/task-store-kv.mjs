@@ -81,6 +81,10 @@ export class KvTaskStore {
   constructor(kv, handoffTokenService = null) {
     this.kv = kv;
     this.handoffTokenService = handoffTokenService;
+    // Instance-level index cache — avoids repeated KV reads when the same
+    // store instance handles multiple mutations (e.g., tests, batch ops).
+    this._indexCache = null;
+    this._indexDirty = false;
   }
 
   // --- KV key helpers ---
@@ -109,8 +113,24 @@ export class KvTaskStore {
     await this._put(key, arr);
   }
 
+  // Load index from KV on first call; subsequent calls use the in-memory cache.
+  async _loadIndex() {
+    if (this._indexCache === null) {
+      this._indexCache = (await this._get(this._indexKey())) || [];
+    }
+    return this._indexCache;
+  }
+
+  // Write the dirty cache back to KV. Call at the end of each mutating method.
+  async _flushIndex() {
+    if (this._indexDirty && this._indexCache !== null) {
+      await this._put(this._indexKey(), this._indexCache.slice(0, 200));
+      this._indexDirty = false;
+    }
+  }
+
   async _updateIndex(taskId, meta) {
-    const index = (await this._get(this._indexKey())) || [];
+    const index = await this._loadIndex();
     const i = index.findIndex(t => t.task_id === taskId);
     if (i >= 0) {
       index[i] = { ...index[i], ...meta };
@@ -118,7 +138,9 @@ export class KvTaskStore {
       index.push({ task_id: taskId, ...meta });
     }
     index.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
-    await this._put(this._indexKey(), index.slice(0, 200));
+    if (index.length > 200) index.splice(0, index.length - 200);
+    this._indexDirty = true;
+    // Note: KV write is deferred to _flushIndex() to batch repeated updates
   }
 
   // --- TaskStore interface (async) ---
@@ -132,7 +154,7 @@ export class KvTaskStore {
 
     // Assign short code from name/goal
     const name = (validated.goal || validated.task_type || 'task').slice(0, 80);
-    const index = (await this._get(this._indexKey())) || [];
+    const index = await this._loadIndex();
     const prefix = normaliseSlug(name).slice(0, 4) || 'task';
     const samePrefix = index.filter(t => (t.short_code || '').startsWith(prefix)).length;
     const shortCode = generateShortCode(name, samePrefix + 1);
@@ -169,6 +191,7 @@ export class KvTaskStore {
       stronger_route_available: validated.task_type === 'review_repository' && validated.current_route !== 'local_repo',
       updated_at: validated.updated_at || new Date().toISOString(),
     });
+    await this._flushIndex();
 
     return clone(validated);
   }
@@ -215,6 +238,7 @@ export class KvTaskStore {
       stronger_route_available: next.task_type === 'review_repository' && next.current_route !== 'local_repo',
       updated_at: next.updated_at || new Date().toISOString(),
     });
+    await this._flushIndex();
     return clone(next);
   }
 
@@ -250,6 +274,7 @@ export class KvTaskStore {
       data: { from_state: current.state, to_state: validated.state },
     });
     await this._updateIndex(taskId, { state: validated.state, updated_at: updatedAt });
+    await this._flushIndex();
     return clone(validated);
   }
 
@@ -282,6 +307,7 @@ export class KvTaskStore {
       data: { finding_id: lastFinding.finding_id, status: lastFinding.provenance.status },
     });
     await this._updateIndex(taskId, { updated_at: updatedAt });
+    await this._flushIndex();
     return clone(next);
   }
 
@@ -325,6 +351,7 @@ export class KvTaskStore {
       stronger_route_available: next.task_type === 'review_repository' && toRouteId !== 'local_repo',
       updated_at: upgradedAt,
     });
+    await this._flushIndex();
     return clone(next);
   }
 
@@ -360,6 +387,7 @@ export class KvTaskStore {
       stronger_route_available: next.task_type === 'review_repository' && routeId !== 'local_repo',
       updated_at: selectedAt,
     });
+    await this._flushIndex();
     return clone(next);
   }
 

@@ -85,12 +85,20 @@ cmd_status() {
   echo "  Worker: ${WORKER_URL}"
   echo ""
 
-  # Local cache
+  # Local cache — parse version + built_at in one jq call when possible
   local cached_version="(none)"
   local cached_at="(never)"
   if [[ -f "${CACHE_DIR}/latest.json" ]]; then
-    cached_version=$(read_cached_version)
-    cached_at=$(jq -r '.built_at // "?"' "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?")
+    if [[ -f "${VERSION_FILE}" ]]; then
+      cached_version=$(cat "${VERSION_FILE}")
+      cached_at=$(jq -r '.built_at // "?"' "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?")
+    else
+      local _cache_fields
+      _cache_fields=$(jq -r '[(.version // "?"), (.built_at // "?")] | @tsv' \
+        "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?	?")
+      cached_version="${_cache_fields%%$'\t'*}"
+      cached_at="${_cache_fields##*$'\t'}"
+    fi
   fi
   echo "  Cached:  ${cached_version} (built ${cached_at})"
 
@@ -195,8 +203,12 @@ cmd_fetch() {
   response_etag=$(awk '/^[Ee][Tt][Aa][Gg]:/{etag=$0; sub(/^[^:]+:[[:space:]]*/, "", etag); gsub(/\r$/, "", etag)} END{print etag}' "${headers_file}")
   [[ -n "${response_etag}" ]] || die "Response missing ETag header"
 
-  local version
-  version=$(jq -r '.version // "?"' "${payload_file}" 2>/dev/null || echo "?")
+  # Extract version and skill count in one jq call before moving the payload
+  local _payload_fields
+  _payload_fields=$(jq -r '[(.version // "?"), (.skills | length | tostring)] | @tsv' \
+    "${payload_file}" 2>/dev/null || echo "?	?")
+  local version="${_payload_fields%%$'\t'*}"
+  local skill_count="${_payload_fields##*$'\t'}"
   [[ "${version}" != "?" ]] || die "Payload missing version field"
 
   local latest_tmp="${CACHE_DIR}/latest.json.tmp"
@@ -210,9 +222,6 @@ cmd_fetch() {
   mv "${latest_tmp}" "${CACHE_DIR}/latest.json"
   mv "${version_tmp}" "${VERSION_FILE}"
   mv "${etag_tmp}" "${ETAG_FILE}"
-
-  local skill_count
-  skill_count=$(jq '.skills | length' "${CACHE_DIR}/latest.json" 2>/dev/null || echo "?")
 
   echo "Cached version: ${version}"
   echo "Skills available: ${skill_count}"
