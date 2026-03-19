@@ -98,23 +98,33 @@ examples:
 variants:
   opus:
     prompt_file: prompts/detailed.md
-    description: "Full lifecycle with thorough analysis, edge-case handling, and architectural rationale"
+    description: >
+      Use for CREATE mode with hook-type or agent-type skills, complex capability contracts,
+      or when the user's request is ambiguous and requires design judgment. Also use for
+      ITERATE on architectural issues (wrong fallback strategy, capability misclassification).
+      Overkill for simple prompt skills or VALIDATE/SHIP modes.
     cost_factor: 3.0
     latency_baseline_ms: 1200
   sonnet:
     prompt_file: prompts/balanced.md
-    description: "Default; complete lifecycle with clear steps and sensible defaults"
+    description: >
+      Default for most work. Handles CREATE for prompt-type skills, all ITERATE fixes,
+      and full SHIP workflows. Sufficient for capability contract design on straightforward
+      skills. Falls short on nuanced hook lifecycle design or multi-skill composition.
     cost_factor: 1.0
     latency_baseline_ms: 400
   haiku:
     prompt_file: prompts/brief.md
-    description: "Minimal — commands and key decisions only"
+    description: >
+      Use for VALIDATE mode (just running commands and reporting results), SHIP mode
+      (checklist execution), and simple ITERATE fixes (add a missing field, fix a path).
+      Not suitable for CREATE mode — lacks the judgment to design good capability contracts.
     cost_factor: 0.3
     latency_baseline_ms: 150
   fallback_chain:
+    - opus
     - sonnet
     - haiku
-    - opus
 
 tests:
   - id: test-creates-valid-frontmatter
@@ -194,6 +204,23 @@ Available capabilities: `fs.read`, `fs.write`, `shell.exec`, `shell.long-running
 - Refining a skill's capability contract, prompts, or tests ("tighten the capability requirements")
 - Preparing a skill for release ("validate and ship this skill")
 - Understanding why a skill isn't working on a particular platform ("why doesn't this skill show up on cursor?")
+
+## Model routing
+
+The quality of the outcome depends heavily on matching model to task. This skill's four modes have different complexity profiles:
+
+| Mode | Complexity driver | Best model | Acceptable | Avoid |
+|------|------------------|------------|------------|-------|
+| **CREATE** hook/agent skill | Hook lifecycle design, capability contract judgment, subagent architecture | **opus** | sonnet (with iteration) | haiku |
+| **CREATE** prompt skill | Straightforward template fill with sensible defaults | **sonnet** | opus (overkill but safe) | haiku |
+| **ITERATE** architectural | Capability misclassification, wrong fallback strategy, platform compatibility | **opus** | sonnet | haiku |
+| **ITERATE** mechanical | Add missing field, fix path, adjust value | **sonnet** | haiku | — |
+| **VALIDATE** | Run commands, report results | **haiku** | sonnet | opus (waste) |
+| **SHIP** | Checklist execution | **haiku** | sonnet | opus (waste) |
+
+**Key insight:** CREATE mode for non-trivial skills (hooks, agents, complex capability contracts) is where model choice matters most. The design decisions — which capabilities to require vs make optional, whether to fork into a subagent, how to structure hook communication — require judgment that cheaper models lack. A sonnet-created hook skill will often need multiple iterate cycles that an opus creation would have gotten right the first time.
+
+**Fallback chain rationale:** `opus → sonnet → haiku`. The dominant use case (creating and iterating on skills) benefits from stronger reasoning. For pure validation/shipping, the cost difference is negligible because those modes are fast.
 
 ## Instructions
 

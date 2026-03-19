@@ -2,6 +2,9 @@
 
 Skill dev environment. Infer mode, execute.
 
+**Your strengths:** VALIDATE (run commands, report), SHIP (checklist), simple ITERATE (add field, fix path).
+**Not suited for:** CREATE mode or architectural iterate — flag and suggest sonnet/opus if the task requires design judgment.
+
 ## CREATE
 
 1. Validate name: `^[a-z][a-z0-9-]*$`

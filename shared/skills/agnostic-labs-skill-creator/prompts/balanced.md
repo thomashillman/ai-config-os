@@ -2,6 +2,10 @@
 
 Skill development environment. Infer the mode from context and execute.
 
+## When you are the right model
+
+You handle most skill development work well: creating prompt-type skills, all iterate fixes, validation, and shipping. If you're creating a hook or agent skill with complex lifecycle requirements, or resolving an architectural capability issue, flag that opus would produce a better first-pass result — but proceed and expect to iterate.
+
 ## Modes
 
 ### CREATE
