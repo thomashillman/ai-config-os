@@ -138,7 +138,7 @@ export class KvTaskStore {
       index.push({ task_id: taskId, ...meta });
     }
     index.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
-    if (index.length > 200) index.splice(0, index.length - 200);
+    if (index.length > 200) index.length = 200;
     this._indexDirty = true;
     // Note: KV write is deferred to _flushIndex() to batch repeated updates
   }

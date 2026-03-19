@@ -1,46 +1,32 @@
-import { describe, it } from 'node:test';
+import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpus } from 'node:os';
+import { defaultConcurrencyForPlatform, resolveTestConcurrency } from './lib/test-runner-config.mjs';
 
-/**
- * Tests for the test runner concurrency logic.
- * We replicate the computation from run-tests.mjs rather than importing it
- * (it's a script with side effects, not a module).
- */
-function computeParallelism(envValue) {
-  const envConcurrency = parseInt(envValue, 10);
-  return Math.max(1, envConcurrency > 0 ? envConcurrency : Math.min(cpus().length, 4));
-}
-
-describe('test runner concurrency config', () => {
-  it('defaults to min(cpus, 4) when TEST_CONCURRENCY is not set', () => {
-    const result = computeParallelism(undefined);
-    assert.equal(result, Math.min(cpus().length, 4));
+describe('test-runner concurrency defaults', () => {
+  test('windows default is sequential to avoid process contention', () => {
+    assert.equal(defaultConcurrencyForPlatform('win32', 16), 1);
+    assert.equal(defaultConcurrencyForPlatform('win32', 2), 1);
   });
 
-  it('respects TEST_CONCURRENCY=8', () => {
-    const result = computeParallelism('8');
-    assert.equal(result, 8);
+  test('non-windows default preserves prior behavior (min(cpu, 4))', () => {
+    assert.equal(defaultConcurrencyForPlatform('linux', 1), 1);
+    assert.equal(defaultConcurrencyForPlatform('linux', 8), 4);
+    assert.equal(defaultConcurrencyForPlatform('darwin', 6), 4);
   });
 
-  it('respects TEST_CONCURRENCY=1', () => {
-    const result = computeParallelism('1');
-    assert.equal(result, 1);
+  test('explicit TEST_CONCURRENCY always wins', () => {
+    assert.equal(resolveTestConcurrency({
+      platform: 'win32',
+      cpuCount: 16,
+      env: { TEST_CONCURRENCY: '3' },
+    }), 3);
   });
 
-  it('falls back to default for TEST_CONCURRENCY=0', () => {
-    const result = computeParallelism('0');
-    assert.equal(result, Math.min(cpus().length, 4));
-  });
-
-  it('falls back to default for invalid TEST_CONCURRENCY', () => {
-    const result = computeParallelism('abc');
-    assert.equal(result, Math.min(cpus().length, 4));
-  });
-
-  it('clamps negative values to 1 via default path', () => {
-    const result = computeParallelism('-2');
-    // -2 > 0 is false, so falls back to min(cpus, 4), which is >= 1
-    assert.ok(result >= 1);
+  test('invalid TEST_CONCURRENCY falls back to platform default', () => {
+    assert.equal(resolveTestConcurrency({
+      platform: 'linux',
+      cpuCount: 8,
+      env: { TEST_CONCURRENCY: 'NaN' },
+    }), 4);
   });
 });
