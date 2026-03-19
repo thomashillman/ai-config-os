@@ -247,54 +247,38 @@ describe('session-start hook — structural checks', () => {
     assert.ok(existsSync(hookPath), 'session-start.sh must exist');
   });
 
-  test('session-start runs probe unconditionally (hostname-change detection pattern)', () => {
+  test('session-start remains a thin wrapper around the shared bootstrap core', () => {
     const content = readFileSync(hookPath, 'utf8');
     assert.ok(
-      content.includes('CURRENT_HOSTNAME') && content.includes('CACHED_HOSTNAME'),
-      'session-start must contain hostname-change detection for unconditional probe'
+      content.includes('run-bootstrap.mjs'),
+      'session-start must delegate to the shared bootstrap runner'
     );
     assert.ok(
+      content.includes('_detect_resume_task'),
+      'session-start should preserve resume detection in the shell wrapper'
+    );
+  });
+
+  test('session-start resolves the project dir before invoking bootstrap', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    const projectDirIdx = content.indexOf('CLAUDE_PROJECT_DIR');
+    const bootstrapIdx  = content.indexOf('run-bootstrap.mjs');
+    assert.ok(projectDirIdx > -1, 'CLAUDE_PROJECT_DIR resolution must exist');
+    assert.ok(bootstrapIdx > -1, 'bootstrap runner invocation must exist');
+    assert.ok(projectDirIdx < bootstrapIdx, 'project dir must be resolved before bootstrap runs');
+  });
+
+  test('session-start delegates startup behavior instead of embedding bootstrap steps', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    assert.equal(
       content.includes('capability-probe.sh'),
-      'session-start must invoke capability-probe.sh'
+      false,
+      'session-start should no longer inline deferred bootstrap phases'
     );
-  });
-
-  test('session-start probe runs before the CLAUDE_CODE_REMOTE exit guard', () => {
-    const content = readFileSync(hookPath, 'utf8');
-    const probeIdx = content.indexOf('capability-probe.sh');
-    const exitIdx  = content.indexOf('CLAUDE_CODE_REMOTE');
-    // probe invocation should appear before the remote-only guard
-    assert.ok(probeIdx > -1,  'probe invocation must exist');
-    assert.ok(exitIdx  > -1,  'CLAUDE_CODE_REMOTE guard must exist');
-    assert.ok(probeIdx < exitIdx, 'probe must run before the CLAUDE_CODE_REMOTE exit guard');
-  });
-
-  test('session-start builds dist/ when absent (CLAUDE_CODE_REMOTE path)', () => {
-    const content = readFileSync(hookPath, 'utf8');
-    // Must contain a guard that triggers compile.mjs when dist/clients/claude-code is missing
-    assert.ok(
-      content.includes('compile.mjs') && content.includes('dist/clients/claude-code'),
-      'session-start.sh must build skills when dist/clients/claude-code is absent'
+    assert.equal(
+      content.includes('materialise.sh bootstrap'),
+      false,
+      'session-start should no longer inline install orchestration'
     );
-  });
-
-  test('session-start calls materialise.sh extract after fetch', () => {
-    const content = readFileSync(hookPath, 'utf8');
-    // New flow: bootstrap or extract (depending on Worker availability)
-    const bootstrapIdx = content.indexOf('materialise.sh bootstrap');
-    const extractIdx = content.indexOf('materialise.sh extract');
-    // Either bootstrap (fast path) or extract (slow path) must be present
-    assert.ok(
-      bootstrapIdx > -1 || extractIdx > -1,
-      'session-start.sh must call bootstrap or extract'
-    );
-  });
-
-  test('session-start calls materialise.sh install after extract', () => {
-    const content = readFileSync(hookPath, 'utf8');
-    const extractIdx = content.indexOf('materialise.sh extract');
-    const installIdx = content.indexOf('materialise.sh install');
-    assert.ok(installIdx > -1, 'session-start.sh must call materialise.sh install');
-    assert.ok(installIdx > extractIdx, 'materialise.sh install must be called after extract');
   });
 });
