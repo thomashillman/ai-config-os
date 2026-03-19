@@ -146,6 +146,15 @@ tests:
     models_to_test:
       - sonnet
 
+composition:
+  personas:
+    - name: "skill-author"
+      description: "Skill authoring and maintenance persona"
+      skills:
+        - "agnostic-labs-skill-creator"
+        - "plugin-setup"
+        - "skill-audit"
+
 docs:
   auto_generate_readme: true
   sections_to_include:
