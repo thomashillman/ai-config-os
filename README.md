@@ -4,6 +4,8 @@
 
 AI Config OS is a plugin marketplace and skill authoring system that centralizes how you configure AI agents across your devices. Instead of scattering prompts, hooks, and conventions across different tools, you define them once in a shared library and deploy them everywhere—your Claude Code workspace, Cursor, Codex, or any tool that supports plugins.
 
+Skills follow the [Agent Skills](https://agentskills.io) open standard — a portable format supported by 30+ agent products including Claude Code, Cursor, VS Code (Copilot), GitHub Copilot, Gemini CLI, OpenAI Codex, and many others. This repo extends the standard with multi-model variants, capability contracts, automated testing, and cross-platform distribution. See [`docs/SKILLS.md`](docs/SKILLS.md) for the comprehensive skills reference.
+
 ## What can you do with it?
 
 - **Centralize AI behaviour:** Define skills, hooks, and conventions in one place; sync across devices
@@ -196,20 +198,21 @@ bash adapters/claude/dev-test.sh
 
 **Skill metadata structure:**
 
-Every skill defines what it does using YAML frontmatter:
+Every skill defines what it does using YAML frontmatter. The `name`/`skill` and `description` fields follow the [Agent Skills open standard](https://agentskills.io/specification); this repo adds extensions for multi-model intelligence and cross-platform distribution:
 
-| Field | Purpose | Example |
-|-------|---------|---------|
-| `skill` | Unique identifier | `my-skill` |
-| `description` | One-sentence summary | `Refactor code with safety checks` |
-| `type` | Skill category | `prompt`, `hook`, `agent`, `workflow-blueprint` |
-| `inputs` | Required parameters | `code: string`, `refactor_scope: string` |
-| `outputs` | What the skill produces | `refactored_code: string`, `changes_summary: string` |
-| `dependencies` | Skills, APIs, or models needed | `dependencies: [security-review]` |
-| `variants` | Model-specific prompts | `opus`, `sonnet`, `haiku` |
-| `tests` | Automated validation | `test: { input: "...", expected_substring: "..." }` |
+| Field | Standard | Purpose | Example |
+|-------|----------|---------|---------|
+| `skill`/`name` | Yes | Unique identifier | `my-skill` |
+| `description` | Yes | What the skill does and when to use it | `Refactor code with safety checks` |
+| `type` | Extended | Skill category | `prompt`, `hook`, `agent`, `workflow-blueprint` |
+| `capabilities` | Extended | Required/optional platform capabilities | `required: [git.read, shell.exec]` |
+| `inputs` | Extended | Required parameters | `code: string`, `refactor_scope: string` |
+| `outputs` | Extended | What the skill produces | `refactored_code: string` |
+| `dependencies` | Extended | Skills, APIs, or models needed | `dependencies: [security-review]` |
+| `variants` | Extended | Model-specific prompts | `opus`, `sonnet`, `haiku` |
+| `tests` | Extended | Automated validation | `test: { input: "...", expected_substring: "..." }` |
 
-[See the full template](shared/skills/_template/SKILL.md) for all available fields.
+[See the full template](shared/skills/_template/SKILL.md) for all available fields, or [`docs/SKILLS.md`](docs/SKILLS.md) for the comprehensive reference.
 
 ### Sync tools across machines
 
@@ -452,9 +455,11 @@ Thank you to the Mycelium team for the foundational ideas that shaped this syste
 ## Quick links
 
 - **[CLAUDE.md](CLAUDE.md)** — Development context, conventions, and checklist (loaded automatically in Claude Code)
+- **[docs/SKILLS.md](docs/SKILLS.md)** — Comprehensive skills reference (Agent Skills standard, Claude Code features, hooks, authoring guide)
 - **[PLAN.md](PLAN.md)** — Implementation roadmap and completion status
 - **[shared/manifest.md](shared/manifest.md)** — Searchable index of all available skills and workflows
 - **[shared/skills/_template/SKILL.md](shared/skills/_template/SKILL.md)** — Template for creating new skills
+- **[Agent Skills standard](https://agentskills.io)** — The open standard this project follows
 
 ---
 
