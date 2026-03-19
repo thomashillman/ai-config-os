@@ -27,6 +27,7 @@ import { resolveAll, validateOutcomeCompatibility } from './lib/resolve-compatib
 import { selectEmittedPlatforms } from './lib/select-emitted-platforms.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
 import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
+import { getSkillValidator, getPlatformValidator, getRouteValidator, getOutcomeValidator, getSkillSchema } from './lib/validators-cache.mjs';
 import { registeredToolIds } from '../../runtime/tool-definitions.mjs';
 import { loadTaskRouteDefinitions } from '../../runtime/lib/task-route-definition-loader.mjs';
 import { loadTaskRouteInputDefinitions } from '../../runtime/lib/task-route-input-loader.mjs';
@@ -40,14 +41,9 @@ const ROOT = resolve(__dirname, '..', '..');
 // Symlinks in plugins/ are optional Unix authoring convenience, not part of the build contract.
 const SKILLS_DIR = join(ROOT, 'shared', 'skills');
 
-const SCHEMA_PATH = join(ROOT, 'schemas', 'skill.schema.json');
 const DIST_DIR = join(ROOT, 'dist');
 
 const VALIDATE_ONLY = process.argv.includes('--validate-only');
-const PLATFORM_SCHEMA_PATH = join(ROOT, 'schemas', 'platform.schema.json');
-
-const OUTCOME_SCHEMA_PATH = join(ROOT, 'schemas', 'outcome.schema.json');
-const ROUTE_SCHEMA_PATH = join(ROOT, 'schemas', 'route.schema.json');
 const TASK_ROUTE_DEFINITIONS_PATH = join(ROOT, 'runtime', 'task-route-definitions.yaml');
 const TASK_ROUTE_INPUT_DEFINITIONS_PATH = join(ROOT, 'runtime', 'task-route-input-definitions.yaml');
 
@@ -58,38 +54,13 @@ const releaseMode = process.argv.includes('--release') || process.env.AI_CONFIG_
 // Note: provenance is calculated in main() to ensure current env is used
 
 async function loadValidators() {
-  // Load Ajv and schema files in parallel
-  const [
-    { default: Ajv },
-    { default: addFormats },
-    skillSchemaText,
-    platformSchemaText,
-    routeSchemaText,
-    outcomeSchemaText,
-  ] = await Promise.all([
-    import('ajv/dist/2020.js'),
-    import('ajv-formats'),
-    readFile(SCHEMA_PATH, 'utf8'),
-    readFile(PLATFORM_SCHEMA_PATH, 'utf8'),
-    readFile(ROUTE_SCHEMA_PATH, 'utf8'),
-    readFile(OUTCOME_SCHEMA_PATH, 'utf8'),
+  const [skillValidator, platformValidator, routeValidator, outcomeValidator] = await Promise.all([
+    getSkillValidator(),
+    getPlatformValidator(),
+    getRouteValidator(),
+    getOutcomeValidator(),
   ]);
-
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  addFormats(ajv);
-
-  const skillSchema = JSON.parse(skillSchemaText);
-  const skillValidator = ajv.compile(skillSchema);
-
-  const platformSchema = JSON.parse(platformSchemaText);
-  const platformValidator = ajv.compile(platformSchema);
-
-  const routeSchema = JSON.parse(routeSchemaText);
-  const routeValidator = ajv.compile(routeSchema);
-
-  const outcomeSchema = JSON.parse(outcomeSchemaText);
-  const outcomeValidator = ajv.compile(outcomeSchema);
-
+  const skillSchema = getSkillSchema();
   return { skillValidator, platformValidator, routeValidator, outcomeValidator, skillSchema };
 }
 
