@@ -10,16 +10,12 @@ import { readFileSync, readdirSync, existsSync } from 'fs';
 import { resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
-import Ajv2020 from 'ajv/dist/2020.js';
-import addFormats from 'ajv-formats';
+import { getSkillValidator, getSkillSchema } from '../build/lib/validators-cache.mjs';
 import { validateSkillPolicy } from '../build/lib/validate-skill-policy.mjs';
 import { registeredToolIds } from '../../runtime/tool-definitions.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../..');
-
-// Load schemas
-const skillSchema = JSON.parse(readFileSync(resolve(REPO_ROOT, 'schemas/skill.schema.json'), 'utf8'));
 
 // Load known platform IDs
 const platformDir = resolve(REPO_ROOT, 'shared/targets/platforms');
@@ -39,10 +35,9 @@ for (const pid of knownPlatforms) {
   } catch { /* skip unreadable */ }
 }
 
-// Set up AJV schema validation (2020-12 draft, matching platform.mjs)
-const ajv = new Ajv2020({ allErrors: true, strict: false });
-addFormats(ajv);
-const validateSchema = ajv.compile(skillSchema);
+// Shared cached validator (lazy-initialised on first lint call)
+const validateSchema = await getSkillValidator();
+const skillSchema = getSkillSchema();
 
 // Capability enum from schema
 const CAPABILITY_IDS = skillSchema.$defs?.capabilityId?.enum || [];

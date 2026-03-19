@@ -83,8 +83,9 @@ function writesToDist(filePath) {
 const distTests = allTestFiles.filter(writesToDist);
 const pureTests = allTestFiles.filter(f => !writesToDist(f));
 
-// Pure tests run in parallel; cap at 4 to avoid overwhelming the test reporter
-const parallelism = Math.max(1, Math.min(cpus().length, 4));
+// Pure tests run in parallel; configurable via TEST_CONCURRENCY env var (default: min(cpus, 4))
+const envConcurrency = parseInt(process.env.TEST_CONCURRENCY, 10);
+const parallelism = Math.max(1, envConcurrency > 0 ? envConcurrency : Math.min(cpus().length, 4));
 
 /**
  * Run a set of test files with node --test and the given concurrency.

@@ -28,26 +28,26 @@ if [ ! -f "$GLOBAL" ]; then
   exit 1
 fi
 
-merged=$(cat "$GLOBAL")
+# Collect files to merge (order matters: global < machine < project)
+files_to_merge=("$GLOBAL")
 log "Loaded global config"
 
-# Merge machine config if present
 if [ -f "$MACHINE" ]; then
   log "Merging machine config: $MACHINE"
-  # Field-level merge for mcps; last-writer-wins for everything else
-  merged=$(echo "$merged" | yq eval-all '. as $base | load("'"$MACHINE"'") as $override |
-    $base * $override |
-    .mcps = ($base.mcps // {} | . * ($override.mcps // {}))
-  ' -)
+  files_to_merge+=("$MACHINE")
 fi
 
-# Merge project config if present
 if [ -f "$PROJECT" ]; then
   log "Merging project config: $PROJECT"
-  merged=$(echo "$merged" | yq eval-all '. as $base | load("'"$PROJECT"'") as $override |
-    $base * $override |
-    .mcps = ($base.mcps // {} | . * ($override.mcps // {}))
-  ' -)
+  files_to_merge+=("$PROJECT")
 fi
 
-echo "$merged"
+# Single yq invocation: merge all files with field-level merge for mcps
+if [ ${#files_to_merge[@]} -eq 1 ]; then
+  cat "$GLOBAL"
+else
+  yq eval-all '
+    def merge_pair(a; b): a * b | .mcps = ((a.mcps // {}) * (b.mcps // {}));
+    reduce .[] as $item ({}; merge_pair(.; $item))
+  ' "${files_to_merge[@]}"
+fi
