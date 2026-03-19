@@ -85,7 +85,24 @@ recompute_artifacts() {
   local cache_dir="$1"
   local merged_config="$2"
 
-  if bash "$REPO_ROOT/ops/capability-probe.sh" --quiet >"$cache_dir/capability-profile.json" 2>/dev/null; then
+  # Reuse cached probe if it exists and is < 1 hour old (avoids re-running
+  # the probe that session-start.sh already ran moments ago)
+  local probe_cache="$HOME/.ai-config-os/probe-report.json"
+  local reuse_cache=false
+  if [ -f "$probe_cache" ]; then
+    local cache_mtime now_epoch cache_age
+    cache_mtime=$(stat -c %Y "$probe_cache" 2>/dev/null || stat -f %m "$probe_cache" 2>/dev/null || echo 0)
+    now_epoch=$(date +%s)
+    cache_age=$(( now_epoch - cache_mtime ))
+    if [ "$cache_age" -lt 3600 ]; then
+      reuse_cache=true
+    fi
+  fi
+
+  if [ "$reuse_cache" = true ]; then
+    cp "$probe_cache" "$cache_dir/capability-profile.json"
+    log "Capability profile reused from cache (age: ${cache_age}s)"
+  elif bash "$REPO_ROOT/ops/capability-probe.sh" --quiet >"$cache_dir/capability-profile.json" 2>/dev/null; then
     log "Capability profile refreshed"
   else
     echo "{\"status\":\"error\",\"message\":\"capability probe failed\"}" >"$cache_dir/capability-profile.json"

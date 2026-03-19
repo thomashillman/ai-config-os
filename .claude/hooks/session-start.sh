@@ -75,13 +75,25 @@ _detect_resume_task() {
 
 _detect_resume_task
 
-# --- Capability probe (unconditional; re-probes on device change) ---
+# --- Capability probe (re-probes on device change or stale cache) ---
 _PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 CURRENT_HOSTNAME="$(hostname 2>/dev/null || echo 'unknown')"
 PROBE_CACHE="$HOME/.ai-config-os/probe-report.json"
 CACHED_HOSTNAME="$(node -e "try{process.stdout.write(JSON.parse(require('fs').readFileSync('${PROBE_CACHE}','utf8')).hostname||'')}catch(e){}" 2>/dev/null || echo '')"
 
-if [ "$CURRENT_HOSTNAME" != "$CACHED_HOSTNAME" ] || [ ! -f "$PROBE_CACHE" ]; then
+# TTL check: re-probe if cache is older than 24 hours
+PROBE_STALE=false
+if [ -f "$PROBE_CACHE" ]; then
+  CACHE_MTIME=$(stat -c %Y "$PROBE_CACHE" 2>/dev/null || stat -f %m "$PROBE_CACHE" 2>/dev/null || echo 0)
+  NOW_EPOCH=$(date +%s)
+  CACHE_AGE=$(( NOW_EPOCH - CACHE_MTIME ))
+  PROBE_TTL=86400  # 24 hours
+  if [ "$CACHE_AGE" -gt "$PROBE_TTL" ]; then
+    PROBE_STALE=true
+  fi
+fi
+
+if [ "$CURRENT_HOSTNAME" != "$CACHED_HOSTNAME" ] || [ ! -f "$PROBE_CACHE" ] || [ "$PROBE_STALE" = true ]; then
   echo "Probing runtime capabilities..."
   if bash "${_PROJECT_DIR}/ops/capability-probe.sh" --quiet 2>/dev/null; then
     echo "Capability probe complete."
