@@ -25,6 +25,7 @@ import { loadPlatforms } from './lib/load-platforms.mjs';
 import { loadRoutes, loadOutcomes } from './lib/load-definitions.mjs';
 import { resolveAll, validateOutcomeCompatibility } from './lib/resolve-compatibility.mjs';
 import { selectEmittedPlatforms } from './lib/select-emitted-platforms.mjs';
+import { buildPlatformSkillsAndCheckZeroEmit } from './lib/build-platform-skills.mjs';
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
 import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
 import { getSkillValidator, getPlatformValidator, getRouteValidator, getOutcomeValidator, getSkillSchema } from './lib/validators-cache.mjs';
@@ -272,25 +273,11 @@ async function main() {
   // Resolve compatibility matrix
   const compatMatrix = resolveAll(parsed, platforms);
 
-  // Log compatibility summary and check for zero-emit skills
+  // Single-pass: log compatibility, check zero-emit, and group by platform
   console.log('\n[compatibility]');
-  let zeroEmitSkills = [];
-  for (const [skillId, platResults] of compatMatrix) {
-    const statuses = [];
-    let hasEmit = false;
-    for (const [pid, result] of platResults) {
-      statuses.push(`${pid}:${result.status}`);
-      if (result.emit) hasEmit = true;
-    }
-
-    // Check for zero-emit (skip if deprecated)
-    const skill = skillById.get(skillId);
-    if (skill && !hasEmit && skill.frontmatter.status !== 'deprecated') {
-      zeroEmitSkills.push(skillId);
-    }
-
-    console.log(`  ${skillId}: ${statuses.join(', ')}`);
-  }
+  const { platformSkills, zeroEmitSkills, logLines } =
+    buildPlatformSkillsAndCheckZeroEmit(compatMatrix, skillById);
+  for (const line of logLines) console.log(line);
 
   // Hard-fail on zero-emit skills
   if (zeroEmitSkills.length > 0) {
@@ -302,18 +289,6 @@ async function main() {
       '\nBuild failed: all non-deprecated skills must resolve to at least one platform.'
     );
     process.exit(1);
-  }
-
-  // Group skills by platform based on compatibility (emit=true)
-  const platformSkills = {};
-  for (const [skillId, platResults] of compatMatrix) {
-    for (const [pid, result] of platResults) {
-      if (result.emit) {
-        if (!platformSkills[pid]) platformSkills[pid] = [];
-        const skill = skillById.get(skillId);
-        if (skill) platformSkills[pid].push(skill);
-      }
-    }
   }
 
   if (VALIDATE_ONLY) {
