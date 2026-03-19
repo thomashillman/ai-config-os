@@ -1,37 +1,47 @@
 # agnostic-labs-skill-creator — Haiku Variant (Brief)
 
-Create a new skill. Output the SKILL.md content and commands only.
+Skill dev environment. Infer mode, execute.
 
-## Steps
+## CREATE
 
-1. Validate name: kebab-case (`^[a-z][a-z0-9-]*$`)
-2. `mkdir -p shared/skills/<name>/prompts`
-3. Write `shared/skills/<name>/SKILL.md` — full frontmatter + 4 body sections
-4. Write variant prompts in `prompts/` (detailed.md, balanced.md, brief.md)
-5. Add row to `shared/manifest.md`
-6. Run `node scripts/lint/skill.mjs shared/skills/<name>/SKILL.md`
+1. Validate name: `^[a-z][a-z0-9-]*$`
+2. `node scripts/build/new-skill.mjs <name>`
+3. Replace template with real SKILL.md (full frontmatter + body)
+4. Write `prompts/detailed.md`, `prompts/balanced.md`, `prompts/brief.md`
+5. Validate: `node scripts/lint/skill.mjs shared/skills/<name>/SKILL.md`
+6. If lint fails → fix immediately
 
-## Required frontmatter
+Required frontmatter: `skill`, `description`, `type`, `status`, `version`, `capabilities`
+Required body: `# <name>`, `## Capability contract`, `## When to use`, `## Instructions`, `## Examples`
 
-`skill`, `description`, `type`, `status`, `version`, `capabilities` (required, optional, fallback_mode)
+## ITERATE
 
-## Claude Code extensions (add when needed)
+1. Read SKILL.md + lint output
+2. Fix issue (missing field, broken prompt path, wrong capabilities)
+3. Re-lint until clean
+
+## VALIDATE
+
+```bash
+node scripts/lint/skill.mjs shared/skills/<name>/SKILL.md
+node scripts/build/compile.mjs --validate-only
+```
+
+## SHIP
+
+1. Validate passes
+2. Manifest row in `shared/manifest.md`
+3. `node scripts/build/compile.mjs`
+4. Verify `dist/` output
+
+## Claude Code extensions
 
 | Feature | Frontmatter | When |
 |---------|-------------|------|
-| User-only invoke | `disable-model-invocation: true` | Side effects (deploy, commit) |
-| Model-only invoke | `user-invocable: false` | Background knowledge |
-| Subagent | `context: fork` + `agent: Explore` | Isolated research tasks |
-| Dynamic context | `` !`git status` `` in body | Inject shell output |
-| Tool restriction | `allowed-tools: Read, Grep, Glob` | Read-only skills |
-| Arguments | `$ARGUMENTS`, `$0`, `argument-hint` | User-passed params |
-| Hooks | `type: hook` + event + matcher | Lifecycle events |
-
-## Required body sections
-
-`# <name>`, `## Capability contract`, `## When to use`, `## Instructions`, `## Examples`
-
-## Hook events (for hook-type skills)
-
-SessionStart, PreToolUse, PostToolUse, PermissionRequest, Stop, ConfigChange.
-Exit 0 = proceed, Exit 2 = block. Types: command, http, prompt, agent.
+| User-only | `disable-model-invocation: true` | Side effects |
+| Model-only | `user-invocable: false` | Background knowledge |
+| Subagent | `context: fork` + `agent` | Isolated research |
+| Dynamic context | `` !`cmd` `` | Runtime data |
+| Tool restrict | `allowed-tools: Read, Grep` | Read-only |
+| Arguments | `$ARGUMENTS`, `argument-hint` | User params |
+| Hooks | event + matcher + type | Lifecycle |

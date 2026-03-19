@@ -1,95 +1,105 @@
 # agnostic-labs-skill-creator — Sonnet Variant (Balanced)
 
-You are creating a new skill for the ai-config-os repository. Generate a complete, standards-compliant skill with sensible defaults.
+Skill development environment. Infer the mode from context and execute.
 
-## Skill Creation Steps
+## Modes
 
-1. **Validate name**: Must match `^[a-z][a-z0-9-]*$` (kebab-case). Fix if needed.
+### CREATE
 
-2. **Create directory**:
+1. **Validate name**: `^[a-z][a-z0-9-]*$`. Fix if needed. Check `shared/skills/` for conflicts.
+
+2. **Scaffold**:
    ```bash
-   mkdir -p shared/skills/<name>/prompts
+   node scripts/build/new-skill.mjs <name>
    ```
+   Then replace template content with real skill.
 
-3. **Generate SKILL.md** with complete Phase 2 frontmatter:
-   - `skill`, `description`, `type`, `status`, `version`
-   - `capabilities` block with required/optional/fallback_mode
-   - `inputs` and `outputs` arrays
-   - `variants` with opus/sonnet/haiku and fallback_chain
-   - `tests` — at least 2 prompt-validation tests
-   - `docs` and `monitoring` sections
-   - `tags` and `changelog`
+3. **Write SKILL.md** with complete Phase 2 frontmatter:
+   - Required: `skill`, `description`, `type`, `status`, `version`, `capabilities`
+   - Recommended: `inputs`, `outputs`, `variants` (opus/sonnet/haiku), `tests` (≥2), `docs`, `monitoring`, `tags`
 
-4. **Apply Claude Code extensions** as needed:
-
-   **Invocation control:**
-   - Side-effect skills (deploy, commit) → `disable-model-invocation: true`
+4. **Claude Code extensions** (apply when relevant):
+   - Side-effect skills → `disable-model-invocation: true`
    - Background knowledge → `user-invocable: false`
-   - General tools → leave both unset (default: both can invoke)
-
-   **Subagent execution:**
-   - Add `context: fork` + `agent: Explore|Plan|general-purpose` for isolated research tasks
-   - Do NOT fork guideline/convention skills (they need conversation context)
-
-   **Dynamic context:**
-   - Use `` !`command` `` to inject shell output (git status, PR diffs, env vars)
-   - Commands run before prompt is sent — keep them fast
-
-   **Tool restrictions:**
+   - Isolated research → `context: fork` + `agent: Explore|Plan|general-purpose`
+   - Runtime data → `` !`command` `` dynamic context
    - Read-only skills → `allowed-tools: Read, Grep, Glob`
-   - Set only when restriction is needed; omit for unrestricted
+   - User params → `$ARGUMENTS`, `argument-hint`
+   - Hook skills → event + matcher + type + exit codes
 
-   **Argument substitution:**
-   - Use `$ARGUMENTS`, `$0`, `$1` for user-passed arguments
-   - Set `argument-hint: "[param]"` for autocomplete
-
-   **Hook configuration** (for hook-type skills):
-   - Set event (SessionStart, PreToolUse, PostToolUse, Stop, etc.)
-   - Set matcher to filter (tool name, notification type)
-   - Hook types: command (shell), http (webhook), prompt (LLM), agent (multi-turn)
-   - Exit 0 = proceed, Exit 2 = block with stderr feedback
-
-5. **Create variant prompts** in `prompts/`:
-   - `detailed.md` — opus: thorough, handles edge cases
-   - `balanced.md` — sonnet: clear and complete
-   - `brief.md` — haiku: minimal, key points only
+5. **Write variant prompts** in `prompts/` — model-appropriate task instructions:
+   - `detailed.md` (opus): thorough, edge cases
+   - `balanced.md` (sonnet): clear, complete
+   - `brief.md` (haiku): minimal, commands only
 
 6. **Body sections** (after `---`):
-   - `# <skill-name>` heading
-   - One-line summary + context paragraph
+   - `# <name>` + summary
    - `## Capability contract`
    - `## When to use`
    - `## Instructions`
-   - `## Examples` (at least 2)
+   - `## Examples` (≥2)
 
-7. **Update manifest** — add row to `shared/manifest.md`:
-   ```
-   | `<name>` | Description | `shared/skills/<name>/SKILL.md` |
-   ```
-
-8. **Validate**:
+7. **Validate immediately**:
    ```bash
    node scripts/lint/skill.mjs shared/skills/<name>/SKILL.md
    node scripts/build/compile.mjs --validate-only
    ```
+   If either fails → fix before reporting done.
+
+### ITERATE
+
+1. **Read** current SKILL.md + run lint
+2. **Diagnose** the issue:
+   - Missing `fallback_mode` → add it when `required` capabilities exist
+   - Missing required field → add it (`skill`, `description`, `type`, `status`, `version`)
+   - Variant prompt missing → create the file
+   - Wrong invocation control → adjust frontmatter
+   - `context: fork` on guidelines → remove it
+   - Platform excluded → move capability to optional, add fallback
+3. **Fix** with surgical edits
+4. **Re-validate** — lint + build must pass
+
+### VALIDATE
+
+```bash
+node scripts/lint/skill.mjs shared/skills/<name>/SKILL.md
+node scripts/build/compile.mjs --validate-only
+npm test -- scripts/build/test/delivery-contract.test.mjs
+```
+
+Report pass/fail per stage with specific errors.
+
+### SHIP
+
+1. Validate (all stages must pass)
+2. Check `shared/manifest.md` row
+3. `node scripts/build/compile.mjs` (full compile)
+4. Verify skill in `dist/clients/claude-code/` and `dist/registry/index.json`
+5. Report readiness checklist
 
 ## Capability guidelines
 
 - Only require capabilities the skill **cannot function without**
 - Use optional for capabilities that enhance but aren't essential
-- Set `fallback_mode: prompt-only` if skill can work from pasted input
-- Set `fallback_mode: none` only if skill is useless without required capabilities
+- `fallback_mode: prompt-only` if skill can work from pasted input
+- `fallback_mode: none` only if skill is useless without required capabilities
 
 ## Quality checklist
 
-- Skill name is kebab-case
-- Description is a single clear sentence
-- At least 2 tests in frontmatter
-- All four body sections present
-- Manifest updated
-- Invocation control set if skill has side effects
-- `context: fork` only for explicit task skills (not guidelines)
+- Name is kebab-case
+- Description is one clear sentence
+- `type`, `status`, `version` set
+- `capabilities.fallback_mode` set when required capabilities exist
+- ≥2 tests in frontmatter
+- All body sections present
+- Manifest row in `shared/manifest.md`
+- Lint passes, build passes
+- Invocation control set for side-effect skills
+- `context: fork` only for task skills, never guidelines
 - Tool restrictions applied for read-only skills
-- `argument-hint` set if skill accepts arguments
-- Hook events/matchers configured for hook-type skills
-- Linter passes
+
+## Hook reference (hook-type skills)
+
+Events: `SessionStart`, `PreToolUse`, `PostToolUse`, `PermissionRequest`, `Stop`, `ConfigChange`
+Types: `command` (shell), `http` (webhook), `prompt` (LLM), `agent` (multi-turn)
+Exit 0 = proceed (stdout → context), Exit 2 = block (stderr → feedback)
