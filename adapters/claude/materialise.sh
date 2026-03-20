@@ -266,9 +266,39 @@ cmd_bootstrap() {
 
   # 1. Fetch full package from Worker (with all skill file contents embedded)
   local package_json
-  if ! package_json=$(api_get /v1/client/claude-code/package); then
+  local headers_file
+  headers_file=$(mktemp /tmp/ai-config-bootstrap-headers.XXXXXX)
+  local payload_file
+  payload_file=$(mktemp /tmp/ai-config-bootstrap-payload.XXXXXX)
+  _CLEANUP_FILES+=("${headers_file}" "${payload_file}")
+
+  if ! curl -sS --fail-with-body \
+    -H "Authorization: Bearer ${AI_CONFIG_TOKEN}" \
+    -H "Accept: application/json" \
+    -D "${headers_file}" \
+    -o "${payload_file}" \
+    "${WORKER_URL}/v1/client/claude-code/package"; then
+    local fail_status=""
+    if [[ -s "${headers_file}" ]]; then
+      fail_status=$(awk '/^HTTP\/[0-9]/{code=$2} END{print code}' "${headers_file}")
+    fi
+
+    local err_detail=""
+    if [[ -s "${payload_file}" ]]; then
+      err_detail=$(jq -r '.message // .hint // .error // ""' "${payload_file}" 2>/dev/null || true)
+    fi
+
+    if [[ "${fail_status}" == "401" || "${fail_status}" == "403" ]]; then
+      die "Authentication failed (HTTP ${fail_status}). AI_CONFIG_TOKEN is not accepted by the Worker at ${WORKER_URL}.${err_detail:+ Detail: ${err_detail}}"
+    fi
+
+    if [[ "${fail_status}" == "404" && "${err_detail}" == "Skills package not found. Trigger a release build to populate KV." ]]; then
+      die "Worker package KV is unpopulated. The release build publication step is missing; publish claude-code-package:<version> and claude-code-package:latest to KV."
+    fi
+
     die "Failed to fetch skills package from Worker. Check token and network."
   fi
+  package_json=$(cat "${payload_file}")
 
   # 2. Extract version and validate
   local version
