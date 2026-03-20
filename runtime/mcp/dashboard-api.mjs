@@ -1,11 +1,5 @@
 import fs from 'node:fs';
 
-const ALLOWED_DASHBOARD_ORIGINS = [
-  'http://localhost:5173',
-  'http://localhost:4173',
-  'http://localhost:4242',
-];
-
 export function createDashboardApi({
   app,
   corsMiddleware,
@@ -20,7 +14,13 @@ export function createDashboardApi({
   repoRoot,
   port,
 }) {
-  app.use(corsMiddleware({ origin: ALLOWED_DASHBOARD_ORIGINS }));
+  app.use(
+    corsMiddleware({
+      origin(origin, callback) {
+        callback(null, tunnelPolicy.isOriginAllowed(origin));
+      },
+    })
+  );
   app.use(jsonMiddleware({ limit: '10kb' }));
   app.use(tunnelGuardFactory(tunnelPolicy));
 

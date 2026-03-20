@@ -12,6 +12,39 @@ function normalizeAddress(addr) {
   return addr;
 }
 
+function normalizeOrigin(origin) {
+  if (typeof origin !== 'string') return '';
+  return origin.trim().toLowerCase();
+}
+
+function parseOrigin(origin) {
+  const normalized = normalizeOrigin(origin);
+  if (!normalized) return null;
+
+  try {
+    return new URL(normalized);
+  } catch {
+    return null;
+  }
+}
+
+function isLoopbackHostname(hostname) {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+}
+
+function createConfiguredOriginSet(env) {
+  const configuredOrigins = new Set();
+
+  for (const configuredOrigin of parseCsv(env.DASHBOARD_PUBLIC_ORIGINS)) {
+    const parsedOrigin = parseOrigin(configuredOrigin);
+    if (parsedOrigin) {
+      configuredOrigins.add(parsedOrigin.origin);
+    }
+  }
+
+  return configuredOrigins;
+}
+
 export function isLoopbackAddress(addr) {
   const normalized = normalizeAddress(addr);
   return normalized === '127.0.0.1' || normalized === '::1';
@@ -21,9 +54,26 @@ export function createTunnelPolicy(env = process.env) {
   const trustedForwarders = new Set(parseCsv(env.TRUSTED_FORWARDER_IPS));
   const tunnelToken = env.TUNNEL_SHARED_TOKEN || '';
   const requireMtlsHeader = env.REQUIRE_TUNNEL_MTLS === '1';
+  const configuredOrigins = createConfiguredOriginSet(env);
 
   return {
     host: env.DASHBOARD_HOST || '127.0.0.1',
+    isOriginAllowed(origin) {
+      if (!origin) {
+        return true;
+      }
+
+      const parsedOrigin = parseOrigin(origin);
+      if (!parsedOrigin) {
+        return false;
+      }
+
+      if (isLoopbackHostname(parsedOrigin.hostname)) {
+        return true;
+      }
+
+      return configuredOrigins.has(parsedOrigin.origin);
+    },
     isTunnelApproved(requestLike) {
       const remoteAddress = normalizeAddress(requestLike.remoteAddress || '');
       const headers = requestLike.headers || {};
