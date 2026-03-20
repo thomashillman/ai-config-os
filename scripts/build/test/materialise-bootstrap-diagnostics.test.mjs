@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve, dirname } from 'node:path';
+import { delimiter, join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -57,7 +57,7 @@ function runBootstrap({ status, body }) {
     env: {
       ...process.env,
       HOME: join(tmpRoot, 'home'),
-      PATH: `${binDir}:${process.env.PATH}`,
+      PATH: [binDir, process.env.PATH ?? ''].join(delimiter),
       AI_CONFIG_TOKEN: 'test-token',
       AI_CONFIG_WORKER: 'https://worker.example',
       MATERIALISE_TEST_STATUS: String(status),

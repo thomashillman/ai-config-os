@@ -22,7 +22,7 @@
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, posix, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -45,7 +45,7 @@ function readAllFiles(dirPath, basePath = '') {
     for (const entry of entries) {
       const fullPath = join(dirPath, entry.name);
       const relativePath = basePath
-        ? join(basePath, entry.name)
+        ? posix.join(basePath, entry.name)
         : entry.name;
 
       if (entry.isDirectory()) {
