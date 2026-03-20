@@ -193,28 +193,53 @@ claude ask "your question"
 
 ---
 
-### Claude.ai web (browser)
+### Claude Code CLI (remote environments)
 
-**Best for:** Cloud-only workflow, mobile, shareable workspace context.
+**Best for:** Cloud development, SSH sessions, Codespaces, CI/CD agents.
+
+When Claude Code runs in a remote environment (Codespaces, SSH, cloud VM, etc.), the session-start hook validates structure and handles offline scenarios gracefully:
 
 ```bash
-# 1. Ensure this repository is open in Claude Code
-cd ~/ai-config
+# Setup is identical to local; the difference is automatic at session start
 
-# 2. Claude.ai web reads from .claude/settings.json
-# which is already committed. No setup required for basic use.
+# 1. Set your Worker URL and authentication token
+export AI_CONFIG_TOKEN=<your-token>
+export AI_CONFIG_WORKER=https://ai-config-os.workers.dev
 
-# 3. To enable capability detection (optional):
-bash ops/capability-probe.sh       # One-time probe for your machine
+# 2. In Codespaces or SSH, Claude Code automatically:
+#    - Validates skill structure (.claude/hooks/session-start.sh)
+#    - Probes platform capabilities (filesystem, shell, MCP)
+#    - Fetches manifest in background (non-blocking)
+#    - Falls back to cached manifest if Worker unavailable
 
-# 4. Open Claude.ai in your browser — skills are available
-# from your repository context
+# 3. Skills are available immediately, even if:
+#    - Network is slow or partitioned
+#    - Worker is temporarily down
+#    - Manifest cache is >1 day old
 ```
 
-**How it works:**
-- Claude.ai loads `.claude/settings.json` when you add the repository
-- The `session-start.sh` hook auto-fetches the latest manifest from the Worker in the background
-- Skills appear in the skill menu immediately; newer versions load next session
+**Robustness guarantees:**
+- **Worker unavailable?** Uses last-known-good manifest indefinitely
+- **Network partition?** All cached skills work offline
+- **Manifest stale?** Still usable; versions are immutable with no retroactive breaking changes
+- **New skill published?** Available next session; current session uses cached version
+
+**Testing robustness locally:**
+```bash
+# Simulate Worker unavailable
+rm ~/.ai-config-os/cache/claude-code/latest.json
+bash adapters/claude/materialise.sh status    # See cached vs remote
+```
+
+---
+
+### Claude.ai web (browser)
+
+**Status:** Not yet supported by the skill system.
+
+Claude.ai web is currently tracked for capability compatibility modeling only. There is no Worker serving it, no runtime adapter, and no plugin system for skill discovery. Skills are not available in the browser version.
+
+If you need cloud-based agent access, use **Claude Code CLI in a remote environment** (above) with Codespaces or SSH.
 
 ---
 
@@ -307,16 +332,17 @@ npm run build
 
 ## Choosing Your Setup
 
-| Surface | Setup time | Offline | Sync | Best for |
-|---------|-----------|--------|------|----------|
-| **Claude Code CLI** | 2 min | ✅ Yes | Auto via Worker | Terminal, local dev, offline work |
-| **Claude.ai web** | 1 min | ⚠️ Cached | Auto background fetch | Cloud, mobile, shareable context |
-| **Cursor** | 3 min | ✅ Yes | Manual rebuild | Full IDE, multi-file edits |
-| **VS Code** | 3 min | ✅ Yes | Manual rebuild | VS Code + Copilot users |
-| **JetBrains** | 3 min | ✅ Yes | Manual rebuild | IntelliJ/PyCharm/WebStorm users |
-| **Windsurf** | 3 min | ✅ Yes | Manual rebuild | Agentic IDE workflow |
+| Surface | Setup time | Offline | Sync | Status |
+|---------|-----------|--------|------|--------|
+| **Claude Code CLI** (local) | 2 min | ✅ Yes | Auto via Worker | **Production** |
+| **Claude Code CLI** (remote/Codespaces/SSH) | 2 min | ✅ Yes (with robustness guarantees) | Auto via Worker | **Production** |
+| **Cursor** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
+| **VS Code** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
+| **JetBrains** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
+| **Windsurf** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
+| **Claude.ai web** | — | — | — | ❌ Not supported |
 
-**Recommendation:** Start with **Claude Code CLI** (2 min setup) to verify everything works, then add your IDE of choice.
+**Recommendation:** Start with **Claude Code CLI** (2 min setup) to verify everything works, then add your IDE of choice. For cloud environments, Claude Code CLI in Codespaces or SSH is fully supported with offline fallbacks.
 
 ---
 
