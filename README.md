@@ -193,31 +193,6 @@ claude ask "your question"
 
 ---
 
-### Claude.ai web (browser)
-
-**Best for:** Cloud-only workflow, mobile, shareable workspace context.
-
-```bash
-# 1. Ensure this repository is open in Claude Code
-cd ~/ai-config
-
-# 2. Claude.ai web reads from .claude/settings.json
-# which is already committed. No setup required for basic use.
-
-# 3. To enable capability detection (optional):
-bash ops/capability-probe.sh       # One-time probe for your machine
-
-# 4. Open Claude.ai in your browser — skills are available
-# from your repository context
-```
-
-**How it works:**
-- Claude.ai loads `.claude/settings.json` when you add the repository
-- The `session-start.sh` hook auto-fetches the latest manifest from the Worker in the background
-- Skills appear in the skill menu immediately; newer versions load next session
-
----
-
 ### Cursor IDE
 
 **Best for:** Full-featured IDE development, multi-file edits.
@@ -307,16 +282,17 @@ npm run build
 
 ## Choosing Your Setup
 
-| Surface | Setup time | Offline | Sync | Best for |
-|---------|-----------|--------|------|----------|
-| **Claude Code CLI** | 2 min | ✅ Yes | Auto via Worker | Terminal, local dev, offline work |
-| **Claude.ai web** | 1 min | ⚠️ Cached | Auto background fetch | Cloud, mobile, shareable context |
-| **Cursor** | 3 min | ✅ Yes | Manual rebuild | Full IDE, multi-file edits |
-| **VS Code** | 3 min | ✅ Yes | Manual rebuild | VS Code + Copilot users |
-| **JetBrains** | 3 min | ✅ Yes | Manual rebuild | IntelliJ/PyCharm/WebStorm users |
-| **Windsurf** | 3 min | ✅ Yes | Manual rebuild | Agentic IDE workflow |
+| Surface | Setup time | Offline | Sync | Status |
+|---------|-----------|--------|------|--------|
+| **Claude Code CLI** | 2 min | ✅ Yes | Auto via Worker | **Production** |
+| **Cursor** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
+| **VS Code** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
+| **JetBrains** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
+| **Windsurf** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
 
 **Recommendation:** Start with **Claude Code CLI** (2 min setup) to verify everything works, then add your IDE of choice.
+
+**Note:** Claude.ai web is not yet supported by the skill system. It's tracked for compatibility modeling only. Codex users should use `bash adapters/codex/materialise.sh`.
 
 ---
 
