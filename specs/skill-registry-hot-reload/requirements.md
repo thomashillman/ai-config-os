@@ -2,89 +2,91 @@
 
 ## Scope Statement
 
-Define and implement the requirements needed to remove shared-runtime drift between MCP, dashboard API, and Worker/runtime control-plane surfaces, with primary focus on converging duplicated non-task action behavior while preserving existing task-service boundaries.
+Converge duplicated runtime behavior across MCP and dashboard for non-task actions, preserve Worker-safe control-plane boundaries, and make parity verifiable through root CI and mergeability gates.
 
 ## User Stories
 
-1. As a runtime maintainer, I want equivalent runtime actions to execute through one shared logic path so behavior does not drift by surface.
-2. As an operator using MCP and dashboard, I want equivalent actions to return consistent semantics so tool behavior is predictable.
-3. As a Worker/runtime maintainer, I want Node-only dependencies kept out of Worker-compatible paths so deployment constraints remain satisfied.
-4. As a release engineer, I want parity checks in CI so regressions in cross-surface behavior are detected before merge.
+1. As a runtime maintainer, I want shared runtime actions to execute through one implementation path so behavior does not drift by surface.
+2. As an operator using MCP and dashboard, I want equivalent actions to return consistent behavior and error semantics.
+3. As a Worker/runtime maintainer, I want Worker-safe separation retained so Node-only runtime concerns do not leak into Worker code.
+4. As a release engineer, I want root verification and mergeability checks to exercise dashboard behavior directly.
 
 ## Functional Requirements
 
 ### FR-1 Action Classification Matrix
 
-- The system shall define a single action classification matrix for runtime actions with categories:
+- The system shall define one in-repo runtime action matrix with explicit classifications:
   - `shared-service`
   - `script-wrapper`
   - `surface-only`
-- The matrix shall list each currently supported MCP/dashboard action and its category.
-- The matrix shall be versioned in-repo and used as the source of truth for implementation and tests.
+- The matrix shall cover all current actions exposed by MCP and dashboard adapters.
+- The matrix shall be the source of truth for parity tests.
 
-### FR-2 Shared Dispatcher for MCP + Dashboard
+### FR-2 Shared Dispatcher for Script-Wrapper Actions
 
-- The system shall provide a shared dispatcher module used by both `runtime/mcp/handlers.mjs` and `runtime/mcp/dashboard-api.mjs` for script-backed actions.
+- MCP and dashboard script-backed actions shall resolve through one shared dispatcher module.
 - The dispatcher shall own:
   - action-to-command mapping
-  - argument normalization and defaults
-  - normalized success/failure payload shape
-- MCP and dashboard surfaces shall call this dispatcher instead of maintaining duplicate per-action script wiring.
+  - argument normalization/defaulting
+  - base success/failure shaping
+- MCP and dashboard adapters shall remain thin wrappers for surface-specific transport concerns.
 
 ### FR-3 Task Service Boundary Preservation
 
-- The system shall keep task-control-plane operations on existing shared service modules under `runtime/lib/`.
-- The system shall preserve Worker-safe separation where Node-only journey behavior cannot execute in Worker runtime.
-- Any convergence change shall not require Worker to import Node-only modules.
+- Task lifecycle actions shall remain routed through shared control-plane services under `runtime/lib`.
+- Worker-safe boundaries shall remain intact; Worker code shall not import Node-only journey/script dependencies.
+- Existing task endpoints and tool names shall remain backward compatible in this phase.
 
-### FR-4 Contract and Response Parity
+### FR-4 Cross-Surface Parity Contract
 
-- The system shall define parity expectations for equivalent MCP and dashboard actions:
-  - resolved action identity
-  - normalized arguments/defaults
-  - success payload fields
-  - failure status and error codes/messages
-- The system shall preserve current public endpoint names and MCP tool names unless explicitly approved for change.
+- For all matrix actions classified as `shared-service` or `script-wrapper`, parity checks shall assert:
+  - same logical action identity
+  - equivalent normalized/defaulted arguments
+  - equivalent success payload shape for shared fields
+  - equivalent invalid-input and unknown-action semantics
+- Intentional `surface-only` differences shall be explicitly documented and excluded from parity assertions.
 
-### FR-5 Verification Integration
+### FR-5 Root CI/Mergeability Enforcement
 
-- The system shall add or extend tests to assert parity for all actions in the classification matrix that are `shared-service` or `script-wrapper`.
-- The system shall include these parity tests in a repeatable CI validation command used for mergeability checks.
+- Root verification (`npm run verify`) shall execute dashboard checks directly.
+- PR mergeability workflow shall provision dashboard dependencies and run verification that includes dashboard gates.
+- A dashboard regression shall fail mergeability without relying on manual dashboard-only runs.
 
 ## Acceptance Criteria
 
-1. A committed action classification matrix exists and covers all current runtime actions shared between MCP and dashboard.
-2. `runtime/mcp/handlers.mjs` and `runtime/mcp/dashboard-api.mjs` use shared dispatcher logic for all matrix actions marked `script-wrapper`.
-3. Existing task-service behavior remains centralized in `runtime/lib` and Worker compatibility remains intact.
-4. Automated parity tests fail when MCP/dashboard equivalent actions diverge in action identity, argument normalization, or response/error semantics.
-5. CI includes parity verification and passes on the updated branch.
+1. Action matrix exists and is used by dispatcher/parity tests as authoritative action metadata.
+2. MCP and dashboard script-wrapper actions use shared dispatcher execution path.
+3. Worker-safe task service boundaries remain unchanged and compatible.
+4. Automated parity tests fail when equivalent MCP/dashboard actions drift.
+5. Root `verify` and mergeability gates directly exercise dashboard checks.
 
 ## Non-Functional Requirements
 
-- Maintainability: remove duplicated action wiring to reduce change surface area.
-- Reliability: parity regressions must be detectable via deterministic tests.
-- Compatibility: no breaking changes to external API/tool contracts in this phase.
-- Performance: added dispatch abstraction must not introduce material latency relative to current shell invocation overhead.
-- Security: existing tunnel policy and command safety constraints remain enforced.
+- Maintainability: reduce duplicated action wiring across MCP/dashboard adapters.
+- Reliability: deterministic parity/verification tests detect drift before merge.
+- Compatibility: preserve existing public API/tool contracts for this slice.
+- Security: keep existing command-safety and tunnel policy enforcement.
+- Performance: dispatcher abstraction must not materially worsen runtime command execution latency.
 
 ## Dependencies
 
-- Existing runtime service modules in `runtime/lib/`.
-- Existing MCP and dashboard test suites in `runtime/mcp/*.test.mjs`.
-- Existing script entrypoints used by runtime actions (`runtime/manifest.sh`, `runtime/sync.sh`, `shared/lib/config-merger.sh`, `ops/*.sh`).
-- PLAN milestone ordering for Track A then Track B then Track C.
+- `runtime/lib/task-control-plane-service*.mjs`
+- `runtime/lib/runtime-action-matrix.mjs`
+- `runtime/lib/runtime-action-dispatcher.mjs`
+- `runtime/mcp/handlers.mjs`
+- `runtime/mcp/dashboard-api.mjs`
+- `runtime/mcp/*.test.mjs`
+- Root verification and PR mergeability workflows
 
 ## Exclusions
 
-- No redesign of Worker public HTTP endpoints.
-- No expansion of platform-emitter coverage in this requirement set.
-- No migration of all shell-backed integration to pure JS in this phase.
-- No behavioral changes to task lifecycle, findings provenance, or handoff token semantics.
+- No redesign of Worker HTTP API surface.
+- No full migration of shell integrations to pure JS in this phase.
+- No changes to findings provenance semantics or continuation token model.
+- No unrelated platform-emitter expansion.
 
 ## Success Criteria
 
-- Drift-prone duplicated action logic between MCP and dashboard is replaced by shared dispatcher behavior.
-- Task-facing control-plane convergence remains intact and Worker constraints remain respected.
-- Cross-surface parity is objectively enforced by tests and CI, not by manual spot checks.
-- The repository can continue Track B work without reopening split-brain ambiguity between runtime surfaces.
-
+- Runtime drift risk between MCP and dashboard is reduced by shared dispatch logic and parity tests.
+- Worker constraints remain respected while convergence advances.
+- Dashboard health is a first-class root CI/mergeability signal.
