@@ -334,16 +334,6 @@ bash adapters/claude/materialise.sh status
 
 ---
 
-### Claude.ai web (browser)
-
-**Status:** Not yet supported by the skill system.
-
-Claude.ai web is currently tracked for capability compatibility modeling only. There is no Worker serving it, no runtime adapter, and no plugin system for skill discovery. Skills are not available in the browser version.
-
-If you need cloud-based agent access, use **Claude Code CLI in a remote environment** (above) with Codespaces or SSH.
-
----
-
 ### Cursor IDE
 
 **Best for:** Full-featured IDE development, multi-file edits.
@@ -435,15 +425,16 @@ npm run build
 
 | Surface | Setup time | Offline | Sync | Status |
 |---------|-----------|--------|------|--------|
-| **Claude Code CLI** (local) | 2 min | ✅ Yes | Auto via Worker | **Production** |
-| **Claude Code CLI** (remote/Codespaces/SSH) | 2 min | ✅ Yes (with robustness guarantees) | Auto via Worker | **Production** |
+| **Claude Code CLI** | 2 min | ✅ Yes | Auto via Worker | **Production** |
 | **Cursor** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
 | **VS Code** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
 | **JetBrains** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
 | **Windsurf** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
-| **Claude.ai web** | — | — | — | ❌ Not supported |
+
 
 **Recommendation:** Start with **Claude Code CLI** (2 min setup) to verify everything works, then add your IDE of choice. For cloud environments, Claude Code CLI in Codespaces or SSH is fully supported with offline fallbacks.
+
+**Note:** Claude.ai web is not yet supported by the skill system. It's tracked for compatibility modeling only. Codex users should use `bash adapters/codex/materialise.sh`.
 
 ---
 
