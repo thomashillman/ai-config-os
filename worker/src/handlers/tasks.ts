@@ -207,14 +207,42 @@ export async function handleTaskSnapshots(env: Env, taskId: string, version: str
   }
 }
 
+function parseTaskListLimit(value: string | null): { ok: true; value: number } | { ok: false; response: Response } {
+  if (value === null) {
+    return { ok: true, value: 20 };
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return { ok: false, response: badRequest("Query parameter 'limit' must be a positive integer") };
+  }
+
+  return { ok: true, value: Math.min(parsed, 100) };
+}
+
+function parseUpdatedWithinSeconds(value: string | null): { ok: true; value: number | undefined } | { ok: false; response: Response } {
+  if (value === null) {
+    return { ok: true, value: undefined };
+  }
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return { ok: false, response: badRequest("Query parameter 'updated_within' must be a positive number") };
+  }
+
+  return { ok: true, value: parsed };
+}
+
 export async function handleTaskList(env: Env, url: URL): Promise<Response> {
   const status = url.searchParams.get('status') ?? undefined;
-  const limit = Math.min(Number(url.searchParams.get('limit') ?? '20'), 100);
-  const updatedWithin = url.searchParams.get('updated_within');
-  const updatedWithinSeconds = updatedWithin ? parseFloat(updatedWithin) : undefined;
+  const limit = parseTaskListLimit(url.searchParams.get('limit'));
+  if (!limit.ok) return limit.response;
+
+  const updatedWithinSeconds = parseUpdatedWithinSeconds(url.searchParams.get('updated_within'));
+  if (!updatedWithinSeconds.ok) return updatedWithinSeconds.response;
 
   try {
-    const tasks = await getTaskService(env).listRecentTasks({ status, limit, updatedWithinSeconds });
+    const tasks = await getTaskService(env).listRecentTasks({ status, limit: limit.value, updatedWithinSeconds: updatedWithinSeconds.value });
     return jsonResponse({ tasks });
   } catch (error) {
     return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task list error' } }, 500);
