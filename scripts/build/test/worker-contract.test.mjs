@@ -118,6 +118,25 @@ function makeAuthorizedJsonRequest(method, pathname, body) {
   });
 }
 
+async function createTask(worker, task, requestEnv = env) {
+  const response = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks', task), requestEnv);
+  assert.equal(response.status, 201, `expected task ${task.task_id} to be created`);
+  return response.json();
+}
+
+function createMockKv(initialData = {}) {
+  const store = new Map(Object.entries(initialData).map(([key, value]) => [key, JSON.stringify(value)]));
+
+  return {
+    async get(key) {
+      return store.get(key) ?? null;
+    },
+    async put(key, value) {
+      store.set(key, value);
+    },
+  };
+}
+
 const env = { AUTH_TOKEN: 'test-token', ENVIRONMENT: 'test', HANDOFF_TOKEN_SIGNING_KEY: 'test-signing-key' };
 
 async function makeSignedHandoffToken({ tokenId, taskId, issuedAt, expiresAt, replayNonce = 'nonce_1', signingKey = 'test-signing-key' }) {
@@ -431,6 +450,50 @@ describe('worker endpoint contract', () => {
     assert.equal(snapshotVersion2Res.status, 200);
     const snapshotVersion2Body = await snapshotVersion2Res.json();
     assert.equal(snapshotVersion2Body.snapshot.snapshot_version, 2);
+  });
+
+
+  test('task list endpoint rejects invalid query params and caps large limits', async () => {
+    const registry = loadJson(REGISTRY_PATH);
+    const plugin = loadJson(PLUGIN_PATH);
+    const worker = await loadWorkerWithFixtures(registry, plugin);
+    const envWithKv = { ...env, MANIFEST_KV: createMockKv() };
+
+    for (let index = 0; index < 105; index += 1) {
+      await createTask(worker, {
+        schema_version: '1.0.0',
+        task_id: `task_list_validation_${String(index).padStart(3, '0')}`,
+        task_type: 'review_repository',
+        goal: `Review repository changes for task ${index}.`,
+        current_route: 'github_pr',
+        state: 'pending',
+        progress: { completed_steps: 0, total_steps: 3 },
+        findings: [],
+        unresolved_questions: [],
+        approvals: [],
+        route_history: [{ route: 'github_pr', selected_at: '2026-03-12T12:00:00.000Z' }],
+        next_action: 'collect_more_context',
+        version: 1,
+        updated_at: `2026-03-12T12:${String(index % 60).padStart(2, '0')}:00.000Z`,
+      }, envWithKv);
+    }
+
+    for (const path of [
+      '/v1/tasks?limit=abc',
+      '/v1/tasks?limit=-1',
+      '/v1/tasks?limit=0',
+      '/v1/tasks?updated_within=abc',
+    ]) {
+      const response = await worker.fetch(makeAuthorizedRequest(path), envWithKv);
+      assert.equal(response.status, 400, `expected ${path} to be rejected`);
+      const body = await response.json();
+      assert.equal(body.error.code, 'bad_request');
+    }
+
+    const cappedResponse = await worker.fetch(makeAuthorizedRequest('/v1/tasks?limit=500'), envWithKv);
+    assert.equal(cappedResponse.status, 200);
+    const cappedBody = await cappedResponse.json();
+    assert.equal(cappedBody.tasks.length, 100);
   });
 
   test('task endpoint failures: malformed payloads, auth, not found, conflict and token errors', async () => {
