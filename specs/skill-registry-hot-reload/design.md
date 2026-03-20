@@ -1,222 +1,170 @@
-# Design: Track B Runtime Convergence
+# Design: Track B Runtime Convergence with Root Dashboard Gate
 
 ## Architecture Overview
 
-Converge duplicated MCP/dashboard script-backed actions behind a shared runtime action dispatcher while preserving existing task-control-plane service usage and Worker-safe boundaries.
+Converge duplicated MCP/dashboard runtime action behavior behind shared runtime modules, while preserving Worker-safe task service boundaries and making dashboard validation part of root mergeability enforcement.
 
 ### Current vs Target
 
 - Current:
-  - Task-centric operations are mostly shared through `runtime/lib/task-control-plane-service*.mjs`.
-  - Non-task actions are duplicated in `runtime/mcp/handlers.mjs` and `runtime/mcp/dashboard-api.mjs`.
+  - Task operations are largely shared through `runtime/lib/task-control-plane-service*.mjs`.
+  - Several non-task actions are still duplicated between `runtime/mcp/handlers.mjs` and `runtime/mcp/dashboard-api.mjs`.
+  - Root `verify` has not consistently enforced dashboard test/build in all execution environments.
 - Target:
-  - One shared action registry + dispatcher handles non-task action mapping, argument normalization, and base result semantics.
-  - MCP and dashboard become thin adapters over that dispatcher.
-  - Worker stays isolated from Node-only integrations.
+  - One shared action matrix + dispatcher path governs shared runtime actions.
+  - MCP and dashboard become thin transport adapters for shared behavior.
+  - Root `verify` and PR mergeability workflow both enforce dashboard checks.
 
-## Proposed Modules and Interfaces
+## Core Components and Interfaces
 
-### 1) Action Matrix Source of Truth
+### 1) Runtime Action Matrix
 
-Add:
-
+File:
 - `runtime/lib/runtime-action-matrix.mjs`
 
-Responsibility:
+Responsibilities:
+- Define action classification (`shared-service`, `script-wrapper`, `surface-only`).
+- Expose lookup helpers for dispatcher and parity tests.
 
-- Export classification metadata for each action (`shared-service`, `script-wrapper`, `surface-only`).
-- Provide lookup helpers used by dispatcher and parity tests.
+Interface contract:
+- Deterministic, version-controlled map.
+- Complete coverage for all MCP/dashboard shared actions.
 
-Interface sketch:
+### 2) Shared Runtime Action Dispatcher
 
-```js
-export const RUNTIME_ACTION_MATRIX = {
-  list_tools: { classification: 'script-wrapper' },
-  sync_tools: { classification: 'script-wrapper' },
-  get_config: { classification: 'script-wrapper' },
-  skill_stats: { classification: 'script-wrapper' },
-  context_cost: { classification: 'script-wrapper' },
-  validate_all: { classification: 'script-wrapper' },
-  resolve_outcome_contract: { classification: 'shared-service' },
-  task_start_review_repository: { classification: 'shared-service' },
-  task_resume_review_repository: { classification: 'shared-service' },
-  task_get_readiness: { classification: 'shared-service' },
-};
-```
-
-### 2) Shared Dispatcher for Script-Wrapper Actions
-
-Add:
-
+File:
 - `runtime/lib/runtime-action-dispatcher.mjs`
 
-Responsibility:
+Responsibilities:
+- Route `script-wrapper` actions through one mapping path.
+- Normalize/default arguments before execution.
+- Throw typed errors for unknown action and invalid arguments.
 
-- Normalize args/defaults for script-wrapper actions.
-- Resolve script command + args.
-- Execute via injected `runScript`.
-- Return normalized base result object.
+Interface contract:
+- Input: `actionName`, `actionArgs`.
+- Output: normalized execution result shared by MCP and dashboard wrappers.
+- Errors: typed and surface-mappable.
 
-Interface sketch:
+### 3) MCP Adapter Layer
 
-```js
-export function createRuntimeActionDispatcher({ runScript, validateNumber }) {
-  return {
-    dispatch(actionName, actionArgs = {}) {
-      // throws ActionValidationError | UnknownActionError
-      // returns { success, output, actionName, normalizedArgs }
-    },
-  };
-}
-```
-
-Error classes:
-
-- `UnknownActionError`
-- `ActionValidationError`
-
-These map to existing surface-specific error contracts.
-
-### 3) MCP Adapter Integration
-
-Change:
-
+File:
 - `runtime/mcp/handlers.mjs`
 
-Design:
+Responsibilities:
+- Delegate script-wrapper actions to dispatcher.
+- Preserve existing task-service routing and tool contract behavior.
 
-- Replace per-action script-case branches with dispatcher calls for script-wrapper actions.
-- Keep existing task-service and momentum-engine branches unchanged.
-- Continue wrapping results with `toToolResponse` and capability profile attachments.
+Integration contract:
+- Tool names and response envelopes remain backward compatible.
+- Capability profile attachment and existing tool error semantics remain intact.
 
-### 4) Dashboard Adapter Integration
+### 4) Dashboard API Adapter Layer
 
-Change:
-
+File:
 - `runtime/mcp/dashboard-api.mjs`
 
-Design:
+Responsibilities:
+- Delegate script-backed routes to dispatcher.
+- Preserve dashboard route structure and JSON envelope format.
 
-- Replace duplicated script route handlers with small endpoint wrappers that call the dispatcher.
-- Keep dashboard HTTP-specific status mapping and JSON envelope shape stable.
-- Keep task endpoints unchanged.
+Integration contract:
+- Existing route paths and success/failure payload structure remain stable.
+- Dashboard-specific transport details stay local to this adapter.
 
-### 5) Worker Boundary Preservation
+### 5) Root Verification and Mergeability Gate
 
-No direct worker refactor in this design.
+Files:
+- `scripts/build/verify.mjs`
+- `.github/workflows/pr-mergeability-gate.yml`
 
-- Worker continues using `task-control-plane-service-worker.mjs`.
-- Dispatcher is Node-runtime oriented for MCP/dashboard script-backed actions.
-- If Worker later needs similar non-task behavior, define a Worker-specific adapter to shared contracts, not direct Node script execution.
+Responsibilities:
+- `verify.mjs` runs dashboard test and dashboard production build as explicit steps.
+- PR mergeability workflow installs dashboard dependencies before `npm run -s verify`.
+
+Integration contract:
+- Dashboard regressions fail branch mergeability via the same root gate used by CI.
+- Dashboard enforcement is part of normal branch readiness, not an optional side workflow.
 
 ## Data Flow
 
-### Script-wrapper action (MCP)
+### Script-wrapper action flow (MCP/dashboard)
 
-1. MCP handler receives tool call.
-2. Handler resolves effective outcome contract (existing behavior).
-3. Handler calls dispatcher `dispatch(name, args)`.
-4. Dispatcher validates/normalizes and executes script.
-5. Handler maps dispatcher result through existing `toToolResponse`.
+1. Surface adapter receives request.
+2. Adapter identifies action and forwards to dispatcher.
+3. Dispatcher validates and normalizes args.
+4. Dispatcher runs mapped script/service path.
+5. Adapter wraps result in surface-specific transport envelope.
 
-### Script-wrapper action (Dashboard)
+### Mergeability flow (dashboard gate)
 
-1. Dashboard endpoint receives HTTP request.
-2. Endpoint resolves outcome contract (existing behavior).
-3. Endpoint calls dispatcher `dispatch(actionName, requestArgs)`.
-4. Dispatcher validates/normalizes and executes script.
-5. Endpoint returns existing JSON envelope with normalized result fields.
+1. PR workflow installs root dependencies.
+2. PR workflow installs dashboard dependencies.
+3. PR workflow runs root `verify`.
+4. Root `verify` executes dashboard tests and dashboard build.
+5. Any dashboard failure fails mergeability.
 
 ## Technical Decisions
 
-1. Keep scripts as integration boundary where currently required.
-2. Centralize action mapping and argument defaults once.
-3. Preserve existing public contracts in MCP and dashboard responses.
-4. Keep convergence focused on non-task actions to avoid reopening stable task-service flow.
+1. Preserve script execution boundary where integration still relies on shell/runtime scripts.
+2. Centralize shared action mapping/validation to remove drift.
+3. Keep Worker-safe separation explicit; do not move Node-only behavior into Worker runtime.
+4. Enforce dashboard readiness through root verification path to keep one mergeability truth.
 
 ## Error Handling Strategy
 
-- Dispatcher throws typed errors:
-  - unknown action
-  - invalid arguments
-- MCP mapping:
-  - invalid/unknown -> existing `toolError(...)` behavior
-- Dashboard mapping:
-  - invalid/unknown -> `400` with stable `{ success: false, error }`
-  - execution/runtime issues -> preserve current success/output semantics from script invocation contract
-
-No silent fallback paths; all invalid input failures remain explicit.
+- Dispatcher emits explicit typed errors (`unknown-action`, `invalid-arguments`).
+- MCP maps typed errors to existing tool error responses.
+- Dashboard maps typed validation errors to `400` envelope responses.
+- Root verifier fails fast on dashboard test/build failures with step-level context.
 
 ## File Change Plan
 
 Add:
-
 - `runtime/lib/runtime-action-matrix.mjs`
 - `runtime/lib/runtime-action-dispatcher.mjs`
 - `runtime/lib/runtime-action-dispatcher.test.mjs`
 
 Update:
-
 - `runtime/mcp/handlers.mjs`
 - `runtime/mcp/dashboard-api.mjs`
 - `runtime/mcp/dashboard-api.test.mjs`
 - `runtime/mcp/contract-parity.test.mjs`
-
-Optional CI wiring update (if needed for mergeability):
-
-- project validation command definitions to ensure parity test suite is part of required checks.
-
-## Migration Plan
-
-1. Introduce matrix and dispatcher with unit tests.
-2. Migrate one low-risk script-wrapper action end-to-end (`list_tools`) in both MCP and dashboard.
-3. Expand migration to remaining script-wrapper actions.
-4. Add full parity coverage table for all migrated actions.
-5. Remove obsolete duplicated mapping code.
-
-This phased migration reduces blast radius and keeps rollback simple.
+- `scripts/build/verify.mjs`
+- `.github/workflows/pr-mergeability-gate.yml`
 
 ## Test Strategy
 
-### Unit Tests
+### Unit tests
+- Dispatcher + matrix behavior:
+  - mapping lookup
+  - argument defaults/normalization
+  - typed error paths
 
-- `runtime-action-dispatcher.test.mjs`
-  - mapping resolution
-  - argument normalization defaults
-  - validation failures
-  - unknown action failures
+### Adapter tests
+- MCP handler tests for migrated script-wrapper actions.
+- Dashboard API tests for migrated routes and error semantics.
 
-### Integration/Adapter Tests
+### Parity tests
+- Matrix-driven parity checks for classified shared actions across MCP/dashboard.
 
-- MCP handler tests:
-  - dispatcher-backed actions return expected response shapes.
-- Dashboard API tests:
-  - dispatcher-backed endpoints preserve route registration and response envelope.
-
-### Parity Tests
-
-- Table-driven parity suite for each script-wrapper action across MCP/dashboard:
-  - action identity
-  - normalized argument behavior
-  - success output envelope fields
-  - invalid input error semantics
+### Gate tests
+- Root `npm run -s verify` includes dashboard test/build.
+- Mergeability workflow path provisions dashboard dependencies before verify.
 
 ## Open Risks
 
-- Response envelope mismatch if MCP and dashboard wrappers apply inconsistent post-processing after dispatcher integration.
-- Hidden script-side behavior differences that dispatcher normalization alone cannot remove.
-- Risk of over-centralizing action semantics that are intentionally surface-specific.
+1. Baseline unrelated test failures can obscure gate wiring outcomes in local validation.
+2. Surface-specific response post-processing could still drift if parity assertions are incomplete.
+3. Command invocation differences across OS shells can break dashboard checks unless verifier invocation is cross-platform-safe.
 
-Mitigation:
+Mitigations:
+- Keep parity tests table-driven from the matrix.
+- Keep dashboard gate commands explicit and shell-compatible in verifier.
+- Report baseline failures separately from convergence/gate integration status.
 
-- Matrix includes `surface-only` category to preserve explicit divergence.
-- Parity tests only assert equivalence for actions classified as shared.
+## Definition of Done
 
-## Definition of Done Alignment
-
-This design satisfies Track B done criteria by:
-
-- implementing task-adjacent behavior once in shared runtime modules,
-- turning MCP/dashboard into adapters for converged behavior,
-- and enforcing equivalence via automated parity testing.
-
+- Shared dispatcher + matrix own shared runtime action behavior.
+- MCP/dashboard parity checks enforce equivalent behavior for classified shared actions.
+- Root `verify` and PR mergeability workflow enforce dashboard test/build.
+- Worker-safe control-plane boundaries remain intact and unchanged.

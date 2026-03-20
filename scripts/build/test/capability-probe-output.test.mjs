@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -13,7 +13,11 @@ const EXPECTED_CAPABILITIES = [
   'git.read', 'git.write', 'network.http', 'mcp.client', 'env.read',
 ];
 
-describe('capability-probe.sh output', () => {
+const bashProbe = spawnSync('bash', ['--version'], { stdio: 'ignore' });
+const BASH_AVAILABLE = !bashProbe.error && bashProbe.status === 0;
+const SKIP_REASON = BASH_AVAILABLE ? false : 'bash not available on this platform';
+
+describe('capability-probe.sh output', { skip: SKIP_REASON }, () => {
   let probeOutput;
 
   it('produces valid JSON', () => {

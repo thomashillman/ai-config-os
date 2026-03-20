@@ -1,0 +1,10 @@
+{
+  "awaitingApproval": false,
+  "source": "spec",
+  "name": "skill-registry-hot-reload",
+  "basePath": "specs/skill-registry-hot-reload",
+  "phase": "implementation",
+  "granularity": "fine",
+  "totalTasks": 14,
+  "taskIndex": 14
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * verify.mjs — Cross-platform pre-push verification gate.
+ * verify.mjs - Cross-platform pre-push verification gate.
  *
  * Runs all validation steps in sequence. Uses Node.js glob discovery
  * instead of shell patterns so it works on Windows CMD.
@@ -34,10 +34,27 @@ function run(label, command, args) {
   return true;
 }
 
-// ─── 1. Version parity ───
+function runShell(label, command) {
+  console.log(`\n==> ${label}`);
+  const result = spawnSync(command, {
+    cwd: REPO_ROOT,
+    stdio: 'inherit',
+    encoding: 'utf8',
+    shell: true,
+  });
+  if (result.status !== 0) {
+    console.error(`FAIL: ${label} (exit ${result.status})`);
+    failed = true;
+    return false;
+  }
+  console.log(`PASS: ${label}`);
+  return true;
+}
+
+// 1. Version parity
 run('Version parity check', process.execPath, [join(REPO_ROOT, 'scripts', 'build', 'check-version-parity.mjs')]);
 
-// ─── 2. Lint skills (discover via Node.js, not shell glob) ───
+// 2. Lint skills (discover via Node.js, not shell glob)
 const skillsDir = join(REPO_ROOT, 'shared', 'skills');
 const skillFiles = readdirSync(skillsDir, { withFileTypes: true })
   .filter(d => d.isDirectory() && !d.name.startsWith('_'))
@@ -48,7 +65,7 @@ if (skillFiles.length > 0) {
   run('Lint skills', process.execPath, [join(REPO_ROOT, 'scripts', 'lint', 'skill.mjs'), ...skillFiles]);
 }
 
-// ─── 3. Lint platforms (discover via Node.js) ───
+// 3. Lint platforms (discover via Node.js)
 const platformsDir = join(REPO_ROOT, 'shared', 'targets', 'platforms');
 if (existsSync(platformsDir)) {
   const platformFiles = readdirSync(platformsDir)
@@ -60,15 +77,19 @@ if (existsSync(platformsDir)) {
   }
 }
 
-// ─── 4. Full test suite ───
+// 4. Full test suite
 // Includes: canonical source contract, portability contract, materialisation contract, delivery contract
 run('Test suite (portability & delivery contracts)', process.execPath, [join(REPO_ROOT, 'scripts', 'build', 'test', 'run-tests.mjs')]);
 
-// ─── Result ───
+// 5. Dashboard gate
+runShell('Dashboard test suite', 'npm --prefix dashboard run --silent test');
+runShell('Dashboard production build', 'npm --prefix dashboard run --silent build');
+
+// Result
 console.log('');
 if (failed) {
-  console.error('VERIFICATION FAILED — do not push.');
+  console.error('VERIFICATION FAILED - do not push.');
   process.exit(1);
 } else {
-  console.log('ALL CHECKS PASSED — safe to push.');
+  console.log('ALL CHECKS PASSED - safe to push.');
 }
