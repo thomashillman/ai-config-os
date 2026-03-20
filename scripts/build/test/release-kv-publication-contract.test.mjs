@@ -15,7 +15,7 @@ test('build_workflow_invokes_kv_upload_on_main_linux_release_path', () => {
     workflow,
     /Build with provenance \(release mode\)[\s\S]*?(Upload Claude package to KV|deploy:upload-kv|upload-skills-kv\.mjs)/,
   );
-  assert.match(workflow, /if:\s*runner\.os == 'Linux'/);
+  assert.match(workflow, /if:\s*runner\.os == 'Linux'\s*&&\s*github\.event_name == 'push'\s*&&\s*github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /CLOUDFLARE_ACCOUNT_ID:\s*\$\{\{\s*secrets\.CLOUDFLARE_ACCOUNT_ID\s*\}\}/);
   assert.match(workflow, /CLOUDFLARE_API_TOKEN:\s*\$\{\{\s*secrets\.CLOUDFLARE_API_TOKEN\s*\}\}/);
   assert.match(workflow, /MANIFEST_KV_NAMESPACE_ID:\s*\$\{\{\s*secrets\.MANIFEST_KV_NAMESPACE_ID\s*\}\}/);
