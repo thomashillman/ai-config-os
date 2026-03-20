@@ -118,6 +118,35 @@ test('buildSkillsPackage_fails_when_skill_has_no_skill_md', async () => {
   }
 });
 
+
+
+test('uploadToKV_surfaces_cloudflare_error_when_runner_fails_without_stderr', async () => {
+  const { uploadToKV } = await safeImport('../upload-skills-kv.mjs', import.meta.url);
+
+  assert.throws(
+    () => uploadToKV(
+      { version: '9.9.9', skills: { debug: { 'SKILL.md': '# Debug\n' } } },
+      {
+        env: {
+          CLOUDFLARE_ACCOUNT_ID: 'acct-123',
+          CLOUDFLARE_API_TOKEN: 'token-123',
+          MANIFEST_KV_NAMESPACE_ID: 'kv-123',
+        },
+        runner: () => ({
+          status: 22,
+          stdout: JSON.stringify({
+            success: false,
+            errors: [{ message: 'Authentication error' }],
+          }),
+          stderr: null,
+        }),
+        logger: () => {},
+      },
+    ),
+    /Authentication error/,
+  );
+});
+
 test('upload_skills_kv_dry_run_prints_target_keys_without_upload', () => {
   const fixture = createClaudeDistFixture();
 

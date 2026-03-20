@@ -76,6 +76,53 @@ function getPackageKeys(version) {
   ];
 }
 
+function describeCloudflareFailure(outputText, fallback) {
+  if (typeof outputText === 'string' && outputText.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(outputText);
+      if (Array.isArray(parsed?.errors) && parsed.errors.length > 0) {
+        return parsed.errors[0]?.message || fallback;
+      }
+      if (typeof parsed?.message === 'string' && parsed.message.length > 0) {
+        return parsed.message;
+      }
+    } catch {
+      return outputText.trim();
+    }
+  }
+
+  return fallback;
+}
+
+function assertCloudflareUploadSucceeded(result, key) {
+  if (result.status !== 0) {
+    const failureDetail = describeCloudflareFailure(
+      result.stdout,
+      typeof result.stderr === 'string' && result.stderr.trim().length > 0
+        ? result.stderr.trim()
+        : `curl exited with status ${result.status}`
+    );
+    throw new Error(`Failed to upload ${key}: ${failureDetail}`);
+  }
+
+  let response;
+  try {
+    response = JSON.parse(result.stdout);
+  } catch {
+    console.warn(`Warning: Could not parse response for ${key}`);
+    console.warn(`  Response: ${String(result.stdout).substring(0, 200)}`);
+    return;
+  }
+
+  if (!response?.success) {
+    const failureDetail = describeCloudflareFailure(
+      result.stdout,
+      'Unknown Cloudflare API error'
+    );
+    throw new Error(`Failed to upload ${key}: ${failureDetail}`);
+  }
+}
+
 export function buildSkillsPackage({ distDir = DEFAULT_DIST_DIR, logger = console.log } = {}) {
   const pluginPath = join(distDir, '.claude-plugin', 'plugin.json');
 
@@ -170,6 +217,8 @@ export function uploadToKV(pkg, { env = process.env, runner = spawnSync, logger 
   const curlCmd1 = [
     'curl',
     '-s',
+    '-S',
+    '--fail-with-body',
     '-X',
     'PUT',
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${kvNamespaceId}/values/${encodeURIComponent(versionedKey)}`,
@@ -186,26 +235,15 @@ export function uploadToKV(pkg, { env = process.env, runner = spawnSync, logger 
     maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large responses
   });
 
-  if (result1.status !== 0) {
-    throw new Error(`Failed to upload ${versionedKey}: ${result1.stderr}`);
-  }
-
-  try {
-    const resp1 = JSON.parse(result1.stdout);
-    if (!resp1.success) {
-      throw new Error(resp1.errors ? resp1.errors[0].message : 'Unknown error');
-    }
-  } catch (err) {
-    // Cloudflare API might return HTML error page
-    console.warn(`Warning: Could not parse response for ${versionedKey}`);
-    console.warn(`  Response: ${result1.stdout.substring(0, 200)}`);
-  }
+  assertCloudflareUploadSucceeded(result1, versionedKey);
 
   // Upload latest pointer
   logger(`  → ${latestKey}`);
   const curlCmd2 = [
     'curl',
     '-s',
+    '-S',
+    '--fail-with-body',
     '-X',
     'PUT',
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${kvNamespaceId}/values/${encodeURIComponent(latestKey)}`,
@@ -222,18 +260,7 @@ export function uploadToKV(pkg, { env = process.env, runner = spawnSync, logger 
     maxBuffer: 50 * 1024 * 1024,
   });
 
-  if (result2.status !== 0) {
-    throw new Error(`Failed to upload ${latestKey}: ${result2.stderr}`);
-  }
-
-  try {
-    const resp2 = JSON.parse(result2.stdout);
-    if (!resp2.success) {
-      throw new Error(resp2.errors ? resp2.errors[0].message : 'Unknown error');
-    }
-  } catch (err) {
-    console.warn(`Warning: Could not parse response for ${latestKey}`);
-  }
+  assertCloudflareUploadSucceeded(result2, latestKey);
 
   logger(`\n✓ Skills package ${version} uploaded to KV`);
 }
