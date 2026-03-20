@@ -21,17 +21,16 @@
  *     - claude-code-package:latest (pointer to latest)
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, resolve, dirname, relative } from 'node:path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..');
-const DIST_DIR = join(REPO_ROOT, 'dist', 'clients', 'claude-code');
-const PLUGIN_PATH = join(DIST_DIR, '.claude-plugin', 'plugin.json');
-
-const DRY_RUN = process.argv.includes('--dry-run');
+const DEFAULT_DIST_DIR = process.env.AI_CONFIG_OS_DIST_CLAUDE_CODE_DIR
+  ?? join(REPO_ROOT, 'dist', 'clients', 'claude-code');
+const PACKAGE_KEY_PREFIX = 'claude-code-package';
 
 // ─────────────────────────────────────────────────────────────────
 // Core Logic: Build Skills Package
@@ -70,14 +69,23 @@ function readAllFiles(dirPath, basePath = '') {
   return files;
 }
 
-function buildSkillsPackage() {
+function getPackageKeys(version) {
+  return [
+    `${PACKAGE_KEY_PREFIX}:${version}`,
+    `${PACKAGE_KEY_PREFIX}:latest`,
+  ];
+}
+
+export function buildSkillsPackage({ distDir = DEFAULT_DIST_DIR, logger = console.log } = {}) {
+  const pluginPath = join(distDir, '.claude-plugin', 'plugin.json');
+
   // 1. Read plugin.json
   let plugin;
   try {
-    plugin = JSON.parse(readFileSync(PLUGIN_PATH, 'utf8'));
+    plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
   } catch (err) {
     throw new Error(
-      `Failed to read plugin.json from ${PLUGIN_PATH}: ${err.message}`
+      `Failed to read plugin.json from ${pluginPath}: ${err.message}`
     );
   }
 
@@ -97,9 +105,9 @@ function buildSkillsPackage() {
   for (const skillEntry of plugin.skills) {
     const skillName = skillEntry.name;
     const skillPath = skillEntry.path.replace(/\/SKILL\.md$/, '');
-    const skillDir = join(DIST_DIR, skillPath);
+    const skillDir = join(distDir, skillPath);
 
-    console.log(`  Reading skill: ${skillName}...`);
+    logger(`  Reading skill: ${skillName}...`);
 
     // Read all files in skill directory (SKILL.md + prompts/*)
     const skillFiles = readAllFiles(skillDir);
@@ -135,14 +143,14 @@ function buildSkillsPackage() {
   return { package: pkg, size: sizeBytes, sizeMB };
 }
 
-function uploadToKV(pkg) {
+export function uploadToKV(pkg, { env = process.env, runner = spawnSync, logger = console.log } = {}) {
   const version = pkg.version;
   const jsonStr = JSON.stringify(pkg);
 
   // Determine command to use (wrangler or curl to API)
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiToken = process.env.CLOUDFLARE_API_TOKEN;
-  const kvNamespaceId = process.env.MANIFEST_KV_NAMESPACE_ID;
+  const accountId = env.CLOUDFLARE_ACCOUNT_ID;
+  const apiToken = env.CLOUDFLARE_API_TOKEN;
+  const kvNamespaceId = env.MANIFEST_KV_NAMESPACE_ID;
 
   if (!accountId || !apiToken || !kvNamespaceId) {
     throw new Error(
@@ -153,11 +161,12 @@ function uploadToKV(pkg) {
   // Use curl to upload (more portable than wrangler CLI)
   // See: https://developers.cloudflare.com/api/operations/kv-namespace-write-key-value-pair
 
-  console.log(`\nUploading to KV namespace ${kvNamespaceId}...`);
+  logger(`\nUploading to KV namespace ${kvNamespaceId}...`);
+
+  const [versionedKey, latestKey] = getPackageKeys(version);
 
   // Upload versioned key
-  console.log(`  → claude-code-package:${version}`);
-  const versionedKey = `claude-code-package:${version}`;
+  logger(`  → ${versionedKey}`);
   const curlCmd1 = [
     'curl',
     '-s',
@@ -172,7 +181,7 @@ function uploadToKV(pkg) {
     `@-`,
   ];
 
-  const result1 = spawnSync('bash', ['-c', `echo '${jsonStr.replace(/'/g, '\'"\'"\'')}' | ${curlCmd1.join(' ')}`], {
+  const result1 = runner('bash', ['-c', `echo '${jsonStr.replace(/'/g, '\'"\'"\'')}' | ${curlCmd1.join(' ')}`], {
     encoding: 'utf8',
     maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large responses
   });
@@ -193,8 +202,7 @@ function uploadToKV(pkg) {
   }
 
   // Upload latest pointer
-  console.log(`  → claude-code-package:latest`);
-  const latestKey = 'claude-code-package:latest';
+  logger(`  → ${latestKey}`);
   const curlCmd2 = [
     'curl',
     '-s',
@@ -209,7 +217,7 @@ function uploadToKV(pkg) {
     `@-`,
   ];
 
-  const result2 = spawnSync('bash', ['-c', `echo '${jsonStr.replace(/'/g, '\'"\'"\'')}' | ${curlCmd2.join(' ')}`], {
+  const result2 = runner('bash', ['-c', `echo '${jsonStr.replace(/'/g, '\'"\'"\'')}' | ${curlCmd2.join(' ')}`], {
     encoding: 'utf8',
     maxBuffer: 50 * 1024 * 1024,
   });
@@ -227,39 +235,50 @@ function uploadToKV(pkg) {
     console.warn(`Warning: Could not parse response for ${latestKey}`);
   }
 
-  console.log(`\n✓ Skills package ${version} uploaded to KV`);
+  logger(`\n✓ Skills package ${version} uploaded to KV`);
 }
 
 // ─────────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────────
 
-async function main() {
+export async function main({
+  argv = process.argv.slice(2),
+  distDir = DEFAULT_DIST_DIR,
+  logger = console.log,
+  errorLogger = console.error,
+  upload = uploadToKV,
+} = {}) {
+  const dryRun = argv.includes('--dry-run');
+
   try {
-    console.log(`Building skills package from ${DIST_DIR}...\n`);
+    logger(`Building skills package from ${distDir}...\n`);
 
-    const { package: pkg, sizeMB } = buildSkillsPackage();
+    const { package: pkg, sizeMB } = buildSkillsPackage({ distDir, logger });
 
-    console.log(
+    logger(
       `\nPackage Summary:`
     );
-    console.log(`  Version: ${pkg.version}`);
-    console.log(`  Skills: ${Object.keys(pkg.skills).length}`);
-    console.log(`  Size: ${sizeMB}MB`);
+    logger(`  Version: ${pkg.version}`);
+    logger(`  Skills: ${Object.keys(pkg.skills).length}`);
+    logger(`  Size: ${sizeMB}MB`);
 
-    if (DRY_RUN) {
-      console.log(`\n[DRY RUN] Would upload to KV`);
-      console.log(`  Keys:`);
-      console.log(`    - claude-code-package:${pkg.version}`);
-      console.log(`    - claude-code-package:latest`);
+    if (dryRun) {
+      logger(`\n[DRY RUN] Would upload to KV`);
+      logger(`  Keys:`);
+      for (const key of getPackageKeys(pkg.version)) {
+        logger(`    - ${key}`);
+      }
       return;
     }
 
-    uploadToKV(pkg);
+    upload(pkg);
   } catch (err) {
-    console.error(`\nERROR: ${err.message}`);
+    errorLogger(`\nERROR: ${err.message}`);
     process.exit(1);
   }
 }
 
-main();
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main();
+}
