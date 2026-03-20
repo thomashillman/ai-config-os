@@ -271,26 +271,48 @@ claude ask "your question"  # Skills now available as slash commands
 
 **Best for:** Cloud development, SSH sessions, GitHub Codespaces, AWS CodeSpaces, CI/CD agents.
 
-#### Setup (same as local)
+#### Setup by environment
 
-1. **Set environment variables** (see "Claude Code CLI (local)" section above for detailed instructions)
-2. **Add to your remote shell startup** (so credentials are available when Claude Code starts)
+**GitHub Codespaces (recommended for most cloud workflows):**
 
-For **GitHub Codespaces**, add to `.devcontainer/devcontainer.json`:
-```json
-{
-  "remoteEnv": {
-    "AI_CONFIG_TOKEN": "${localEnv:AI_CONFIG_TOKEN}",
-    "AI_CONFIG_WORKER": "https://ai-config-os.workers.dev"
-  }
-}
-```
+1. Open your Codespace settings:
+   - Click your avatar → **Codespaces** → Select your Codespace → Click the gear icon (⚙)
+   - Or go to **Settings** → **Codespaces** → **Environment variables** (top-right "New secret" button)
 
-For **SSH / VPS / cloud VM**, add to `~/.bashrc` or `.zshrc` on the remote machine:
-```bash
-export AI_CONFIG_TOKEN="<your-token>"
-export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"
-```
+2. In **Environment variables**, add these as **Codespace secrets** (visible to all your Codespaces):
+   ```
+   AI_CONFIG_TOKEN=<your-token>
+   AI_CONFIG_WORKER=https://ai-config-os.workers.dev
+   ```
+   Codespaces automatically injects these into all new sessions.
+
+3. Optional: Add a setup script to `.devcontainer/devcontainer.json` if you need to run commands at session start:
+   ```json
+   {
+     "postCreateCommand": "echo 'Codespace ready for AI Config OS'"
+   }
+   ```
+
+**SSH / VPS / Cloud VM (any remote server):**
+
+1. SSH into your remote machine and edit your shell startup file:
+   ```bash
+   # For bash:
+   echo 'export AI_CONFIG_TOKEN="<your-token>"' >> ~/.bashrc
+   echo 'export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"' >> ~/.bashrc
+   source ~/.bashrc
+
+   # For zsh:
+   echo 'export AI_CONFIG_TOKEN="<your-token>"' >> ~/.zshrc
+   echo 'export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+
+2. Verify the variables are set:
+   ```bash
+   echo $AI_CONFIG_TOKEN
+   echo $AI_CONFIG_WORKER
+   ```
 
 #### Automatic session-start behavior
 
@@ -330,6 +352,46 @@ bash adapters/claude/materialise.sh
 
 # Verify it's cached
 bash adapters/claude/materialise.sh status
+```
+
+---
+
+### Claude Code CLI (remote environments)
+
+**Best for:** Cloud development, SSH sessions, Codespaces, CI/CD agents.
+
+When Claude Code runs in a remote environment (Codespaces, SSH, cloud VM, etc.), the session-start hook validates structure and handles offline scenarios gracefully:
+
+```bash
+# Setup is identical to local; the difference is automatic at session start
+
+# 1. Set your Worker URL and authentication token
+export AI_CONFIG_TOKEN=<your-token>
+export AI_CONFIG_WORKER=https://ai-config-os.workers.dev
+
+# 2. In Codespaces or SSH, Claude Code automatically:
+#    - Validates skill structure (.claude/hooks/session-start.sh)
+#    - Probes platform capabilities (filesystem, shell, MCP)
+#    - Fetches manifest in background (non-blocking)
+#    - Falls back to cached manifest if Worker unavailable
+
+# 3. Skills are available immediately, even if:
+#    - Network is slow or partitioned
+#    - Worker is temporarily down
+#    - Manifest cache is >1 day old
+```
+
+**Robustness guarantees:**
+- **Worker unavailable?** Uses last-known-good manifest indefinitely
+- **Network partition?** All cached skills work offline
+- **Manifest stale?** Still usable; versions are immutable with no retroactive breaking changes
+- **New skill published?** Available next session; current session uses cached version
+
+**Testing robustness locally:**
+```bash
+# Simulate Worker unavailable
+rm ~/.ai-config-os/cache/claude-code/latest.json
+bash adapters/claude/materialise.sh status    # See cached vs remote
 ```
 
 ---
@@ -441,7 +503,8 @@ npm run build
 | **VS Code** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
 | **JetBrains** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
 | **Windsurf** | 3 min | ✅ Yes | Manual rebuild | **Partial** |
-| **Claude.ai web** | — | — | — | ❌ Not supported |
+
+
 
 **Recommendation:** Start with **Claude Code CLI** (2 min setup) to verify everything works, then add your IDE of choice. For cloud environments, Claude Code CLI in Codespaces or SSH is fully supported with offline fallbacks.
 
