@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDashboardApi } from './dashboard-api.mjs';
+import { createTunnelPolicy } from './tunnel-security.mjs';
 
 function createFakeApp() {
   const middlewares = [];
@@ -37,7 +38,7 @@ function createApi(app) {
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1' },
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
     runScript: () => ({ success: true, output: '' }),
     resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
@@ -55,7 +56,7 @@ function createApi(app) {
 
 test('dashboard API binds to tunnel policy host and installs tunnel guard middleware', () => {
   const app = createFakeApp();
-  const tunnelPolicy = { host: '127.0.0.1' };
+  const tunnelPolicy = { host: '127.0.0.1', isOriginAllowed: () => true };
   const markerMiddleware = () => {};
 
   const api = createDashboardApi({
@@ -104,7 +105,7 @@ test('dashboard task endpoints fail gracefully when task service is unavailable'
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1' },
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
     runScript: () => ({ success: true, output: '' }),
     resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
@@ -133,4 +134,48 @@ test('dashboard task endpoints fail gracefully when task service is unavailable'
   assert.equal(statusCode, 503);
   assert.equal(jsonPayload.success, false);
   assert.match(jsonPayload.error, /task service unavailable/);
+});
+
+test('dashboard API CORS uses tunnel policy origin allowlisting for local and configured tunnel origins', async () => {
+  const app = createFakeApp();
+  let corsOptions = null;
+
+  createDashboardApi({
+    app,
+    corsMiddleware: (options) => {
+      corsOptions = options;
+      return () => {};
+    },
+    jsonMiddleware: () => {},
+    tunnelPolicy: createTunnelPolicy({
+      DASHBOARD_HOST: '127.0.0.1',
+      DASHBOARD_PUBLIC_ORIGINS: 'https://dashboard.example.com',
+    }),
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: '/repo',
+    port: 4242,
+  });
+
+  assert.equal(typeof corsOptions?.origin, 'function');
+
+  const isOriginAllowed = (origin) =>
+    new Promise((resolve, reject) => {
+      corsOptions.origin(origin, (error, allowed) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(allowed);
+      });
+    });
+
+  assert.equal(await isOriginAllowed('https://dashboard.example.com'), true);
+  assert.equal(await isOriginAllowed('https://evil.example.com'), false);
+  assert.equal(await isOriginAllowed('http://localhost:5173'), true);
 });

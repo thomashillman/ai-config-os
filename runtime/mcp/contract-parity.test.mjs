@@ -44,7 +44,7 @@ test('MCP and dashboard contract-resolution surfaces agree on route identity', a
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => () => {},
-    tunnelPolicy: { host: '127.0.0.1' },
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
     runScript: () => ({ success: true, output: '' }),
     resolveEffectiveOutcomeContract: resolver,
