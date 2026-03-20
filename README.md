@@ -271,26 +271,48 @@ claude ask "your question"  # Skills now available as slash commands
 
 **Best for:** Cloud development, SSH sessions, GitHub Codespaces, AWS CodeSpaces, CI/CD agents.
 
-#### Setup (same as local)
+#### Setup by environment
 
-1. **Set environment variables** (see "Claude Code CLI (local)" section above for detailed instructions)
-2. **Add to your remote shell startup** (so credentials are available when Claude Code starts)
+**GitHub Codespaces (recommended for most cloud workflows):**
 
-For **GitHub Codespaces**, add to `.devcontainer/devcontainer.json`:
-```json
-{
-  "remoteEnv": {
-    "AI_CONFIG_TOKEN": "${localEnv:AI_CONFIG_TOKEN}",
-    "AI_CONFIG_WORKER": "https://ai-config-os.workers.dev"
-  }
-}
-```
+1. Open your Codespace settings:
+   - Click your avatar → **Codespaces** → Select your Codespace → Click the gear icon (⚙)
+   - Or go to **Settings** → **Codespaces** → **Environment variables** (top-right "New secret" button)
 
-For **SSH / VPS / cloud VM**, add to `~/.bashrc` or `.zshrc` on the remote machine:
-```bash
-export AI_CONFIG_TOKEN="<your-token>"
-export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"
-```
+2. In **Environment variables**, add these as **Codespace secrets** (visible to all your Codespaces):
+   ```
+   AI_CONFIG_TOKEN=<your-token>
+   AI_CONFIG_WORKER=https://ai-config-os.workers.dev
+   ```
+   Codespaces automatically injects these into all new sessions.
+
+3. Optional: Add a setup script to `.devcontainer/devcontainer.json` if you need to run commands at session start:
+   ```json
+   {
+     "postCreateCommand": "echo 'Codespace ready for AI Config OS'"
+   }
+   ```
+
+**SSH / VPS / Cloud VM (any remote server):**
+
+1. SSH into your remote machine and edit your shell startup file:
+   ```bash
+   # For bash:
+   echo 'export AI_CONFIG_TOKEN="<your-token>"' >> ~/.bashrc
+   echo 'export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"' >> ~/.bashrc
+   source ~/.bashrc
+
+   # For zsh:
+   echo 'export AI_CONFIG_TOKEN="<your-token>"' >> ~/.zshrc
+   echo 'export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"' >> ~/.zshrc
+   source ~/.zshrc
+   ```
+
+2. Verify the variables are set:
+   ```bash
+   echo $AI_CONFIG_TOKEN
+   echo $AI_CONFIG_WORKER
+   ```
 
 #### Automatic session-start behavior
 
