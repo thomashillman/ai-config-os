@@ -166,6 +166,160 @@ The dashboard provides eight tabs:
 
 ---
 
+## Installation & Setup by Platform
+
+Choose your primary Claude surface(s) and follow the setup steps:
+
+### Claude Code CLI (local)
+
+**Best for:** Local development, terminal-first workflow, offline usage.
+
+```bash
+# 1. Set your Worker URL and authentication token
+export AI_CONFIG_TOKEN=<your-token>
+export AI_CONFIG_WORKER=https://ai-config-os.workers.dev
+
+# 2. Fetch and cache skills
+bash adapters/claude/materialise.sh
+
+# 3. Verify installation
+bash adapters/claude/materialise.sh status
+
+# 4. In Claude Code CLI, skills are now available
+claude ask "your question"
+```
+
+**Offline fallback:** Skills are cached at `~/.ai-config-os/cache/claude-code/latest.json`. If the Worker is unavailable, Claude Code continues using the last-known-good manifest.
+
+---
+
+### Claude.ai web (browser)
+
+**Best for:** Cloud-only workflow, mobile, shareable workspace context.
+
+```bash
+# 1. Ensure this repository is open in Claude Code
+cd ~/ai-config
+
+# 2. Claude.ai web reads from .claude/settings.json
+# which is already committed. No setup required for basic use.
+
+# 3. To enable capability detection (optional):
+bash ops/capability-probe.sh       # One-time probe for your machine
+
+# 4. Open Claude.ai in your browser — skills are available
+# from your repository context
+```
+
+**How it works:**
+- Claude.ai loads `.claude/settings.json` when you add the repository
+- The `session-start.sh` hook auto-fetches the latest manifest from the Worker in the background
+- Skills appear in the skill menu immediately; newer versions load next session
+
+---
+
+### Cursor IDE
+
+**Best for:** Full-featured IDE development, multi-file edits.
+
+```bash
+# 1. Build Cursor-specific skill packages
+npm run build
+
+# 2. Cursor loads from dist/clients/cursor/
+# Add the path to Cursor settings:
+# - Open Cursor settings (Cmd/Ctrl + ,)
+# - Search "plugins"
+# - Add: /path/to/ai-config/dist/clients/cursor
+
+# 3. Restart Cursor
+
+# Troubleshooting:
+bash adapters/claude/dev-test.sh   # Validate dist/ structure
+```
+
+---
+
+### VS Code
+
+**Best for:** VS Code with GitHub Copilot, lightweight IDE workflow.
+
+```bash
+# 1. Build VS Code-specific skill packages
+npm run build
+
+# 2. Install the CLI extension (one-time):
+npm install -g @anthropic-ai/vs-code-extension
+
+# 3. Configure VS Code:
+# - Add to .vscode/settings.json:
+{
+  "anthropic.skillsPath": "/path/to/ai-config/dist/clients/vscode"
+}
+
+# 4. Reload VS Code window
+
+# Verify:
+bash adapters/claude/dev-test.sh
+```
+
+---
+
+### JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.)
+
+**Best for:** JetBrains-native development, polyglot projects.
+
+```bash
+# 1. Build for JetBrains
+npm run build
+
+# 2. In JetBrains:
+# - Go to Settings → Plugins → (gear icon) → Manage Plugin Repositories
+# - Add: file:///path/to/ai-config/dist/clients/jetbrains
+
+# 3. Install the plugin
+
+# 4. Restart IDE
+```
+
+---
+
+### Windsurf
+
+**Best for:** Agentic IDE, multi-file coordinated edits.
+
+```bash
+# 1. Build for Windsurf
+npm run build
+
+# 2. Windsurf reads from .windsurf/settings.json
+# Create or update it:
+{
+  "skills": {
+    "source": "file:///path/to/ai-config/dist/clients/windsurf"
+  }
+}
+
+# 3. Restart Windsurf
+```
+
+---
+
+## Choosing Your Setup
+
+| Surface | Setup time | Offline | Sync | Best for |
+|---------|-----------|--------|------|----------|
+| **Claude Code CLI** | 2 min | ✅ Yes | Auto via Worker | Terminal, local dev, offline work |
+| **Claude.ai web** | 1 min | ⚠️ Cached | Auto background fetch | Cloud, mobile, shareable context |
+| **Cursor** | 3 min | ✅ Yes | Manual rebuild | Full IDE, multi-file edits |
+| **VS Code** | 3 min | ✅ Yes | Manual rebuild | VS Code + Copilot users |
+| **JetBrains** | 3 min | ✅ Yes | Manual rebuild | IntelliJ/PyCharm/WebStorm users |
+| **Windsurf** | 3 min | ✅ Yes | Manual rebuild | Agentic IDE workflow |
+
+**Recommendation:** Start with **Claude Code CLI** (2 min setup) to verify everything works, then add your IDE of choice.
+
+---
+
 ## How to use it
 
 ### Running a skill in Claude Code
