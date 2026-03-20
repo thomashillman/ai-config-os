@@ -136,6 +136,76 @@ test('dashboard task endpoints fail gracefully when task service is unavailable'
   assert.match(jsonPayload.error, /task service unavailable/);
 });
 
+test('dashboard script-wrapper routes use shared dispatcher mapping', () => {
+  const app = createFakeApp();
+  const calls = [];
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1' },
+    tunnelGuardFactory: () => () => {},
+    runScript: (command, args = []) => {
+      calls.push({ command, args });
+      return { success: true, output: 'ok' };
+    },
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (value, fallback) => value ?? fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: '/repo',
+    port: 4242,
+  });
+
+  const contextCostRoute = app._gets.find((route) => route.path === '/api/context-cost');
+  let payload = null;
+  contextCostRoute.handler({ query: { threshold: 3001 } }, { json(value) { payload = value; } });
+
+  assert.equal(payload.success, true);
+  assert.deepEqual(calls, [{ command: 'ops/context-cost.sh', args: ['--threshold', '3001'] }]);
+});
+
+test('dashboard context-cost returns 400 for invalid threshold', () => {
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1' },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: 'ok' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: () => {
+      throw new Error('threshold must be numeric');
+    },
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: '/repo',
+    port: 4242,
+  });
+
+  const contextCostRoute = app._gets.find((route) => route.path === '/api/context-cost');
+  let statusCode = 200;
+  let payload = null;
+  contextCostRoute.handler(
+    { query: { threshold: 'oops' } },
+    {
+      status(code) {
+        statusCode = code;
+        return this;
+      },
+      json(value) {
+        payload = value;
+        return this;
+      },
+    }
+  );
+
+  assert.equal(statusCode, 400);
+  assert.equal(payload.success, false);
+  assert.match(payload.error, /threshold must be numeric/);
+});
+
 test('dashboard API CORS uses tunnel policy origin allowlisting for local and configured tunnel origins', async () => {
   const app = createFakeApp();
   let corsOptions = null;
