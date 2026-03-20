@@ -174,61 +174,162 @@ Choose your primary Claude surface(s) and follow the setup steps:
 
 **Best for:** Local development, terminal-first workflow, offline usage.
 
+#### 1. Obtain your Worker credentials
+
+You have two options:
+
+**Option A: Use the public shared Worker (recommended for most users)**
+- No setup needed — the public Worker is shared and already deployed
+- Token is available in the repo secrets or documentation
+- If using in this repository, the token is typically in CI secrets or a credentials file
+
+**Option B: Deploy your own Worker (for customization)**
 ```bash
-# 1. Set your Worker URL and authentication token
-export AI_CONFIG_TOKEN=<your-token>
-export AI_CONFIG_WORKER=https://ai-config-os.workers.dev
+cd worker
+wrangler secret put AUTH_TOKEN         # Set your chosen secret token
+wrangler deploy                         # Deploy to Cloudflare
+```
+After deployment, note your Worker URL from the deploy output (e.g., `https://your-worker.workers.dev`)
 
-# 2. Fetch and cache skills
-bash adapters/claude/materialise.sh
+#### 2. Configure environment variables
 
-# 3. Verify installation
-bash adapters/claude/materialise.sh status
+Store the token and Worker URL persistently so Claude Code can access them:
 
-# 4. In Claude Code CLI, skills are now available
-claude ask "your question"
+**For bash/zsh (recommended):**
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or ~/.bash_profile:
+export AI_CONFIG_TOKEN="<your-token-here>"
+export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"
+
+# Reload your shell
+source ~/.bashrc  # or ~/.zshrc
 ```
 
-**Offline fallback:** Skills are cached at `~/.ai-config-os/cache/claude-code/latest.json`. If the Worker is unavailable, Claude Code continues using the last-known-good manifest.
+**For fish shell:**
+```fish
+# Add to ~/.config/fish/config.fish:
+set -gx AI_CONFIG_TOKEN "<your-token-here>"
+set -gx AI_CONFIG_WORKER "https://ai-config-os.workers.dev"
+
+# Reload
+source ~/.config/fish/config.fish
+```
+
+**For Windows (PowerShell):**
+```powershell
+# Set environment variables permanently
+[Environment]::SetEnvironmentVariable("AI_CONFIG_TOKEN", "<your-token-here>", "User")
+[Environment]::SetEnvironmentVariable("AI_CONFIG_WORKER", "https://ai-config-os.workers.dev", "User")
+
+# Restart PowerShell to apply changes
+```
+
+**For one-time use (testing only):**
+```bash
+export AI_CONFIG_TOKEN="<your-token-here>"
+export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"
+# Commands in this terminal session will use these values
+```
+
+#### 3. Verify your credentials
+
+```bash
+# Test that the Worker is reachable
+curl -H "Authorization: Bearer $AI_CONFIG_TOKEN" \
+  "$AI_CONFIG_WORKER/v1/manifest/latest" \
+  | head -50  # Show first 50 lines
+
+# You should see JSON with skill metadata, not a 403 or 401 error
+```
+
+#### 4. Fetch and cache skills
+
+```bash
+bash adapters/claude/materialise.sh
+# Downloads skills and caches them to ~/.ai-config-os/cache/claude-code/latest.json
+```
+
+#### 5. Verify installation
+
+```bash
+bash adapters/claude/materialise.sh status
+# Shows: Local cache version vs remote version
+# Example: "Local cache: v1.0.0, Remote: v1.0.0 ✓"
+```
+
+#### 6. Use skills in Claude Code
+
+```bash
+claude ask "your question"  # Skills now available as slash commands
+```
+
+**Offline fallback:** Skills are cached at `~/.ai-config-os/cache/claude-code/latest.json`. If the Worker is unreachable, Claude Code automatically uses the last-known-good manifest.
 
 ---
 
 ### Claude Code CLI (remote environments)
 
-**Best for:** Cloud development, SSH sessions, Codespaces, CI/CD agents.
+**Best for:** Cloud development, SSH sessions, GitHub Codespaces, AWS CodeSpaces, CI/CD agents.
 
-When Claude Code runs in a remote environment (Codespaces, SSH, cloud VM, etc.), the session-start hook validates structure and handles offline scenarios gracefully:
+#### Setup (same as local)
 
-```bash
-# Setup is identical to local; the difference is automatic at session start
+1. **Set environment variables** (see "Claude Code CLI (local)" section above for detailed instructions)
+2. **Add to your remote shell startup** (so credentials are available when Claude Code starts)
 
-# 1. Set your Worker URL and authentication token
-export AI_CONFIG_TOKEN=<your-token>
-export AI_CONFIG_WORKER=https://ai-config-os.workers.dev
-
-# 2. In Codespaces or SSH, Claude Code automatically:
-#    - Validates skill structure (.claude/hooks/session-start.sh)
-#    - Probes platform capabilities (filesystem, shell, MCP)
-#    - Fetches manifest in background (non-blocking)
-#    - Falls back to cached manifest if Worker unavailable
-
-# 3. Skills are available immediately, even if:
-#    - Network is slow or partitioned
-#    - Worker is temporarily down
-#    - Manifest cache is >1 day old
+For **GitHub Codespaces**, add to `.devcontainer/devcontainer.json`:
+```json
+{
+  "remoteEnv": {
+    "AI_CONFIG_TOKEN": "${localEnv:AI_CONFIG_TOKEN}",
+    "AI_CONFIG_WORKER": "https://ai-config-os.workers.dev"
+  }
+}
 ```
 
-**Robustness guarantees:**
-- **Worker unavailable?** Uses last-known-good manifest indefinitely
-- **Network partition?** All cached skills work offline
-- **Manifest stale?** Still usable; versions are immutable with no retroactive breaking changes
-- **New skill published?** Available next session; current session uses cached version
-
-**Testing robustness locally:**
+For **SSH / VPS / cloud VM**, add to `~/.bashrc` or `.zshrc` on the remote machine:
 ```bash
-# Simulate Worker unavailable
+export AI_CONFIG_TOKEN="<your-token>"
+export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"
+```
+
+#### Automatic session-start behavior
+
+When Claude Code starts in a remote environment, the session-start hook automatically:
+
+1. **Validates skill structure** (early error detection)
+2. **Probes platform capabilities** (filesystem, shell, MCP)
+3. **Fetches latest manifest in background** (non-blocking)
+4. **Falls back to cached manifest** if Worker is unreachable
+
+This means skills are available **immediately**, even if:
+- Network is slow or partitioned
+- Worker is temporarily down
+- Manifest cache is >7 days old
+
+#### Robustness guarantees
+
+| Scenario | Behavior | Fallback |
+|----------|----------|----------|
+| Worker unavailable | Cached manifest available indefinitely | Continue using last-known-good |
+| Network partition | All cached skills work offline | Session continues with cached skills |
+| Manifest stale (>1 day) | Still usable; versions are immutable | No breaking changes retroactively applied |
+| New skill published | Available next session | Current session uses cached skills |
+
+#### Testing robustness locally
+
+Simulate offline scenarios:
+```bash
+# Clear the cache to test fallback behavior
 rm ~/.ai-config-os/cache/claude-code/latest.json
-bash adapters/claude/materialise.sh status    # See cached vs remote
+
+# Check status (should show "no cache" warning)
+bash adapters/claude/materialise.sh status
+
+# Fetch new manifest
+bash adapters/claude/materialise.sh
+
+# Verify it's cached
+bash adapters/claude/materialise.sh status
 ```
 
 ---
