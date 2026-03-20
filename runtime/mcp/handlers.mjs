@@ -1,5 +1,6 @@
 import { MCP_TOOL_MAP } from './tool-definitions.mjs';
 import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
+import { createRuntimeActionDispatcher } from '../lib/runtime-action-dispatcher.mjs';
 
 /**
  * handlers.mjs
@@ -35,6 +36,7 @@ export function createCallToolHandler(deps) {
     taskService,
     momentumEngine,
   } = deps;
+  const runtimeActionDispatcher = createRuntimeActionDispatcher({ runScript, validateNumber });
 
   function requireTaskService(capabilityProfile) {
     if (!taskService) {
@@ -74,39 +76,18 @@ export function createCallToolHandler(deps) {
         }, capabilityProfile);
       }
 
-      case 'sync_tools': {
-        const result = runScript('runtime/sync.sh', args?.dry_run ? ['--dry-run'] : []);
-        return toToolResponse(result, effectiveOutcomeContract, capabilityProfile);
-      }
-
-      case 'list_tools': {
-        const result = runScript('runtime/manifest.sh', ['status']);
-        return toToolResponse(result, effectiveOutcomeContract, capabilityProfile);
-      }
-
-      case 'get_config': {
-        const result = runScript('shared/lib/config-merger.sh');
-        return toToolResponse(result, effectiveOutcomeContract, capabilityProfile);
-      }
-
-      case 'skill_stats': {
-        const result = runScript('ops/skill-stats.sh');
-        return toToolResponse(result, effectiveOutcomeContract, capabilityProfile);
-      }
-
-      case 'context_cost': {
+      case 'sync_tools':
+      case 'list_tools':
+      case 'get_config':
+      case 'skill_stats':
+      case 'context_cost':
+      case 'validate_all': {
         try {
-          const threshold = validateNumber(args?.threshold, 2000);
-          const result = runScript('ops/context-cost.sh', ['--threshold', String(threshold)]);
+          const result = runtimeActionDispatcher.dispatch(name, args);
           return toToolResponse(result, effectiveOutcomeContract, capabilityProfile);
         } catch (err) {
           return toolError(err.message || 'Invalid arguments', capabilityProfile);
         }
-      }
-
-      case 'validate_all': {
-        const result = runScript('ops/validate-all.sh');
-        return toToolResponse(result, effectiveOutcomeContract, capabilityProfile);
       }
 
       case 'mcp_list': {
