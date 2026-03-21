@@ -60,67 +60,110 @@ describe('capability-probe surface detection', { skip: IS_WINDOWS ? 'bash not av
   test('CODEX_SURFACE=desktop → codex-desktop / desktop-app', () => {
     const result = probeWith({ CODEX_SURFACE: 'desktop' });
     assert.equal(result.platform_hint, 'codex-desktop');
-    assert.equal(result.surface_hint,  'desktop-app');
+    assert.equal(result.surface_hint, 'desktop-app');
   });
 
   test('CODEX_SURFACE=cli → codex / cloud-sandbox', () => {
     const result = probeWith({ CODEX_SURFACE: 'cli' });
     assert.equal(result.platform_hint, 'codex');
-    assert.equal(result.surface_hint,  'cloud-sandbox');
+    assert.equal(result.surface_hint, 'cloud-sandbox');
   });
 
   test('GITHUB_ACTIONS=true → github-actions / ci-pipeline', () => {
     const result = probeWith({ GITHUB_ACTIONS: 'true' });
     assert.equal(result.platform_hint, 'github-actions');
-    assert.equal(result.surface_hint,  'ci-pipeline');
+    assert.equal(result.surface_hint, 'ci-pipeline');
   });
 
   test('GITLAB_CI=true → gitlab-ci / ci-pipeline', () => {
     const result = probeWith({ GITLAB_CI: 'true' });
     assert.equal(result.platform_hint, 'gitlab-ci');
-    assert.equal(result.surface_hint,  'ci-pipeline');
+    assert.equal(result.surface_hint, 'ci-pipeline');
   });
 
   test('VSCODE_INJECTION set → claude-vscode / desktop-ide', () => {
     const result = probeWith({ VSCODE_INJECTION: '1' });
     assert.equal(result.platform_hint, 'claude-vscode');
-    assert.equal(result.surface_hint,  'desktop-ide');
+    assert.equal(result.surface_hint, 'desktop-ide');
   });
 
   test('VSCODE_IPC_HOOK_CLI set → claude-vscode / desktop-ide', () => {
     const result = probeWith({ VSCODE_IPC_HOOK_CLI: '/tmp/vscode-ipc' });
     assert.equal(result.platform_hint, 'claude-vscode');
-    assert.equal(result.surface_hint,  'desktop-ide');
+    assert.equal(result.surface_hint, 'desktop-ide');
   });
 
   test('CI=true (generic) → ci-generic / ci-pipeline', () => {
     const result = probeWith({ CI: 'true' });
     assert.equal(result.platform_hint, 'ci-generic');
-    assert.equal(result.surface_hint,  'ci-pipeline');
+    assert.equal(result.surface_hint, 'ci-pipeline');
   });
 
-  test('GITHUB_ACTIONS takes priority over CI=true', () => {
+  test('GITHUB_ACTIONS=true + CI=true → github-actions', () => {
     const result = probeWith({ GITHUB_ACTIONS: 'true', CI: 'true' });
     assert.equal(result.platform_hint, 'github-actions');
+    assert.equal(result.surface_hint, 'ci-pipeline');
   });
 
-  test('CODEX_SURFACE takes priority over GITHUB_ACTIONS', () => {
+  test('GITLAB_CI=true + CI=true → gitlab-ci', () => {
+    const result = probeWith({ GITLAB_CI: 'true', CI: 'true' });
+    assert.equal(result.platform_hint, 'gitlab-ci');
+    assert.equal(result.surface_hint, 'ci-pipeline');
+  });
+
+  test('CODEX_SURFACE=desktop + GITHUB_ACTIONS=true → codex-desktop', () => {
     const result = probeWith({ CODEX_SURFACE: 'desktop', GITHUB_ACTIONS: 'true' });
     assert.equal(result.platform_hint, 'codex-desktop');
+    assert.equal(result.surface_hint, 'desktop-app');
   });
 
-  test('CLAUDE_CODE_ENTRYPOINT=remote_mobile takes highest priority', () => {
+  test('CLAUDE_CODE_ENTRYPOINT=remote_mobile + GITHUB_ACTIONS=true → claude-ios', () => {
     const result = probeWith({ CLAUDE_CODE_ENTRYPOINT: 'remote_mobile', GITHUB_ACTIONS: 'true' });
     assert.equal(result.platform_hint, 'claude-ios');
-    assert.equal(result.surface_hint,  'mobile-app');
+    assert.equal(result.surface_hint, 'mobile-app');
+  });
+
+  test('VSCODE_INJECTION=1 + SSH_CONNECTION=... → claude-vscode', () => {
+    const result = probeWith({ VSCODE_INJECTION: '1', SSH_CONNECTION: '1.2.3.4 1234 5.6.7.8 22' });
+    assert.equal(result.platform_hint, 'claude-vscode');
+    assert.equal(result.surface_hint, 'desktop-ide');
+  });
+
+  test('SSH_CONNECTION=... + CLAUDE_CODE_REMOTE=1 → claude-code-remote', () => {
+    const result = probeWith({ SSH_CONNECTION: '1.2.3.4 1234 5.6.7.8 22', CLAUDE_CODE_REMOTE: '1' });
+    assert.equal(result.platform_hint, 'claude-code-remote');
+    assert.equal(result.surface_hint, 'desktop-cli');
+  });
+
+  test('unset signals do not accidentally classify as CI or IDE', () => {
+    const result = probeWith({});
+    assert.notEqual(result.platform_hint, 'github-actions');
+    assert.notEqual(result.platform_hint, 'gitlab-ci');
+    assert.notEqual(result.platform_hint, 'ci-generic');
+    assert.notEqual(result.platform_hint, 'claude-vscode');
+    assert.notEqual(result.platform_hint, 'claude-jetbrains');
+    assert.notEqual(result.surface_hint, 'ci-pipeline');
+    assert.notEqual(result.surface_hint, 'desktop-ide');
+  });
+
+  test('unknown CODEX_SURFACE values fall through safely', () => {
+    const result = probeWith({ CODEX_SURFACE: 'spaceship' });
+    assert.equal(result.platform_hint, 'unknown');
+    assert.equal(result.surface_hint, 'unknown');
+  });
+
+  test('CLAUDE_SURFACE override does not affect detect_surface mapping contract', () => {
+    const result = probeWith({ CODEX_SURFACE: 'desktop', CLAUDE_SURFACE: 'mobile-browser' });
+    assert.equal(result.platform_hint, 'codex-desktop');
+    assert.equal(result.surface_hint, 'mobile-browser');
   });
 
   test('probe output has required fields', () => {
     const result = probeWith({ GITHUB_ACTIONS: 'true' });
     assert.ok(result.probe_version, 'must have probe_version');
-    assert.ok(result.probed_at,     'must have probed_at');
+    assert.ok(result.probed_at, 'must have probed_at');
     assert.ok(result.platform_hint, 'must have platform_hint');
-    assert.ok(result.surface_hint,  'must have surface_hint');
-    assert.ok(result.results,       'must have results');
+    assert.ok(result.surface_hint, 'must have surface_hint');
+    assert.ok(result.results, 'must have results');
   });
 });
