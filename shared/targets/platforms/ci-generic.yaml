@@ -1,0 +1,56 @@
+id: ci-generic
+name: Generic CI
+surface: ci-pipeline
+default_package: skill
+
+capabilities:
+  fs.read:
+    status: supported
+    confidence: medium
+    source: inference
+  fs.write:
+    status: supported
+    confidence: medium
+    source: inference
+  shell.exec:
+    status: supported
+    confidence: medium
+    source: inference
+  shell.long-running:
+    status: unknown
+    confidence: low
+    source: inference
+  git.read:
+    status: unknown
+    confidence: low
+    source: inference
+  git.write:
+    status: unknown
+    confidence: low
+    source: inference
+  network.http:
+    status: unknown
+    confidence: low
+    source: inference
+  browser.fetch:
+    status: unsupported
+    confidence: high
+    source: inference
+  mcp.client:
+    status: unsupported
+    confidence: medium
+    source: inference
+  env.read:
+    status: supported
+    confidence: high
+    source: inference
+  secrets.inject:
+    status: unknown
+    confidence: low
+    source: inference
+  ui.prompt-only:
+    status: unsupported
+    confidence: high
+    source: inference
+
+notes: Fallback CI surface detected only from CI=true when no vendor-specific CI signal is present. Headless execution and environment access are expected, but git, long-running jobs, network, and secret injection vary across providers, so unknown is preferred where the generic signal is weak.

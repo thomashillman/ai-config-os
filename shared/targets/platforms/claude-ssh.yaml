@@ -1,0 +1,56 @@
+id: claude-ssh
+name: Claude over SSH
+surface: remote-shell
+default_package: skill
+
+capabilities:
+  fs.read:
+    status: supported
+    confidence: medium
+    source: inference
+  fs.write:
+    status: supported
+    confidence: medium
+    source: inference
+  shell.exec:
+    status: supported
+    confidence: high
+    source: inference
+  shell.long-running:
+    status: supported
+    confidence: medium
+    source: inference
+  git.read:
+    status: supported
+    confidence: medium
+    source: inference
+  git.write:
+    status: supported
+    confidence: medium
+    source: inference
+  network.http:
+    status: unknown
+    confidence: low
+    source: inference
+  browser.fetch:
+    status: unsupported
+    confidence: high
+    source: inference
+  mcp.client:
+    status: unknown
+    confidence: low
+    source: inference
+  env.read:
+    status: supported
+    confidence: high
+    source: inference
+  secrets.inject:
+    status: unknown
+    confidence: low
+    source: inference
+  ui.prompt-only:
+    status: supported
+    confidence: high
+    source: inference
+
+notes: Remote shell session detected from SSH_CONNECTION when CLAUDE_CODE_REMOTE is absent. Shell and environment access are strong signals; filesystem and git access are typical on the remote host, while network reachability, MCP, and secret injection vary by host policy and are kept conservative.
