@@ -541,6 +541,7 @@ describe('delivery contract — registry index.json', () => {
     assert.ok(defs['gitlab-ci'],       'registry must have gitlab-ci platform definition');
     assert.ok(defs['claude-vscode'],   'registry must have claude-vscode platform definition');
     assert.ok(defs['claude-desktop'],  'registry must have claude-desktop platform definition');
+    assert.ok(defs['claude-ssh'],      'registry must have claude-ssh platform definition');
     assert.ok(defs['codex-desktop'],   'registry must have codex-desktop platform definition');
   });
 

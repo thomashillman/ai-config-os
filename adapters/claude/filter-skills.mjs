@@ -46,7 +46,13 @@ const DEFAULT_MANIFEST_PATH = join(HOME, '.ai-config-os', 'cache', 'claude-code'
  * @property {string|null}       warning
  * @property {string}            surface_hint
  * @property {string}            platform_hint
+ * @property {string}            registry_platform_hint
  */
+
+const PLATFORM_ALIASES = Object.freeze({
+  'claude-code-remote': 'claude-code',
+  'claude-jetbrains':   'claude-vscode',
+});
 
 // ─── Loaders ──────────────────────────────────────────────────────────────────
 
@@ -93,7 +99,7 @@ export function loadProbeResults(probePath = DEFAULT_PROBE_PATH) {
 
 /**
  * Load and parse the skill manifest (registry index.json from cache).
- * Returns { skills[], version } or { skills: [], warning }.
+ * Returns { skills[], version, platforms[], platform_definitions } or { skills: [], warning }.
  */
 export function loadManifest(manifestPath = DEFAULT_MANIFEST_PATH) {
   let data;
@@ -112,7 +118,58 @@ export function loadManifest(manifestPath = DEFAULT_MANIFEST_PATH) {
   return {
     skills:  data.skills  || [],
     version: data.version || null,
+    platforms: Array.isArray(data.platforms) ? data.platforms : [],
+    platform_definitions:
+      data.platform_definitions && typeof data.platform_definitions === 'object'
+        ? data.platform_definitions
+        : {},
     warning: null,
+  };
+}
+
+/**
+ * Resolve the probe platform hint against the manifest's known platform registry.
+ *
+ * This keeps discovery/filtering robust when the runtime probe emits a more specific
+ * alias (for example `claude-code-remote`) but the manifest only knows the canonical
+ * platform id (`claude-code`).
+ *
+ * @param {string} platformHint
+ * @param {object} manifest
+ * @returns {{ registry_platform_hint: string, warning: string|null }}
+ */
+export function resolveRegistryPlatformHint(platformHint, manifest) {
+  if (!platformHint || platformHint === 'unknown') {
+    return { registry_platform_hint: 'unknown', warning: null };
+  }
+
+  const knownPlatforms = new Set([
+    ...(Array.isArray(manifest.platforms) ? manifest.platforms : []),
+    ...Object.keys(manifest.platform_definitions || {}),
+  ]);
+
+  for (const skill of manifest.skills || []) {
+    for (const pid of Object.keys(skill.compatibility || {})) {
+      knownPlatforms.add(pid);
+    }
+  }
+
+  if (knownPlatforms.size === 0) {
+    return { registry_platform_hint: platformHint, warning: null };
+  }
+
+  if (knownPlatforms.has(platformHint)) {
+    return { registry_platform_hint: platformHint, warning: null };
+  }
+
+  const aliasedPlatform = PLATFORM_ALIASES[platformHint];
+  if (aliasedPlatform && knownPlatforms.has(aliasedPlatform)) {
+    return { registry_platform_hint: aliasedPlatform, warning: null };
+  }
+
+  return {
+    registry_platform_hint: 'unknown',
+    warning: `Probe platform '${platformHint}' not found in manifest platform registry`,
   };
 }
 
@@ -282,8 +339,13 @@ export function filterSkills(opts = {}) {
 
   const probe    = loadProbeResults(probePath);
   const manifest = loadManifest(manifestPath);
+  const platformResolution = resolveRegistryPlatformHint(probe.platform_hint, manifest);
 
-  const warning = [probe.warning, manifest.warning].filter(Boolean).join('; ') || null;
+  const warning = [
+    probe.warning,
+    manifest.warning,
+    platformResolution.warning,
+  ].filter(Boolean).join('; ') || null;
 
   const classified = classifyAll(manifest.skills, probe.supported);
 
@@ -297,6 +359,7 @@ export function filterSkills(opts = {}) {
     warning,
     surface_hint:  probe.surface_hint,
     platform_hint: probe.platform_hint,
+    registry_platform_hint: platformResolution.registry_platform_hint,
     version:       manifest.version,
   };
 }
