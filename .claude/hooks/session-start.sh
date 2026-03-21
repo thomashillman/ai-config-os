@@ -69,6 +69,9 @@ _detect_resume_task() {
 
 _detect_resume_task
 
-_PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
-cd "${_PROJECT_DIR}"
-exec node "${_PROJECT_DIR}/adapters/bootstrap/run-bootstrap.mjs"
+HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_ROOT="$(cd -- "${HOOK_DIR}/../.." && pwd)"
+PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+
+cd "${PROJECT_DIR}"
+exec node "${INSTALL_ROOT}/adapters/bootstrap/run-bootstrap.mjs"

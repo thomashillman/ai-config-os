@@ -2,62 +2,72 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { resolveBashCommand } from './shell-test-helpers.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const SCRIPT_PATH = join(REPO_ROOT, 'adapters', 'claude', 'materialise.sh');
+const BASH_COMMAND = resolveBashCommand();
+const SHELL_TEST_OPTIONS = BASH_COMMAND
+  ? {}
+  : { skip: 'bash is unavailable for shell integration tests' };
 
-function makeCurlStub(tmpRoot) {
-  const binDir = join(tmpRoot, 'bin');
-  mkdirSync(binDir, { recursive: true });
-  const stubPath = join(binDir, 'curl');
-
-  writeFileSync(stubPath, `#!/usr/bin/env bash
+function makeBashEnvWithCurlStub(tmpRoot) {
+  const envFile = join(tmpRoot, 'bash_env.sh');
+  writeFileSync(envFile, `#!/usr/bin/env bash
 set -euo pipefail
-status="\${MATERIALISE_TEST_STATUS:-200}"
-body="\${MATERIALISE_TEST_BODY:-{}}"
-headers_file=""
-out_file=""
-args=("\$@")
-for ((i=0; i<\${#args[@]}; i++)); do
-  if [[ "\${args[i]}" == "-D" ]]; then
-    headers_file="\${args[i+1]}"
+curl() {
+  local status body headers_file out_file
+  status="\${MATERIALISE_TEST_STATUS:-200}"
+  body="\${MATERIALISE_TEST_BODY:-{}}"
+  headers_file=""
+  out_file=""
+  local args=("\$@")
+  local i
+  for ((i=0; i<\${#args[@]}; i++)); do
+    if [[ "\${args[i]}" == "-D" ]]; then
+      headers_file="\${args[i+1]}"
+    fi
+    if [[ "\${args[i]}" == "-o" ]]; then
+      out_file="\${args[i+1]}"
+    fi
+  done
+  if [[ -n "\$headers_file" ]]; then
+    printf 'HTTP/1.1 %s Test\\r\\nContent-Type: application/json\\r\\n\\r\\n' "\$status" > "\$headers_file"
   fi
-  if [[ "\${args[i]}" == "-o" ]]; then
-    out_file="\${args[i+1]}"
+  if [[ -n "\$out_file" ]]; then
+    printf '%s' "\$body" > "\$out_file"
+  else
+    printf '%s' "\$body"
   fi
-done
-if [[ -n "\$headers_file" ]]; then
-  printf 'HTTP/1.1 %s Test\r\nContent-Type: application/json\r\n\r\n' "\$status" > "\$headers_file"
-fi
-if [[ -n "\$out_file" ]]; then
-  printf '%s' "\$body" > "\$out_file"
-else
-  printf '%s' "\$body"
-fi
-if [[ "\$*" == *"/v1/client/claude-code/package"* && "\$status" != "200" ]]; then
-  exit 22
-fi
-exit 0
+  if [[ "\$*" == *"/v1/client/claude-code/package"* && "\$status" != "200" ]]; then
+    return 22
+  fi
+  return 0
+}
+export -f curl
 `, 'utf8');
-  chmodSync(stubPath, 0o755);
-  return binDir;
+  chmodSync(envFile, 0o755);
+  return envFile;
 }
 
 function runBootstrap({ status, body }) {
+  if (!BASH_COMMAND) {
+    throw new Error('bash is unavailable for shell integration tests');
+  }
   const tmpRoot = mkdtempSync(join(tmpdir(), 'materialise-bootstrap-diag-'));
-  const binDir = makeCurlStub(tmpRoot);
+  const bashEnvFile = makeBashEnvWithCurlStub(tmpRoot);
 
-  const result = spawnSync('bash', [SCRIPT_PATH, 'bootstrap'], {
+  const result = spawnSync(BASH_COMMAND, [SCRIPT_PATH, 'bootstrap'], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
     env: {
       ...process.env,
       HOME: join(tmpRoot, 'home'),
-      PATH: [binDir, process.env.PATH ?? ''].join(delimiter),
+      BASH_ENV: bashEnvFile,
       AI_CONFIG_TOKEN: 'test-token',
       AI_CONFIG_WORKER: 'https://worker.example',
       MATERIALISE_TEST_STATUS: String(status),
@@ -69,7 +79,7 @@ function runBootstrap({ status, body }) {
   return result;
 }
 
-test('materialise_bootstrap_reports_unpopulated_worker_package_kv', () => {
+test('materialise_bootstrap_reports_unpopulated_worker_package_kv', SHELL_TEST_OPTIONS, () => {
   const result = runBootstrap({
     status: 404,
     body: JSON.stringify({
@@ -84,7 +94,7 @@ test('materialise_bootstrap_reports_unpopulated_worker_package_kv', () => {
   assert.doesNotMatch(result.stderr, /Check token and network/i);
 });
 
-test('materialise_bootstrap_keeps_auth_failures_distinct', () => {
+test('materialise_bootstrap_keeps_auth_failures_distinct', SHELL_TEST_OPTIONS, () => {
   const result = runBootstrap({
     status: 401,
     body: JSON.stringify({

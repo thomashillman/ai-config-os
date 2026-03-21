@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  chmodSync,
   mkdtempSync,
   mkdirSync,
   writeFileSync,
@@ -41,13 +42,16 @@ function runBash(scriptPath, { cwd, env = {}, args = [] } = {}) {
 
 function normalizePathForAssert(pathValue) {
   const resolvedPath = resolve(pathValue);
-  if (process.platform !== 'win32') {
-    return resolvedPath;
-  }
-
   try {
-    return realpathSync.native(resolvedPath).toLowerCase();
+    const realPath = realpathSync.native(resolvedPath);
+    if (process.platform === 'win32') {
+      return realPath.toLowerCase();
+    }
+    return realPath;
   } catch {
+    if (process.platform !== 'win32') {
+      return resolvedPath;
+    }
     return resolvedPath.toLowerCase();
   }
 }
@@ -102,6 +106,47 @@ export -f claude
 `
   );
   return wrapperPath;
+}
+
+function createSessionStartHookFixture() {
+  const fixture = mkdtempSync(join(tmpdir(), 'session-start-hook-'));
+  const installRoot = join(fixture, 'shared-install');
+  const projectRoot = join(fixture, 'other-repo');
+  const homeRoot = join(fixture, 'home');
+  const binDir = join(fixture, 'bin');
+  const logDir = join(fixture, 'logs');
+
+  mkdirSync(join(installRoot, '.claude', 'hooks'), { recursive: true });
+  mkdirSync(join(installRoot, 'adapters', 'bootstrap'), { recursive: true });
+  mkdirSync(projectRoot, { recursive: true });
+  mkdirSync(homeRoot, { recursive: true });
+  mkdirSync(binDir, { recursive: true });
+  mkdirSync(logDir, { recursive: true });
+
+  copyFileSync(
+    join(REPO_ROOT, '.claude', 'hooks', 'session-start.sh'),
+    join(installRoot, '.claude', 'hooks', 'session-start.sh')
+  );
+
+  writeFileSync(
+    join(binDir, 'node'),
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [ "\${1:-}" = "-e" ]; then
+  exit 0
+fi
+if pwd -W >/dev/null 2>&1; then
+  pwd -W >> "$AI_CONFIG_NODE_CWD_LOG"
+else
+  pwd >> "$AI_CONFIG_NODE_CWD_LOG"
+fi
+printf '%s\\n' "\${1:-}" >> "$AI_CONFIG_NODE_LOG"
+exit 0
+`
+  );
+  chmodSync(join(binDir, 'node'), 0o755);
+
+  return { fixture, installRoot, projectRoot, homeRoot, binDir, logDir };
 }
 
 describe('adapter scripts: claude dev-test', () => {
@@ -262,10 +307,18 @@ describe('session-start hook — structural checks', () => {
   test('session-start resolves the project dir before invoking bootstrap', () => {
     const content = readFileSync(hookPath, 'utf8');
     const projectDirIdx = content.indexOf('CLAUDE_PROJECT_DIR');
-    const bootstrapIdx  = content.indexOf('run-bootstrap.mjs');
+    const bootstrapIdx = content.indexOf('run-bootstrap.mjs');
     assert.ok(projectDirIdx > -1, 'CLAUDE_PROJECT_DIR resolution must exist');
     assert.ok(bootstrapIdx > -1, 'bootstrap runner invocation must exist');
     assert.ok(projectDirIdx < bootstrapIdx, 'project dir must be resolved before bootstrap runs');
+  });
+
+  test('session-start resolves the shared install root from the hook location', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    assert.ok(
+      content.includes('BASH_SOURCE[0]') && content.includes('INSTALL_ROOT'),
+      'session-start must derive the shared install root from the hook path'
+    );
   });
 
   test('session-start delegates startup behavior instead of embedding bootstrap steps', () => {
@@ -280,5 +333,45 @@ describe('session-start hook — structural checks', () => {
       false,
       'session-start should no longer inline install orchestration'
     );
+  });
+
+  test('session_start_hook_uses_shared_install_runner_in_cross_repo_sessions', SHELL_TEST_OPTIONS, () => {
+    const { fixture, installRoot, projectRoot, homeRoot, binDir, logDir } =
+      createSessionStartHookFixture();
+
+    try {
+      const result = runBash(join(installRoot, '.claude', 'hooks', 'session-start.sh'), {
+        cwd: projectRoot,
+        env: {
+          HOME: homeRoot,
+          PATH: `${binDir}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
+          AI_CONFIG_WORKER: 'https://worker.example.test',
+          AI_CONFIG_TOKEN: 'test-token',
+          AI_CONFIG_NODE_LOG: join(logDir, 'node.log'),
+          AI_CONFIG_NODE_CWD_LOG: join(logDir, 'node.cwd'),
+        },
+      });
+
+      assert.equal(result.status, 0, `session-start.sh failed:\n${result.stdout}\n${result.stderr}`);
+
+      const nodeLog = readFileSync(join(logDir, 'node.log'), 'utf8');
+      const nodeCwd = readFileSync(join(logDir, 'node.cwd'), 'utf8').trim();
+
+      assert.match(
+        nodeLog,
+        /shared-install\/adapters\/bootstrap\/run-bootstrap\.mjs/
+      );
+      assert.equal(
+        normalizePathForAssert(nodeCwd),
+        normalizePathForAssert(projectRoot),
+        'session-start should keep the current project repo as the working directory'
+      );
+      assert.doesNotMatch(
+        nodeLog,
+        /other-repo\/adapters\/bootstrap\/run-bootstrap\.mjs/
+      );
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
   });
 });
