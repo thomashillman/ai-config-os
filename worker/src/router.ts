@@ -18,6 +18,13 @@ import {
 } from './handlers/capabilities';
 import { handleExecute } from './handlers/executor';
 import {
+  handleObservabilityRunCreate,
+  handleObservabilityRunGet,
+  handleObservabilityRunList,
+  handleObservabilitySettingsGet,
+  handleObservabilitySettingsPut,
+} from './handlers/observability';
+import {
   handleHubLatest,
   handleTaskAppendFinding,
   handleTaskByCode,
@@ -117,6 +124,18 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
           return handleSkillsCompatible(registryWithPlatforms, capsParam);
         }
 
+        // ── Observability ────────────────────────────────────────────────────
+        if (path === '/v1/observability/runs') {
+          return handleObservabilityRunList(request, env);
+        }
+        const obsRunGetMatch = path.match(/^\/v1\/observability\/runs\/([^/]+)$/);
+        if (obsRunGetMatch) {
+          return handleObservabilityRunGet(obsRunGetMatch[1], env);
+        }
+        if (path === '/v1/observability/settings') {
+          return handleObservabilitySettingsGet(env);
+        }
+
         // ── Tasks ───────────────────────────────────────────────────────────
         if (path === '/v1/tasks') {
           return handleTaskList(env, url);
@@ -156,6 +175,14 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
       }
 
       // ── Mutations ─────────────────────────────────────────────────────────
+      // ── Observability mutations ──────────────────────────────────────────────
+      if (request.method === 'POST' && path === '/v1/observability/runs') {
+        return handleObservabilityRunCreate(request, env);
+      }
+      if (request.method === 'PUT' && path === '/v1/observability/settings') {
+        return handleObservabilitySettingsPut(request, env);
+      }
+
       if (request.method === 'POST' && path === '/v1/execute') {
         return handleExecute(request, env);
       }
@@ -184,7 +211,7 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
         return handleTaskTransitionFindings(request, env, taskFindingsTransitionMatch[1]);
       }
 
-      if (request.method !== 'GET' && request.method !== 'POST' && request.method !== 'PATCH') {
+      if (request.method !== 'GET' && request.method !== 'POST' && request.method !== 'PATCH' && request.method !== 'PUT') {
         return jsonResponse({ error: 'Method Not Allowed' }, 405);
       }
 

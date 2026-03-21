@@ -6,6 +6,7 @@ import ConfigTab from "./tabs/ConfigTab"
 import AuditTab from "./tabs/AuditTab"
 import AnalyticsTab from "./tabs/AnalyticsTab"
 import HubTab from "./tabs/HubTab"
+import ObservabilityTab from "./tabs/ObservabilityTab"
 
 const TABS = [
   { id: "hub", label: "Tasks" },
@@ -15,9 +16,16 @@ const TABS = [
   { id: "config", label: "Config" },
   { id: "audit", label: "Audit" },
   { id: "analytics", label: "Analytics" },
+  { id: "observability", label: "Bootstrap Runs" },
 ]
 
 const API = "http://localhost:4242/api"
+const WORKER_URL = typeof window !== "undefined"
+  ? (window.__AI_CONFIG_WORKER ?? "https://ai-config-os.workers.dev")
+  : "https://ai-config-os.workers.dev"
+const WORKER_TOKEN = typeof window !== "undefined"
+  ? (window.__AI_CONFIG_TOKEN ?? "")
+  : ""
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("hub")
@@ -50,6 +58,7 @@ export default function App() {
         {activeTab === "config" && <ConfigTab api={API} />}
         {activeTab === "audit" && <AuditTab api={API} />}
         {activeTab === "analytics" && <AnalyticsTab api={API} />}
+        {activeTab === "observability" && <ObservabilityTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />}
       </main>
     </div>
   )

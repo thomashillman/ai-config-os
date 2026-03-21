@@ -5,7 +5,7 @@ import type { CapabilityError } from './types/capabilities';
 
 const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, OPTIONS',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Request-Signature',
   'Access-Control-Max-Age': '86400',
 };
