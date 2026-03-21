@@ -46,13 +46,23 @@ declare -a _RUN_PHASES=()
 _RUN_PHASE_START_MS=0
 
 _now_ms() {
-  # Milliseconds since epoch; falls back to 0 if date -N is unavailable
-  if command -v date &>/dev/null; then
-    local _ts
-    _ts=$(date +%s%3N 2>/dev/null) && echo "${_ts}" || echo "0"
-  else
-    echo "0"
+  # Milliseconds since epoch.
+  # date +%s%3N works on GNU/Linux; macOS BSD date does not support %N,
+  # so we validate the output is all digits before using it, and fall
+  # back to seconds * 1000 (via %s, which works on both platforms).
+  local _ts
+  _ts=$(date +%s%3N 2>/dev/null) || true
+  if [[ "${_ts}" =~ ^[0-9]+$ ]]; then
+    echo "${_ts}"
+    return
   fi
+  # BSD date fallback: seconds precision only
+  _ts=$(date +%s 2>/dev/null) || true
+  if [[ "${_ts}" =~ ^[0-9]+$ ]]; then
+    echo "$(( _ts * 1000 ))"
+    return
+  fi
+  echo "0"
 }
 
 _phase_start() {
@@ -79,13 +89,17 @@ _phase_end() {
 }
 
 _emit_run() {
-  # Build phases JSON array
+  # Build phases JSON array.
+  # Guard on array length before expanding to avoid "unbound variable"
+  # in bash 3.2 (macOS default) when the array is empty under set -u.
   local phases_json="["
   local first=1
-  for p in "${_RUN_PHASES[@]:-}"; do
-    [[ ${first} -eq 1 ]] && first=0 || phases_json+=","
-    phases_json+="${p}"
-  done
+  if [[ ${#_RUN_PHASES[@]} -gt 0 ]]; then
+    for p in "${_RUN_PHASES[@]}"; do
+      [[ ${first} -eq 1 ]] && first=0 || phases_json+=","
+      phases_json+="${p}"
+    done
+  fi
   phases_json+="]"
 
   local finished_at
