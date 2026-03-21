@@ -140,7 +140,7 @@ probe_capability() {
 
 START_TIME=$(date +%s%N 2>/dev/null || echo "0")
 PLATFORM=$(detect_platform)
-SURFACE="${CLAUDE_SURFACE:-$(detect_surface "$PLATFORM")}"
+SURFACE=$(detect_surface "$PLATFORM")
 
 log "Running capability probe..."
 log "  platform: $PLATFORM"

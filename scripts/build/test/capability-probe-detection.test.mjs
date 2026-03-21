@@ -31,7 +31,7 @@ const BASE_ENV = Object.fromEntries(
       'GITHUB_ACTIONS', 'GITLAB_CI', 'CI',
       'VSCODE_INJECTION', 'VSCODE_IPC_HOOK_CLI',
       'IDEA_HOME', 'JETBRAINS_TOOLBOX_TOOL_NAME',
-      'SSH_CONNECTION', 'CLAUDE_SURFACE',
+      'SSH_CONNECTION',
     ].includes(k)
   )
 );
@@ -99,6 +99,24 @@ describe('capability-probe surface detection', { skip: IS_WINDOWS ? 'bash not av
     assert.equal(result.surface_hint, 'ci-pipeline');
   });
 
+  test('IDEA_HOME set → claude-jetbrains / desktop-ide', () => {
+    const result = probeWith({ IDEA_HOME: '/Applications/IDEA' });
+    assert.equal(result.platform_hint, 'claude-jetbrains');
+    assert.equal(result.surface_hint, 'desktop-ide');
+  });
+
+  test('SSH_CONNECTION set without CLAUDE_CODE_REMOTE → claude-ssh / remote-shell', () => {
+    const result = probeWith({ SSH_CONNECTION: '1 2 3 4' });
+    assert.equal(result.platform_hint, 'claude-ssh');
+    assert.equal(result.surface_hint, 'remote-shell');
+  });
+
+  test('CLAUDE_CODE_REMOTE set → claude-code-remote / desktop-cli', () => {
+    const result = probeWith({ CLAUDE_CODE_REMOTE: '1' });
+    assert.equal(result.platform_hint, 'claude-code-remote');
+    assert.equal(result.surface_hint, 'desktop-cli');
+  });
+
   test('GITHUB_ACTIONS=true + CI=true → github-actions', () => {
     const result = probeWith({ GITHUB_ACTIONS: 'true', CI: 'true' });
     assert.equal(result.platform_hint, 'github-actions');
@@ -150,12 +168,6 @@ describe('capability-probe surface detection', { skip: IS_WINDOWS ? 'bash not av
     const result = probeWith({ CODEX_SURFACE: 'spaceship' });
     assert.equal(result.platform_hint, 'unknown');
     assert.equal(result.surface_hint, 'unknown');
-  });
-
-  test('CLAUDE_SURFACE override does not affect detect_surface mapping contract', () => {
-    const result = probeWith({ CODEX_SURFACE: 'desktop', CLAUDE_SURFACE: 'mobile-browser' });
-    assert.equal(result.platform_hint, 'codex-desktop');
-    assert.equal(result.surface_hint, 'mobile-browser');
   });
 
   test('probe output has required fields', () => {
