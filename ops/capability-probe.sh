@@ -30,27 +30,32 @@ log() {
 }
 
 # Detect platform hint
+#
+# Precedence contract for overlapping signals:
+# 1. Claude runtime entrypoint
+# 2. Codex runtime surface
+# 3. CI-specific signals
+# 4. IDE-specific signals
+# 5. SSH heuristic
+# 6. Generic tool-presence fallbacks
+#
+# More-specific signals win over broader ones, so a Claude remote runtime suppresses the
+# later SSH heuristic and unknown values fall through to lower-precedence checks.
 detect_platform() {
-  # CLAUDE_CODE_ENTRYPOINT is set by the Claude Code runtime to identify the originating
-  # surface. Check it first — it is more specific than the generic CLAUDE_CODE_REMOTE flag,
-  # which is true for all remote sessions regardless of client device.
   case "${CLAUDE_CODE_ENTRYPOINT:-}" in
     remote_mobile) echo "claude-ios"; return ;;
     web)           echo "claude-web"; return ;;
   esac
 
-  # Codex Desktop App — CODEX_SURFACE is set by Codex runtime; check before CODEX_CLI
   case "${CODEX_SURFACE:-}" in
     desktop) echo "codex-desktop"; return ;;
     cli)     echo "codex";         return ;;
   esac
 
-  # CI surfaces — check before generic env var heuristics
   if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "github-actions"; return; fi
-  if [ "${GITLAB_CI:-}" = "true" ];      then echo "gitlab-ci";      return; fi
-  if [ "${CI:-}" = "true" ];             then echo "ci-generic";      return; fi
+  if [ "${GITLAB_CI:-}" = "true" ]; then echo "gitlab-ci"; return; fi
+  if [ "${CI:-}" = "true" ]; then echo "ci-generic"; return; fi
 
-  # IDE surfaces (after CI — avoid misidentifying CI runners with IDE vars)
   if [ -n "${VSCODE_INJECTION:-}" ] || [ -n "${VSCODE_IPC_HOOK_CLI:-}" ]; then
     echo "claude-vscode"; return
   fi
@@ -58,7 +63,6 @@ detect_platform() {
     echo "claude-jetbrains"; return
   fi
 
-  # SSH sessions without CLAUDE_CODE_REMOTE (broadest signal — check last)
   if [ -n "${SSH_CONNECTION:-}" ] && [ -z "${CLAUDE_CODE_REMOTE:-}" ]; then
     echo "claude-ssh"; return
   fi
@@ -76,28 +80,20 @@ detect_platform() {
   fi
 }
 
-# Detect surface hint
+# Detect surface hint from the chosen platform hint.
 detect_surface() {
-  # CLAUDE_SURFACE allows an explicit override for surfaces that cannot be auto-detected
-  # (e.g. mobile browser on claude.ai/code, which shares the same cloud environment as
-  # desktop browser). Set CLAUDE_SURFACE=<value> as a last resort when auto-detection
-  # is wrong and no other signal is available.
-  if [ -n "${CLAUDE_SURFACE:-}" ]; then
-    echo "$CLAUDE_SURFACE"
-    return
-  fi
   local platform="$1"
   case "$platform" in
-    claude-ios)            echo "mobile-app" ;;
-    claude-web)            echo "web-app" ;;
-    claude-code*)          echo "desktop-cli" ;;
-    codex)                 echo "cloud-sandbox" ;;
-    codex-desktop)         echo "desktop-app" ;;
-    cursor)                echo "desktop-ide" ;;
+    claude-ios) echo "mobile-app" ;;
+    claude-web) echo "web-app" ;;
+    claude-code*) echo "desktop-cli" ;;
+    codex) echo "cloud-sandbox" ;;
+    codex-desktop) echo "desktop-app" ;;
+    cursor) echo "desktop-ide" ;;
     github-actions|gitlab-ci|ci-generic) echo "ci-pipeline" ;;
-    claude-vscode|claude-jetbrains)      echo "desktop-ide" ;;
-    claude-ssh)            echo "remote-shell" ;;
-    *)                     echo "unknown" ;;
+    claude-vscode|claude-jetbrains) echo "desktop-ide" ;;
+    claude-ssh) echo "remote-shell" ;;
+    *) echo "unknown" ;;
   esac
 }
 
