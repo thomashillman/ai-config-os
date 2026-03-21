@@ -1134,6 +1134,7 @@ Additional implementation (2026-03-17):
 | Windows support | Not needed now; watcher/service changes are isolatable |
 | Token-efficient registry (dist/registry/summary.json) | Nice-to-have; defer until Phase 9.7 and MVA complete |
 | Test harness for schema + policy + compiler integration | Defer until MVA stabilizes |
+| Codex hook parallel implementation | `.claude/settings.json` hooks (skill-usage, tool-inefficiency logging) are Claude Code-only. `codex-desktop` declares hook support (vendor-verified) but no equivalent hook wiring exists yet; `codex` CLI excludes hooks in v0.5.2. Implement once Codex Desktop hook surface is documented: wire `log-skill-usage.sh` and `log-tool-inefficiencies.sh` equivalents via Codex's lifecycle mechanism (likely `AGENTS.md` instructions or a Codex-native hook config). Acceptance: skill-usage analytics parity between Claude Code and Codex Desktop surfaces. |
 
 ---
 
