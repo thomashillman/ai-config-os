@@ -1,6 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  chmodSync,
   mkdtempSync,
   mkdirSync,
   writeFileSync,
@@ -140,6 +141,7 @@ printf '%s\\n' "\${1:-}" >> "$AI_CONFIG_NODE_LOG"
 exit 0
 `
   );
+  chmodSync(join(binDir, 'node'), 0o755);
 
   return { fixture, installRoot, projectRoot, homeRoot, binDir, logDir };
 }
