@@ -99,6 +99,24 @@ describe('capability-probe surface detection', { skip: IS_WINDOWS ? 'bash not av
     assert.equal(result.surface_hint,  'ci-pipeline');
   });
 
+  test('IDEA_HOME set → claude-jetbrains / desktop-ide', () => {
+    const result = probeWith({ IDEA_HOME: '/Applications/IDEA' });
+    assert.equal(result.platform_hint, 'claude-jetbrains');
+    assert.equal(result.surface_hint,  'desktop-ide');
+  });
+
+  test('SSH_CONNECTION set without CLAUDE_CODE_REMOTE → claude-ssh / remote-shell', () => {
+    const result = probeWith({ SSH_CONNECTION: '1 2 3 4' });
+    assert.equal(result.platform_hint, 'claude-ssh');
+    assert.equal(result.surface_hint,  'remote-shell');
+  });
+
+  test('CLAUDE_CODE_REMOTE set → claude-code-remote / desktop-cli', () => {
+    const result = probeWith({ CLAUDE_CODE_REMOTE: '1' });
+    assert.equal(result.platform_hint, 'claude-code-remote');
+    assert.equal(result.surface_hint,  'desktop-cli');
+  });
+
   test('GITHUB_ACTIONS takes priority over CI=true', () => {
     const result = probeWith({ GITHUB_ACTIONS: 'true', CI: 'true' });
     assert.equal(result.platform_hint, 'github-actions');

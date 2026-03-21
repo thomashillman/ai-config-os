@@ -1,0 +1,56 @@
+id: claude-jetbrains
+name: Claude in JetBrains
+surface: desktop-ide
+default_package: skill
+
+capabilities:
+  fs.read:
+    status: supported
+    confidence: medium
+    source: inference
+  fs.write:
+    status: supported
+    confidence: medium
+    source: inference
+  shell.exec:
+    status: supported
+    confidence: medium
+    source: inference
+  shell.long-running:
+    status: unknown
+    confidence: low
+    source: inference
+  git.read:
+    status: supported
+    confidence: medium
+    source: inference
+  git.write:
+    status: supported
+    confidence: medium
+    source: inference
+  network.http:
+    status: unknown
+    confidence: low
+    source: inference
+  browser.fetch:
+    status: unsupported
+    confidence: medium
+    source: inference
+  mcp.client:
+    status: unknown
+    confidence: low
+    source: inference
+  env.read:
+    status: supported
+    confidence: medium
+    source: inference
+  secrets.inject:
+    status: unknown
+    confidence: low
+    source: inference
+  ui.prompt-only:
+    status: supported
+    confidence: high
+    source: inference
+
+notes: Claude session inferred from JetBrains environment signals IDEA_HOME or JETBRAINS_TOOLBOX_TOOL_NAME. Local IDE-hosted tool access is likely similar to other desktop IDE integrations, but long-running commands, network, MCP, and secret injection remain conservative until vendor-backed evidence exists.
