@@ -560,6 +560,55 @@ describe('delivery contract — registry index.json', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
+// Test Group 4b: Registry summary.json validity
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — registry summary.json', () => {
+  test('dist/registry/summary.json exists and is valid JSON with required fields', () => {
+    const summaryPath = join(REGISTRY_DIR, 'summary.json');
+    assert.ok(existsSync(summaryPath), 'dist/registry/summary.json should exist');
+    const content = readFileSync(summaryPath, 'utf8');
+    let summary;
+    try { summary = JSON.parse(content); }
+    catch (err) { assert.fail(`summary.json is not valid JSON: ${err.message}`); }
+    assert.ok(typeof summary.version === 'string',        'summary.version must be string');
+    assert.ok(typeof summary.skill_count === 'number',    'summary.skill_count must be number');
+    assert.ok(typeof summary.platform_count === 'number', 'summary.platform_count must be number');
+    assert.ok(Array.isArray(summary.platforms),           'summary.platforms must be array');
+    assert.ok(Array.isArray(summary.skills),              'summary.skills must be array');
+    assert.equal(summary.skill_count, summary.skills.length, 'skill_count must equal skills.length');
+  });
+
+  test('summary.json omits forbidden fields and contains required per-skill fields', () => {
+    const summary = readJsonCached(join(REGISTRY_DIR, 'summary.json'));
+    assert.ok(!('platform_definitions' in summary), 'summary must not contain platform_definitions');
+    assert.ok(!('built_at'      in summary), 'summary must not contain built_at');
+    assert.ok(!('build_id'      in summary), 'summary must not contain build_id');
+    assert.ok(!('source_commit' in summary), 'summary must not contain source_commit');
+    for (const skill of summary.skills) {
+      assert.ok(skill.id,                                   `skill must have id`);
+      assert.ok(typeof skill.description === 'string',      `skill ${skill.id} must have description`);
+      assert.ok(skill.type,                                 `skill ${skill.id} must have type`);
+      assert.ok(skill.status,                               `skill ${skill.id} must have status`);
+      assert.ok(skill.capabilities,                         `skill ${skill.id} must have capabilities`);
+      assert.ok(Array.isArray(skill.capabilities.required), `skill ${skill.id} capabilities.required must be array`);
+      assert.ok(!('invocation'    in skill), `skill ${skill.id} must not have invocation`);
+      assert.ok(!('tags'          in skill), `skill ${skill.id} must not have tags`);
+      assert.ok(!('compatibility' in skill), `skill ${skill.id} must not have compatibility`);
+      assert.ok(!('dependencies'  in skill), `skill ${skill.id} must not have dependencies`);
+    }
+  });
+
+  test('summary.json version and counts match index.json', () => {
+    const index   = readJsonCached(join(REGISTRY_DIR, 'index.json'));
+    const summary = readJsonCached(join(REGISTRY_DIR, 'summary.json'));
+    assert.equal(summary.version,        index.version,        'summary.version must match index.version');
+    assert.equal(summary.skill_count,    index.skill_count,    'skill_count must match');
+    assert.equal(summary.platform_count, index.platform_count, 'platform_count must match');
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
 // Test Group 5: Cursor .cursorrules validity (if cursor platform exists)
 // ───────────────────────────────────────────────────────────────────────────
 

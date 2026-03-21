@@ -16,7 +16,7 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — v0.5.4+, updated 2026-03-17
+## Current state — v0.8.0, updated 2026-03-21
 
 ### Completed infrastructure
 
