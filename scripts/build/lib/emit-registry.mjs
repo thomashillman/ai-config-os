@@ -121,7 +121,6 @@ export function emitSummary(skills, platforms, { distDir, releaseVersion }) {
         description: s.frontmatter.description || '',
         type:        s.frontmatter.type || 'prompt',
         status:      s.frontmatter.status || 'stable',
-        invocation:  s.frontmatter.invocation || null,
         capabilities: {
           required:      caps.required      || [],
           optional:      caps.optional      || [],

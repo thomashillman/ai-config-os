@@ -592,6 +592,7 @@ describe('delivery contract — registry summary.json', () => {
       assert.ok(skill.status,                               `skill ${skill.id} must have status`);
       assert.ok(skill.capabilities,                         `skill ${skill.id} must have capabilities`);
       assert.ok(Array.isArray(skill.capabilities.required), `skill ${skill.id} capabilities.required must be array`);
+      assert.ok(!('invocation'    in skill), `skill ${skill.id} must not have invocation`);
       assert.ok(!('tags'          in skill), `skill ${skill.id} must not have tags`);
       assert.ok(!('compatibility' in skill), `skill ${skill.id} must not have compatibility`);
       assert.ok(!('dependencies'  in skill), `skill ${skill.id} must not have dependencies`);
