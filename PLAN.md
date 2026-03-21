@@ -1367,6 +1367,11 @@ ChatGPT web, iOS, and Android code execution environments are intentionally surf
 
 **Probe already captures:** `platform_hint`, `surface_hint`, `hostname`, all capability results. Session-start hook already runs the probe in remote sessions. Registry already has per-platform capability definitions embedded.
 
+**Progress snapshot (2026-03-21):**
+- [x] Requested five platform YAMLs are complete.
+- [x] Deterministic runtime detection is complete for the supported runtime-detectable platforms.
+- [ ] SSH parity is **not** complete yet; keep it pending until the registry/emitter story exists.
+
 **What's missing (the 5 atoms):**
 
 ---
@@ -1615,11 +1620,11 @@ All 70+ tests pass. The new skill is in `dist/`. The probe correctly identifies 
 | `codex` (CLI/cloud) | `CODEX_CLI` env var OR `CODEX_SURFACE=cli` | Yes | Codex emitter | ✓ existing → **Atom B** | Partial |
 | `claude-web` | `CLAUDE_CODE_ENTRYPOINT=web` | Via Claude runtime only | Model only | ✓ | Model only |
 | `claude-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Via Claude runtime only | Model only | ✓ | Model only |
-| `github-actions` | `GITHUB_ACTIONS=true` | Yes | **Atom A** | **Atom B** | Planned |
-| `gitlab-ci` | `GITLAB_CI=true` | Yes | **Atom A** | **Atom B** | Planned |
-| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | **Atom A** | **Atom B** | Planned |
-| `codex-desktop` | `CODEX_SURFACE=desktop` (Codex-set) | Yes | **Atom A** | **Atom B** | Planned |
-| `claude-desktop` | No unique env var (compile-time only) | No — registry filtering only | **Atom A** | n/a | Planned |
-| `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Planned |
+| `github-actions` | `GITHUB_ACTIONS=true` | Yes | **Atom A** | **Atom B** | Complete |
+| `gitlab-ci` | `GITLAB_CI=true` | Yes | **Atom A** | **Atom B** | Complete |
+| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | **Atom A** | **Atom B** | Complete |
+| `codex-desktop` | `CODEX_SURFACE=desktop` (Codex-set) | Yes | **Atom A** | **Atom B** | Complete |
+| `claude-desktop` | No unique env var (compile-time only) | No — registry filtering only | **Atom A** | n/a | Complete |
+| `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Pending registry story |
 | `chatgpt-web` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
 | `chatgpt-mobile` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
