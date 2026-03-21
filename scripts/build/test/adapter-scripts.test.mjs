@@ -42,13 +42,16 @@ function runBash(scriptPath, { cwd, env = {}, args = [] } = {}) {
 
 function normalizePathForAssert(pathValue) {
   const resolvedPath = resolve(pathValue);
-  if (process.platform !== 'win32') {
-    return resolvedPath;
-  }
-
   try {
-    return realpathSync.native(resolvedPath).toLowerCase();
+    const realPath = realpathSync.native(resolvedPath);
+    if (process.platform === 'win32') {
+      return realPath.toLowerCase();
+    }
+    return realPath;
   } catch {
+    if (process.platform !== 'win32') {
+      return resolvedPath;
+    }
     return resolvedPath.toLowerCase();
   }
 }
