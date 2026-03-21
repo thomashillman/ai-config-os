@@ -35,6 +35,7 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `momentum-reflect` | Analyzes momentum narration effectiveness and proposes improvements | `shared/skills/momentum-reflect/SKILL.md` |
 | `surface-probe` | Investigates environment signals when a user manually states their surface; produces a structured report to improve automatic platform detection | `shared/skills/surface-probe/SKILL.md` |
 | `list-available-skills` | List skills available on the current surface, filtered by detected runtime capabilities. | `shared/skills/list-available-skills/SKILL.md` |
+| `failed-build-analysis` | Queries failed CI/CD build jobs on an open PR, identifies root causes, and produces a KISS + TDD fix plan. | `shared/skills/failed-build-analysis/SKILL.md` |
 
 ## Workflows
 
