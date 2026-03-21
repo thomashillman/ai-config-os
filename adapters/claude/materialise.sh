@@ -32,6 +32,101 @@ CMD="${1:-fetch}"
 ETAG_FILE="${CACHE_DIR}/latest.etag"
 VERSION_FILE="${CACHE_DIR}/latest.version"
 
+# ── Bootstrap run ledger ──────────────────────────────────────────────────────
+# Each bootstrap attempt records a structured BootstrapRun for observability.
+# Emission is best-effort: failure never blocks the bootstrap flow.
+_RUN_ID="materialise-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+_RUN_STARTED_AT="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+_RUN_STATUS="success"
+_RUN_FIRST_FAILED_PHASE=""
+_RUN_ERROR_CODE=""
+_RUN_EXPECTED_VERSION=""
+_RUN_OBSERVED_VERSION=""
+declare -a _RUN_PHASES=()
+_RUN_PHASE_START_MS=0
+
+_now_ms() {
+  # Milliseconds since epoch; falls back to 0 if date -N is unavailable
+  if command -v date &>/dev/null; then
+    local _ts
+    _ts=$(date +%s%3N 2>/dev/null) && echo "${_ts}" || echo "0"
+  else
+    echo "0"
+  fi
+}
+
+_phase_start() {
+  _RUN_PHASE_START_MS=$(_now_ms)
+}
+
+_phase_end() {
+  local phase="$1"
+  local result="${2:-ok}"
+  local error_code="${3:-}"
+  local now_ms
+  now_ms=$(_now_ms)
+  local dur=$(( now_ms - _RUN_PHASE_START_MS ))
+  if [[ -n "${error_code}" ]]; then
+    _RUN_PHASES+=("{\"phase\":\"${phase}\",\"result\":\"${result}\",\"duration_ms\":${dur},\"error_code\":\"${error_code}\"}")
+    if [[ -z "${_RUN_FIRST_FAILED_PHASE}" ]]; then
+      _RUN_FIRST_FAILED_PHASE="${phase}"
+      _RUN_ERROR_CODE="${error_code}"
+      _RUN_STATUS="failure"
+    fi
+  else
+    _RUN_PHASES+=("{\"phase\":\"${phase}\",\"result\":\"${result}\",\"duration_ms\":${dur}}")
+  fi
+}
+
+_emit_run() {
+  # Build phases JSON array
+  local phases_json="["
+  local first=1
+  for p in "${_RUN_PHASES[@]:-}"; do
+    [[ ${first} -eq 1 ]] && first=0 || phases_json+=","
+    phases_json+="${p}"
+  done
+  phases_json+="]"
+
+  local finished_at
+  finished_at="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+
+  # Compose the run JSON into a temp file
+  local run_file
+  run_file=$(mktemp /tmp/ai-config-run.XXXXXX)
+  _CLEANUP_FILES+=("${run_file}")
+
+  cat > "${run_file}" <<JSON
+{
+  "run_id": "${_RUN_ID}",
+  "started_at": "${_RUN_STARTED_AT}",
+  "finished_at": "${finished_at}",
+  "status": "${_RUN_STATUS}",
+  "expected_version": "${_RUN_EXPECTED_VERSION}",
+  "observed_version": "${_RUN_OBSERVED_VERSION}",
+  "first_failed_phase": "${_RUN_FIRST_FAILED_PHASE}",
+  "error_code": "${_RUN_ERROR_CODE}",
+  "phases": ${phases_json}
+}
+JSON
+
+  # Emit asynchronously in background — never block bootstrap
+  if command -v node &>/dev/null; then
+    local emitter_script
+    emitter_script="$(dirname "$0")/lib/bootstrap-run-emitter.mjs"
+    if [[ -f "${emitter_script}" ]]; then
+      node "${emitter_script}" "${run_file}" >/dev/null 2>&1 &
+    fi
+  fi
+}
+
+# Register emit on EXIT so it runs regardless of success or failure
+_bootstrap_exit_hook() {
+  _emit_run || true
+}
+# Only register the hook when running the bootstrap command
+_BOOTSTRAP_EXIT_HOOK_REGISTERED=0
+
 # ── Helpers ──────────────────────────────────────────────────────────────
 
 declare -a _CLEANUP_FILES=()
@@ -262,9 +357,20 @@ cmd_extract() {
 cmd_bootstrap() {
   require_token
 
+  # Register the exit hook so a run record is emitted regardless of outcome
+  if [[ ${_BOOTSTRAP_EXIT_HOOK_REGISTERED} -eq 0 ]]; then
+    trap '_bootstrap_exit_hook' EXIT
+    _BOOTSTRAP_EXIT_HOOK_REGISTERED=1
+  fi
+
   mkdir -p "${CACHE_DIR}"
 
-  # 1. Fetch full package from Worker (with all skill file contents embedded)
+  # Phase: bootstrap_start
+  _phase_start
+  _phase_end "bootstrap_start" "ok"
+
+  # Phase: worker_package_fetch
+  _phase_start
   local package_json
   local headers_file
   headers_file=$(mktemp /tmp/ai-config-bootstrap-headers.XXXXXX)
@@ -299,16 +405,20 @@ cmd_bootstrap() {
     fi
 
     if [[ "${fail_status}" == "401" || "${fail_status}" == "403" ]]; then
+      _phase_end "worker_package_fetch" "error" "AUTH_FAILED"
       die "Authentication failed (HTTP ${fail_status}). AI_CONFIG_TOKEN is not accepted by the Worker at ${WORKER_URL}.${err_detail:+ Detail: ${err_detail}}"
     fi
 
     if [[ "${fail_status}" == "404" ]]; then
+      _phase_end "worker_package_fetch" "error" "WORKER_PACKAGE_NOT_PUBLISHED"
       die "Worker package KV is unpopulated. The release build publication step is missing; publish claude-code-package:<version> and claude-code-package:latest to KV."
     fi
 
+    _phase_end "worker_package_fetch" "error" "NETWORK_ERROR"
     die "Failed to fetch skills package from Worker. Check token and network."
   fi
   package_json=$(cat "${payload_file}")
+  _phase_end "worker_package_fetch" "ok"
 
   # 2. Extract version and validate
   local version
@@ -319,8 +429,10 @@ cmd_bootstrap() {
   " <<< "${package_json}" 2>/dev/null) || true
 
   if [[ -z "${version}" ]]; then
+    _phase_end "package_extract" "error" "INVALID_PACKAGE_RESPONSE"
     die "Invalid package response from Worker (no version field)"
   fi
+  _RUN_EXPECTED_VERSION="${version}"
 
   # 3. Check idempotence: if version already installed, skip extraction
   if [[ -f "${VERSION_FILE}" ]]; then
@@ -333,19 +445,32 @@ cmd_bootstrap() {
     fi
   fi
 
-  # 4. Extract skill files from JSON package
+  # Phase: package_extract
+  _phase_start
   if ! echo "${package_json}" | node "$(dirname "$0")/lib/extract-package.mjs" "${CACHE_DIR}"; then
+    _phase_end "package_extract" "error" "EXTRACT_FAILED"
     die "Failed to extract package from Worker response"
   fi
+  _phase_end "package_extract" "ok"
 
   # 5. Write version marker
   mkdir -p "${CACHE_DIR}"
   printf '%s' "${version}" > "${VERSION_FILE}"
+  _RUN_OBSERVED_VERSION="${version}"
 
   echo "Package extracted from Worker (version ${version})."
 
-  # 6. Install to ~/.claude/skills for slash command discovery
-  cmd_install
+  # Phase: skills_install
+  _phase_start
+  if ! cmd_install; then
+    _phase_end "skills_install" "error" "INSTALL_FAILED"
+    die "Skills installation failed"
+  fi
+  _phase_end "skills_install" "ok"
+
+  # Phase: bootstrap_complete
+  _phase_start
+  _phase_end "bootstrap_complete" "ok"
 }
 
 cmd_install() {
