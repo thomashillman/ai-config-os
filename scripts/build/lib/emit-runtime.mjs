@@ -118,6 +118,7 @@ export function emitRuntime(
 
   const bundles = [
     'registry/index.json',
+    'registry/summary.json',
     'clients/claude-code/.claude-plugin/plugin.json',
     'clients/cursor/.cursorrules',
   ].filter(path => existsSync(join(distDir, path))).sort((a, b) => a.localeCompare(b));

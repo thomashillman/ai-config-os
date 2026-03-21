@@ -16,7 +16,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseSkill } from '../lib/parse-skill.mjs';
@@ -27,10 +27,100 @@ const COMPILE_MJS = resolve(__dirname, '..', 'compile.mjs');
 const DIST_DIR = join(REPO_ROOT, 'dist');
 const CLIENTS_DIR = join(DIST_DIR, 'clients');
 const REGISTRY_DIR = join(DIST_DIR, 'registry');
+const PLATFORM_DIR = join(REPO_ROOT, 'shared', 'targets', 'platforms');
+const PROBE_SCRIPT = join(REPO_ROOT, 'ops', 'capability-probe.sh');
+
+const PROBE_PLATFORM_SIGNAL_KEYS = [
+  'CLAUDE_CODE_ENTRYPOINT',
+  'CLAUDE_CODE_REMOTE',
+  'CLAUDE_CODE',
+  'CODEX_SURFACE',
+  'CODEX_CLI',
+  'CURSOR_SESSION',
+  'GITHUB_ACTIONS',
+  'GITLAB_CI',
+  'CI',
+  'VSCODE_INJECTION',
+  'VSCODE_IPC_HOOK_CLI',
+  'IDEA_HOME',
+  'JETBRAINS_TOOLBOX_TOOL_NAME',
+  'SSH_CONNECTION',
+  'CLAUDE_SURFACE',
+];
+
+const BASE_PROBE_ENV = Object.fromEntries(
+  Object.entries(process.env).filter(([key]) => !PROBE_PLATFORM_SIGNAL_KEYS.includes(key))
+);
+
+const RUNTIME_PLATFORM_CASES = [
+  { env: { CLAUDE_CODE_ENTRYPOINT: 'remote_mobile' }, platform: 'claude-ios' },
+  { env: { CLAUDE_CODE_ENTRYPOINT: 'web' }, platform: 'claude-web' },
+  { env: { CODEX_SURFACE: 'desktop' }, platform: 'codex-desktop' },
+  { env: { CODEX_SURFACE: 'cli' }, platform: 'codex' },
+  { env: { GITHUB_ACTIONS: 'true' }, platform: 'github-actions' },
+  { env: { GITLAB_CI: 'true' }, platform: 'gitlab-ci' },
+  { env: { CI: 'true' }, platform: 'ci-generic' },
+  { env: { VSCODE_INJECTION: '1' }, platform: 'claude-vscode' },
+  { env: { IDEA_HOME: '/Applications/IDEA' }, platform: 'claude-jetbrains' },
+  { env: { SSH_CONNECTION: '1 2 3 4' }, platform: 'claude-ssh' },
+  { env: { CLAUDE_CODE_REMOTE: '1' }, platform: 'claude-code-remote' },
+  { env: { CLAUDE_CODE: '1' }, platform: 'claude-code' },
+  { env: { CURSOR_SESSION: '1' }, platform: 'cursor' },
+];
+
+const NON_REGISTRY_RUNTIME_PLATFORM_HINTS = new Set([
+  // `unknown` is the intentional fallback sentinel from ops/capability-probe.sh,
+  // not a distributable platform definition under shared/targets/platforms/.
+  'unknown',
+]);
+
+const COMPILE_TIME_ONLY_PLATFORM_IDS = new Set([
+  // `claude-desktop` currently exists only for compile-time package selection.
+  'claude-desktop',
+]);
 
 // ───────────────────────────────────────────────────────────────────────────
 // Slice 3: Build truthfulness — platform selection logic
 // ───────────────────────────────────────────────────────────────────────────
+
+describe('capability-probe platform registry parity', () => {
+  test('every concrete runtime platform_hint is registered or intentionally documented', () => {
+    const bashProbe = spawnSync('bash', ['--version'], { stdio: 'ignore' });
+    if (bashProbe.error || bashProbe.status !== 0) {
+      return;
+    }
+
+    const registryPlatforms = new Set(
+      readdirSync(PLATFORM_DIR)
+        .filter(file => file.endsWith('.yaml'))
+        .map(file => file.replace(/\.yaml$/, ''))
+    );
+
+    for (const { env, platform } of RUNTIME_PLATFORM_CASES) {
+      const raw = execFileSync('bash', [PROBE_SCRIPT, '--quiet'], {
+        cwd: REPO_ROOT,
+        encoding: 'utf8',
+        timeout: 30_000,
+        env: { ...BASE_PROBE_ENV, HOME: process.env.HOME || '/tmp', ...env },
+      });
+      const result = JSON.parse(raw);
+
+      assert.equal(result.platform_hint, platform, `expected ${platform} for ${JSON.stringify(env)}`);
+      assert.ok(
+        registryPlatforms.has(result.platform_hint) ||
+          NON_REGISTRY_RUNTIME_PLATFORM_HINTS.has(result.platform_hint),
+        `${result.platform_hint} must be defined in shared/targets/platforms/ or documented as intentional`
+      );
+    }
+
+    for (const platformId of COMPILE_TIME_ONLY_PLATFORM_IDS) {
+      assert.ok(
+        registryPlatforms.has(platformId),
+        `${platformId} must remain available for compile-time package selection`
+      );
+    }
+  });
+});
 
 describe('selectEmittedPlatforms — pure platform selection logic', () => {
   test('selectEmittedPlatforms excludes compatible platforms with no emitter', async () => {
@@ -451,6 +541,7 @@ describe('delivery contract — registry index.json', () => {
     assert.ok(defs['gitlab-ci'],       'registry must have gitlab-ci platform definition');
     assert.ok(defs['claude-vscode'],   'registry must have claude-vscode platform definition');
     assert.ok(defs['claude-desktop'],  'registry must have claude-desktop platform definition');
+    assert.ok(defs['claude-ssh'],      'registry must have claude-ssh platform definition');
     assert.ok(defs['codex-desktop'],   'registry must have codex-desktop platform definition');
   });
 
@@ -466,6 +557,55 @@ describe('delivery contract — registry index.json', () => {
         `skill ${skill.id} capabilities.required must be an array`
       );
     }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// Test Group 4b: Registry summary.json validity
+// ───────────────────────────────────────────────────────────────────────────
+
+describe('delivery contract — registry summary.json', () => {
+  test('dist/registry/summary.json exists and is valid JSON with required fields', () => {
+    const summaryPath = join(REGISTRY_DIR, 'summary.json');
+    assert.ok(existsSync(summaryPath), 'dist/registry/summary.json should exist');
+    const content = readFileSync(summaryPath, 'utf8');
+    let summary;
+    try { summary = JSON.parse(content); }
+    catch (err) { assert.fail(`summary.json is not valid JSON: ${err.message}`); }
+    assert.ok(typeof summary.version === 'string',        'summary.version must be string');
+    assert.ok(typeof summary.skill_count === 'number',    'summary.skill_count must be number');
+    assert.ok(typeof summary.platform_count === 'number', 'summary.platform_count must be number');
+    assert.ok(Array.isArray(summary.platforms),           'summary.platforms must be array');
+    assert.ok(Array.isArray(summary.skills),              'summary.skills must be array');
+    assert.equal(summary.skill_count, summary.skills.length, 'skill_count must equal skills.length');
+  });
+
+  test('summary.json omits forbidden fields and contains required per-skill fields', () => {
+    const summary = readJsonCached(join(REGISTRY_DIR, 'summary.json'));
+    assert.ok(!('platform_definitions' in summary), 'summary must not contain platform_definitions');
+    assert.ok(!('built_at'      in summary), 'summary must not contain built_at');
+    assert.ok(!('build_id'      in summary), 'summary must not contain build_id');
+    assert.ok(!('source_commit' in summary), 'summary must not contain source_commit');
+    for (const skill of summary.skills) {
+      assert.ok(skill.id,                                   `skill must have id`);
+      assert.ok(typeof skill.description === 'string',      `skill ${skill.id} must have description`);
+      assert.ok(skill.type,                                 `skill ${skill.id} must have type`);
+      assert.ok(skill.status,                               `skill ${skill.id} must have status`);
+      assert.ok(skill.capabilities,                         `skill ${skill.id} must have capabilities`);
+      assert.ok(Array.isArray(skill.capabilities.required), `skill ${skill.id} capabilities.required must be array`);
+      assert.ok(!('invocation'    in skill), `skill ${skill.id} must not have invocation`);
+      assert.ok(!('tags'          in skill), `skill ${skill.id} must not have tags`);
+      assert.ok(!('compatibility' in skill), `skill ${skill.id} must not have compatibility`);
+      assert.ok(!('dependencies'  in skill), `skill ${skill.id} must not have dependencies`);
+    }
+  });
+
+  test('summary.json version and counts match index.json', () => {
+    const index   = readJsonCached(join(REGISTRY_DIR, 'index.json'));
+    const summary = readJsonCached(join(REGISTRY_DIR, 'summary.json'));
+    assert.equal(summary.version,        index.version,        'summary.version must match index.version');
+    assert.equal(summary.skill_count,    index.skill_count,    'skill_count must match');
+    assert.equal(summary.platform_count, index.platform_count, 'platform_count must match');
   });
 });
 

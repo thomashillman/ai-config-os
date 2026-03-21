@@ -16,7 +16,7 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — v0.5.4+, updated 2026-03-17
+## Current state — v0.8.0, updated 2026-03-21
 
 ### Completed infrastructure
 
@@ -1360,10 +1360,17 @@ Multiple Codex-contributed branches merged to main:
 | `chatgpt-web` | `CLAUDE_CODE_ENTRYPOINT=web` (our runtime) | Yes (via Claude entrypoint) | prompt-only; no shell |
 | `chatgpt-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Yes (via Claude entrypoint) | prompt-only; no shell |
 
+`claude-ssh` stays distinct from `claude-code-remote` because plain SSH only proves a generic remote shell session, while `claude-code-remote` should win whenever `CLAUDE_CODE_REMOTE` is present and can safely imply Claude-managed remote runtime semantics.
+
 **Web/mobile fundamental limitation (confirmed by Codex/ChatGPT docs):**
 ChatGPT web, iOS, and Android code execution environments are intentionally surface-agnostic — they expose no `$CODEX_SURFACE`, `$VSCODE_*`, or equivalent env var to user code. Surface detection for these is only possible via entrypoint signals set by the Claude/Codex _runtime_ (not user code), or via compile-time package selection. The probe correctly relies on `CLAUDE_CODE_ENTRYPOINT` (runtime-set) for these surfaces. Skill filtering for web/mobile falls back to the compiled `compatible_platforms[]` list in the registry, not runtime probe results.
 
 **Probe already captures:** `platform_hint`, `surface_hint`, `hostname`, all capability results. Session-start hook already runs the probe in remote sessions. Registry already has per-platform capability definitions embedded.
+
+**Progress snapshot (2026-03-21):**
+- [x] Requested five platform YAMLs are complete.
+- [x] Deterministic runtime detection is complete for the supported runtime-detectable platforms.
+- [ ] SSH parity is **not** complete yet; keep it pending until the registry/emitter story exists.
 
 **What's missing (the 5 atoms):**
 
@@ -1613,12 +1620,11 @@ All 70+ tests pass. The new skill is in `dist/`. The probe correctly identifies 
 | `codex` (CLI/cloud) | `CODEX_CLI` env var OR `CODEX_SURFACE=cli` | Yes | Codex emitter | ✓ existing → **Atom B** | Partial |
 | `claude-web` | `CLAUDE_CODE_ENTRYPOINT=web` | Via Claude runtime only | Model only | ✓ | Model only |
 | `claude-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Via Claude runtime only | Model only | ✓ | Model only |
-| `github-actions` | `GITHUB_ACTIONS=true` | Yes | **Atom A** | **Atom B** | Planned |
-| `gitlab-ci` | `GITLAB_CI=true` | Yes | **Atom A** | **Atom B** | Planned |
-| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | **Atom A** | **Atom B** | Planned |
-| `codex-desktop` | `CODEX_SURFACE=desktop` (Codex-set) | Yes | **Atom A** | **Atom B** | Planned |
-| `claude-desktop` | No unique env var (compile-time only) | No — registry filtering only | **Atom A** | n/a | Planned |
-| `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Planned |
+| `github-actions` | `GITHUB_ACTIONS=true` | Yes | **Atom A** | **Atom B** | Complete |
+| `gitlab-ci` | `GITLAB_CI=true` | Yes | **Atom A** | **Atom B** | Complete |
+| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | **Atom A** | **Atom B** | Complete |
+| `codex-desktop` | `CODEX_SURFACE=desktop` (Codex-set) | Yes | **Atom A** | **Atom B** | Complete |
+| `claude-desktop` | No unique env var (compile-time only) | No — registry filtering only | **Atom A** | n/a | Complete |
+| `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Pending registry story |
 | `chatgpt-web` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
 | `chatgpt-mobile` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
-

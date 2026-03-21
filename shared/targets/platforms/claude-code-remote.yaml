@@ -1,0 +1,56 @@
+id: claude-code-remote
+name: Claude Code Remote
+surface: desktop-cli
+default_package: skill
+
+capabilities:
+  fs.read:
+    status: supported
+    confidence: medium
+    source: inference
+  fs.write:
+    status: supported
+    confidence: medium
+    source: inference
+  shell.exec:
+    status: supported
+    confidence: medium
+    source: inference
+  shell.long-running:
+    status: unknown
+    confidence: low
+    source: inference
+  git.read:
+    status: supported
+    confidence: medium
+    source: inference
+  git.write:
+    status: supported
+    confidence: medium
+    source: inference
+  network.http:
+    status: unknown
+    confidence: low
+    source: inference
+  browser.fetch:
+    status: unsupported
+    confidence: medium
+    source: inference
+  mcp.client:
+    status: unknown
+    confidence: low
+    source: inference
+  env.read:
+    status: supported
+    confidence: medium
+    source: inference
+  secrets.inject:
+    status: unknown
+    confidence: low
+    source: inference
+  ui.prompt-only:
+    status: supported
+    confidence: high
+    source: inference
+
+notes: Claude Code remote session detected from CLAUDE_CODE_REMOTE. Shell, filesystem, git, and env access are expected from the remote host, but long-running commands, network reachability, MCP, and secret injection vary by host and are kept conservative.

@@ -19,7 +19,7 @@ import { parseSkill } from './lib/parse-skill.mjs';
 import { emitClaudeCode } from './lib/emit-claude-code.mjs';
 import { emitCursor } from './lib/emit-cursor.mjs';
 import { emitCodex } from './lib/emit-codex.mjs';
-import { emitRegistry } from './lib/emit-registry.mjs';
+import { emitRegistry, emitSummary } from './lib/emit-registry.mjs';
 import { emitRuntime } from './lib/emit-runtime.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
 import { loadRoutes, loadOutcomes } from './lib/load-definitions.mjs';
@@ -329,6 +329,7 @@ async function main() {
 
   console.log('\n[registry]');
   emitRegistry(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix, platformDefs: platforms });
+  emitSummary(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion });
 
   console.log('\n[runtime]');
   const { taskTypes: taskRouteDefinitions } = loadTaskRouteDefinitions(TASK_ROUTE_DEFINITIONS_PATH);

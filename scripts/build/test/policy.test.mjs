@@ -6,7 +6,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { validateSkillPolicy, validatePlatformPolicy } from '../lib/validate-skill-policy.mjs';
@@ -169,6 +169,13 @@ describe('loadPlatforms', () => {
     const { platforms, errors } = loadPlatforms(fakeRoot);
     assert.deepEqual(errors, []);
     assert.ok(platforms.has('test-platform'));
+  });
+
+  test('repo platform registry resolves claude-ssh definition', () => {
+    const { platforms, errors } = loadPlatforms(resolve(process.cwd()));
+    assert.deepEqual(errors, []);
+    assert.ok(platforms.has('claude-ssh'));
+    assert.equal(platforms.get('claude-ssh')?.surface, 'remote-shell');
   });
 
   test('yaml with id mismatch → error, platform not loaded', () => {
