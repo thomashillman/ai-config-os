@@ -1360,6 +1360,8 @@ Multiple Codex-contributed branches merged to main:
 | `chatgpt-web` | `CLAUDE_CODE_ENTRYPOINT=web` (our runtime) | Yes (via Claude entrypoint) | prompt-only; no shell |
 | `chatgpt-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Yes (via Claude entrypoint) | prompt-only; no shell |
 
+`claude-ssh` stays distinct from `claude-code-remote` because plain SSH only proves a generic remote shell session, while `claude-code-remote` should win whenever `CLAUDE_CODE_REMOTE` is present and can safely imply Claude-managed remote runtime semantics.
+
 **Web/mobile fundamental limitation (confirmed by Codex/ChatGPT docs):**
 ChatGPT web, iOS, and Android code execution environments are intentionally surface-agnostic — they expose no `$CODEX_SURFACE`, `$VSCODE_*`, or equivalent env var to user code. Surface detection for these is only possible via entrypoint signals set by the Claude/Codex _runtime_ (not user code), or via compile-time package selection. The probe correctly relies on `CLAUDE_CODE_ENTRYPOINT` (runtime-set) for these surfaces. Skill filtering for web/mobile falls back to the compiled `compatible_platforms[]` list in the registry, not runtime probe results.
 
@@ -1621,4 +1623,3 @@ All 70+ tests pass. The new skill is in `dist/`. The probe correctly identifies 
 | `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Planned |
 | `chatgpt-web` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
 | `chatgpt-mobile` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
-

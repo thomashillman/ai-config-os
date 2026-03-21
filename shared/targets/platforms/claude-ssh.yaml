@@ -53,4 +53,4 @@ capabilities:
     confidence: high
     source: inference
 
-notes: Remote shell session detected from SSH_CONNECTION when CLAUDE_CODE_REMOTE is absent. Shell and environment access are strong signals; filesystem and git access are typical on the remote host, while network reachability, MCP, and secret injection vary by host policy and are kept conservative.
+notes: Remote shell session detected from SSH_CONNECTION when CLAUDE_CODE_REMOTE is absent. Shell and environment access are strong signals; filesystem and git access are typical on the remote host, while network reachability, MCP, and secret injection vary by host policy and are kept conservative. Distinct from claude-code-remote, which should win whenever CLAUDE_CODE_REMOTE is present because that signal implies Claude-managed remote runtime semantics.
