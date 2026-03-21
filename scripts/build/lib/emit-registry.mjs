@@ -92,3 +92,45 @@ export function emitRegistry(skills, platforms, { distDir, releaseVersion, prove
   writeFileSync(indexPath, JSON.stringify(index, null, 2) + '\n');
   console.log(`  [registry] index.json → ${indexPath} (${skills.length} skills, ${platforms.length} platforms)`);
 }
+
+/**
+ * Emits dist/registry/summary.json — token-efficient subset for local clients.
+ * Contains only the fields needed by filter-skills.mjs and generate-commands.mjs.
+ * Omits: platform_definitions, compatibility matrix, tags, dependencies,
+ * per-skill platforms list, and build provenance fields.
+ *
+ * @param {object[]} skills - All parsed skills (same array as emitRegistry)
+ * @param {string[]} platforms - Platform IDs (same array as emitRegistry)
+ * @param {object} opts
+ * @param {string} opts.distDir
+ * @param {string} opts.releaseVersion
+ */
+export function emitSummary(skills, platforms, { distDir, releaseVersion }) {
+  const summaryPath = join(distDir, 'registry', 'summary.json');
+  mkdirSync(dirname(summaryPath), { recursive: true });
+
+  const summary = {
+    version: releaseVersion,
+    skill_count: skills.length,
+    platform_count: platforms.length,
+    platforms,
+    skills: skills.map(s => {
+      const caps = s.frontmatter.capabilities || {};
+      return {
+        id:          s.skillName,
+        description: s.frontmatter.description || '',
+        type:        s.frontmatter.type || 'prompt',
+        status:      s.frontmatter.status || 'stable',
+        invocation:  s.frontmatter.invocation || null,
+        capabilities: {
+          required:      caps.required      || [],
+          optional:      caps.optional      || [],
+          fallback_mode: caps.fallback_mode || null,
+        },
+      };
+    }),
+  };
+
+  writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + '\n');
+  console.log(`  [registry] summary.json → ${summaryPath} (${skills.length} skills)`);
+}
