@@ -69,12 +69,14 @@ detect_platform() {
 
   if [ -n "${CLAUDE_CODE_REMOTE:-}" ]; then
     echo "claude-code-remote"
-  elif [ -n "${CLAUDE_CODE:-}" ] || command -v claude >/dev/null 2>&1; then
+  elif [ -n "${CLAUDE_CODE:-}" ]; then
     echo "claude-code"
-  elif [ -n "${CODEX_CLI:-}" ]; then
-    echo "codex"
   elif [ -n "${CURSOR_SESSION:-}" ]; then
     echo "cursor"
+  elif [ -n "${CODEX_CLI:-}" ]; then
+    echo "codex"
+  elif command -v claude >/dev/null 2>&1; then
+    echo "claude-code"
   else
     echo "unknown"
   fi
