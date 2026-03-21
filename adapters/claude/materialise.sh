@@ -285,14 +285,24 @@ cmd_bootstrap() {
 
     local err_detail=""
     if [[ -s "${payload_file}" ]]; then
-      err_detail=$(jq -r '.message // .hint // .error // ""' "${payload_file}" 2>/dev/null || true)
+      if command -v jq &>/dev/null; then
+        err_detail=$(jq -r '.message // .hint // .error // ""' "${payload_file}" 2>/dev/null || true)
+      elif command -v node &>/dev/null; then
+        err_detail=$(node -e "
+          const fs = require('fs');
+          try {
+            const body = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+            process.stdout.write(body.message || body.hint || body.error || '');
+          } catch (_) {}
+        " "${payload_file}" 2>/dev/null || true)
+      fi
     fi
 
     if [[ "${fail_status}" == "401" || "${fail_status}" == "403" ]]; then
       die "Authentication failed (HTTP ${fail_status}). AI_CONFIG_TOKEN is not accepted by the Worker at ${WORKER_URL}.${err_detail:+ Detail: ${err_detail}}"
     fi
 
-    if [[ "${fail_status}" == "404" && "${err_detail}" == "Skills package not found. Trigger a release build to populate KV." ]]; then
+    if [[ "${fail_status}" == "404" ]]; then
       die "Worker package KV is unpopulated. The release build publication step is missing; publish claude-code-package:<version> and claude-code-package:latest to KV."
     fi
 
