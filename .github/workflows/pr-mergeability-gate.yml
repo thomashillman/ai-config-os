@@ -20,11 +20,11 @@ jobs:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 50
 
       - name: Fetch base branch tip
         run: |
-          git fetch origin "${{ github.base_ref }}" --prune
+          git fetch origin "${{ github.base_ref }}" --depth=50 --prune
 
       - name: Ensure PR branch clean
         run: |
@@ -49,11 +49,22 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
 
+      - name: Check if dashboard changed
+        id: dashboard-check
+        run: |
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" -- dashboard/ | grep -q .; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install dashboard dependencies
+        if: steps.dashboard-check.outputs.changed == 'true'
         run: npm --prefix dashboard install
 
       - name: Validate
