@@ -12,7 +12,7 @@
  * Format: concatenated skill prompts with section headers.
  * Degraded skills get a note explaining the limitation.
  */
-import { mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 
 /**
@@ -76,19 +76,7 @@ export function emitCursor(skills, { distDir, releaseVersion, provenance, compat
     if (body) {
       sections.push(body);
     } else {
-      // Read from file if body not in parsed object
-      try {
-        const raw = readFileSync(skill.filePath, 'utf8');
-        const fmEnd = raw.indexOf('---', raw.indexOf('---') + 3);
-        if (fmEnd !== -1) {
-          const content = raw.slice(fmEnd + 3).trim();
-          if (content) {
-            sections.push(content);
-          }
-        }
-      } catch {
-        sections.push(`# (skill body not available)`);
-      }
+      sections.push(`# (skill body not available)`);
     }
 
     sections.push('');

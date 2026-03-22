@@ -106,13 +106,13 @@ export async function handleEffectiveContractPreview(env: Env, registry: Registr
   const routesKey = `manifests/${version}/routes.json`;
   const toolsKey = `manifests/${version}/tools.json`;
 
-  const outcomes = await readArtifactJson(env, outcomesKey);
+  const [outcomes, routes, tools] = await Promise.all([
+    readArtifactJson(env, outcomesKey),
+    readArtifactJson(env, routesKey),
+    readArtifactJson(env, toolsKey),
+  ]);
   if (outcomes instanceof Response) return outcomes;
-
-  const routes = await readArtifactJson(env, routesKey);
   if (routes instanceof Response) return routes;
-
-  const tools = await readArtifactJson(env, toolsKey);
   if (tools instanceof Response) return tools;
 
   return jsonResponse({

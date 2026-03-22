@@ -12,7 +12,7 @@
  *
  * Format: Markdown document with skill sections — loaded as Codex system instructions.
  */
-import { mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 /**
@@ -79,19 +79,7 @@ export function emitCodex(skills, { distDir, releaseVersion, provenance, compatM
     if (body) {
       sections.push(body);
     } else {
-      // Read from file if body not in parsed object
-      try {
-        const raw = readFileSync(skill.filePath, 'utf8');
-        const fmEnd = raw.indexOf('---', raw.indexOf('---') + 3);
-        if (fmEnd !== -1) {
-          const content = raw.slice(fmEnd + 3).trim();
-          if (content) {
-            sections.push(content);
-          }
-        }
-      } catch {
-        sections.push(`_(skill body not available)_`);
-      }
+      sections.push(`_(skill body not available)_`);
     }
 
     sections.push('');
