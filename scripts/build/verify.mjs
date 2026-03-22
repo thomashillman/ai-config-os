@@ -81,9 +81,15 @@ if (existsSync(platformsDir)) {
 // Includes: canonical source contract, portability contract, materialisation contract, delivery contract
 run('Test suite (portability & delivery contracts)', process.execPath, [join(REPO_ROOT, 'scripts', 'build', 'test', 'run-tests.mjs')]);
 
-// 5. Dashboard gate
-runShell('Dashboard test suite', 'npm --prefix dashboard run --silent test');
-runShell('Dashboard production build', 'npm --prefix dashboard run --silent build');
+// 5. Dashboard gate (skipped when --skip-dashboard passed, e.g. in CI when dashboard/ unchanged)
+const skipDashboard = process.argv.includes('--skip-dashboard');
+if (skipDashboard) {
+  console.log('\n==> Dashboard test suite [SKIPPED — --skip-dashboard]');
+  console.log('==> Dashboard production build [SKIPPED — --skip-dashboard]');
+} else {
+  runShell('Dashboard test suite', 'npm --prefix dashboard run --silent test');
+  runShell('Dashboard production build', 'npm --prefix dashboard run --silent build');
+}
 
 // Result
 console.log('');

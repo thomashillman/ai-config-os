@@ -165,9 +165,20 @@ describe('capability-probe surface detection', { skip: IS_WINDOWS ? 'bash not av
   });
 
   test('unknown CODEX_SURFACE values fall through safely', () => {
+    // An unrecognised CODEX_SURFACE value must not trigger Codex-specific
+    // classification.  The probe should fall through to lower-precedence
+    // signals (e.g. `command -v claude` when the binary is on PATH), so we
+    // cannot assert a single expected final value — only that the Codex
+    // platforms were NOT incorrectly selected.
     const result = probeWith({ CODEX_SURFACE: 'spaceship' });
-    assert.equal(result.platform_hint, 'unknown');
-    assert.equal(result.surface_hint, 'unknown');
+    assert.notEqual(result.platform_hint, 'codex-desktop',
+      'unknown CODEX_SURFACE must not map to codex-desktop');
+    assert.notEqual(result.platform_hint, 'codex',
+      'unknown CODEX_SURFACE must not map to codex');
+    assert.notEqual(result.surface_hint, 'desktop-app',
+      'unknown CODEX_SURFACE must not produce codex-desktop surface hint');
+    assert.notEqual(result.surface_hint, 'cloud-sandbox',
+      'unknown CODEX_SURFACE must not produce codex surface hint');
   });
 
   test('probe output has required fields', () => {
