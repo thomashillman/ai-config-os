@@ -108,6 +108,22 @@ function matchPatternWithHash(phrase, pattern) {
   return null;
 }
 
+/**
+ * Returns the user-facing work title for a task type.
+ * Looks up the first matching definition's workTitle.
+ * Falls back to the taskType string if no match found.
+ *
+ * @param {string} taskType - e.g. "review_repository"
+ * @param {object} [options]
+ * @param {Array} [options.definitions] - override definitions
+ * @returns {string}
+ */
+export function workTitleForTaskType(taskType, options = {}) {
+  const defs = options.definitions || defaultDefinitions;
+  const match = defs.find((def) => def.taskType === taskType);
+  return (match?.workTitle) || taskType;
+}
+
 export function resolveIntent(phrase, options = {}) {
   const defs = options.definitions || defaultDefinitions;
 
@@ -153,6 +169,7 @@ export function resolveIntent(phrase, options = {}) {
     return {
       resolved: true,
       taskType: def.taskType,
+      workTitle: def.workTitle,
       routeHints,
       goal: def.goal,
       confidence: def.confidence,

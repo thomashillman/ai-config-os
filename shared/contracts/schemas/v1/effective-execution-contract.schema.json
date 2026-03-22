@@ -14,6 +14,17 @@
     "missing_capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 }, "default": [] },
     "required_inputs": { "type": "array", "items": { "type": "string", "minLength": 1 } },
     "stronger_host_guidance": { "type": "string" },
-    "computed_at": { "type": "string", "format": "date-time" }
+    "computed_at": { "type": "string", "format": "date-time" },
+    "upgrade_explanation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["before", "now", "unlocks"],
+      "properties": {
+        "before": { "type": "string", "minLength": 1 },
+        "now": { "type": "string", "minLength": 1 },
+        "unlocks": { "type": "string", "minLength": 1 },
+        "stronger_route_id": { "type": "string", "minLength": 1 }
+      }
+    }
   }
 }

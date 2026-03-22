@@ -152,3 +152,33 @@ test('whitespace normalisation works', () => {
   assert.equal(result.resolved, true);
   assert.equal(result.taskType, 'review_repository');
 });
+
+test('workTitle returned for review_repository', () => {
+  const result = resolveIntent('review repo');
+  assert.equal(result.resolved, true);
+  assert.equal(result.workTitle, 'Repository review');
+});
+
+test('workTitle consistent across all review_repository patterns', () => {
+  const phrases = [
+    'review this repository',
+    'review the repo',
+    'review repo',
+    'review this pr',
+    'check this diff',
+    'review this bundle',
+  ];
+  for (const phrase of phrases) {
+    const result = resolveIntent(phrase);
+    assert.equal(result.resolved, true, `Expected resolved for: ${phrase}`);
+    assert.equal(result.workTitle, 'Repository review', `Expected workTitle for: ${phrase}`);
+  }
+});
+
+test('determinism: 100 identical invocations produce same output', () => {
+  const phrase = 'review repo';
+  const first = JSON.stringify(resolveIntent(phrase));
+  for (let i = 0; i < 99; i++) {
+    assert.equal(JSON.stringify(resolveIntent(phrase)), first);
+  }
+});
