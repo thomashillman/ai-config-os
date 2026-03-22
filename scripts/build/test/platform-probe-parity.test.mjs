@@ -168,8 +168,8 @@ function sortIds(records) {
 }
 
 describe('platform/probe parity contract', () => {
-  test('platform YAML coverage matches supported selection stories', () => {
-    const { platforms, errors } = loadPlatforms(REPO_ROOT);
+  test('platform YAML coverage matches supported selection stories', async () => {
+    const { platforms, errors } = await loadPlatforms(REPO_ROOT);
     assert.deepEqual(errors, [], 'platform YAMLs should load without errors');
 
     const yamlIds = [...platforms.keys()].sort();
@@ -185,8 +185,8 @@ describe('platform/probe parity contract', () => {
     );
   });
 
-  test('registry platform_definitions stays in lockstep with platform YAMLs', () => {
-    const { platforms, errors } = loadPlatforms(REPO_ROOT);
+  test('registry platform_definitions stays in lockstep with platform YAMLs', async () => {
+    const { platforms, errors } = await loadPlatforms(REPO_ROOT);
     assert.deepEqual(errors, [], 'platform YAMLs should load without errors');
 
     const registry = readRegistry();
@@ -209,8 +209,8 @@ describe('platform/probe parity contract', () => {
 
   test('runtime-detectable platforms resolve to YAML and registry definitions with matching surface hints', {
     skip: IS_WINDOWS ? 'bash not available on Windows' : false,
-  }, () => {
-    const { platforms, errors } = loadPlatforms(REPO_ROOT);
+  }, async () => {
+    const { platforms, errors } = await loadPlatforms(REPO_ROOT);
     assert.deepEqual(errors, [], 'platform YAMLs should load without errors');
 
     const registry = readRegistry();
@@ -262,8 +262,8 @@ describe('platform/probe parity contract', () => {
     }
   });
 
-  test('compile-time-only platforms still require registry parity', () => {
-    const { platforms, errors } = loadPlatforms(REPO_ROOT);
+  test('compile-time-only platforms still require registry parity', async () => {
+    const { platforms, errors } = await loadPlatforms(REPO_ROOT);
     assert.deepEqual(errors, [], 'platform YAMLs should load without errors');
 
     const registry = readRegistry();

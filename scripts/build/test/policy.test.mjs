@@ -147,9 +147,9 @@ describe('validatePlatformPolicy', () => {
 // ---------------------------------------------------------------------------
 
 describe('loadPlatforms', () => {
-  test('missing platform directory → error in errors array, not thrown', () => {
+  test('missing platform directory → error in errors array, not thrown', async () => {
     const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
-    const { platforms, errors } = loadPlatforms(fakeRoot);
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
     assert.equal(platforms.size, 0);
     assert.ok(errors.length > 0, 'Expected at least one error');
     assert.ok(
@@ -158,7 +158,7 @@ describe('loadPlatforms', () => {
     );
   });
 
-  test('valid platform yaml → populated Map, no errors', () => {
+  test('valid platform yaml → populated Map, no errors', async () => {
     const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
     const platformDir = join(fakeRoot, 'shared', 'targets', 'platforms');
     mkdirSync(platformDir, { recursive: true });
@@ -166,19 +166,19 @@ describe('loadPlatforms', () => {
       join(platformDir, 'test-platform.yaml'),
       'id: test-platform\ncapabilities:\n  git.read: { status: supported }\n'
     );
-    const { platforms, errors } = loadPlatforms(fakeRoot);
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
     assert.deepEqual(errors, []);
     assert.ok(platforms.has('test-platform'));
   });
 
-  test('repo platform registry resolves claude-ssh definition', () => {
-    const { platforms, errors } = loadPlatforms(resolve(process.cwd()));
+  test('repo platform registry resolves claude-ssh definition', async () => {
+    const { platforms, errors } = await loadPlatforms(resolve(process.cwd()));
     assert.deepEqual(errors, []);
     assert.ok(platforms.has('claude-ssh'));
     assert.equal(platforms.get('claude-ssh')?.surface, 'remote-shell');
   });
 
-  test('yaml with id mismatch → error, platform not loaded', () => {
+  test('yaml with id mismatch → error, platform not loaded', async () => {
     const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
     const platformDir = join(fakeRoot, 'shared', 'targets', 'platforms');
     mkdirSync(platformDir, { recursive: true });
@@ -186,17 +186,17 @@ describe('loadPlatforms', () => {
       join(platformDir, 'test-platform.yaml'),
       'id: wrong-id\ncapabilities:\n  git.read: { status: supported }\n'
     );
-    const { platforms, errors } = loadPlatforms(fakeRoot);
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
     assert.ok(errors.length > 0);
     assert.ok(!platforms.has('test-platform'));
   });
 
-  test('yaml missing id field → error', () => {
+  test('yaml missing id field → error', async () => {
     const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
     const platformDir = join(fakeRoot, 'shared', 'targets', 'platforms');
     mkdirSync(platformDir, { recursive: true });
     writeFileSync(join(platformDir, 'test-platform.yaml'), 'capabilities: {}\n');
-    const { platforms, errors } = loadPlatforms(fakeRoot);
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
     assert.ok(errors.some(e => e.includes("missing 'id'")));
     assert.equal(platforms.size, 0);
   });
