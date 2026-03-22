@@ -28,6 +28,11 @@ Skills in this repo follow the [Agent Skills](https://agentskills.io) open stand
 - Readability over cleverness. Code is read far more than it is written.
 - TDD by default: tests drive design, prevent regressions, and make refactoring safe.
 - Refactor continuously in small, test-backed steps rather than letting entropy accumulate.
+- Conform to codebase conventions: follow existing patterns, helpers, naming, and formatting; state explicitly if you must diverge.
+- Cover all relevant surfaces: ensure behaviour stays consistent across the application, not just at the point of change.
+- Tight error handling: no broad try/catch blocks or silent defaults; propagate or surface errors explicitly, consistent with repo patterns.
+- Read enough context before editing a file; batch logical changes together rather than many small patches.
+- Search for prior art before adding new helpers or logic; reuse or extract a shared helper instead of duplicating.
 
 **Delivery**
 - Ship in small, frequent increments to reduce risk and tighten feedback loops.
@@ -38,6 +43,13 @@ Skills in this repo follow the [Agent Skills](https://agentskills.io) open stand
 - Source control is the source of truth. Automate repetitive tasks.
 - Features are done when they deliver value in production, not when they pass QA.
 - Fix the system, not the person, when things go wrong.
+
+## Autonomy and Persistence
+
+- Once given a direction, proactively gather context, plan, implement, test, and refine without waiting for prompts at each step.
+- Persist end-to-end: carry changes through implementation and verification rather than stopping at analysis or partial fixes.
+- Bias to action: implement with reasonable assumptions; pause for clarification only when genuinely blocked.
+- Avoid looping: if re-reading or re-editing the same files without clear progress, stop and surface a concise summary with targeted questions.
 
 ## Structure
 
@@ -146,6 +158,10 @@ The **delivery contract** guarantees that all distributed artifacts (`dist/`) ar
 
 Token efficiency is paramount. **Unnecessary token wastage is forbidden.** Prefer concise tool calls, avoid re-reading files you already have in context, and do not repeat information already established.
 
+**Plan closure:** Before finishing any task, reconcile every previously stated intention or TODO — mark each as Done, Blocked (one-sentence reason + targeted question), or Cancelled (with reason). Do not end with in-progress or pending items.
+
+**Promise discipline:** Do not commit to tests or broad refactors unless executing them in the same turn. Label deferred work explicitly as optional "Next steps" and exclude it from the committed plan.
+
 ## Key rules
 - Always author skills in `shared/skills/`, never directly in `plugins/`
 - Only bump version in the root `VERSION` file; run `npm run version:sync` to mirror it, then `npm run version:check` before committing
@@ -153,6 +169,10 @@ Token efficiency is paramount. **Unnecessary token wastage is forbidden.** Prefe
 - Symlinks are optional Unix convenience; if created, they must use relative paths: `../../../shared/skills/<name>`
 - Run `claude plugin validate .` before committing
 - Start new skills from `shared/skills/_template/SKILL.md` (Phase 2: enhanced with full frontmatter)
+- Default to ASCII when editing or creating files; only introduce non-ASCII characters where the file already uses them and there is clear justification.
+- Add code comments only when logic is genuinely non-obvious; comments that explain *what* the code does add no value — reserve them for complex blocks that would otherwise take significant effort to parse.
+- Never revert changes you did not make. If a file contains unrelated edits, work around them. If changes are in files you are actively editing, read and understand them before proceeding.
+- If unexpected changes appear in files you are working on mid-session, stop immediately and ask the user how to proceed before making further edits.
 
 ## Session startup checklist
 
@@ -734,6 +754,14 @@ const { someExport } = await safeImport('../path/to/module.mjs', import.meta.url
 ```
 
 See the utility source for implementation details.
+
+## Communication style
+
+- For code changes: open with a quick explanation of what changed and why (where in the codebase, what it fixes or enables) — not a "Summary:" heading.
+- Suggest natural next steps briefly at the end; omit entirely if there are none.
+- When offering multiple options, use a numbered list so the user can respond with a single number.
+- Never reproduce large files in responses; reference paths instead.
+- If you could not complete a step, state the blocker explicitly and ask a targeted question rather than leaving it implicit.
 
 ## Git Commit Conventions
 
