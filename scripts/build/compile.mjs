@@ -29,9 +29,7 @@ import { buildPlatformSkillsAndCheckZeroEmit } from './lib/build-platform-skills
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
 import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
 import { getSkillValidator, getPlatformValidator, getRouteValidator, getOutcomeValidator, getSkillSchema } from './lib/validators-cache.mjs';
-import { registeredToolIds } from '../../runtime/tool-definitions.mjs';
-import { loadTaskRouteDefinitions } from '../../runtime/lib/task-route-definition-loader.mjs';
-import { loadTaskRouteInputDefinitions } from '../../runtime/lib/task-route-input-loader.mjs';
+import { loadToolIds, loadRouteDefinitions, loadRouteInputDefinitions } from './lib/load-runtime-data.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -47,6 +45,7 @@ const DIST_DIR = join(ROOT, 'dist');
 const VALIDATE_ONLY = process.argv.includes('--validate-only');
 const TASK_ROUTE_DEFINITIONS_PATH = join(ROOT, 'runtime', 'task-route-definitions.yaml');
 const TASK_ROUTE_INPUT_DEFINITIONS_PATH = join(ROOT, 'runtime', 'task-route-input-definitions.yaml');
+const TOOL_REGISTRY_PATH = join(ROOT, 'runtime', 'tool-registry.yaml');
 
 
 // Release version from VERSION file; provenance only in release mode
@@ -114,7 +113,7 @@ async function main() {
     loadOutcomes(ROOT),
   ]);
   const knownPlatforms = new Set(platforms.keys());
-  const knownTools = registeredToolIds();
+  const knownTools = loadToolIds(TOOL_REGISTRY_PATH);
 
   // Validate all platform definitions
   console.log('[platforms]');
@@ -338,8 +337,8 @@ async function main() {
   emitSummary(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion });
 
   console.log('\n[runtime]');
-  const { taskTypes: taskRouteDefinitions } = loadTaskRouteDefinitions(TASK_ROUTE_DEFINITIONS_PATH);
-  const { taskTypes: taskRouteInputDefinitions } = loadTaskRouteInputDefinitions(TASK_ROUTE_INPUT_DEFINITIONS_PATH);
+  const { taskTypes: taskRouteDefinitions } = loadRouteDefinitions(TASK_ROUTE_DEFINITIONS_PATH);
+  const { taskTypes: taskRouteInputDefinitions } = loadRouteInputDefinitions(TASK_ROUTE_INPUT_DEFINITIONS_PATH);
   emitRuntime(parsed, actuallyEmittedPlatforms, {
     distDir: DIST_DIR,
     releaseVersion,
