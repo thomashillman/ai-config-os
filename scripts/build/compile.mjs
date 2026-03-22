@@ -103,8 +103,16 @@ async function main() {
   const parsed = [];
   let fatalErrors = 0;
 
-  // Load platforms first for policy validation
-  const { platforms, errors: loadErrors } = loadPlatforms(ROOT);
+  // Load all independent data sources concurrently
+  const [
+    { platforms, errors: loadErrors },
+    { records: routes, errors: routeLoadErrors },
+    { records: outcomes, errors: outcomeLoadErrors },
+  ] = await Promise.all([
+    loadPlatforms(ROOT),
+    loadRoutes(ROOT),
+    loadOutcomes(ROOT),
+  ]);
   const knownPlatforms = new Set(platforms.keys());
   const knownTools = registeredToolIds();
 
@@ -151,8 +159,6 @@ async function main() {
 
   // Validate route and outcome definitions
   console.log('\n[routes/outcomes]');
-  const { records: routes, errors: routeLoadErrors } = loadRoutes(ROOT);
-  const { records: outcomes, errors: outcomeLoadErrors } = loadOutcomes(ROOT);
 
   for (const err of [...routeLoadErrors, ...outcomeLoadErrors]) {
     console.error(`  [error] ${err}`);

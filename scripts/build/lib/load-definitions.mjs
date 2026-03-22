@@ -1,25 +1,36 @@
-import { readdirSync, readFileSync, existsSync } from 'fs';
+import { readdir, readFile, access } from 'fs/promises';
+import { constants } from 'fs';
 import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
 
-function loadYamlDirectory({ repoRoot, relativeDir, label }) {
+async function loadYamlDirectory({ repoRoot, relativeDir, label }) {
   const dirPath = join(repoRoot, ...relativeDir);
   const records = new Map();
   const errors = [];
 
-  if (!existsSync(dirPath)) {
+  try {
+    await access(dirPath, constants.F_OK);
+  } catch {
     return { records, errors };
   }
 
-  const files = readdirSync(dirPath).filter(file => file.endsWith('.yaml')).sort();
-  for (const file of files) {
-    const recordId = file.replace('.yaml', '');
-    let data;
+  const files = (await readdir(dirPath)).filter(file => file.endsWith('.yaml')).sort();
 
-    try {
-      data = parseYaml(readFileSync(join(dirPath, file), 'utf8'));
-    } catch (err) {
-      errors.push(`${label} ${file}: failed to parse YAML (${err.message})`);
+  const results = await Promise.all(
+    files.map(async (file) => {
+      const recordId = file.replace('.yaml', '');
+      try {
+        const data = parseYaml(await readFile(join(dirPath, file), 'utf8'));
+        return { file, recordId, data, error: null };
+      } catch (err) {
+        return { file, recordId, data: null, error: `${label} ${file}: failed to parse YAML (${err.message})` };
+      }
+    })
+  );
+
+  for (const { file, recordId, data, error } of results) {
+    if (error) {
+      errors.push(error);
       continue;
     }
 
@@ -39,10 +50,10 @@ function loadYamlDirectory({ repoRoot, relativeDir, label }) {
   return { records, errors };
 }
 
-export function loadRoutes(repoRoot) {
+export async function loadRoutes(repoRoot) {
   return loadYamlDirectory({ repoRoot, relativeDir: ['shared', 'routes'], label: 'route' });
 }
 
-export function loadOutcomes(repoRoot) {
+export async function loadOutcomes(repoRoot) {
   return loadYamlDirectory({ repoRoot, relativeDir: ['shared', 'outcomes'], label: 'outcome' });
 }

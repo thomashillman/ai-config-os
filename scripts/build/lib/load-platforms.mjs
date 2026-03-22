@@ -5,22 +5,25 @@
  * Returns both successfully loaded platforms and any parse/validation errors.
  * Caller (compiler) decides whether to treat errors as fatal.
  */
-import { readdirSync, readFileSync, existsSync } from 'fs';
+import { readdir, readFile, access } from 'fs/promises';
+import { constants } from 'fs';
 import { join } from 'path';
 import { parse as parseYaml } from 'yaml';
 
 /**
  * @param {string} repoRoot - Path to repository root
- * @returns {object} { platforms: Map<string, object>, errors: string[] }
+ * @returns {Promise<{platforms: Map<string, object>, errors: string[]}>}
  *   platforms: keyed by filename (without .yaml), value is parsed definition
  *   errors: list of load/validation failures (parse errors, missing id)
  */
-export function loadPlatforms(repoRoot) {
+export async function loadPlatforms(repoRoot) {
   const platformDir = join(repoRoot, 'shared', 'targets', 'platforms');
   const platforms = new Map();
   const errors = [];
 
-  if (!existsSync(platformDir)) {
+  try {
+    await access(platformDir, constants.F_OK);
+  } catch {
     errors.push(
       'Platform directory not found: shared/targets/platforms/ ' +
       '— this is a fatal configuration error, not a soft condition.'
@@ -29,16 +32,23 @@ export function loadPlatforms(repoRoot) {
   }
 
   // Deterministic ordering keeps downstream compatibility and emission stable.
-  const files = readdirSync(platformDir).filter(f => f.endsWith('.yaml')).sort();
-  for (const file of files) {
-    const platformId = file.replace('.yaml', '');
-    let data;
+  const files = (await readdir(platformDir)).filter(f => f.endsWith('.yaml')).sort();
 
-    try {
-      const raw = readFileSync(join(platformDir, file), 'utf8');
-      data = parseYaml(raw);
-    } catch (err) {
-      errors.push(`Failed to parse ${file}: ${err.message}`);
+  const results = await Promise.all(
+    files.map(async (file) => {
+      const platformId = file.replace('.yaml', '');
+      try {
+        const raw = await readFile(join(platformDir, file), 'utf8');
+        return { file, platformId, data: parseYaml(raw), error: null };
+      } catch (err) {
+        return { file, platformId, data: null, error: `Failed to parse ${file}: ${err.message}` };
+      }
+    })
+  );
+
+  for (const { file, platformId, data, error } of results) {
+    if (error) {
+      errors.push(error);
       continue;
     }
 
