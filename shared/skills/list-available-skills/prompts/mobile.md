@@ -28,18 +28,22 @@ Count excluded skills for the trailing note. Do not list them individually.
 
 ## Step 3: Assign usable skills to categories
 
-Use the taxonomy below. Sort categories alphabetically. Sort skills within each
-category alphabetically. Assign any skill not explicitly listed to the most
-semantically appropriate category. Omit any category that has zero usable skills.
+Read each skill's `description` field from the manifest and assign it to the most
+appropriate category. Do **not** use hardcoded membership lists — classify purely
+from the skill's description so new skills are picked up automatically.
 
-| Category | Tagline | Default members |
+Sort categories alphabetically. Sort skills within each category alphabetically.
+Omit any category that has zero usable skills. If a skill fits no category well,
+create a new one using the same format.
+
+| Category | Tagline | Classify here when the skill… |
 |---|---|---|
-| **Code Quality & Review** | Review, refactor, test, and secure your codebase | `code-review`, `refactor`, `security-review`, `simplify`, `test-writer` |
-| **Debugging & Explanation** | Diagnose failures, explain code, analyse CI logs | `debug`, `explain-code`, `failed-build-analysis` |
-| **Git & CI/CD** | Commit, review PRs, release, and track changes | `changelog`, `commit-conventions`, `git-ops`, `pr-description`, `release-checklist`, `review-pr` |
-| **Planning & Tasks** | Break down, start, save, and resume work sessions | `issue-triage`, `task-decompose`, `task-resume`, `task-save`, `task-start` |
-| **Research & Reference** | Search the web, manage context and token budget | `context-budget`, `web-search` |
-| **Skills & Configuration** | Discover, audit, and configure your AI skills layer | `list-available-skills`, `memory`, `momentum-reflect`, `plugin-setup`, `principles`, `session-start-hook`, `skill-audit`, `surface-probe` |
+| **Code Quality & Review** | Review, refactor, test, and secure your codebase | reviews, refactors, tests, or audits code quality or security |
+| **Debugging & Explanation** | Diagnose failures, explain code, analyse CI logs | diagnoses errors, explains code behaviour, or analyses failures |
+| **Git & CI/CD** | Commit, review PRs, release, and track changes | involves commits, PRs, changelogs, releases, or CI pipelines |
+| **Planning & Tasks** | Break down, start, save, and resume work sessions | decomposes, starts, saves, resumes, or triages tasks or issues |
+| **Research & Reference** | Search the web, manage context and token budget | searches the web, manages context, or surfaces reference material |
+| **Skills & Configuration** | Discover, audit, and configure your AI skills layer | manages skills, configuration, sessions, or AI tooling itself |
 
 ## Step 4: Present the output
 

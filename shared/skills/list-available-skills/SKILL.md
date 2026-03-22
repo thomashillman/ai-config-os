@@ -52,11 +52,6 @@ variants:
     description: Compact one-line-per-skill listing
     cost_factor: 0.3
     latency_baseline_ms: 150
-  mobile:
-    prompt_file: prompts/mobile.md
-    description: Alphabetised category listing optimised for iOS — no slash commands, natural-language invocation guidance
-    cost_factor: 1.0
-    latency_baseline_ms: 300
   fallback_chain: [sonnet, haiku]
 
 docs:
