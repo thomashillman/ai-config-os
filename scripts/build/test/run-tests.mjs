@@ -7,7 +7,8 @@
  * Performance: pure logic tests (no dist/ interaction) run in parallel;
  * tests that compile or read from dist/ run sequentially to avoid race conditions.
  */
-import { readdirSync, readFileSync } from 'fs';
+import { readdirSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -72,22 +73,20 @@ const DIST_WRITE_PATTERN = /COMPILE_MJS|ensureFreshDist|spawnSync[^)]*compile/;
 // because the pretest build has already produced a stable dist/ snapshot.
 const DIST_READ_PATTERN = /DIST_DIR|['"`]dist\/clients|['"`]dist\/registry|['"`]dist\/runtime/;
 
-// Classify each file once (single read per file, not two).
+// Classify each file once (single read per file, not two). Reads run in parallel.
+const classifications = await Promise.all(
+  allTestFiles.map(filePath =>
+    readFile(filePath, 'utf8')
+      .then(content => ({ filePath, isDistWriter: DIST_WRITE_PATTERN.test(content) }))
+      .catch(() => ({ filePath, isDistWriter: true })) // conservative: treat unreadable as compiler-invoking
+  )
+);
+
 const distTests = [];
 const pureTests = [];
-for (const filePath of allTestFiles) {
-  let content;
-  try {
-    content = readFileSync(filePath, 'utf8');
-  } catch {
-    distTests.push(filePath); // conservative: treat unreadable files as compiler-invoking
-    continue;
-  }
-  if (DIST_WRITE_PATTERN.test(content)) {
-    distTests.push(filePath);
-  } else {
-    pureTests.push(filePath);
-  }
+for (const { filePath, isDistWriter } of classifications) {
+  if (isDistWriter) distTests.push(filePath);
+  else pureTests.push(filePath);
 }
 
 // Pure tests run in parallel; default is platform-aware and env-overridable.
