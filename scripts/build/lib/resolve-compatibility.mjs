@@ -132,6 +132,26 @@ export function resolveSkillPlatform(skillFrontmatter, platform) {
 }
 
 /**
+ * Build a cache key from the parts of skillFrontmatter that affect resolution
+ * for a specific platform. Skills sharing identical capability declarations and
+ * platform overrides will map to the same key and reuse a cached result.
+ *
+ * @param {object} frontmatter
+ * @param {string} platformId
+ * @returns {string}
+ */
+function buildCacheKey(frontmatter, platformId) {
+  const caps = frontmatter.capabilities || {};
+  const required = Array.isArray(caps.required)
+    ? [...caps.required].sort().join(',')
+    : '';
+  const fallbackMode = caps.fallback_mode || 'none';
+  const override = (frontmatter.platforms || {})[platformId];
+  const overrideStr = override ? JSON.stringify(override) : '';
+  return `${required}|${fallbackMode}|${platformId}|${overrideStr}`;
+}
+
+/**
  * Resolve compatibility for all skills against all platforms.
  *
  * @param {object[]} skills - Parsed skills with frontmatter
@@ -140,13 +160,20 @@ export function resolveSkillPlatform(skillFrontmatter, platform) {
  */
 export function resolveAll(skills, platforms) {
   const matrix = new Map();
+  const cache = new Map();
 
   for (const skill of skills) {
     const skillId = skill.skillName || skill.frontmatter?.skill;
     const skillResults = new Map();
 
     for (const [platformId, platform] of platforms) {
-      skillResults.set(platformId, resolveSkillPlatform(skill.frontmatter, platform));
+      const key = buildCacheKey(skill.frontmatter, platformId);
+      let result = cache.get(key);
+      if (!result) {
+        result = resolveSkillPlatform(skill.frontmatter, platform);
+        cache.set(key, result);
+      }
+      skillResults.set(platformId, result);
     }
 
     matrix.set(skillId, skillResults);
