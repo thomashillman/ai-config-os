@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react"
-
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "https://ai-config-os.workers.dev"
+import { WORKER_URL } from "../lib/workerClient"
 
 // Human-readable label for where a session was created
 function sessionOriginLabel(route) {

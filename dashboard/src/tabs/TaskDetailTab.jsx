@@ -1,35 +1,11 @@
 import { useState, useEffect, useMemo } from "react"
 import ResumeSheet from "../components/ResumeSheet"
-
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "https://ai-config-os.workers.dev"
-
-async function readErrorMessage(response, fallbackMessage) {
-  try {
-    const payload = await response.json()
-    return payload?.error?.message || payload?.message || fallbackMessage
-  } catch {
-    return fallbackMessage
-  }
-}
+import { WORKER_URL } from "../lib/workerClient"
+import { routeLabel, stateLabel, readErrorMessage } from "../lib/taskFormatters"
+import { formatDate } from "../lib/dateFormatters"
 
 function sessionLabel(route) {
-  if (route === "local_repo") return "Full session"
-  if (route === "github_pr") return "Cloud session · PR"
-  return "Cloud session"
-}
-
-function stateLabel(state) {
-  if (state === "active") return { text: "Active", cls: "text-green-400" }
-  if (state === "complete") return { text: "Done", cls: "text-gray-500" }
-  if (state === "paused") return { text: "Paused", cls: "text-yellow-400" }
-  return { text: state, cls: "text-gray-400" }
-}
-
-function formatDate(iso) {
-  if (!iso) return ""
-  const d = new Date(iso)
-  return d.toLocaleDateString("en-GB", { month: "short", day: "numeric" }) +
-    ", " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })
+  return routeLabel(route) + " session"
 }
 
 // Human-readable event narrative
