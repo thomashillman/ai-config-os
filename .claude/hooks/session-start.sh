@@ -10,7 +10,7 @@ _detect_resume_task() {
     local response
     response=$(curl -sf \
       -H "Authorization: Bearer ${AI_CONFIG_TOKEN}" \
-      --max-time 3 \
+      --connect-timeout 1 --max-time 2 \
       "${AI_CONFIG_WORKER}/v1/tasks?status=active&limit=1&updated_within=86400" 2>/dev/null) || true
 
     if [ -n "$response" ]; then
@@ -43,15 +43,27 @@ _detect_resume_task() {
 
   if [ -z "$task_goal" ]; then
     local clipboard=""
-    if command -v pbpaste &>/dev/null; then
-      clipboard=$(pbpaste 2>/dev/null) || true
-    elif command -v xclip &>/dev/null; then
-      clipboard=$(xclip -selection clipboard -o 2>/dev/null) || true
-    elif command -v xsel &>/dev/null; then
-      clipboard=$(xsel --clipboard --output 2>/dev/null) || true
-    elif command -v powershell.exe &>/dev/null; then
-      clipboard=$(powershell.exe -command "Get-Clipboard" 2>/dev/null) || true
+    local _tmp
+    _tmp=$(mktemp -d 2>/dev/null) || _tmp="/tmp/ss-clip-$$"
+
+    # Skip X11/Wayland tools on headless environments (no DISPLAY or WAYLAND_DISPLAY)
+    local _has_display=false
+    { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; } && _has_display=true
+
+    # Run available clipboard tools in parallel; each writes to its own temp file
+    { pbpaste > "${_tmp}/a" 2>/dev/null; } &
+    if [ "$_has_display" = true ]; then
+      { xclip -selection clipboard -o > "${_tmp}/b" 2>/dev/null; } &
+      { xsel --clipboard --output > "${_tmp}/c" 2>/dev/null; } &
     fi
+    { powershell.exe -command "Get-Clipboard" > "${_tmp}/d" 2>/dev/null; } &
+    wait
+
+    # Pick first non-empty result (pbpaste > xclip > xsel > powershell, priority preserved)
+    for _f in "${_tmp}/a" "${_tmp}/b" "${_tmp}/c" "${_tmp}/d"; do
+      [ -s "$_f" ] && { clipboard=$(cat "$_f"); break; }
+    done
+    rm -rf "${_tmp}"
 
     if echo "$clipboard" | grep -qiE '^resume [a-z]'; then
       task_goal=$(echo "$clipboard" | sed -E 's/^resume //i')
