@@ -77,7 +77,12 @@ jobs:
         run: npm run -s test
 
       - name: Verify
-        run: npm run -s verify
+        run: |
+          if [ "${{ steps.dashboard-check.outputs.changed }}" = "true" ]; then
+            npm run -s verify
+          else
+            npm run -s verify -- --skip-dashboard
+          fi
 
       - name: "Guard: no conflict markers in tracked files"
         run: |
