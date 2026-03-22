@@ -9,37 +9,31 @@ capabilities:
     verified_at: "2026-03-22"
     confidence: high
     source: probe
-    notes: Available via cloud container backend
   fs.write:
     status: supported
     verified_at: "2026-03-22"
     confidence: high
     source: probe
-    notes: Available via cloud container backend
   shell.exec:
     status: supported
     verified_at: "2026-03-22"
     confidence: high
     source: probe
-    notes: Available via cloud container backend
   shell.long-running:
     status: supported
     verified_at: "2026-03-22"
     confidence: high
     source: probe
-    notes: Available via cloud container backend
   git.read:
     status: supported
     verified_at: "2026-03-22"
     confidence: high
     source: probe
-    notes: Available via cloud container backend
   git.write:
     status: supported
     verified_at: "2026-03-22"
     confidence: high
     source: probe
-    notes: Available via cloud container backend
   network.http:
     status: supported
     verified_at: "2026-03-22"
@@ -54,13 +48,11 @@ capabilities:
     verified_at: "2026-03-22"
     confidence: high
     source: probe
-    notes: Timeout after 2s in cloud container
   env.read:
     status: supported
     verified_at: "2026-03-22"
     confidence: high
     source: probe
-    notes: Available via cloud container backend
   secrets.inject:
     status: unsupported
     confidence: medium
