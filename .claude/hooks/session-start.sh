@@ -85,5 +85,21 @@ HOOK_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_ROOT="$(cd -- "${HOOK_DIR}/../.." && pwd)"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
+# Probe capabilities if device has changed or cache is missing.
+# Runs synchronously so the bootstrap sees fresh capability data.
+_PROBE_CACHE="${HOME}/.ai-config-os/probe-report.json"
+_CURRENT_HOSTNAME="$(hostname 2>/dev/null || echo 'unknown')"
+_CACHED_HOSTNAME=""
+if [ -f "$_PROBE_CACHE" ] && command -v node &>/dev/null; then
+  _CACHED_HOSTNAME="$(node -e "try{const d=JSON.parse(require('fs').readFileSync('$_PROBE_CACHE','utf8'));process.stdout.write(d.hostname||'')}catch(e){}" 2>/dev/null || echo '')"
+fi
+
+if [ ! -f "$_PROBE_CACHE" ] || [ "$_CURRENT_HOSTNAME" != "$_CACHED_HOSTNAME" ]; then
+  echo "[probe] Device changed or no cache — running capability probe..."
+  bash "${INSTALL_ROOT}/ops/capability-probe.sh" --quiet || true
+else
+  echo "[probe] Same device (${_CURRENT_HOSTNAME}) — using cached probe"
+fi
+
 cd "${PROJECT_DIR}"
 exec node "${INSTALL_ROOT}/adapters/bootstrap/run-bootstrap.mjs"

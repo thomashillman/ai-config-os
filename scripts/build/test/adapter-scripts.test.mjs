@@ -325,13 +325,29 @@ describe('session-start hook — structural checks', () => {
     const content = readFileSync(hookPath, 'utf8');
     assert.equal(
       content.includes('capability-probe.sh'),
-      false,
-      'session-start should no longer inline deferred bootstrap phases'
+      true,
+      'session-start must call capability-probe.sh for device-change detection'
     );
     assert.equal(
       content.includes('materialise.sh bootstrap'),
       false,
       'session-start should no longer inline install orchestration'
+    );
+  });
+
+  test('session-start probes capabilities when device changes', () => {
+    const content = readFileSync(hookPath, 'utf8');
+    assert.ok(
+      content.includes('_CURRENT_HOSTNAME') && content.includes('_CACHED_HOSTNAME'),
+      'session-start must compare current and cached hostname to detect device changes'
+    );
+    assert.ok(
+      content.includes('probe-report.json'),
+      'session-start must reference the probe cache file'
+    );
+    assert.ok(
+      content.includes('capability-probe.sh') && content.includes('--quiet'),
+      'session-start must invoke capability-probe.sh in quiet mode'
     );
   });
 
