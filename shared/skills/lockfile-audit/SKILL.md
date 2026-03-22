@@ -6,7 +6,11 @@ description: |
   Pages, Dockerfile, CI workflow install steps) to identify which missing
   lockfiles will break a production build. Reports severity: BLOCKING (deploy
   target uses `npm ci` / `clean-install`) vs WARNING (local-only package).
-  Use before deploying a new subpackage or when a CI build fails on npm ci.
+  Use when: (1) a CI/CD build fails with "npm ci requires package-lock.json"
+  or similar; (2) before deploying a new subpackage or Worker; (3) after
+  adding a new package.json to check it has a lockfile committed; (4) when
+  suspecting a lockfile is present locally but excluded by .gitignore. Not
+  useful for lockfile version conflicts — use `npm audit` for those instead.
 
 type: prompt
 status: stable
