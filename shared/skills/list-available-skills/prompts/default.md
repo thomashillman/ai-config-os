@@ -35,16 +35,17 @@ Adjust presentation based on `surface_hint`:
   - Move to top: `code-review`, `commit-conventions`, `changelog`, `pr-description`
   - Suppress from available list (show in a "CI-not-applicable" note): `context-budget`, `momentum-reflect`, `plugin-setup`, `memory`
 
-- **`mobile-app`** or **`web-app`**:
-  - Show prompt-only skills first
-  - Note that shell-dependent skills are excluded on this surface
+- **`mobile-app`**, **`ios-app`**, or **`web-app`**:
+  - Use the **categorised mobile format** described in Step 4b
+  - Do not show AVAILABLE / DEGRADED / EXCLUDED / UNAVAILABLE sections
+  - Classify skills as usable (required caps met OR fallback_mode set) vs excluded (no fallback)
+  - Show only usable skills, grouped by category
+  - Append a single excluded-count note at the end (omit if zero)
 
 - **`desktop-cli`**, **`desktop-ide`**, **`desktop-app`**, **`cloud-sandbox`**, **`remote-shell`**:
-  - No surface-specific reordering; show all buckets in standard order
+  - No surface-specific reordering; use standard bucket format (Step 4a)
 
-## Step 4: Present the output
-
-Output the following structure:
+## Step 4a: Standard output (non-mobile surfaces)
 
 ```
 Surface: <surface_hint> (<platform_hint>)
@@ -66,3 +67,38 @@ UNAVAILABLE — required capabilities missing (<count>)
 ```
 
 Omit any section that has zero entries. If probe data is missing, note it at the top and list all skills as available.
+
+## Step 4b: Mobile output (mobile-app, ios-app, web-app)
+
+Group usable skills (available + degraded) into the functional categories below.
+Sort categories alphabetically. Sort skills within each category alphabetically.
+Format skill names as backtick code spans.
+Assign any skill not listed in the taxonomy to the most semantically appropriate category.
+Omit any category that has zero usable skills.
+
+| Category | Tagline | Default members |
+|---|---|---|
+| **Code Quality & Review** | Review, refactor, test, and secure your codebase | `code-review`, `refactor`, `security-review`, `simplify`, `test-writer` |
+| **Debugging & Explanation** | Diagnose failures, explain code, analyse CI logs | `debug`, `explain-code`, `failed-build-analysis` |
+| **Git & CI/CD** | Commit, review PRs, release, and track changes | `changelog`, `commit-conventions`, `git-ops`, `pr-description`, `release-checklist`, `review-pr` |
+| **Planning & Tasks** | Break down, start, save, and resume work sessions | `issue-triage`, `task-decompose`, `task-resume`, `task-save`, `task-start` |
+| **Research & Reference** | Search the web, manage context and token budget | `context-budget`, `web-search` |
+| **Skills & Configuration** | Discover, audit, and configure your AI skills layer | `list-available-skills`, `memory`, `momentum-reflect`, `plugin-setup`, `principles`, `session-start-hook`, `skill-audit`, `surface-probe` |
+
+Output format:
+
+```
+Surface: <surface_hint> (<platform_hint>)
+
+**<Category Name>**
+<Tagline>
+`<skill-a>`, `<skill-b>`, `<skill-c>`
+
+**<Category Name>**
+...
+```
+
+Trailing note (omit if zero excluded):
+```
+> <N> skill(s) excluded on this surface — require shell or filesystem access not available on iOS.
+```
