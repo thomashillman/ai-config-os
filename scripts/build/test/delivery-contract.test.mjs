@@ -226,7 +226,7 @@ function ensureFreshDist() {
   const result = spawnSync(process.execPath, [COMPILE_MJS], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
-    timeout: 30000,
+    timeout: 60_000,
   });
   if (result.status !== 0) {
     console.error('Compiler stderr:', result.stderr);
@@ -848,7 +848,7 @@ describe('delivery contract — build truthfulness (Slice 4)', () => {
       const result = spawnSync(process.execPath, [COMPILE_MJS], {
         cwd: REPO_ROOT,
         encoding: 'utf8',
-        timeout: 30000,
+        timeout: 60_000,
       });
 
       assert.equal(result.status, 0, `Compiler failed: ${result.stderr}`);
@@ -873,7 +873,7 @@ describe('delivery contract — build truthfulness (Slice 4)', () => {
     const result1 = spawnSync(process.execPath, [COMPILE_MJS], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
-      timeout: 30000,
+      timeout: 60_000,
     });
     assert.equal(result1.status, 0, `First compile failed: ${result1.stderr}`);
 
@@ -888,7 +888,7 @@ describe('delivery contract — build truthfulness (Slice 4)', () => {
     const result2 = spawnSync(process.execPath, [COMPILE_MJS], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
-      timeout: 30000,
+      timeout: 60_000,
     });
     assert.equal(result2.status, 0, `Second compile failed: ${result2.stderr}`);
 

@@ -72,43 +72,57 @@ const DIST_WRITE_PATTERN = /COMPILE_MJS|ensureFreshDist|spawnSync[^)]*compile/;
 // because the pretest build has already produced a stable dist/ snapshot.
 const DIST_READ_PATTERN = /DIST_DIR|['"`]dist\/clients|['"`]dist\/registry|['"`]dist\/runtime/;
 
-function writesToDist(filePath) {
+// Classify each file once (single read per file, not two).
+const distTests = [];
+const pureTests = [];
+for (const filePath of allTestFiles) {
+  let content;
   try {
-    return DIST_WRITE_PATTERN.test(readFileSync(filePath, 'utf8'));
+    content = readFileSync(filePath, 'utf8');
   } catch {
-    return true; // conservative: treat unreadable files as compiler-invoking
+    distTests.push(filePath); // conservative: treat unreadable files as compiler-invoking
+    continue;
+  }
+  if (DIST_WRITE_PATTERN.test(content)) {
+    distTests.push(filePath);
+  } else {
+    pureTests.push(filePath);
   }
 }
-
-const distTests = allTestFiles.filter(writesToDist);
-const pureTests = allTestFiles.filter(f => !writesToDist(f));
 
 // Pure tests run in parallel; default is platform-aware and env-overridable.
 const parallelism = resolveTestConcurrency();
 
 /**
  * Run a set of test files with node --test and the given concurrency.
- * Returns a Promise that resolves with the exit code.
+ * Returns a Promise that resolves with { exitCode, durationMs }.
  */
 function runTestGroup(files, concurrency) {
   return new Promise((resolve) => {
     if (files.length === 0) {
-      resolve(0);
+      resolve({ exitCode: 0, durationMs: 0 });
       return;
     }
+    const start = Date.now();
     const proc = spawn(
       process.execPath,
       ['--test', `--test-concurrency=${concurrency}`, ...files],
       { stdio: 'inherit' }
     );
-    proc.on('exit', resolve);
+    proc.on('exit', (code) => resolve({ exitCode: code ?? 1, durationMs: Date.now() - start }));
   });
 }
 
 // Phase 1: run pure logic tests in parallel
-const pureExitCode = await runTestGroup(pureTests, parallelism);
+console.log(`\n[run-tests] Phase 1: ${pureTests.length} pure tests (concurrency=${parallelism})`);
+const phase1Start = Date.now();
+const { exitCode: pureExitCode, durationMs: pureDurationMs } = await runTestGroup(pureTests, parallelism);
+console.log(`[run-tests] Phase 1 done in ${pureDurationMs}ms`);
 
 // Phase 2: run dist-touching tests sequentially (prevents dist/ race conditions)
-const distExitCode = await runTestGroup(distTests, 1);
+console.log(`[run-tests] Phase 2: ${distTests.length} dist tests (concurrency=1)`);
+const { exitCode: distExitCode, durationMs: distDurationMs } = await runTestGroup(distTests, 1);
+console.log(`[run-tests] Phase 2 done in ${distDurationMs}ms`);
+console.log(`[run-tests] Total: ${Date.now() - phase1Start}ms`);
 
 process.exitCode = pureExitCode !== 0 ? pureExitCode : distExitCode;

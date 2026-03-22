@@ -35,40 +35,34 @@ function hashManifestWithRedactedSelfHash(manifestDoc) {
   return createHash('sha256').update(JSON.stringify(clone, null, 2) + '\n').digest('hex');
 }
 
-// Helper: Run compiler and return emitted artefacts
-function runCompilerAndReadArtefacts() {
-  const result = spawnSync(process.execPath, [COMPILE_MJS], {
-    cwd: REPO_ROOT,
-    encoding: 'utf8',
-  });
-  assert.equal(result.status, 0, `Compiler failed:\n${result.stderr}`);
+// Run compiler once; all tests share the emitted artefacts.
+const _compileResult = spawnSync(process.execPath, [COMPILE_MJS], {
+  cwd: REPO_ROOT,
+  encoding: 'utf8',
+  timeout: 60_000,
+});
 
-  // Read Claude Code plugin.json
-  const claudeCodePluginPath = join(
-    REPO_ROOT,
-    'dist',
-    'clients',
-    'claude-code',
-    '.claude-plugin',
-    'plugin.json'
-  );
+function getArtefacts() {
+  assert.equal(_compileResult.status, 0, `Compiler failed:\n${_compileResult.stderr}`);
+
+  const claudeCodePluginPath = join(REPO_ROOT, 'dist', 'clients', 'claude-code', '.claude-plugin', 'plugin.json');
   const claudeCodePlugin = JSON.parse(readFileSync(claudeCodePluginPath, 'utf8'));
 
-  // Read registry index.json
   const registryPath = join(REPO_ROOT, 'dist', 'registry', 'index.json');
   const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
 
-  // Read Cursor .cursorrules
   const cursorPath = join(REPO_ROOT, 'dist', 'clients', 'cursor', '.cursorrules');
   const cursorContent = existsSync(cursorPath) ? readFileSync(cursorPath, 'utf8') : null;
 
   return { claudeCodePlugin, registry, cursorContent, cursorPath };
 }
 
+// Eagerly read artefacts once; individual tests destructure what they need.
+const { claudeCodePlugin, registry, cursorContent, cursorPath } = getArtefacts();
+
 // ─── Test 1: Claude Code plugin.json contains expected skill list ───
 
 test('claude-code plugin.json skill list matches registry', () => {
-  const { claudeCodePlugin, registry } = runCompilerAndReadArtefacts();
 
   // Extract skill names from both sources
   const pluginSkillNames = new Set(claudeCodePlugin.skills.map(s => s.name));
@@ -92,7 +86,7 @@ test('claude-code plugin.json skill list matches registry', () => {
 // ─── Test 2: Cursor .cursorrules exists with expected structure ───
 
 test('cursor .cursorrules exists with correct header and structure', () => {
-  const { cursorPath, cursorContent } = runCompilerAndReadArtefacts();
+  // cursorPath and cursorContent are module-level
 
   assert.ok(existsSync(cursorPath), 'Cursor .cursorrules file must exist');
   assert.ok(cursorContent && cursorContent.length > 0, 'Cursor content should not be empty');
@@ -125,7 +119,7 @@ test('cursor .cursorrules exists with correct header and structure', () => {
 // ─── Test 3: Cursor .cursorrules contains at least one known skill ───
 
 test('cursor .cursorrules contains at least one skill section', () => {
-  const { cursorContent, registry } = runCompilerAndReadArtefacts();
+  // cursorContent and registry are module-level
 
   // Should have skill section headers formatted as "# ─── <skill-name> ───"
   const skillHeaderRegex = /# ─── .+ ───/;
@@ -146,7 +140,7 @@ test('cursor .cursorrules contains at least one skill section', () => {
 // ─── Test 4: Registry output has platforms list ───
 
 test('registry lists expected platforms', () => {
-  const { registry } = runCompilerAndReadArtefacts();
+  // registry is module-level
 
   assert.ok(Array.isArray(registry.platforms), 'Registry should have platforms array');
   assert.ok(registry.platforms.length > 0, 'Registry should list at least one platform');
@@ -161,7 +155,7 @@ test('registry lists expected platforms', () => {
 // ─── Test 5: All registry skills have compatibility matrix ───
 
 test('all registry skills have compatibility matrix', () => {
-  const { registry } = runCompilerAndReadArtefacts();
+  // registry is module-level
 
   assert.ok(Array.isArray(registry.skills), 'Registry should have skills array');
   assert.ok(registry.skills.length > 0, 'Registry should have at least one skill');
@@ -185,7 +179,7 @@ test('all registry skills have compatibility matrix', () => {
 // ─── Test 6: Registry skill_count and platform_count match arrays ───
 
 test('registry metadata counts match actual arrays', () => {
-  const { registry } = runCompilerAndReadArtefacts();
+  // registry is module-level
 
   assert.equal(
     registry.skill_count,
@@ -203,7 +197,7 @@ test('registry metadata counts match actual arrays', () => {
 // ─── Test 7: Claude Code plugin.json has correct version and structure ───
 
 test('claude-code plugin.json has correct version and structure', () => {
-  const { claudeCodePlugin } = runCompilerAndReadArtefacts();
+  // claudeCodePlugin is module-level
 
   // Should have required fields
   assert.ok(claudeCodePlugin.version, 'Plugin should have version');
@@ -224,8 +218,7 @@ test('claude-code plugin.json has correct version and structure', () => {
 // ─── Test 8: Runtime manifest and companion docs are emitted with valid hashes ───
 
 test('runtime docs are emitted with deterministic artifact hashes', () => {
-  runCompilerAndReadArtefacts();
-
+  // Compiler was already run at module load; artefacts are in dist/.
   const runtimeDir = join(REPO_ROOT, 'dist', 'runtime');
   const manifestPath = join(runtimeDir, 'manifest.json');
   const outcomesPath = join(runtimeDir, 'outcomes.json');
