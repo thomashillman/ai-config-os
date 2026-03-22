@@ -6,20 +6,12 @@
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle-worker.mjs';
 import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger-worker.mjs';
 import { TaskConflictError, TaskNotFoundError, createReadinessView as toTaskReadinessView } from './task-shared.mjs';
+import { KvPersistence, normaliseSlug, generateShortCode } from './kv-persistence.mjs';
 
 export { TaskConflictError, TaskNotFoundError };
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
-}
-
-function normaliseSlug(name) {
-  return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 32);
-}
-
-function generateShortCode(name, count) {
-  const prefix = normaliseSlug(name).slice(0, 4) || 'task';
-  return `${prefix}${count}`;
 }
 
 function createSnapshot(task) {
@@ -34,69 +26,24 @@ function createSnapshot(task) {
 
 export class KvTaskStore {
   constructor(kv, handoffTokenService = null) {
-    this.kv = kv;
+    this.kvp = new KvPersistence(kv);
     this.handoffTokenService = handoffTokenService;
-    // Instance-level index cache — avoids repeated KV reads when the same
-    // store instance handles multiple mutations (e.g., tests, batch ops).
-    this._indexCache = null;
-    this._indexDirty = false;
   }
 
-  // --- KV key helpers ---
-  _taskKey(taskId) { return `task:${taskId}`; }
-  _logKey(taskId) { return `task:${taskId}:log`; }
-  _eventsKey(taskId) { return `task:${taskId}:events`; }
-  _snapshotsKey(taskId) { return `task:${taskId}:snapshots`; }
-  _shortCodeKey(code) { return `task:short:${code}`; }
-  _nameSlugKey(slug) { return `task:name:${slug}`; }
-  _indexKey() { return 'task:index'; }
-
-  // --- Low-level KV helpers ---
-  async _get(key) {
-    const raw = await this.kv.get(key);
-    if (raw === null || raw === undefined) return null;
-    return JSON.parse(raw);
-  }
-
-  async _put(key, value) {
-    await this.kv.put(key, JSON.stringify(value));
-  }
-
-  async _append(key, item) {
-    const arr = (await this._get(key)) || [];
-    arr.push(item);
-    await this._put(key, arr);
-  }
-
-  // Load index from KV on first call; subsequent calls use the in-memory cache.
-  async _loadIndex() {
-    if (this._indexCache === null) {
-      this._indexCache = (await this._get(this._indexKey())) || [];
-    }
-    return this._indexCache;
-  }
-
-  // Write the dirty cache back to KV. Call at the end of each mutating method.
-  async _flushIndex() {
-    if (this._indexDirty && this._indexCache !== null) {
-      await this._put(this._indexKey(), this._indexCache.slice(0, 200));
-      this._indexDirty = false;
-    }
-  }
-
-  async _updateIndex(taskId, meta) {
-    const index = await this._loadIndex();
-    const i = index.findIndex(t => t.task_id === taskId);
-    if (i >= 0) {
-      index[i] = { ...index[i], ...meta };
-    } else {
-      index.push({ task_id: taskId, ...meta });
-    }
-    index.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
-    if (index.length > 200) index.length = 200;
-    this._indexDirty = true;
-    // Note: KV write is deferred to _flushIndex() to batch repeated updates
-  }
+  // Delegate all persistence operations to KvPersistence
+  _taskKey(taskId) { return this.kvp._taskKey(taskId); }
+  _logKey(taskId) { return this.kvp._logKey(taskId); }
+  _eventsKey(taskId) { return this.kvp._eventsKey(taskId); }
+  _snapshotsKey(taskId) { return this.kvp._snapshotsKey(taskId); }
+  _shortCodeKey(code) { return this.kvp._shortCodeKey(code); }
+  _nameSlugKey(slug) { return this.kvp._nameSlugKey(slug); }
+  _indexKey() { return this.kvp._indexKey(); }
+  async _get(key) { return this.kvp._get(key); }
+  async _put(key, value) { return this.kvp._put(key, value); }
+  async _append(key, item) { return this.kvp._append(key, item); }
+  async _loadIndex() { return this.kvp._loadIndex(); }
+  async _flushIndex() { return this.kvp._flushIndex(); }
+  async _updateIndex(taskId, meta) { return this.kvp._updateIndex(taskId, meta); }
 
   // --- TaskStore interface (async) ---
 
