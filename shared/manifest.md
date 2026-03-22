@@ -36,6 +36,8 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `surface-probe` | Investigates environment signals when a user manually states their surface; produces a structured report to improve automatic platform detection | `shared/skills/surface-probe/SKILL.md` |
 | `list-available-skills` | List skills available on the current surface, filtered by detected runtime capabilities. | `shared/skills/list-available-skills/SKILL.md` |
 | `failed-build-analysis` | Queries failed CI/CD build jobs on an open PR, identifies root causes, and produces a KISS + TDD fix plan. | `shared/skills/failed-build-analysis/SKILL.md` |
+| `ci-conditional-audit` | Audits GitHub Actions workflow files for unpaired conditional steps — flags steps that consume a conditional dependency's output but run unconditionally | `shared/skills/ci-conditional-audit/SKILL.md` |
+| `lockfile-audit` | Scans the repo for package.json files missing a committed lockfile, cross-references deploy configs, and classifies severity as BLOCKING or WARNING | `shared/skills/lockfile-audit/SKILL.md` |
 
 ## Workflows
 
