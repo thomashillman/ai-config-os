@@ -141,6 +141,147 @@ test('transitionFindingsForRouteUpgrade is a no-op for degraded-equivalence rout
   assert.equal(transitioned[0].provenance.recorded_by_route, 'github_pr');
 });
 
+// ── Slice C: Confidence on findings ──────────────────────────────────────────
+
+test('pasted_diff route → confidence low, basis diff_only', () => {
+  const entry = createFindingsLedgerEntry({
+    findingId: 'finding_pasted',
+    summary: 'Finding from diff.',
+    status: 'hypothesis',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'pasted_diff',
+  });
+  assert.equal(entry.provenance.confidence, 'low');
+  assert.equal(entry.provenance.confidence_basis, 'diff_only');
+  assert.equal(entry.verification_status, 'unverified');
+});
+
+test('github_pr route → confidence medium, basis github_context', () => {
+  const entry = createFindingsLedgerEntry({
+    findingId: 'finding_pr',
+    summary: 'Finding from PR.',
+    status: 'hypothesis',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'github_pr',
+  });
+  assert.equal(entry.provenance.confidence, 'medium');
+  assert.equal(entry.provenance.confidence_basis, 'github_context');
+});
+
+test('local_repo route → confidence high, basis full_repo_verification', () => {
+  const entry = createFindingsLedgerEntry({
+    findingId: 'finding_local',
+    summary: 'Finding from full repo.',
+    status: 'verified',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'local_repo',
+  });
+  assert.equal(entry.provenance.confidence, 'high');
+  assert.equal(entry.provenance.confidence_basis, 'full_repo_verification');
+});
+
+test('confidence upgrades from low to high after transition to local_repo', () => {
+  const finding = createFindingsLedgerEntry({
+    findingId: 'finding_upgrade',
+    summary: 'Finding to upgrade.',
+    status: 'hypothesis',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'pasted_diff',
+  });
+  assert.equal(finding.provenance.confidence, 'low');
+
+  const transitioned = transitionFindingsForRouteUpgrade({
+    findings: [finding],
+    toRouteId: 'local_repo',
+    upgradedAt: '2026-03-12T12:05:00.000Z',
+    toEquivalenceLevel: 'equal',
+  });
+  assert.equal(transitioned[0].provenance.confidence, 'high');
+  assert.equal(transitioned[0].provenance.confidence_basis, 'full_repo_verification');
+});
+
+test('confidence upgrades from low to medium after transition to github_pr', () => {
+  const finding = createFindingsLedgerEntry({
+    findingId: 'finding_partial_upgrade',
+    summary: 'Finding for partial upgrade.',
+    status: 'hypothesis',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'pasted_diff',
+  });
+  assert.equal(finding.provenance.confidence, 'low');
+
+  const transitioned = transitionFindingsForRouteUpgrade({
+    findings: [finding],
+    toRouteId: 'github_pr',
+    upgradedAt: '2026-03-12T12:05:00.000Z',
+    toEquivalenceLevel: 'equal',
+  });
+  assert.equal(transitioned[0].provenance.confidence, 'medium');
+});
+
+test('confidence does not increase for degraded equivalence level transition', () => {
+  const finding = createFindingsLedgerEntry({
+    findingId: 'finding_degraded',
+    summary: 'Finding for degraded transition.',
+    status: 'verified',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'github_pr',
+  });
+  assert.equal(finding.provenance.confidence, 'medium');
+
+  const transitioned = transitionFindingsForRouteUpgrade({
+    findings: [finding],
+    toRouteId: 'uploaded_bundle',
+    upgradedAt: '2026-03-12T12:05:00.000Z',
+    toEquivalenceLevel: 'degraded',
+  });
+  // No change for degraded transitions
+  assert.equal(transitioned[0].provenance.confidence, 'medium');
+  assert.equal(transitioned[0].provenance.recorded_by_route, 'github_pr');
+});
+
+test('confidence does not decrease: high-confidence finding stays high on equal transition', () => {
+  const finding = createFindingsLedgerEntry({
+    findingId: 'finding_already_high',
+    summary: 'Already high confidence.',
+    status: 'verified',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'local_repo',
+  });
+  assert.equal(finding.provenance.confidence, 'high');
+
+  const transitioned = transitionFindingsForRouteUpgrade({
+    findings: [finding],
+    toRouteId: 'local_repo',
+    upgradedAt: '2026-03-12T12:05:00.000Z',
+    toEquivalenceLevel: 'equal',
+  });
+  assert.equal(transitioned[0].provenance.confidence, 'high');
+});
+
+test('verification_status defaults to unverified', () => {
+  const entry = createFindingsLedgerEntry({
+    findingId: 'verification_default',
+    summary: 'New finding.',
+    status: 'hypothesis',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'github_pr',
+  });
+  assert.equal(entry.verification_status, 'unverified');
+});
+
+test('verification_status can be set explicitly', () => {
+  const entry = createFindingsLedgerEntry({
+    findingId: 'verification_set',
+    summary: 'Finding with explicit status.',
+    status: 'verified',
+    recordedAt: '2026-03-12T12:00:00.000Z',
+    recordedByRoute: 'local_repo',
+    verificationStatus: 'verified',
+  });
+  assert.equal(entry.verification_status, 'verified');
+});
+
 test('transitionFindingsForRouteUpgrade rejects unknown equivalence levels', () => {
   const findings = [
     createFindingsLedgerEntry({

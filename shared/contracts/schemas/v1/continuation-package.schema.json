@@ -10,6 +10,9 @@
     "task": { "$ref": "portable-task-object.schema.json" },
     "effective_execution_contract": { "$ref": "effective-execution-contract.schema.json" },
     "handoff_token_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
-    "created_at": { "type": "string", "format": "date-time" }
+    "created_at": { "type": "string", "format": "date-time" },
+    "resume_headline": { "type": "string", "minLength": 1 },
+    "best_next_step": { "type": "string", "minLength": 1 },
+    "upgrade_value_statement": { "type": "string", "minLength": 1 }
   }
 }

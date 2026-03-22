@@ -4,6 +4,7 @@ import {
   resolveTaskRouteFromRuntime as defaultResolveTaskRouteFromRuntime,
 } from './task-route-resolver.mjs';
 import { createCachedTaskRouteInputDefinitionsLoader } from './task-route-input-loader.mjs';
+import { getUpgradeExplanation } from './upgrade-explanations.mjs';
 
 const defaultRouteInputDefinitionsLoader = createCachedTaskRouteInputDefinitionsLoader();
 
@@ -44,6 +45,22 @@ function buildStrongerHostGuidance({ selectedRoute, candidates }) {
   return `Upgrade to route '${strongerCandidate.route_id}' when host supports: ${missingCapabilities.join(', ')}.`;
 }
 
+function buildUpgradeExplanation({ selectedRoute, candidates }) {
+  if (selectedRoute.equivalence_level === 'equal') {
+    return undefined;
+  }
+
+  const strongerCandidate = candidates.find((candidate) => candidate.equivalence_level === 'equal');
+  if (!strongerCandidate) {
+    return undefined;
+  }
+
+  const explanation = getUpgradeExplanation(selectedRoute.route_id, strongerCandidate.route_id);
+  if (!explanation) return undefined;
+
+  return { ...explanation, stronger_route_id: strongerCandidate.route_id };
+}
+
 export function buildEffectiveExecutionContract({
   taskId,
   taskType,
@@ -66,6 +83,10 @@ export function buildEffectiveExecutionContract({
     selectedRoute,
     candidates: resolution.candidates,
   });
+  const upgradeExplanation = buildUpgradeExplanation({
+    selectedRoute,
+    candidates: resolution.candidates,
+  });
 
   const contract = {
     schema_version: '1.0.0',
@@ -80,6 +101,9 @@ export function buildEffectiveExecutionContract({
 
   if (strongerHostGuidance) {
     contract.stronger_host_guidance = strongerHostGuidance;
+  }
+  if (upgradeExplanation) {
+    contract.upgrade_explanation = upgradeExplanation;
   }
 
   return validateContract('effectiveExecutionContract', contract);
@@ -103,9 +127,14 @@ export async function buildEffectiveExecutionContractFromRuntime({
     routeId: selectedRoute.route_id,
     routeInputDefinitionsLoader,
   });
+  const candidates = resolution.candidates || [selectedRoute];
   const strongerHostGuidance = buildStrongerHostGuidance({
     selectedRoute,
-    candidates: resolution.candidates || [selectedRoute],
+    candidates,
+  });
+  const upgradeExplanation = buildUpgradeExplanation({
+    selectedRoute,
+    candidates,
   });
 
   const contract = {
@@ -121,6 +150,9 @@ export async function buildEffectiveExecutionContractFromRuntime({
 
   if (strongerHostGuidance) {
     contract.stronger_host_guidance = strongerHostGuidance;
+  }
+  if (upgradeExplanation) {
+    contract.upgrade_explanation = upgradeExplanation;
   }
 
   return validateContract('effectiveExecutionContract', contract);

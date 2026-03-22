@@ -311,6 +311,70 @@ test('TaskStore createContinuationPackage stores canonical timestamp metadata pe
 });
 
 
+// ── Slice F: Momentum-Aware Continuation ─────────────────────────────────────
+
+test('createContinuationPackage includes resume_headline derived from intent lexicon', () => {
+  const pkg = createContinuationPackage({
+    task: buildTask(),
+    effectiveExecutionContract: buildContract(),
+    handoffTokenId: 'handoff_token_f01',
+    createdAt: '2026-03-12T12:20:00.000Z',
+  });
+  assert.equal(pkg.resume_headline, 'Continuing Repository review');
+});
+
+test('createContinuationPackage includes best_next_step from task.next_action', () => {
+  const pkg = createContinuationPackage({
+    task: buildTask({ next_action: 'collect_more_context' }),
+    effectiveExecutionContract: buildContract(),
+    handoffTokenId: 'handoff_token_f02',
+    createdAt: '2026-03-12T12:21:00.000Z',
+  });
+  assert.equal(pkg.best_next_step, 'collect_more_context');
+});
+
+test('createContinuationPackage includes upgrade_value_statement when contract has upgrade_explanation', () => {
+  const contractWithUpgrade = buildContract({
+    upgrade_explanation: {
+      before: 'PR context is available from GitHub',
+      now: 'PR metadata and changed files are inspected',
+      unlocks: 'Full repository access enables complete call site verification and test inspection',
+      stronger_route_id: 'local_repo',
+    },
+  });
+  const pkg = createContinuationPackage({
+    task: buildTask(),
+    effectiveExecutionContract: contractWithUpgrade,
+    handoffTokenId: 'handoff_token_f03',
+    createdAt: '2026-03-12T12:22:00.000Z',
+  });
+  assert.ok(pkg.upgrade_value_statement);
+  assert.match(pkg.upgrade_value_statement, /[Ff]ull repository/);
+});
+
+test('createContinuationPackage omits upgrade_value_statement when no upgrade_explanation', () => {
+  const pkg = createContinuationPackage({
+    task: buildTask(),
+    effectiveExecutionContract: buildContract(),
+    handoffTokenId: 'handoff_token_f04',
+    createdAt: '2026-03-12T12:23:00.000Z',
+  });
+  assert.equal(pkg.upgrade_value_statement, undefined);
+});
+
+test('createContinuationPackage UX fields do not break existing validation (all optional)', () => {
+  // This test verifies that the base case (no upgrade_explanation) still validates
+  const pkg = createContinuationPackage({
+    task: buildTask(),
+    effectiveExecutionContract: buildContract(),
+    handoffTokenId: 'handoff_token_f05',
+    createdAt: '2026-03-12T12:24:00.000Z',
+  });
+  assert.equal(pkg.schema_version, '1.0.0');
+  assert.ok(pkg.resume_headline);
+  assert.ok(pkg.best_next_step);
+});
+
 test('TaskStore createContinuationPackage does not consume token when execution contract is invalid', () => {
   let consumeCalls = 0;
   const handoffTokenService = createHandoffTokenService({

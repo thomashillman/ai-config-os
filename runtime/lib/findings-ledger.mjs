@@ -1,4 +1,5 @@
 import { validateContract } from '../../shared/contracts/validate.mjs';
+import { confidenceForRoute, canUpgradeConfidence } from './confidence-rules.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -20,6 +21,9 @@ export function createFindingsLedgerEntry({
   recordedAt,
   recordedByRoute,
   note,
+  confidence: confidenceOverride,
+  confidenceBasis: confidenceBasisOverride,
+  verificationStatus,
 } = {}) {
   assertNonEmptyString('findingId', findingId);
   assertNonEmptyString('summary', summary);
@@ -31,16 +35,24 @@ export function createFindingsLedgerEntry({
     throw new Error('evidence must be an array');
   }
 
+  // Derive confidence from route unless explicitly overridden
+  const { confidence, confidence_basis } = confidenceForRoute(recordedByRoute);
+  const resolvedConfidence = confidenceOverride || confidence;
+  const resolvedBasis = confidenceBasisOverride || confidence_basis;
+
   return validateContract('findingsLedgerEntry', {
     schema_version: '1.0.0',
     finding_id: findingId,
     summary,
     evidence,
+    verification_status: verificationStatus || 'unverified',
     provenance: {
       schema_version: '1.0.0',
       status,
       recorded_at: recordedAt,
       recorded_by_route: recordedByRoute,
+      confidence: resolvedConfidence,
+      confidence_basis: resolvedBasis,
       ...(note ? { note } : {}),
     },
   });
@@ -90,19 +102,35 @@ export function transitionFindingsForRouteUpgrade({
     return clone(findings);
   }
 
+  const { confidence: newConfidence, confidence_basis: newBasis } = confidenceForRoute(toRouteId);
+
   return findings.map((entry) => {
     const validated = validateContract('findingsLedgerEntry', clone(entry));
     const sameRoute = validated.provenance.recorded_by_route === toRouteId;
     const shouldDowngrade = !sameRoute && validated.provenance.status === 'verified';
 
+    // Upgrade confidence if the new route offers higher confidence
+    const currentConfidence = validated.provenance.confidence;
+    const shouldUpgradeConfidence = currentConfidence
+      ? canUpgradeConfidence(currentConfidence, newConfidence)
+      : true;
+
+    const updatedProvenance = {
+      ...validated.provenance,
+      ...(shouldUpgradeConfidence ? { confidence: newConfidence, confidence_basis: newBasis } : {}),
+    };
+
     if (!shouldDowngrade) {
-      return validated;
+      return validateContract('findingsLedgerEntry', {
+        ...validated,
+        provenance: updatedProvenance,
+      });
     }
 
     return validateContract('findingsLedgerEntry', {
       ...validated,
       provenance: {
-        ...validated.provenance,
+        ...updatedProvenance,
         status: 'reused',
         recorded_at: upgradedAt,
         recorded_by_route: toRouteId,
