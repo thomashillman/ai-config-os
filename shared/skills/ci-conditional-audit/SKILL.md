@@ -6,7 +6,11 @@ description: |
   checks that all downstream steps depending on its side effects carry the
   same (or a compatible) guard. Flags any step that consumes an artifact,
   binary, or directory produced by a conditional step but runs unconditionally.
-  Use when a CI optimization may have left a dependency pair incomplete.
+  Use when: (1) a CI step was made conditional (e.g. skip installs when nothing
+  changed) but its downstream consumers were not updated; (2) a CI job fails
+  intermittently — succeeds on full runs but fails when a conditional step is
+  skipped; (3) reviewing a PR that modifies a workflow file. Not useful for
+  diagnosing failures unrelated to conditional guards.
 
 type: prompt
 status: stable
