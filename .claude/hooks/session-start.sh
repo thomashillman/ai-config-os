@@ -86,7 +86,9 @@ INSTALL_ROOT="$(cd -- "${HOOK_DIR}/../.." && pwd)"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
 # Probe capabilities if device has changed or cache is missing.
-# Runs synchronously so the bootstrap sees fresh capability data.
+# - No cache (first run): run synchronously so bootstrap sees fresh capability data.
+# - Cache exists but stale (hostname changed): run in background; bootstrap uses cached data.
+# - Cache exists and current: skip probe entirely.
 _PROBE_CACHE="${HOME}/.ai-config-os/probe-report.json"
 _CURRENT_HOSTNAME="$(hostname 2>/dev/null || echo 'unknown')"
 _CACHED_HOSTNAME=""
@@ -94,9 +96,12 @@ if [ -f "$_PROBE_CACHE" ] && command -v node &>/dev/null; then
   _CACHED_HOSTNAME="$(node -e "try{const d=JSON.parse(require('fs').readFileSync('$_PROBE_CACHE','utf8'));process.stdout.write(d.hostname||'')}catch(e){}" 2>/dev/null || echo '')"
 fi
 
-if [ ! -f "$_PROBE_CACHE" ] || [ "$_CURRENT_HOSTNAME" != "$_CACHED_HOSTNAME" ]; then
-  echo "[probe] Device changed or no cache — running capability probe..."
+if [ ! -f "$_PROBE_CACHE" ]; then
+  echo "[probe] No cache — running capability probe..."
   bash "${INSTALL_ROOT}/ops/capability-probe.sh" --quiet || true
+elif [ "$_CURRENT_HOSTNAME" != "$_CACHED_HOSTNAME" ]; then
+  echo "[probe] Device changed — refreshing probe in background (using cached data)"
+  bash "${INSTALL_ROOT}/ops/capability-probe.sh" --quiet &
 else
   echo "[probe] Same device (${_CURRENT_HOSTNAME}) — using cached probe"
 fi
