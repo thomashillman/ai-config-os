@@ -4,6 +4,41 @@
 
 Skills in this repo follow the [Agent Skills](https://agentskills.io) open standard — a portable format supported by 30+ agent products (Claude Code, Cursor, VS Code, GitHub Copilot, Gemini CLI, OpenAI Codex, and others). This repo extends the standard with multi-model variants, capability contracts, and cross-platform distribution. See `docs/SKILLS.md` for the comprehensive skills reference.
 
+## Engineering Mindset
+
+- Understand requirements, constraints, and context before writing any code.
+- Prioritise high-value problems; say no to low-impact work.
+- Take ownership from idea through to production and iteration.
+- Success is measured by outcomes for users, not lines of code or feature count.
+
+## Engineering Principles
+
+**Design**
+- KISS: simplest solution that fully solves the problem. No speculative features (YAGNI).
+- DRY: one authoritative representation of every piece of logic.
+- High cohesion, low coupling: changes should be local, not system-wide.
+- SOLID as a refactoring lens, not an upfront prescription:
+  - SRP: one reason to change per class/module; extract when responsibilities diverge.
+  - OCP: extend via new implementations, not edits to existing core logic.
+  - LSP: subtypes must honour the contract of their base; prefer composition when they can't.
+  - ISP: depend only on the interface slice you actually need; split fat interfaces.
+  - DIP: inject abstractions into business logic; wire concrete implementations at the composition root.
+
+**Code quality**
+- Readability over cleverness. Code is read far more than it is written.
+- TDD by default: tests drive design, prevent regressions, and make refactoring safe.
+- Refactor continuously in small, test-backed steps rather than letting entropy accumulate.
+
+**Delivery**
+- Ship in small, frequent increments to reduce risk and tighten feedback loops.
+- Instrument for observability: issues should be visible before users report them.
+- Quality is built in: testing, monitoring, and resilience are not afterthoughts.
+
+**Process**
+- Source control is the source of truth. Automate repetitive tasks.
+- Features are done when they deliver value in production, not when they pass QA.
+- Fix the system, not the person, when things go wrong.
+
 ## Structure
 
 ### Source & Distribution (Portability Contract)
