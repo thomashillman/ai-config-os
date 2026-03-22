@@ -51,6 +51,10 @@
         }
       }
     },
+    "environment_type": {
+      "type": "string",
+      "description": "Value of CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE. Distinguishes cloud-hosted sessions (cloud_default) from self-hosted remote sessions."
+    },
     "duration_ms": {
       "type": "number",
       "description": "Total probe duration in milliseconds"

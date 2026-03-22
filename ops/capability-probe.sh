@@ -207,6 +207,7 @@ JSON=$(cat <<JSONEOF
     "mcp.client": $mcp_result,
     "env.read": $env_read
   },
+  "environment_type": "${CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE:-unknown}",
   "duration_ms": $DURATION_MS
 }
 JSONEOF

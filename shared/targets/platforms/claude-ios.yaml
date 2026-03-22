@@ -5,46 +5,62 @@ default_package: api
 
 capabilities:
   fs.read:
-    status: unsupported
-    confidence: medium
-    source: inference
+    status: supported
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
+    notes: Available via cloud container backend
   fs.write:
-    status: unsupported
-    confidence: medium
-    source: inference
+    status: supported
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
+    notes: Available via cloud container backend
   shell.exec:
-    status: unsupported
-    confidence: medium
-    source: inference
+    status: supported
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
+    notes: Available via cloud container backend
   shell.long-running:
-    status: unsupported
-    confidence: medium
-    source: inference
+    status: supported
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
+    notes: Available via cloud container backend
   git.read:
-    status: unsupported
-    confidence: medium
-    source: inference
+    status: supported
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
+    notes: Available via cloud container backend
   git.write:
-    status: unsupported
-    confidence: medium
-    source: inference
+    status: supported
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
+    notes: Available via cloud container backend
   network.http:
     status: supported
-    verified_at: "2026-03-07"
-    confidence: medium
-    source: vendor-doc
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
   browser.fetch:
     status: unsupported
     confidence: medium
     source: inference
   mcp.client:
     status: unsupported
-    confidence: medium
-    source: inference
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
+    notes: Timeout after 2s in cloud container
   env.read:
-    status: unsupported
-    confidence: medium
-    source: inference
+    status: supported
+    verified_at: "2026-03-22"
+    confidence: high
+    source: probe
+    notes: Available via cloud container backend
   secrets.inject:
     status: unsupported
     confidence: medium
@@ -55,4 +71,4 @@ capabilities:
     confidence: high
     source: vendor-doc
 
-notes: Mobile app. No local tool access expected. Prompt-only mode always available.
+notes: Mobile app (iOS) connecting to cloud container backend (CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE=cloud_default). Full shell, filesystem, and git access available via the remote container. Only mcp.client is unsupported.
