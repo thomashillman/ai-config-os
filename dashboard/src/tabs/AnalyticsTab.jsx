@@ -1,5 +1,19 @@
 import { useState, useEffect, useCallback } from "react"
 
+// -- Network helpers -----------------------------------------------------------
+
+// Returns a promise that resolves to parsed JSON or rejects on HTTP error / timeout.
+function fetchJson(url) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10000)
+  return fetch(url, { signal: controller.signal })
+    .then(r => {
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return r.json()
+    })
+    .finally(() => clearTimeout(timer))
+}
+
 // -- Data helpers --------------------------------------------------------------
 
 function aggregateMetrics(metrics) {
@@ -193,14 +207,32 @@ function StatusBadge({ status }) {
   )
 }
 
-function ScoreBar({ baseline, best }) {
+// 3-segment when control is available: control/no-skill (amber) | skill baseline gain (grey) | experiment gain (green).
+// Edge cases: if control >= baseline the grey segment is 0 (skill didn't help over no-skill).
+//             if control >= best  all three gains are 0 (skill strictly worse than no-skill).
+// 2-segment fallback when control is absent: baseline (grey) | gain (green).
+function ScoreBar({ control, baseline, best }) {
   if (baseline == null || best == null) return <div className="flex-1 bg-gray-900 rounded h-3" />
+
+  if (control != null) {
+    const controlWidth    = Math.min(100, control)
+    const baselineWidth   = Math.max(0, Math.min(100 - controlWidth, baseline - control))
+    const gainWidth       = Math.max(0, Math.min(100 - controlWidth - baselineWidth, best - baseline))
+    return (
+      <div className="flex-1 bg-gray-900 rounded overflow-hidden h-3 flex">
+        <div className="bg-amber-600 h-full" style={{ width: `${controlWidth}%` }}  title={`No-skill control: ${control}%`} />
+        <div className="bg-gray-500 h-full" style={{ width: `${baselineWidth}%` }} title={`Skill baseline gain: +${Math.round(baseline - control)}pp`} />
+        <div className="bg-green-600 h-full" style={{ width: `${gainWidth}%` }}    title={`Experiment gain: +${Math.round(best - baseline)}pp`} />
+      </div>
+    )
+  }
+
   const baselineWidth = Math.min(100, baseline)
-  const gainWidth = Math.max(0, Math.min(100 - baselineWidth, best - baseline))
+  const gainWidth     = Math.max(0, Math.min(100 - baselineWidth, best - baseline))
   return (
     <div className="flex-1 bg-gray-900 rounded overflow-hidden h-3 flex">
       <div className="bg-gray-700 h-full" style={{ width: `${baselineWidth}%` }} title={`Baseline: ${baseline}%`} />
-      <div className="bg-green-600 h-full" style={{ width: `${gainWidth}%` }} title={`Gain: +${Math.round(best - baseline)}pp`} />
+      <div className="bg-green-600 h-full" style={{ width: `${gainWidth}%` }}    title={`Gain: +${Math.round(best - baseline)}pp`} />
     </div>
   )
 }
@@ -211,7 +243,7 @@ function AutoresearchSection({ runs, loading }) {
       <SectionHeader
         title="Autoresearch Runs"
         count={runs.length > 0 ? runs.length : null}
-        subtitle="Autonomous skill optimisation - baseline score (grey) + gain (green)."
+        subtitle="Autonomous skill optimisation — control (amber) + skill gain (grey) + experiment gain (green)."
       />
       {loading ? (
         <SectionSkeleton rows={3} />
@@ -229,7 +261,7 @@ function AutoresearchSection({ runs, loading }) {
                 <span className="text-gray-400 w-36 truncate text-xs" title={run.skill}>
                   {run.skill}
                 </span>
-                <ScoreBar baseline={run.baseline_score} best={run.best_score} />
+                <ScoreBar control={run.control_score} baseline={run.baseline_score} best={run.best_score} />
                 <div className="flex items-center gap-1.5 w-28 justify-end">
                   {delta && (
                     <span className={`text-xs ${run.improved_by > 0 ? "text-green-400" : "text-gray-500"}`}>
@@ -260,45 +292,27 @@ export default function AnalyticsTab({ api }) {
   const fetchAll = useCallback(() => {
     setLoading({ tools: true, skills: true, autoresearch: true })
 
-    // Returns a promise that resolves to parsed JSON or rejects on HTTP error / timeout.
-    function fetchJson(url) {
-      const controller = new AbortController()
-      const timer = setTimeout(() => controller.abort(), 10000)
-      return fetch(url, { signal: controller.signal })
-        .then(r => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`)
-          return r.json()
-        })
-        .finally(() => clearTimeout(timer))
-    }
-
-    let anySuccess = false
-
+    // Each chain returns true on success and undefined on failure; .finally() passes
+    // through that value so allSettled results carry it — no mutable closure needed.
     const p1 = fetchJson(`${api}/analytics`)
-      .then(d => {
-        if (Array.isArray(d.metrics)) { setMetrics(d.metrics); anySuccess = true }
-      })
-      .catch(() => {})
+      .then(d => { if (Array.isArray(d.metrics)) { setMetrics(d.metrics); return true } })
+      .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, tools: false })))
 
     const p2 = fetchJson(`${api}/skill-analytics`)
-      .then(d => {
-        if (d && typeof d === 'object') { setSkillData(d); anySuccess = true }
-      })
-      .catch(() => {})
+      .then(d => { if (d && typeof d === 'object') { setSkillData(d); return true } })
+      .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, skills: false })))
 
     const p3 = fetchJson(`${api}/autoresearch-runs`)
-      .then(d => {
-        if (Array.isArray(d.runs)) { setArRuns(d.runs); anySuccess = true }
-      })
-      .catch(() => {})
+      .then(d => { if (Array.isArray(d.runs)) { setArRuns(d.runs); return true } })
+      .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, autoresearch: false })))
 
-    // Wait for all three before checking anySuccess -- avoids a race where the last
-    // promise to settle fires its .finally() before earlier .then() handlers have run.
     Promise.allSettled([p1, p2, p3])
-      .then(() => { if (anySuccess) setLastFetched(new Date().toLocaleTimeString()) })
+      .then(results => {
+        if (results.some(r => r.value === true)) setLastFetched(new Date().toLocaleTimeString())
+      })
   }, [api])
 
   useEffect(() => { fetchAll() }, [fetchAll])
