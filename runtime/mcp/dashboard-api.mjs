@@ -93,6 +93,31 @@ export function createDashboardApi({
     }
   });
 
+  app.get('/api/skill-analytics', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    const outcomesFile = `${process.env.HOME}/.claude/skill-analytics/skill-outcomes.jsonl`;
+    try {
+      const lines = fs.readFileSync(outcomesFile, 'utf8').trim().split('\n').filter(Boolean);
+      const events = lines.map((line) => JSON.parse(line));
+      const totals = {};
+      for (const e of events) {
+        if (!totals[e.skill]) totals[e.skill] = { used: 0, replaced: 0 };
+        if (e.outcome === 'output_used') totals[e.skill].used++;
+        else if (e.outcome === 'output_replaced') totals[e.skill].replaced++;
+      }
+      const skills = Object.entries(totals).map(([skill, c]) => ({
+        skill,
+        used: c.used,
+        replaced: c.replaced,
+        total: c.used + c.replaced,
+        use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
+      })).sort((a, b) => b.total - a.total);
+      res.json({ skills, total_events: events.length, success: true, effectiveOutcomeContract });
+    } catch {
+      res.json({ skills: [], total_events: 0, success: true, note: 'No skill outcome data yet', effectiveOutcomeContract });
+    }
+  });
+
   app.post('/api/sync', (req, res) => {
     executeRuntimeAction('sync_tools', { dry_run: req.body?.dry_run }, res);
   });
