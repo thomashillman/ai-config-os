@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { createDashboardApi } from './dashboard-api.mjs';
 import { createTunnelPolicy } from './tunnel-security.mjs';
 
@@ -204,6 +207,99 @@ test('dashboard context-cost returns 400 for invalid threshold', () => {
   assert.equal(statusCode, 400);
   assert.equal(payload.success, false);
   assert.match(payload.error, /threshold must be numeric/);
+});
+
+test('/api/analytics returns tool_usage events from observation snapshot', async () => {
+  const repoRoot = join(tmpdir(), `dash-api-analytics-test-${process.pid}`);
+  const claudeDir = join(repoRoot, '.claude');
+  mkdirSync(claudeDir, { recursive: true });
+  writeFileSync(
+    join(claudeDir, 'metrics.jsonl'),
+    [
+      JSON.stringify({ type: 'tool_usage', tool_name: 'Read', status: 'success', duration_ms: 10 }),
+      JSON.stringify({ type: 'tool_usage', tool_name: 'Edit', status: 'error', duration_ms: 5 }),
+    ].join('\n') + '\n'
+  );
+
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot,
+    port: 4242,
+  });
+
+  const analyticsRoute = app._gets.find((r) => r.path === '/api/analytics');
+  let payload = null;
+  await analyticsRoute.handler({}, { json(value) { payload = value; } });
+
+  rmSync(repoRoot, { recursive: true, force: true });
+
+  assert.equal(payload.success, true);
+  assert.ok(Array.isArray(payload.metrics));
+  assert.ok(payload.metrics.every((m) => m.type === 'tool_usage'));
+  assert.equal(payload.metrics.length, 2);
+});
+
+test('/api/skill-analytics aggregates skill_outcome events via observation snapshot', async () => {
+  const tempHome = join(tmpdir(), `dash-api-skill-analytics-test-${process.pid}`);
+  const analyticsDir = join(tempHome, '.claude', 'skill-analytics');
+  mkdirSync(analyticsDir, { recursive: true });
+  writeFileSync(
+    join(analyticsDir, 'skill-outcomes.jsonl'),
+    [
+      JSON.stringify({ skill: 'commit-conventions', outcome: 'output_used', timestamp: '2026-01-01T00:00:00Z' }),
+      JSON.stringify({ skill: 'commit-conventions', outcome: 'output_used', timestamp: '2026-01-01T00:01:00Z' }),
+      JSON.stringify({ skill: 'commit-conventions', outcome: 'output_replaced', timestamp: '2026-01-01T00:02:00Z' }),
+      JSON.stringify({ skill: 'debug', outcome: 'output_used', timestamp: '2026-01-01T00:03:00Z' }),
+    ].join('\n') + '\n'
+  );
+
+  const origHome = process.env.HOME;
+  process.env.HOME = tempHome;
+
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: tempHome,
+    port: 4242,
+  });
+
+  const skillRoute = app._gets.find((r) => r.path === '/api/skill-analytics');
+  let payload = null;
+  await skillRoute.handler({}, { json(value) { payload = value; } });
+
+  process.env.HOME = origHome;
+  rmSync(tempHome, { recursive: true, force: true });
+
+  assert.equal(payload.success, true);
+  assert.ok(Array.isArray(payload.skills));
+  const cc = payload.skills.find((s) => s.skill === 'commit-conventions');
+  assert.ok(cc, 'commit-conventions skill should be present');
+  assert.equal(cc.used, 2);
+  assert.equal(cc.replaced, 1);
+  assert.equal(cc.total, 3);
+  assert.equal(cc.use_rate, 67);
+  const dbg = payload.skills.find((s) => s.skill === 'debug');
+  assert.ok(dbg);
+  assert.equal(dbg.use_rate, 100);
 });
 
 test('dashboard API CORS uses tunnel policy origin allowlisting for local and configured tunnel origins', async () => {
