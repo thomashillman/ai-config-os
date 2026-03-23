@@ -25,6 +25,12 @@ import {
   handleObservabilitySettingsPut,
 } from './handlers/observability';
 import {
+  handleRetrospectiveAggregate,
+  handleRetrospectiveCreate,
+  handleRetrospectiveGet,
+  handleRetrospectiveList,
+} from './handlers/retrospectives';
+import {
   handleHubLatest,
   handleTaskAppendFinding,
   handleTaskByCode,
@@ -95,6 +101,14 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
     // ── Observability mutations ─────────────────────────────────────────
     { method: 'POST',  pattern: '/v1/observability/runs',                            handler: ({ request, env }) => handleObservabilityRunCreate(request, env) },
     { method: 'PUT',   pattern: '/v1/observability/settings',                        handler: ({ request, env }) => handleObservabilitySettingsPut(request, env) },
+
+    // ── Retrospective reads ─────────────────────────────────────────────
+    { method: 'GET',   pattern: '/v1/retrospectives',                                handler: ({ request, env }) => handleRetrospectiveList(request, env) },
+    { method: 'GET',   pattern: '/v1/retrospectives/aggregate',                      handler: ({ request, env }) => handleRetrospectiveAggregate(request, env) },
+    { method: 'GET',   pattern: /^\/v1\/retrospectives\/([^/]+)$/,                   handler: ({ env, params }) => handleRetrospectiveGet(params[0], env) },
+
+    // ── Retrospective mutations ─────────────────────────────────────────
+    { method: 'POST',  pattern: '/v1/retrospectives',                                handler: ({ request, env }) => handleRetrospectiveCreate(request, env) },
 
     // ── Execute ─────────────────────────────────────────────────────────
     { method: 'POST',  pattern: '/v1/execute',                                       handler: ({ request, env }) => handleExecute(request, env) },
