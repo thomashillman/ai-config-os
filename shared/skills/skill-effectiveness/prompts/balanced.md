@@ -15,3 +15,8 @@ Steps:
 6. Below the table, list skills with use-rate < 50% and suggest one concrete improvement
    each (e.g. "invoke only when editing a commit message", "narrow trigger conditions",
    "review prompt clarity").
+7. For each underperformer from step 6, check whether
+   `~/.claude/skill-analytics/autoresearch-<skill-name>/results.json` exists (read all
+   in parallel). For each file found, append to the skill's suggestion:
+   "(autoresearch: best <best_score>%, +<delta>pp via <experiment_id>)"
+   where delta = best_score - baseline_score. Omit this addition if the file is absent.
