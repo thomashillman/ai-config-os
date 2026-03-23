@@ -3,6 +3,7 @@ import ResumeSheet from "../components/ResumeSheet"
 import { WORKER_URL } from "../lib/workerClient"
 import { routeLabel, stateLabel, readErrorMessage } from "../lib/taskFormatters"
 import { formatDate } from "../lib/dateFormatters"
+import { summarizeTaskFindings } from "../lib/taskFindingSummary"
 
 function sessionLabel(route) {
   return routeLabel(route) + " session"
@@ -35,38 +36,7 @@ function eventNarrative(e, index, allEvents) {
   }
 }
 
-function ProvenanceSection({ findings }) {
-  const groups = [
-    {
-      status: "verified",
-      icon: "✓",
-      label: "Confirmed here",
-      cls: "text-green-400",
-      items: findings.filter(f => f.provenance?.status === "verified" && f.type !== "question"),
-    },
-    {
-      status: "reused",
-      icon: "↻",
-      label: "Flagged in prior session, will verify",
-      cls: "text-yellow-400",
-      items: findings.filter(f => f.provenance?.status === "reused" && f.type !== "question"),
-    },
-    {
-      status: "hypothesis",
-      icon: "·",
-      label: "Noticed — needs checking",
-      cls: "text-gray-400",
-      items: findings.filter(f => f.provenance?.status === "hypothesis" && f.type !== "question"),
-    },
-    {
-      status: "invalidated",
-      icon: "✗",
-      label: "Not an issue",
-      cls: "text-gray-600",
-      items: findings.filter(f => f.provenance?.status === "invalidated" && f.type !== "question"),
-    },
-  ].filter(g => g.items.length > 0)
-
+function ProvenanceSection({ groups }) {
   if (!groups.length) {
     return (
       <div>
@@ -146,16 +116,14 @@ function OpenQuestions({ questions, onAnswer, onDismiss, dismissErrors, dismissi
   )
 }
 
-function EventStory({ events, task }) {
+function EventStory({ events, task, openFindingsCount }) {
   const significant = events
     .map((e, i) => ({ ...e, _label: eventNarrative(e, i, events) }))
     .filter(e => e._label !== null)
 
   const isWaiting = task?.state === "active" &&
     task?.current_route !== "local_repo" &&
-    (task?.findings || []).some(f =>
-      f.provenance?.status === "hypothesis" || f.provenance?.status === "reused"
-    )
+    openFindingsCount > 0
 
   if (!significant.length && !isWaiting) return null
 
@@ -374,17 +342,11 @@ export default function TaskDetailTab({ taskId, onBack }) {
   useEffect(() => { fetchTask() }, [taskId])
 
   const findings = task?.findings || []
-  const openQuestions = useMemo(
-    () => findings.filter(f => f.type === "question"),
+  const findingSummary = useMemo(
+    () => summarizeTaskFindings(findings),
     [findings]
   )
-  const openFindings = useMemo(
-    () => findings.filter(f =>
-      f.type !== "question" &&
-      (f.provenance?.status === "hypothesis" || f.provenance?.status === "reused")
-    ),
-    [findings]
-  )
+  const { openQuestions, openFindings, provenanceGroups } = findingSummary
   const origin = sessionLabel(task?.initial_route || task?.current_route)
   const state = stateLabel(task?.state)
 
@@ -443,7 +405,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
 
           {/* What I found */}
           <div className="border-t border-gray-800 pt-5">
-            <ProvenanceSection findings={findings} />
+            <ProvenanceSection groups={provenanceGroups} />
           </div>
 
           {/* Open questions */}
@@ -462,7 +424,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
           {/* Story */}
           {events.length > 0 && (
             <div className="border-t border-gray-800 pt-5">
-              <EventStory events={events} task={task} />
+              <EventStory events={events} task={task} openFindingsCount={openFindings.length} />
             </div>
           )}
 
