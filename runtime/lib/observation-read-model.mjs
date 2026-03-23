@@ -2,12 +2,13 @@
  * Observation read model: unified loader for observations from all sources
  *
  * Loads and aggregates observations (bootstrap telemetry, tool usage, skill outcomes, etc.)
- * from the .ai-config-os logs directory, applies filtering/limits, and returns a snapshot
- * with events and summary counts.
+ * from the .ai-config-os logs directory and project .claude directory, applies filtering/limits,
+ * and returns a snapshot with events and summary counts.
  */
 
 import { join } from 'node:path';
 import { readdirSync, readFileSync } from 'node:fs';
+import { loadToolUsageObservations } from './observation-sources/tool-usage.mjs';
 
 /**
  * Load observation snapshot from all available sources
@@ -18,7 +19,7 @@ import { readdirSync, readFileSync } from 'node:fs';
  * @returns {Promise<{events: Array, summary: Object}>}
  */
 export async function loadObservationSnapshot(options = {}) {
-  const { home = process.env.HOME || '/root', limit = 1000 } = options;
+  const { home = process.env.HOME || '/root', projectDir = process.cwd(), limit = 1000 } = options;
   const logsDir = join(home, '.ai-config-os', 'logs');
 
   const events = [];
@@ -32,6 +33,7 @@ export async function loadObservationSnapshot(options = {}) {
     loop_suspected_count: 0,
   };
 
+  // Load bootstrap telemetry events
   try {
     const logFiles = readdirSync(logsDir);
 
@@ -58,7 +60,21 @@ export async function loadObservationSnapshot(options = {}) {
       if (events.length >= limit) break;
     }
   } catch (err) {
-    // Logs directory doesn't exist or is unreadable — return empty snapshot
+    // Logs directory doesn't exist or is unreadable — continue to next sources
+  }
+
+  // Load tool usage observations
+  if (events.length < limit) {
+    const toolEvents = await loadToolUsageObservations({
+      projectDir,
+      limit: limit - events.length,
+    });
+
+    for (const event of toolEvents) {
+      if (events.length >= limit) break;
+      events.push(event);
+      updateSummary(summary, event);
+    }
   }
 
   summary.total_events = events.length;
@@ -97,6 +113,11 @@ function updateSummary(summary, event) {
       summary.bootstrap_success_count++;
     } else if (event.result === 'error') {
       summary.bootstrap_error_count++;
+    }
+  } else if (event.type === 'tool_usage') {
+    summary.tool_usage_count++;
+    if (event.status === 'error') {
+      summary.tool_error_count++;
     }
   }
 
