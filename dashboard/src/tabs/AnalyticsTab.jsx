@@ -77,7 +77,7 @@ function RefreshBar({ lastFetched, onRefresh }) {
         className="text-gray-600 hover:text-gray-400 text-xs transition-colors"
         title="Refresh all sections"
       >
-        refresh Refresh
+        Refresh
       </button>
     </div>
   )
@@ -259,7 +259,6 @@ export default function AnalyticsTab({ api }) {
 
   const fetchAll = useCallback(() => {
     setLoading({ tools: true, skills: true, autoresearch: true })
-    let anySuccess = false
 
     // Returns a promise that resolves to parsed JSON or rejects on HTTP error / timeout.
     function fetchJson(url) {
@@ -273,29 +272,33 @@ export default function AnalyticsTab({ api }) {
         .finally(() => clearTimeout(timer))
     }
 
-    fetchJson(`${api}/analytics`)
+    let anySuccess = false
+
+    const p1 = fetchJson(`${api}/analytics`)
       .then(d => {
         if (Array.isArray(d.metrics)) { setMetrics(d.metrics); anySuccess = true }
       })
       .catch(() => {})
       .finally(() => setLoading(prev => ({ ...prev, tools: false })))
 
-    fetchJson(`${api}/skill-analytics`)
+    const p2 = fetchJson(`${api}/skill-analytics`)
       .then(d => {
         if (d && typeof d === 'object') { setSkillData(d); anySuccess = true }
       })
       .catch(() => {})
       .finally(() => setLoading(prev => ({ ...prev, skills: false })))
 
-    fetchJson(`${api}/autoresearch-runs`)
+    const p3 = fetchJson(`${api}/autoresearch-runs`)
       .then(d => {
         if (Array.isArray(d.runs)) { setArRuns(d.runs); anySuccess = true }
       })
       .catch(() => {})
-      .finally(() => {
-        setLoading(prev => ({ ...prev, autoresearch: false }))
-        if (anySuccess) setLastFetched(new Date().toLocaleTimeString())
-      })
+      .finally(() => setLoading(prev => ({ ...prev, autoresearch: false })))
+
+    // Wait for all three before checking anySuccess -- avoids a race where the last
+    // promise to settle fires its .finally() before earlier .then() handlers have run.
+    Promise.allSettled([p1, p2, p3])
+      .then(() => { if (anySuccess) setLastFetched(new Date().toLocaleTimeString()) })
   }, [api])
 
   useEffect(() => { fetchAll() }, [fetchAll])

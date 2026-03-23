@@ -114,8 +114,11 @@ export function createDashboardApi({
           // A partial first line is expected and filtered out below.
           const buf = Buffer.alloc(MAX_FILE_BYTES);
           const fd = fs.openSync(outcomesFile, 'r');
-          fs.readSync(fd, buf, 0, MAX_FILE_BYTES, stat.size - MAX_FILE_BYTES);
-          fs.closeSync(fd);
+          try {
+            fs.readSync(fd, buf, 0, MAX_FILE_BYTES, stat.size - MAX_FILE_BYTES);
+          } finally {
+            fs.closeSync(fd);
+          }
           raw = buf.toString('utf8');
         } else {
           raw = fs.readFileSync(outcomesFile, 'utf8');

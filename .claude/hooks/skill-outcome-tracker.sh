@@ -45,8 +45,10 @@ PENDING_FILE="${COUNTER_DIR}/${SESSION_ID}-skill-pending.json"
 
 record_outcome() {
   local skill="$1" outcome="$2"
-  printf '{"timestamp":"%s","session_id":"%s","skill":"%s","outcome":"%s"}\n' \
-    "$TIMESTAMP" "$SESSION_ID" "$skill" "$outcome" >> "$OUTCOMES_FILE"
+  # Use jq --arg to safely encode all fields; prevents JSON corruption if a skill name
+  # contains quotes, backslashes, or control characters.
+  jq -cn --arg ts "$TIMESTAMP" --arg sid "$SESSION_ID" --arg sk "$skill" --arg oc "$outcome" \
+    '{timestamp:$ts,session_id:$sid,skill:$sk,outcome:$oc}' >> "$OUTCOMES_FILE"
   rm -f "$PENDING_FILE"
 }
 
@@ -58,7 +60,8 @@ if [[ "$TOOL" == "Skill" ]]; then
   fi
 
   TEMP_FILE=$(mktemp "${COUNTER_DIR}/tmp.XXXXXX")
-  printf '{"skill_name":"%s","invoked_at":"%s"}\n' "$INVOKED_SKILL" "$TIMESTAMP" > "$TEMP_FILE"
+  jq -cn --arg sn "$INVOKED_SKILL" --arg ts "$TIMESTAMP" \
+    '{skill_name:$sn,invoked_at:$ts}' > "$TEMP_FILE"
   mv "$TEMP_FILE" "$PENDING_FILE"
   exit 0
 fi

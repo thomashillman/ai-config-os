@@ -32,7 +32,7 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | .github/workflows/ | — | `validate.yml` (structure), `build.yml` (compile + test + dist artifact) |
 | .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics, skill-outcome-tracker |
 
-### Skills (28 total)
+### Skills (33 total)
 
 | Skill | Type | Phase |
 |---|---|---|
@@ -41,10 +41,11 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | debug, changelog, task-decompose, explain-code, skill-audit, release-checklist | prompt/agent/workflow-blueprint | Phase 6 |
 | memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify | prompt/agent | Phase 7 |
 | task-start, task-save, task-resume | agent | Phase 10 (KV persistence) |
-| momentum-reflect | agent | Phase 10 (Momentum Engine) |
+| momentum-reflect, momentum-observer, momentum-narrator, momentum-view, momentum-engine | agent | Phase 10 (Momentum Engine) |
 | skill-effectiveness, autoresearch | prompt/agent | Phase 10 (Skill Analytics) |
 
-All 28 skills have: YAML frontmatter, structured capability contracts, tests defined in frontmatter.
+All 33 skills have: YAML frontmatter, structured capability contracts, tests defined in frontmatter.
+skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 
 ### Workflows (5 total)
 
