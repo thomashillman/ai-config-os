@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { ActionValidationError, createRuntimeActionDispatcher } from '../lib/runtime-action-dispatcher.mjs';
 
 export function createDashboardApi({
@@ -115,6 +116,52 @@ export function createDashboardApi({
       res.json({ skills, total_events: events.length, success: true, effectiveOutcomeContract });
     } catch {
       res.json({ skills: [], total_events: 0, success: true, note: 'No skill outcome data yet', effectiveOutcomeContract });
+    }
+  });
+
+  app.get('/api/autoresearch-runs', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    const skillsDir = path.join(repoRoot, 'shared', 'skills');
+    const runs = [];
+    try {
+      const skillDirs = fs.readdirSync(skillsDir, { withFileTypes: true })
+        .filter(d => d.isDirectory())
+        .map(d => d.name);
+      for (const skillName of skillDirs) {
+        const skillPath = path.join(skillsDir, skillName);
+        let runDirs;
+        try {
+          runDirs = fs.readdirSync(skillPath, { withFileTypes: true })
+            .filter(d => d.isDirectory() && d.name.startsWith('autoresearch-'))
+            .map(d => d.name);
+        } catch {
+          continue;
+        }
+        for (const runDir of runDirs) {
+          const resultsFile = path.join(skillPath, runDir, 'results.json');
+          try {
+            const data = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
+            runs.push({
+              skill: skillName,
+              run_dir: runDir,
+              status: data.status || 'unknown',
+              baseline_score: data.baseline_score ?? null,
+              best_score: data.best_score ?? null,
+              current_experiment: data.current_experiment ?? 0,
+              experiment_count: (data.experiments || []).length,
+              improved_by: data.baseline_score != null && data.best_score != null
+                ? Math.round(data.best_score - data.baseline_score)
+                : null,
+            });
+          } catch {
+            // results.json missing or malformed — skip
+          }
+        }
+      }
+      runs.sort((a, b) => (b.best_score ?? 0) - (a.best_score ?? 0));
+      res.json({ runs, success: true, effectiveOutcomeContract });
+    } catch {
+      res.json({ runs: [], success: true, note: 'Could not scan skill directories', effectiveOutcomeContract });
     }
   });
 

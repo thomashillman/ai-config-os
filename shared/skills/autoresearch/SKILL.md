@@ -11,6 +11,7 @@ description: |
   of every mutation tried.
 type: agent
 status: experimental
+disable-model-invocation: true
 inputs:
   - name: skill_path
     type: string
