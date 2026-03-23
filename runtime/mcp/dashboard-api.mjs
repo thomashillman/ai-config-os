@@ -200,6 +200,7 @@ export function createDashboardApi({
               skill: skillName,
               run_dir: runDir,
               status: typeof data.status === 'string' ? data.status : 'unknown',
+              control_score: typeof data.control_score === 'number' ? data.control_score : null,
               baseline_score: typeof data.baseline_score === 'number' ? data.baseline_score : null,
               best_score: typeof data.best_score === 'number' ? data.best_score : null,
               current_experiment: typeof data.current_experiment === 'number' ? data.current_experiment : 0,
