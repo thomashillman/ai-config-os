@@ -181,7 +181,7 @@ function SkillEffectivenessSection({ skillData, loading }) {
                   className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
                   title={`Run /autoresearch on ${skill} to improve its output-used rate`}
                 >
-                  -> /autoresearch
+                  {"-> /autoresearch"}
                 </span>
               )}
             </div>

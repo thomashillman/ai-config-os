@@ -4,16 +4,11 @@ import TaskDetailTab from "./TaskDetailTab"
 import { WORKER_URL } from "../lib/workerClient"
 import { routeLabel } from "../lib/taskFormatters"
 import { timeAgo } from "../lib/dateFormatters"
+import { summarizeTaskFindings } from "../lib/taskFindingSummary"
 
 // The most meaningful status summary for the right side of the card
 function taskStatusSummary(task) {
-  const findings = task.findings || []
-  const openCount = findings.filter(f =>
-    f.type !== "question" &&
-    (f.provenance?.status === "hypothesis" || f.provenance?.status === "reused")
-  ).length
-  const questionCount = findings.filter(f => f.type === "question").length
-  const verifiedCount = findings.filter(f => f.provenance?.status === "verified").length
+  const { openCount, questionCount, verifiedCount } = summarizeTaskFindings(task.findings)
 
   if (task.state === "complete") {
     return { text: `${verifiedCount} verified · done`, cls: "text-gray-500" }

@@ -70,14 +70,20 @@ test('maps user_response progress event to observation response', () => {
 });
 
 test('preserves task_id and created_at in all observations', () => {
-  const narrationEvent = createProgressEvent();
-  const responseEvent = createResponseEvent();
+  const narrationEvent = createProgressEvent({ created_at: '2026-01-01T00:00:00.000Z' });
+  const responseEvent = createResponseEvent({ created_at: '2026-01-01T00:00:03.000Z' });
   const observations = mapMomentumProgressEvents([narrationEvent, responseEvent]);
 
-  for (const obs of observations) {
-    assert.equal(obs.task_id, 'task_review_001');
-    assert.equal(obs.created_at, narrationEvent.created_at);
-  }
+  assert.deepEqual(
+    observations.map((obs) => ({
+      task_id: obs.task_id,
+      created_at: obs.created_at,
+    })),
+    [
+      { task_id: 'task_review_001', created_at: narrationEvent.created_at },
+      { task_id: 'task_review_001', created_at: responseEvent.created_at },
+    ]
+  );
 });
 
 test('filters out unknown event types', () => {
