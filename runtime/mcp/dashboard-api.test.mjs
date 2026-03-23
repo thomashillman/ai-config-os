@@ -302,6 +302,85 @@ test('/api/skill-analytics aggregates skill_outcome events via observation snaps
   assert.equal(dbg.use_rate, 100);
 });
 
+test('/api/retrospectives-summary returns parsed cache when file exists', async () => {
+  const tempHome = join(tmpdir(), `dash-api-retro-test-${process.pid}`);
+  const cacheDir = join(tempHome, '.ai-config-os', 'cache', 'claude-code');
+  mkdirSync(cacheDir, { recursive: true });
+  writeFileSync(join(cacheDir, 'retrospectives-aggregate.json'), JSON.stringify({
+    period_days: 60,
+    artifact_count: 3,
+    signal_breakdown: { loop: 4, error: 2 },
+    top_recommendations: [{ name: 'git-ops', category: 'code-quality', occurrences: 2, priority_distribution: { high: 1 } }],
+  }));
+
+  const origHome = process.env.HOME;
+  process.env.HOME = tempHome;
+
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: tempHome,
+    port: 4242,
+  });
+
+  const route = app._gets.find((r) => r.path === '/api/retrospectives-summary');
+  let payload = null;
+  route.handler({}, { json(value) { payload = value; } });
+
+  process.env.HOME = origHome;
+  rmSync(tempHome, { recursive: true, force: true });
+
+  assert.equal(payload.success, true);
+  assert.equal(payload.artifact_count, 3);
+  assert.deepEqual(payload.signal_breakdown, { loop: 4, error: 2 });
+  assert.equal(payload.top_recommendations[0].name, 'git-ops');
+});
+
+test('/api/retrospectives-summary returns empty fallback when cache file is absent', () => {
+  const tempHome = join(tmpdir(), `dash-api-retro-missing-${process.pid}`);
+  mkdirSync(tempHome, { recursive: true });
+
+  const origHome = process.env.HOME;
+  process.env.HOME = tempHome;
+
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: tempHome,
+    port: 4242,
+  });
+
+  const route = app._gets.find((r) => r.path === '/api/retrospectives-summary');
+  let payload = null;
+  route.handler({}, { json(value) { payload = value; } });
+
+  process.env.HOME = origHome;
+  rmSync(tempHome, { recursive: true, force: true });
+
+  assert.equal(payload.success, true);
+  assert.equal(payload.artifact_count, 0);
+  assert.deepEqual(payload.signal_breakdown, {});
+  assert.deepEqual(payload.top_recommendations, []);
+});
+
 test('dashboard API CORS uses tunnel policy origin allowlisting for local and configured tunnel origins', async () => {
   const app = createFakeApp();
   let corsOptions = null;

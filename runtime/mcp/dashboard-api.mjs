@@ -127,6 +127,29 @@ export function createDashboardApi({
     }
   });
 
+  app.get('/api/retrospectives-summary', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    const empty = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true, effectiveOutcomeContract };
+
+    if (!process.env.HOME) { res.json(empty); return; }
+
+    const cacheFile = path.join(
+      process.env.HOME, '.ai-config-os', 'cache', 'claude-code', 'retrospectives-aggregate.json'
+    );
+    try {
+      const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+      res.json({
+        artifact_count: typeof data.artifact_count === 'number' ? data.artifact_count : 0,
+        signal_breakdown: data.signal_breakdown && typeof data.signal_breakdown === 'object' && !Array.isArray(data.signal_breakdown) ? data.signal_breakdown : {},
+        top_recommendations: Array.isArray(data.top_recommendations) ? data.top_recommendations : [],
+        success: true,
+        effectiveOutcomeContract,
+      });
+    } catch {
+      res.json(empty);
+    }
+  });
+
   app.get('/api/autoresearch-runs', (req, res) => {
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
 
