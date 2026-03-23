@@ -40,6 +40,7 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `lockfile-audit` | Scans the repo for package.json files missing a committed lockfile, cross-references deploy configs, and classifies severity as BLOCKING or WARNING | `shared/skills/lockfile-audit/SKILL.md` |
 | `skill-effectiveness` | Reports which skills are most effective by analysing output-used vs output-replaced outcome data from the skill-outcome-tracker hook | `shared/skills/skill-effectiveness/SKILL.md` |
 | `autoresearch` | Autonomously optimise any skill by running it repeatedly, scoring outputs against binary evals, mutating the prompt, and keeping improvements (Karpathy autoresearch methodology) | `shared/skills/autoresearch/SKILL.md` |
+| `post-merge-retrospective` | Analyzes the session conversation after a PR merge to surface friction signals, recommend new skills, and emit a machine-readable JSON artifact | `shared/skills/post-merge-retrospective/SKILL.md` |
 
 ## Workflows
 
