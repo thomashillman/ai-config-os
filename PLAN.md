@@ -16,7 +16,7 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — v0.8.0, updated 2026-03-21
+## Current state — v0.8.0, updated 2026-03-23
 
 ### Completed infrastructure
 
@@ -87,7 +87,9 @@ All 26 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 | MCP runtime | — | Tool definitions, security, dashboard API |
 | Worker contract | — | Endpoint routing, version pointers, executor integration |
 | Remote executor | — | Security, error handling |
-| **Total test files** | **70+** | `scripts/build/test/` |
+| Modularity refactoring | 46 (4 files) | task-shared, kv-persistence, load-runtime-data, worker-task-validators |
+| Dashboard formatters | 17 (2 files) | taskFormatters, dateFormatters |
+| **Total test files** | **98** | `scripts/build/test/` + `dashboard/src/__tests__/` |
 
 ### Runtime layer (v0.5.0+)
 
@@ -106,6 +108,11 @@ All 26 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 | Worker task store adapter | Done | `runtime/lib/task-store-worker.mjs` — thin Worker-side adapter over KV store |
 | Worker task control plane service | Done | `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer |
 | Session-start task resumption | Done | `.claude/hooks/session-start.sh` — queries Worker KV for active tasks on session start |
+| Shared task primitives | Done | `runtime/lib/task-shared.mjs` — error classes, readiness view, findings provenance (DRY extraction) |
+| KV persistence layer | Done | `runtime/lib/kv-persistence.mjs` — key builders, low-level KV helpers, index management (SRP extraction) |
+| Build-local runtime data loaders | Done | `scripts/build/lib/load-runtime-data.mjs` — decouples compiler from runtime imports (DIP) |
+| Worker task validators | Done | `worker/src/validation/tasks.ts` — pure validators split from HTTP handlers (SRP) |
+| Dashboard shared formatters | Done | `dashboard/src/lib/taskFormatters.js`, `dateFormatters.js`, `workerClient.js` — DRY extraction |
 
 ### Execution & contracts layer (v0.5.3+)
 
@@ -135,6 +142,8 @@ The repository research in `specs/` clarifies where the next implementation effo
 2. Reduce control-plane duplication between script-driven runtime flows and contract-driven runtime flows.
 3. Break the Worker surface into smaller, testable modules before additional endpoint growth.
 4. Keep the build pipeline deterministic while expanding emitted runtime metadata for task-centric execution.
+
+**Status (2026-03-23):** Internal modularity/cohesion refactoring complete — 5 SRP/DRY/DIP violations resolved (see runtime layer table above). Remaining highest-leverage track: staging the weak-start → strong-resume `review_repository` journey (Milestone 1).
 
 These tracks are grounded in:
 
@@ -1173,6 +1182,7 @@ Additional implementation (2026-03-17):
 - [x] Session-start hook: queries Worker KV for active tasks to surface resume opportunities
 - [x] Momentum Engine (v0.8.0): narrator, observer, shelf, intent lexicon, and reflector — all 6 slices complete
 - [x] `momentum-reflect` skill: enables `/momentum-reflect` and `/loop 10m /momentum-reflect` self-improvement workflow
+- [x] Modularity/cohesion refactoring (2026-03-23): 5 SRP/DRY/DIP violations resolved across runtime, Worker, build, and dashboard layers; 63 new tests added
 
 ---
 
