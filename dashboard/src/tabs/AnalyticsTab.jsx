@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 
-// ── Data helpers ──────────────────────────────────────────────────────────────
+// -- Data helpers --------------------------------------------------------------
 
 function aggregateMetrics(metrics) {
   const counts = {}
@@ -29,7 +29,7 @@ function scoreDeltaLabel(improved_by) {
   return `${improved_by}pp`
 }
 
-// ── Shared primitives ─────────────────────────────────────────────────────────
+// -- Shared primitives --------------------------------------------------------─
 
 function SectionHeader({ title, subtitle, count }) {
   return (
@@ -77,13 +77,13 @@ function RefreshBar({ lastFetched, onRefresh }) {
         className="text-gray-600 hover:text-gray-400 text-xs transition-colors"
         title="Refresh all sections"
       >
-        ↻ Refresh
+        refresh Refresh
       </button>
     </div>
   )
 }
 
-// ── Tool usage section ────────────────────────────────────────────────────────
+// -- Tool usage section --------------------------------------------------------
 
 function ToolUsageSection({ metrics, loading }) {
   const aggregated = aggregateMetrics(metrics)
@@ -123,7 +123,7 @@ function ToolUsageSection({ metrics, loading }) {
   )
 }
 
-// ── Skill effectiveness section ───────────────────────────────────────────────
+// -- Skill effectiveness section ----------------------------------------------─
 
 function SkillEffectivenessSection({ skillData, loading }) {
   const skills = skillData?.skills || []
@@ -167,7 +167,7 @@ function SkillEffectivenessSection({ skillData, loading }) {
                   className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
                   title={`Run /autoresearch on ${skill} to improve its output-used rate`}
                 >
-                  → /autoresearch
+                  -> /autoresearch
                 </span>
               )}
             </div>
@@ -178,7 +178,7 @@ function SkillEffectivenessSection({ skillData, loading }) {
   )
 }
 
-// ── Autoresearch runs section ─────────────────────────────────────────────────
+// -- Autoresearch runs section ------------------------------------------------─
 
 function StatusBadge({ status }) {
   const cls = status === "complete"
@@ -211,7 +211,7 @@ function AutoresearchSection({ runs, loading }) {
       <SectionHeader
         title="Autoresearch Runs"
         count={runs.length > 0 ? runs.length : null}
-        subtitle="Autonomous skill optimisation — baseline score (grey) + gain (green)."
+        subtitle="Autonomous skill optimisation - baseline score (grey) + gain (green)."
       />
       {loading ? (
         <SectionSkeleton rows={3} />
@@ -248,7 +248,7 @@ function AutoresearchSection({ runs, loading }) {
   )
 }
 
-// ── Root tab ──────────────────────────────────────────────────────────────────
+// -- Root tab ------------------------------------------------------------------
 
 export default function AnalyticsTab({ api }) {
   const [metrics, setMetrics] = useState([])
@@ -259,32 +259,43 @@ export default function AnalyticsTab({ api }) {
 
   const fetchAll = useCallback(() => {
     setLoading({ tools: true, skills: true, autoresearch: true })
+    let anySuccess = false
 
-    fetch(`${api}/analytics`)
-      .then(r => r.json())
+    // Returns a promise that resolves to parsed JSON or rejects on HTTP error / timeout.
+    function fetchJson(url) {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 10000)
+      return fetch(url, { signal: controller.signal })
+        .then(r => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`)
+          return r.json()
+        })
+        .finally(() => clearTimeout(timer))
+    }
+
+    fetchJson(`${api}/analytics`)
       .then(d => {
-        setMetrics(d.metrics || [])
-        setLoading(prev => ({ ...prev, tools: false }))
+        if (Array.isArray(d.metrics)) { setMetrics(d.metrics); anySuccess = true }
       })
-      .catch(() => setLoading(prev => ({ ...prev, tools: false })))
+      .catch(() => {})
+      .finally(() => setLoading(prev => ({ ...prev, tools: false })))
 
-    fetch(`${api}/skill-analytics`)
-      .then(r => r.json())
+    fetchJson(`${api}/skill-analytics`)
       .then(d => {
-        setSkillData(d)
-        setLoading(prev => ({ ...prev, skills: false }))
+        if (d && typeof d === 'object') { setSkillData(d); anySuccess = true }
       })
-      .catch(() => setLoading(prev => ({ ...prev, skills: false })))
+      .catch(() => {})
+      .finally(() => setLoading(prev => ({ ...prev, skills: false })))
 
-    fetch(`${api}/autoresearch-runs`)
-      .then(r => r.json())
+    fetchJson(`${api}/autoresearch-runs`)
       .then(d => {
-        setArRuns(d.runs || [])
+        if (Array.isArray(d.runs)) { setArRuns(d.runs); anySuccess = true }
+      })
+      .catch(() => {})
+      .finally(() => {
         setLoading(prev => ({ ...prev, autoresearch: false }))
+        if (anySuccess) setLastFetched(new Date().toLocaleTimeString())
       })
-      .catch(() => setLoading(prev => ({ ...prev, autoresearch: false })))
-
-    setLastFetched(new Date().toLocaleTimeString())
   }, [api])
 
   useEffect(() => { fetchAll() }, [fetchAll])

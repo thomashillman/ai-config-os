@@ -21,10 +21,25 @@ dependencies:
   apis: []
   models:
     - "sonnet"
+    - "haiku"
 examples:
   - input: "Show skill effectiveness"
     output: "Ranked table of skills by output-used rate with counts"
     expected_model: "sonnet"
+variants:
+  sonnet:
+    prompt_file: "prompts/balanced.md"
+    description: "Full report with improvement suggestions for low-use-rate skills"
+    cost_factor: 1.0
+    latency_baseline_ms: 300
+  haiku:
+    prompt_file: "prompts/brief.md"
+    description: "Compact table only; one-word flag per low-use-rate skill"
+    cost_factor: 0.3
+    latency_baseline_ms: 150
+  fallback_chain:
+    - "sonnet"
+    - "haiku"
 capabilities:
   required:
     - "fs.read"
