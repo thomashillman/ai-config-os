@@ -1,9 +1,9 @@
 /**
- * Observation read model: unified loader for observations from all sources
+ * Observation read model: unified loader and summarizer
  *
- * Loads and aggregates observations (bootstrap telemetry, tool usage, skill outcomes, etc.)
- * from the .ai-config-os logs directory and project .claude directory, applies filtering/limits,
- * and returns a snapshot with events and summary counts.
+ * Two complementary functions:
+ * 1. loadObservationSnapshot: reads raw observations from disk (bootstrap telemetry, tool usage)
+ * 2. summarizeObservations: computes engagement metrics from Momentum observer events in ProgressEventStore
  */
 
 import { join } from 'node:path';
@@ -122,4 +122,58 @@ function updateSummary(summary, event) {
   }
 
   // Add other event type handling here as needed
+}
+
+/**
+ * Summarize observations for a task, computing engagement and upgrade metrics.
+ *
+ * @param {object} deps
+ * @param {ProgressEventStore} deps.store - ProgressEventStore instance
+ * @param {string} deps.taskId - Task to summarize
+ * @returns {object} Summary with narration_engagement_rate and upgrade_acceptance_rate
+ */
+export function summarizeObservations({ store, taskId } = {}) {
+  if (!store || !taskId) {
+    throw new Error('store and taskId are required');
+  }
+
+  const events = store.listByTaskId(taskId) || [];
+
+  // Separate narrations and responses
+  const narrations = events.filter((e) => e.type === 'narration_shown');
+  const responses = events.filter((e) => e.type === 'user_response');
+
+  // Engagement rate: across all narrations
+  const totalNarrations = narrations.length;
+  const engagedCount = responses.filter(
+    (r) => r.metadata?.response_type === 'engaged',
+  ).length;
+
+  // Upgrade acceptance rate: only onUpgradeAvailable narrations
+  const upgradeNarrations = narrations.filter(
+    (n) => n.metadata?.narration_point === 'onUpgradeAvailable',
+  );
+  const totalUpgradeProposals = upgradeNarrations.length;
+
+  const acceptedUpgrades = responses.filter((r) => {
+    if (r.metadata?.response_type !== 'accepted_upgrade') {
+      return false;
+    }
+    // Check if this response links to an upgrade narration
+    const linkedNarration = upgradeNarrations.find(
+      (n) => n.event_id === r.metadata?.narration_event_id,
+    );
+    return !!linkedNarration;
+  }).length;
+
+  return {
+    total_narrations: totalNarrations,
+    total_engaged: engagedCount,
+    narration_engagement_rate:
+      totalNarrations > 0 ? engagedCount / totalNarrations : 0,
+    total_upgrade_proposals: totalUpgradeProposals,
+    total_upgrades_accepted: acceptedUpgrades,
+    upgrade_acceptance_rate:
+      totalUpgradeProposals > 0 ? acceptedUpgrades / totalUpgradeProposals : 0,
+  };
 }
