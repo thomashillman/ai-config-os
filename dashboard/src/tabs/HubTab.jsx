@@ -1,25 +1,9 @@
 import { useState, useEffect } from "react"
 import ResumeSheet from "../components/ResumeSheet"
 import TaskDetailTab from "./TaskDetailTab"
-
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "https://ai-config-os.workers.dev"
-
-function routeLabel(route) {
-  if (route === "local_repo") return "Full"
-  if (route === "github_pr") return "Cloud · PR"
-  return "Cloud"
-}
-
-function timeAgo(iso) {
-  if (!iso) return ""
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return "just now"
-  if (mins < 60) return `${mins} min ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
+import { WORKER_URL } from "../lib/workerClient"
+import { routeLabel } from "../lib/taskFormatters"
+import { timeAgo } from "../lib/dateFormatters"
 
 // The most meaningful status summary for the right side of the card
 function taskStatusSummary(task) {
