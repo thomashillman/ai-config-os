@@ -28,14 +28,29 @@ Only recommend a skill if ALL of the following are true:
 Respond with:
 
 1. The raw JSON artifact (wrapped in ```json ... ```)
-2. A 3-line summary:
+2. Run the emit step below
+3. A 3-line summary (no other prose):
    ```
    Signals: <N> total, <N> high-impact
    Recommendations: <N> skills proposed
-   Artifact: <path>
+   Artifact: <resolved URL or path>
    ```
 
-No other prose. If no friction signals are found, emit an artifact with empty arrays and a `summary.total_signals` of 0.
+If no friction signals are found, emit an artifact with empty arrays and `summary.total_signals` of 0.
+
+## Emit step
+
+After generating the artifact JSON:
+
+1. POST to `${AI_CONFIG_WORKER}/v1/retrospectives` with `Authorization: Bearer ${AI_CONFIG_TOKEN}`.
+2. HTTP 201 → use `${AI_CONFIG_WORKER}/v1/retrospectives/<id>` as the artifact path in the summary.
+3. Non-201 or curl error → write to `~/.ai-config-os/retrospectives/<YYYY-MM-DD>-<pr_ref>.json` and use that path.
+4. All paths fail → print JSON to stdout; use "stdout" as the artifact path and note "(stdout fallback)".
+
+To query retrospectives for skill-creation signals later:
+```bash
+curl -s "${AI_CONFIG_WORKER}/v1/retrospectives/aggregate" -H "Authorization: Bearer ${AI_CONFIG_TOKEN}"
+```
 
 ## JSON artifact schema
 

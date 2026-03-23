@@ -9,17 +9,18 @@ status: experimental
 
 capabilities:
   required:
-    - fs.write
+    - network.http
   optional:
+    - fs.write
     - fs.read
     - git.read
   fallback_mode: prompt-only
-  fallback_notes: "Can analyze pasted conversation without filesystem access; artifact printed to stdout."
+  fallback_notes: "If Worker call fails, writes artifact locally to ~/.ai-config-os/retrospectives/. Prints to stdout if fs.write also unavailable."
 
 platforms:
   claude-web:
     mode: degraded
-    notes: "fs.write unavailable; artifact printed to stdout instead of written to disk."
+    notes: "network.http available; fs.write unavailable. Worker path preferred; stdout fallback if Worker unreachable."
 
 inputs:
   - name: pr_ref
@@ -47,7 +48,7 @@ dependencies:
 
 examples:
   - input: "Run post-merge retrospective for PR #42"
-    output: "Artifact written to ~/.ai-config-os/retrospectives/2026-03-23-pr42.json with 3 friction signals and 2 skill recommendations"
+    output: "Artifact stored at ${AI_CONFIG_WORKER}/v1/retrospectives/2026-03-23-42 with 3 friction signals and 2 skill recommendations"
     expected_model: haiku
 
 variants:
@@ -175,18 +176,33 @@ Emit each recommendation with:
 - `priority` — `high | medium | low`
 - `estimated_reuse` — `once | occasional | frequent`
 
-### Step 4: Write the artifact
+### Step 4: Emit the artifact
 
-Default output path: `~/.ai-config-os/retrospectives/<YYYY-MM-DD>-<pr_ref>.json`
+POST to the Worker (requires `$AI_CONFIG_TOKEN` and `$AI_CONFIG_WORKER`):
 
-Validate against `schema/artifact.schema.json` before writing. If `fs.write` is unavailable, print the JSON to stdout.
+```bash
+HTTP_STATUS=$(curl -s -o /tmp/retro-response.json -w "%{http_code}" \
+  -X POST "${AI_CONFIG_WORKER}/v1/retrospectives" \
+  -H "Authorization: Bearer ${AI_CONFIG_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '<artifact-json>')
+```
+
+- HTTP 201: read `id` from `/tmp/retro-response.json`; artifact URL is `${AI_CONFIG_WORKER}/v1/retrospectives/<id>`
+- Non-201 or curl failure: write locally to `~/.ai-config-os/retrospectives/<YYYY-MM-DD>-<pr_ref>.json`
+- No `fs.write`: print JSON to stdout and note "stdout fallback"
+
+To query for skill signals across all recent retrospectives:
+```bash
+curl -s "${AI_CONFIG_WORKER}/v1/retrospectives/aggregate" \
+  -H "Authorization: Bearer ${AI_CONFIG_TOKEN}"
+```
 
 Print a concise summary:
 ```
-Post-merge retrospective: PR #<N>
-  <X> friction signals (<Y> high-impact)
-  <Z> skill recommendations
-  Artifact: <path>
+Signals: <N> total, <N> high-impact
+Recommendations: <N> skills proposed
+Artifact: <Worker-URL>/v1/retrospectives/<id>   [or local path / stdout on fallback]
 ```
 
 ## Hook configuration
