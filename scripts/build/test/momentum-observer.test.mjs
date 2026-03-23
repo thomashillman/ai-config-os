@@ -218,3 +218,34 @@ test('follow_up response includes follow_up_text', () => {
 
   assert.equal(event.metadata.follow_up_text, 'What about the security implications?');
 });
+
+test('repeated narration emissions do not collide', () => {
+  const store = new ProgressEventStore();
+  const observer = new MomentumObserver({ progressEventStore: store });
+
+  const snapshot = taskSnapshot();
+  const output = narratorOutput();
+
+  const event1 = observer.recordNarration({
+    taskId: 'task_review_001',
+    narrationPoint: 'onStart',
+    templateVersion: '1.0.0',
+    narratorOutput: output,
+    taskSnapshot: snapshot,
+  });
+
+  const event2 = observer.recordNarration({
+    taskId: 'task_review_001',
+    narrationPoint: 'onStart',
+    templateVersion: '1.0.0',
+    narratorOutput: output,
+    taskSnapshot: snapshot,
+  });
+
+  assert.notEqual(event1.event_id, event2.event_id, 'event IDs should be different');
+
+  const events = store.listByTaskId('task_review_001');
+  assert.equal(events.length, 2, 'both narration events should be stored');
+  assert.equal(events[0].type, 'narration_shown');
+  assert.equal(events[1].type, 'narration_shown');
+});
