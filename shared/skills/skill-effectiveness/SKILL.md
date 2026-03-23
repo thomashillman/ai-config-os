@@ -70,7 +70,7 @@ The hook records two outcome types per skill invocation:
 | Outcome | Meaning |
 |---|---|
 | `output_used` | Skill output was followed by an Edit or Write within 10 minutes |
-| `output_replaced` | Another skill was invoked before any edit — output discarded |
+| `output_replaced` | Another skill was invoked before any edit - output discarded |
 
 This skill reads `~/.claude/skill-analytics/skill-outcomes.jsonl`, aggregates
 per-skill counts, and produces a ranked report.
@@ -99,7 +99,7 @@ improvement, or the skill is being invoked in contexts where it cannot help.
 
 1. Read `~/.claude/skill-analytics/skill-outcomes.jsonl` (each line is JSON with
    `skill`, `outcome`, `timestamp`, `session_id`).
-2. If the file is missing or empty, report: "No outcome data yet — the
+2. If the file is missing or empty, report: "No outcome data yet - the
    skill-outcome-tracker hook has not recorded any events."
 3. Aggregate per skill: count `output_used` and `output_replaced` events.
 4. Filter out skills with fewer than `$ARGUMENTS` total events (default: 1).

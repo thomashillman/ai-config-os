@@ -2,14 +2,14 @@
 # PostToolUse hook: track whether a skill's output was acted on
 #
 # Maintains a "pending skill" in /tmp so we can detect the pattern:
-#   Skill invoked → Edit or Write in same session → outcome "output_used"
-#   Skill invoked → another Skill before any edit → outcome "output_replaced"
+#   Skill invoked -> Edit or Write in same session -> outcome "output_used"
+#   Skill invoked -> another Skill before any edit -> outcome "output_replaced"
 #
 # Output: JSONL appended to ~/.claude/skill-analytics/skill-outcomes.jsonl
 
 set -euo pipefail
 
-# jq required — exit silently to avoid interfering with normal tool flow
+# jq required -- exit silently to avoid interfering with normal tool flow
 if ! command -v jq &>/dev/null; then
   exit 0
 fi
@@ -30,7 +30,7 @@ PENDING_FILE="${COUNTER_DIR}/${SESSION_ID}-skill-pending.json"
 
 TOOL=$(echo "$INPUT" | jq -r '.tool_name // "unknown"' 2>/dev/null || echo "unknown")
 
-# ── Helper: record an outcome and clear pending ──────────────────────────────
+# Helper: record an outcome and clear pending
 record_outcome() {
   local skill="$1"
   local outcome="$2"
@@ -40,7 +40,7 @@ record_outcome() {
   rm -f "$PENDING_FILE"
 }
 
-# ── 1. Another Skill call — resolve any previous pending first ───────────────
+# 1. Another Skill call -- resolve any previous pending first
 if [[ "$TOOL" == "Skill" ]]; then
   INVOKED_SKILL=$(echo "$INPUT" | jq -r '.tool_input.skill // .tool_input.name // "unknown"' 2>/dev/null || echo "unknown")
 
@@ -57,7 +57,7 @@ if [[ "$TOOL" == "Skill" ]]; then
   exit 0
 fi
 
-# ── 2. Edit or Write — mark pending skill as output_used ────────────────────
+# 2. Edit or Write -- mark pending skill as output_used
 if [[ "$TOOL" == "Edit" || "$TOOL" == "Write" ]]; then
   if [[ -f "$PENDING_FILE" ]]; then
     # Guard: only count if the skill was invoked within the last 10 minutes
@@ -77,7 +77,7 @@ if [[ "$TOOL" == "Edit" || "$TOOL" == "Write" ]]; then
       if [[ "$ELAPSED" -le 600 ]]; then
         record_outcome "$PENDING_SKILL" "output_used"
       else
-        # Stale pending (>10 min) — discard silently
+        # Stale pending (>10 min) -- discard silently
         rm -f "$PENDING_FILE"
       fi
     fi

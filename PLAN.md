@@ -23,16 +23,16 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | Area | Version | Notes |
 |---|---|---|
 | Repo scaffold, .gitignore, marketplace.json | v0.1.0 | Phase 1 |
-| core-skills plugin.json | v0.5.4 | 26 skills, all symlinked |
-| shared/manifest.md (skill index) | — | 26 skills, 2 workflows listed |
+| core-skills plugin.json | v0.5.4 | 28 skills, all symlinked |
+| shared/manifest.md (skill index) | — | 28 skills, 2 workflows listed |
 | shared/principles.md | — | Opinionated AI behaviour defaults |
 | adapters/claude/dev-test.sh | — | Non-interactive validation |
 | CLAUDE.md (dev context) | — | Extended with self-improvement, portability contract, delivery contract, CI pitfalls |
 | README.md | — | Full getting-started, architecture, troubleshooting |
 | .github/workflows/ | — | `validate.yml` (structure), `build.yml` (compile + test + dist artifact) |
-| .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics |
+| .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics, skill-outcome-tracker |
 
-### Skills (26 total, all with multi-model variants)
+### Skills (28 total)
 
 | Skill | Type | Phase |
 |---|---|---|
@@ -42,8 +42,9 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify | prompt/agent | Phase 7 |
 | task-start, task-save, task-resume | agent | Phase 10 (KV persistence) |
 | momentum-reflect | agent | Phase 10 (Momentum Engine) |
+| skill-effectiveness, autoresearch | prompt/agent | Phase 10 (Skill Analytics) |
 
-All 26 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured capability contracts, tests defined in frontmatter.
+All 28 skills have: YAML frontmatter, structured capability contracts, tests defined in frontmatter.
 
 ### Workflows (5 total)
 
