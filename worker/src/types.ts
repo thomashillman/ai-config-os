@@ -28,6 +28,7 @@ export interface Env {
   };
   ARTEFACTS_R2?: {
     get(key: string): Promise<{ text(): Promise<string> } | null> | { text(): Promise<string> } | null;
+    put(key: string, value: string): Promise<void>;
   };
 }
 
