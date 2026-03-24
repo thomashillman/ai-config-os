@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
-
-const WORKER_URL = import.meta.env.VITE_WORKER_URL || "https://ai-config-os.workers.dev"
+import { WORKER_URL } from "../lib/workerClient"
+import { summarizeTaskFindings } from "../lib/taskFindingSummary"
 
 // Human-readable label for where a session was created
 function sessionOriginLabel(route) {
@@ -32,12 +32,7 @@ export default function ResumeSheet({ task, onClose }) {
     task.current_route  // placeholder — hub doesn't know the viewing device's route
   )
 
-  const findings = task.findings || []
-  const openFindings = findings.filter(f =>
-    f.type !== "question" &&
-    (f.provenance?.status === "hypothesis" || f.provenance?.status === "reused")
-  )
-  const openQuestions = findings.filter(f => f.type === "question")
+  const { openFindings, openQuestions } = summarizeTaskFindings(task.findings)
 
   useEffect(() => {
     if (navigator.clipboard) {

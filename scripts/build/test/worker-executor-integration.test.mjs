@@ -185,7 +185,7 @@ async function sendProxyRequest(port, fixture, { tamperSignature = false } = {})
 
 test('worker-executor integration: valid signed request -> allowed tool -> successful response', async () => {
   const exec = await startExecutorDouble();
-  const proxy = await startWorkerProxy({ executorPort: exec.port });
+  const proxy = await startWorkerProxy({ executorPort: exec.port, timeoutMs: 5000 });
 
   try {
     const { response, json } = await sendProxyRequest(proxy.port, fixtures.valid);

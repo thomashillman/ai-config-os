@@ -22,7 +22,7 @@
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, posix, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -45,7 +45,7 @@ function readAllFiles(dirPath, basePath = '') {
     for (const entry of entries) {
       const fullPath = join(dirPath, entry.name);
       const relativePath = basePath
-        ? join(basePath, entry.name)
+        ? posix.join(basePath, entry.name)
         : entry.name;
 
       if (entry.isDirectory()) {
@@ -122,6 +122,39 @@ function assertCloudflareUploadSucceeded(result, key) {
     throw new Error(`Failed to upload ${key}: ${failureDetail}`);
   }
 }
+
+function uploadPackageKey({
+  accountId,
+  apiToken,
+  kvNamespaceId,
+  key,
+  jsonStr,
+  runner,
+}) {
+  const curlCmd = [
+    '-s',
+    '-S',
+    '--fail-with-body',
+    '-X',
+    'PUT',
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${kvNamespaceId}/values/${encodeURIComponent(key)}`,
+    '-H',
+    `Authorization: Bearer ${apiToken}`,
+    '-H',
+    'Content-Type: application/octet-stream',
+    '--data-binary',
+    '@-',
+  ];
+
+  const result = runner('curl', curlCmd, {
+    encoding: 'utf8',
+    input: jsonStr,
+    maxBuffer: 50 * 1024 * 1024,
+  });
+
+  assertCloudflareUploadSucceeded(result, key);
+}
+
 
 export function buildSkillsPackage({ distDir = DEFAULT_DIST_DIR, logger = console.log } = {}) {
   const pluginPath = join(distDir, '.claude-plugin', 'plugin.json');
@@ -214,53 +247,25 @@ export function uploadToKV(pkg, { env = process.env, runner = spawnSync, logger 
 
   // Upload versioned key
   logger(`  → ${versionedKey}`);
-  const curlCmd1 = [
-    'curl',
-    '-s',
-    '-S',
-    '--fail-with-body',
-    '-X',
-    'PUT',
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${kvNamespaceId}/values/${encodeURIComponent(versionedKey)}`,
-    '-H',
-    `Authorization: Bearer ${apiToken}`,
-    '-H',
-    'Content-Type: application/octet-stream',
-    '--data-binary',
-    `@-`,
-  ];
-
-  const result1 = runner('bash', ['-c', `echo '${jsonStr.replace(/'/g, '\'"\'"\'')}' | ${curlCmd1.join(' ')}`], {
-    encoding: 'utf8',
-    maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large responses
+  uploadPackageKey({
+    accountId,
+    apiToken,
+    kvNamespaceId,
+    key: versionedKey,
+    jsonStr,
+    runner,
   });
-
-  assertCloudflareUploadSucceeded(result1, versionedKey);
 
   // Upload latest pointer
   logger(`  → ${latestKey}`);
-  const curlCmd2 = [
-    'curl',
-    '-s',
-    '-S',
-    '--fail-with-body',
-    '-X',
-    'PUT',
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${kvNamespaceId}/values/${encodeURIComponent(latestKey)}`,
-    '-H',
-    `Authorization: Bearer ${apiToken}`,
-    '-H',
-    'Content-Type: application/octet-stream',
-    '--data-binary',
-    `@-`,
-  ];
-
-  const result2 = runner('bash', ['-c', `echo '${jsonStr.replace(/'/g, '\'"\'"\'')}' | ${curlCmd2.join(' ')}`], {
-    encoding: 'utf8',
-    maxBuffer: 50 * 1024 * 1024,
+  uploadPackageKey({
+    accountId,
+    apiToken,
+    kvNamespaceId,
+    key: latestKey,
+    jsonStr,
+    runner,
   });
-
-  assertCloudflareUploadSucceeded(result2, latestKey);
 
   logger(`\n✓ Skills package ${version} uploaded to KV`);
 }

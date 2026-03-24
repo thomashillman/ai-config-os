@@ -16,23 +16,29 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — v0.5.4+, updated 2026-03-17
+## Current state — Phase 10 milestone, updated 2026-03-24
+
+Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels in this plan track delivery checkpoints.
+
+Last reconciled: 2026-03-24 (skills/tests/tabs/platform inventory claims verified against repository source-of-truth).
 
 ### Completed infrastructure
 
 | Area | Version | Notes |
 |---|---|---|
 | Repo scaffold, .gitignore, marketplace.json | v0.1.0 | Phase 1 |
-| core-skills plugin.json | v0.5.4 | 26 skills, all symlinked |
-| shared/manifest.md (skill index) | — | 26 skills, 2 workflows listed |
+| core-skills plugin.json | v0.5.4 | Inventory source is `shared/skills/*/SKILL.md`; 34 installable skills currently materialized (excluding `_template`) |
+| shared/manifest.md (skill index) | — | Mirrors current `shared/skills/*/SKILL.md` inventory (34 installable skills, excluding `_template`) plus workflows/components |
 | shared/principles.md | — | Opinionated AI behaviour defaults |
 | adapters/claude/dev-test.sh | — | Non-interactive validation |
 | CLAUDE.md (dev context) | — | Extended with self-improvement, portability contract, delivery contract, CI pitfalls |
 | README.md | — | Full getting-started, architecture, troubleshooting |
 | .github/workflows/ | — | `validate.yml` (structure), `build.yml` (compile + test + dist artifact) |
-| .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics |
+| .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics, skill-outcome-tracker |
 
-### Skills (26 total, all with multi-model variants)
+### Skills (34 installable total from `shared/skills/*/SKILL.md`, excluding `_template`)
+
+Canonical declaration format (validated in CI): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
 
 | Skill | Type | Phase |
 |---|---|---|
@@ -41,9 +47,14 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 | debug, changelog, task-decompose, explain-code, skill-audit, release-checklist | prompt/agent/workflow-blueprint | Phase 6 |
 | memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify | prompt/agent | Phase 7 |
 | task-start, task-save, task-resume | agent | Phase 10 (KV persistence) |
-| momentum-reflect | agent | Phase 10 (Momentum Engine) |
+| momentum-reflect | agent | Phase 10 (Momentum Engine skill surface) |
+| list-available-skills, surface-probe | prompt/agent | Phase 10 (Runtime visibility + surface diagnostics) |
+| failed-build-analysis, ci-conditional-audit, lockfile-audit | prompt/agent | Phase 10 (CI/build reliability) |
+| post-merge-retrospective | prompt/agent | Phase 10 (Post-merge process improvement) |
+| skill-effectiveness, autoresearch | prompt/agent | Phase 10 (Skill Analytics) |
 
-All 26 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured capability contracts, tests defined in frontmatter.
+All 34 installable skills in `shared/skills/*/SKILL.md` (excluding `_template`) have: YAML frontmatter, structured capability contracts, and tests defined in frontmatter.
+skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 
 ### Workflows (5 total)
 
@@ -62,7 +73,7 @@ All 26 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 | Compiler (`scripts/build/compile.mjs`) | Done | Validates skills, resolves compatibility, emits `dist/` |
 | Skill schema (`schemas/skill.schema.json`) | Done | JSON Schema draft 2020-12; package manifest + adapter hints |
 | Platform schema (`schemas/platform.schema.json`) | Done | Capability state definitions |
-| Platform definitions (5 platforms) | Done | claude-code, claude-web, claude-ios, codex, cursor |
+| Platform definitions (14 targets) | Done | Canonical target definitions in `shared/targets/platforms/*.yaml` (including claude-code/web/ios, codex, cursor, and CI/IDE variants) |
 | Capability-driven compatibility resolver | Done | Skills declare required/optional caps; compiler resolves |
 | Claude Code emitter | Done | Full package: plugin.json + skill copies + prompts/ |
 | Cursor emitter | Done | .cursorrules from compatible skills with degradation notes |
@@ -87,7 +98,10 @@ All 26 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 | MCP runtime | — | Tool definitions, security, dashboard API |
 | Worker contract | — | Endpoint routing, version pointers, executor integration |
 | Remote executor | — | Security, error handling |
-| **Total test files** | **70+** | `scripts/build/test/` |
+| Modularity refactoring | 46 (4 files) | task-shared, kv-persistence, load-runtime-data, worker-task-validators |
+| Dashboard formatters | 17 (2 files) | taskFormatters, dateFormatters |
+| Worker retrospectives | 20 (1 file) | deriveRetrospectiveId, writeRetrospectiveArtifact, listRetrospectives, getRetrospectiveArtifact, aggregateRetrospectives |
+| **Total test files** | **134** | `scripts/build/test/` + `dashboard/src/__tests__/` + `worker/src/` |
 
 ### Runtime layer (v0.5.0+)
 
@@ -99,13 +113,19 @@ All 26 skills have: YAML frontmatter, opus/sonnet/haiku variants, structured cap
 | Sync engine | Done | `runtime/sync.sh` with manifest state tracking, dry-run |
 | Watch mode | Done | `runtime/watch.sh` — auto-sync on config changes |
 | MCP server | Done | `runtime/mcp/server.js` — exposes runtime ops as Claude Code tools |
-| Dashboard API | Done | `runtime/mcp/dashboard-api.mjs` with tunnel security |
-| React dashboard | Done | `dashboard/` — 8 tabs: Tools, Skills, Context Cost, Config, Audit, Analytics, Hub, Task Detail |
+| Dashboard API | Done | `runtime/mcp/dashboard-api.mjs` with tunnel security; `/api/analytics` and `/api/skill-analytics` unified through observation read model; `/api/retrospectives-summary` returns cached friction signals and skill recommendations |
+| Observation read model | Done | `runtime/lib/observation-read-model.mjs` — unified snapshot wiring skill-outcomes (5 MB tail-read), retrospectives, bootstrap telemetry, and tool-usage sources |
+| React dashboard | Done | `dashboard/` — 8 top-level tabs: Tasks, Tools, Skills, Context Cost, Config, Audit, Analytics, Bootstrap Runs (Task Detail is nested within Tasks); Analytics tab has 4 sections including Friction Signals (bar chart + top-5 skill recommendations) |
 | Ops tools | Done | `ops/runtime-status.sh`, `ops/validate-all.sh`, etc. |
 | KV-backed task store | Done | `runtime/lib/task-store-kv.mjs` — portable task persistence via Cloudflare KV |
 | Worker task store adapter | Done | `runtime/lib/task-store-worker.mjs` — thin Worker-side adapter over KV store |
 | Worker task control plane service | Done | `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer |
-| Session-start task resumption | Done | `.claude/hooks/session-start.sh` — queries Worker KV for active tasks on session start |
+| Session-start task resumption | Done | `.claude/hooks/session-start.sh` — queries Worker KV for active tasks on session start; background-fetches `/v1/retrospectives/aggregate` into cache (non-blocking, refreshes if absent or >6 days old) |
+| Shared task primitives | Done | `runtime/lib/task-shared.mjs` — error classes, readiness view, findings provenance (DRY extraction) |
+| KV persistence layer | Done | `runtime/lib/kv-persistence.mjs` — key builders, low-level KV helpers, index management (SRP extraction) |
+| Build-local runtime data loaders | Done | `scripts/build/lib/load-runtime-data.mjs` — decouples compiler from runtime imports (DIP) |
+| Worker task validators | Done | `worker/src/validation/tasks.ts` — pure validators split from HTTP handlers (SRP) |
+| Dashboard shared formatters | Done | `dashboard/src/lib/taskFormatters.js`, `dateFormatters.js`, `workerClient.js` — DRY extraction |
 
 ### Execution & contracts layer (v0.5.3+)
 
@@ -136,6 +156,8 @@ The repository research in `specs/` clarifies where the next implementation effo
 3. Break the Worker surface into smaller, testable modules before additional endpoint growth.
 4. Keep the build pipeline deterministic while expanding emitted runtime metadata for task-centric execution.
 
+**Status (2026-03-23):** Internal modularity/cohesion refactoring complete — 5 SRP/DRY/DIP violations resolved (see runtime layer table above). Remaining highest-leverage track: staging the weak-start → strong-resume `review_repository` journey (Milestone 1).
+
 These tracks are grounded in:
 
 - `specs/repository-research.md`
@@ -143,7 +165,7 @@ These tracks are grounded in:
 - `specs/worker-endpoint-inventory.md`
 - `specs/build-pipeline-research.md`
 
-### 1. Complete Phase 9.7 — Manifest-controlled runtime feature flags
+### 1. Historical completion record — Phase 9.7 manifest-controlled runtime feature flags
 
 **Version:** v0.5.4+
 **Status:** All 4 steps complete. ✓
@@ -168,7 +190,7 @@ These tracks are grounded in:
 - If outcome formatting regressions appear: set `outcome_resolution_enabled=false`
 - Rollback must be possible via manifest-only change (no code deploy required)
 
-### 2. Resolve hardcoded outcome resolver before MVA
+### 2. Historical completion record — hardcoded outcome resolver removal before MVA
 
 **Status:** T004–T005 complete (loader-backed resolver landed, deterministic/validation hardening added).
 
@@ -473,7 +495,7 @@ Before broadening to more task types or hosts:
 
 **Core principle:** The narrator is the product. Schemas serve the narrator, not the other way around. Every component exists to produce the exact right sentence at the exact right moment.
 
-**Version:** v0.8.0
+**Milestone tag:** Phase 10
 
 ### Architecture
 
@@ -1134,15 +1156,33 @@ Additional implementation (2026-03-17):
 | Windows support | Not needed now; watcher/service changes are isolatable |
 | Token-efficient registry (dist/registry/summary.json) | Nice-to-have; defer until Phase 9.7 and MVA complete |
 | Test harness for schema + policy + compiler integration | Defer until MVA stabilizes |
+| Codex hook parallel implementation | `.claude/settings.json` hooks (skill-usage, tool-inefficiency logging) are Claude Code-only. `codex-desktop` declares hook support (vendor-verified) but no equivalent hook wiring exists yet; `codex` CLI excludes hooks in v0.5.2. Implement once Codex Desktop hook surface is documented: wire `log-skill-usage.sh` and `log-tool-inefficiencies.sh` equivalents via Codex's lifecycle mechanism (likely `AGENTS.md` instructions or a Codex-native hook config). Acceptance: skill-usage analytics parity between Claude Code and Codex Desktop surfaces. |
 
 ---
 
 ## Acceptance criteria
 
-- [x] `claude plugin validate .` passes at repo root
-- [ ] Claude Code can add the marketplace and install `core-skills` (pending device test)
-- [ ] Installed plugin exposes expected skills (awaiting full validation)
-- [ ] Cross-device sync: push from device A, restart Claude Code on device B reflects changes
+### Operational validation evidence note (2026-03-24)
+
+Evidence artifacts captured from command runs (UTC ISO date):
+- `artifacts/evidence/2026-03-24/build-compile.log`
+- `artifacts/evidence/2026-03-24/env-a-claude.log`
+- `artifacts/evidence/2026-03-24/env-b-codex.log`
+- `artifacts/evidence/2026-03-24/cross-device-sync.log`
+- `artifacts/evidence/2026-03-24/claude-plugin-validate.log`
+- `artifacts/evidence/2026-03-24/pre-pr-mergeability-gate.log`
+
+- [ ] Marketplace add + `core-skills` install (Claude Code surface)
+  - [x] Local emitted `core-skills` package built successfully (`node scripts/build/compile.mjs`).
+  - [ ] Real Claude Code marketplace add/install flow blocked in this run (no `claude` binary and no interactive Claude Code UI in runner).
+  - Blocker owner: Platform/Ops (provide interactive Claude Code-capable device + auth token).
+- [x] Installed skill exposure verified on at least two real environments
+  - [x] Environment A (`claude-code` package): `extract` materialized 34 skills into local cache.
+  - [x] Environment B (`codex` package): `extract` + `install` wrote `~/.codex/AGENTS.md`; skill names verified in installed file (`list-available-skills`, `task-start`).
+- [ ] Cross-device sync: push from device A, restart on device B, verify sync
+  - [x] Push/pull sync verified using distinct device A/B clones against a bare remote; marker committed on A appeared on B.
+  - [ ] Post-sync “restart on device B” full re-materialization failed in fresh clone because build dependencies were absent (`ERR_MODULE_NOT_FOUND: yaml` during compile), so end-to-end restart validation remains incomplete.
+  - Blocker owner: Developer Experience/Build (ensure dependency bootstrap on fresh device before restart validation).
 - [x] `adapters/claude/dev-test.sh` runs clean
 - [x] CI validates plugin structure and symlink integrity on every push
 - [x] `ops/new-skill.sh <name>` creates skill, symlink, and bumps version
@@ -1168,10 +1208,11 @@ Additional implementation (2026-03-17):
 - [x] MVA: `review_repository` portable journey proven end-to-end
 - [x] Portable task persistence: KV-backed TaskStore (`runtime/lib/task-store-kv.mjs`) for cross-environment continuity
 - [x] Codex emitter: `scripts/build/lib/emit-codex.mjs` and `adapters/codex/materialise.sh`
-- [x] Dashboard: Hub and Task Detail tabs added (`dashboard/src/tabs/HubTab.jsx`, `TaskDetailTab.jsx`)
+- [x] Dashboard: Tasks tab and nested Task Detail view shipped (`dashboard/src/tabs/HubTab.jsx`, `TaskDetailTab.jsx`)
 - [x] Session-start hook: queries Worker KV for active tasks to surface resume opportunities
-- [x] Momentum Engine (v0.8.0): narrator, observer, shelf, intent lexicon, and reflector — all 6 slices complete
+- [x] Momentum Engine (Phase 10 milestone): narrator, observer, shelf, intent lexicon, and reflector — all 6 slices complete
 - [x] `momentum-reflect` skill: enables `/momentum-reflect` and `/loop 10m /momentum-reflect` self-improvement workflow
+- [x] Modularity/cohesion refactoring (2026-03-23): 5 SRP/DRY/DIP violations resolved across runtime, Worker, build, and dashboard layers; 63 new tests added
 
 ---
 
@@ -1228,7 +1269,7 @@ Deferred improvements: interop markers, sync guardrails, plugin splitting, backg
 
 **Branch:** `claude/phase-8-runtime-Z3Zo4`
 
-Three-tier config (global, machine, project) with field-level merge for MCPs. Tool registry (claude-code, cursor, codex) with adapter abstraction. Adapter layer: MCP, CLI, file adapters. Sync engine with manifest state tracking and dry-run. MCP server exposing runtime operations as Claude Code tools. React dashboard with 6 tabs. Updated session-start hook. Ops tools: runtime-status.sh, validate-registry.sh. CI integration.
+Three-tier config (global, machine, project) with field-level merge for MCPs. Tool registry (claude-code, cursor, codex) with adapter abstraction. Adapter layer: MCP, CLI, file adapters. Sync engine with manifest state tracking and dry-run. MCP server exposing runtime operations as Claude Code tools. React dashboard with 8 top-level tabs (Tasks, Tools, Skills, Context Cost, Config, Audit, Analytics, Bootstrap Runs) plus nested Task Detail in Tasks. Updated session-start hook. Ops tools: runtime-status.sh, validate-registry.sh. CI integration.
 </details>
 
 <details>
@@ -1292,7 +1333,7 @@ Multiple Codex-contributed branches merged to main:
 </details>
 
 <details>
-<summary>Phase 10: KV persistence + Momentum Engine (v0.8.0)</summary>
+<summary>Phase 10: KV persistence + Momentum Engine (milestone)</summary>
 
 **Branch:** merged to main 2026-03-17
 
@@ -1302,8 +1343,8 @@ Multiple Codex-contributed branches merged to main:
 - `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer (parallel to existing `task-control-plane-service.mjs`)
 - `worker/src/task-runtime.ts` — Worker task runtime wiring KV into the control plane
 - 3 new skills: `task-start`, `task-save`, `task-resume` — user-facing MCP skills for task lifecycle management
-- Dashboard Hub tab (`dashboard/src/tabs/HubTab.jsx`): active task list with shelf ranking
-- Dashboard Task Detail tab (`dashboard/src/tabs/TaskDetailTab.jsx`): task state, findings, route history
+- Dashboard Tasks tab (`dashboard/src/tabs/HubTab.jsx`): active task list with shelf ranking
+- Dashboard Task Detail nested view (`dashboard/src/tabs/TaskDetailTab.jsx`): task state, findings, route history
 - ResumeSheet component (`dashboard/src/components/ResumeSheet.jsx`): surfaces continuable tasks at session start
 - Session-start hook enhanced: queries `GET /v1/tasks?status=active&limit=1&updated_within=86400` on session start; presents resume prompt when active task found
 - Codex emitter (`scripts/build/lib/emit-codex.mjs`) and materialise adapter (`adapters/codex/materialise.sh`)
@@ -1360,10 +1401,17 @@ Multiple Codex-contributed branches merged to main:
 | `chatgpt-web` | `CLAUDE_CODE_ENTRYPOINT=web` (our runtime) | Yes (via Claude entrypoint) | prompt-only; no shell |
 | `chatgpt-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Yes (via Claude entrypoint) | prompt-only; no shell |
 
+`claude-ssh` stays distinct from `claude-code-remote` because plain SSH only proves a generic remote shell session, while `claude-code-remote` should win whenever `CLAUDE_CODE_REMOTE` is present and can safely imply Claude-managed remote runtime semantics.
+
 **Web/mobile fundamental limitation (confirmed by Codex/ChatGPT docs):**
 ChatGPT web, iOS, and Android code execution environments are intentionally surface-agnostic — they expose no `$CODEX_SURFACE`, `$VSCODE_*`, or equivalent env var to user code. Surface detection for these is only possible via entrypoint signals set by the Claude/Codex _runtime_ (not user code), or via compile-time package selection. The probe correctly relies on `CLAUDE_CODE_ENTRYPOINT` (runtime-set) for these surfaces. Skill filtering for web/mobile falls back to the compiled `compatible_platforms[]` list in the registry, not runtime probe results.
 
 **Probe already captures:** `platform_hint`, `surface_hint`, `hostname`, all capability results. Session-start hook already runs the probe in remote sessions. Registry already has per-platform capability definitions embedded.
+
+**Progress snapshot (2026-03-21):**
+- [x] Requested five platform YAMLs are complete.
+- [x] Deterministic runtime detection is complete for the supported runtime-detectable platforms.
+- [ ] SSH parity is **not** complete yet; keep it pending until the registry/emitter story exists.
 
 **What's missing (the 5 atoms):**
 
@@ -1613,12 +1661,11 @@ All 70+ tests pass. The new skill is in `dist/`. The probe correctly identifies 
 | `codex` (CLI/cloud) | `CODEX_CLI` env var OR `CODEX_SURFACE=cli` | Yes | Codex emitter | ✓ existing → **Atom B** | Partial |
 | `claude-web` | `CLAUDE_CODE_ENTRYPOINT=web` | Via Claude runtime only | Model only | ✓ | Model only |
 | `claude-ios` | `CLAUDE_CODE_ENTRYPOINT=remote_mobile` | Via Claude runtime only | Model only | ✓ | Model only |
-| `github-actions` | `GITHUB_ACTIONS=true` | Yes | **Atom A** | **Atom B** | Planned |
-| `gitlab-ci` | `GITLAB_CI=true` | Yes | **Atom A** | **Atom B** | Planned |
-| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | **Atom A** | **Atom B** | Planned |
-| `codex-desktop` | `CODEX_SURFACE=desktop` (Codex-set) | Yes | **Atom A** | **Atom B** | Planned |
-| `claude-desktop` | No unique env var (compile-time only) | No — registry filtering only | **Atom A** | n/a | Planned |
-| `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Planned |
+| `github-actions` | `GITHUB_ACTIONS=true` | Yes | **Atom A** | **Atom B** | Complete |
+| `gitlab-ci` | `GITLAB_CI=true` | Yes | **Atom A** | **Atom B** | Complete |
+| `claude-vscode` | `VSCODE_INJECTION` or `VSCODE_IPC_HOOK_CLI` | Yes | **Atom A** | **Atom B** | Complete |
+| `codex-desktop` | `CODEX_SURFACE=desktop` (Codex-set) | Yes | **Atom A** | **Atom B** | Complete |
+| `claude-desktop` | No unique env var (compile-time only) | No — registry filtering only | **Atom A** | n/a | Complete |
+| `claude-ssh` | `SSH_CONNECTION` (no `CLAUDE_CODE_REMOTE`) | Yes | future | **Atom B** | Pending registry story |
 | `chatgpt-web` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
 | `chatgpt-mobile` | No env var exposed to user code | No — sandboxed | future | n/a | Future |
-

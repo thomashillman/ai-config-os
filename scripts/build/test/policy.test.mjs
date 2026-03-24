@@ -6,7 +6,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { validateSkillPolicy, validatePlatformPolicy } from '../lib/validate-skill-policy.mjs';
@@ -147,9 +147,9 @@ describe('validatePlatformPolicy', () => {
 // ---------------------------------------------------------------------------
 
 describe('loadPlatforms', () => {
-  test('missing platform directory → error in errors array, not thrown', () => {
+  test('missing platform directory → error in errors array, not thrown', async () => {
     const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
-    const { platforms, errors } = loadPlatforms(fakeRoot);
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
     assert.equal(platforms.size, 0);
     assert.ok(errors.length > 0, 'Expected at least one error');
     assert.ok(
@@ -158,7 +158,7 @@ describe('loadPlatforms', () => {
     );
   });
 
-  test('valid platform yaml → populated Map, no errors', () => {
+  test('valid platform yaml → populated Map, no errors', async () => {
     const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
     const platformDir = join(fakeRoot, 'shared', 'targets', 'platforms');
     mkdirSync(platformDir, { recursive: true });
@@ -166,12 +166,19 @@ describe('loadPlatforms', () => {
       join(platformDir, 'test-platform.yaml'),
       'id: test-platform\ncapabilities:\n  git.read: { status: supported }\n'
     );
-    const { platforms, errors } = loadPlatforms(fakeRoot);
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
     assert.deepEqual(errors, []);
     assert.ok(platforms.has('test-platform'));
   });
 
-  test('yaml with id mismatch → error, platform not loaded', () => {
+  test('repo platform registry resolves claude-ssh definition', async () => {
+    const { platforms, errors } = await loadPlatforms(resolve(process.cwd()));
+    assert.deepEqual(errors, []);
+    assert.ok(platforms.has('claude-ssh'));
+    assert.equal(platforms.get('claude-ssh')?.surface, 'remote-shell');
+  });
+
+  test('yaml with id mismatch → error, platform not loaded', async () => {
     const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
     const platformDir = join(fakeRoot, 'shared', 'targets', 'platforms');
     mkdirSync(platformDir, { recursive: true });
@@ -179,18 +186,40 @@ describe('loadPlatforms', () => {
       join(platformDir, 'test-platform.yaml'),
       'id: wrong-id\ncapabilities:\n  git.read: { status: supported }\n'
     );
-    const { platforms, errors } = loadPlatforms(fakeRoot);
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
     assert.ok(errors.length > 0);
     assert.ok(!platforms.has('test-platform'));
   });
 
-  test('yaml missing id field → error', () => {
+  test('yaml missing id field → error', async () => {
     const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
     const platformDir = join(fakeRoot, 'shared', 'targets', 'platforms');
     mkdirSync(platformDir, { recursive: true });
     writeFileSync(join(platformDir, 'test-platform.yaml'), 'capabilities: {}\n');
-    const { platforms, errors } = loadPlatforms(fakeRoot);
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
     assert.ok(errors.some(e => e.includes("missing 'id'")));
     assert.equal(platforms.size, 0);
+  });
+
+  test('loadPlatforms is async and returns a Promise', async () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
+    const result = loadPlatforms(fakeRoot);
+    assert.ok(result instanceof Promise, 'loadPlatforms must return a Promise');
+    await result;
+  });
+
+  test('loads multiple platform yaml files concurrently → all entries in Map', async () => {
+    const fakeRoot = mkdtempSync(join(tmpdir(), 'ai-config-test-'));
+    const platformDir = join(fakeRoot, 'shared', 'targets', 'platforms');
+    mkdirSync(platformDir, { recursive: true });
+    writeFileSync(join(platformDir, 'alpha.yaml'), 'id: alpha\n');
+    writeFileSync(join(platformDir, 'beta.yaml'), 'id: beta\n');
+
+    const { platforms, errors } = await loadPlatforms(fakeRoot);
+
+    assert.deepEqual(errors, []);
+    assert.strictEqual(platforms.size, 2);
+    assert.ok(platforms.has('alpha'));
+    assert.ok(platforms.has('beta'));
   });
 });

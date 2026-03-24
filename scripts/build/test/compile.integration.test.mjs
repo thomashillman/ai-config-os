@@ -15,23 +15,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const COMPILE_MJS = resolve(__dirname, '..', 'compile.mjs');
 
-test('compile.mjs --validate-only exits 0 against real skills', () => {
-  const result = spawnSync(
-    process.execPath,
-    [COMPILE_MJS, '--validate-only'],
-    { cwd: REPO_ROOT, encoding: 'utf8' }
-  );
+// Run compiler once; both tests share the result.
+const compileResult = spawnSync(
+  process.execPath,
+  [COMPILE_MJS, '--validate-only'],
+  { cwd: REPO_ROOT, encoding: 'utf8', timeout: 60_000 }
+);
 
-  if (result.status !== 0) {
+test('compile.mjs --validate-only exits 0 against real skills', () => {
+  if (compileResult.status !== 0) {
     console.error('--- compiler stdout ---');
-    console.error(result.stdout);
+    console.error(compileResult.stdout);
     console.error('--- compiler stderr ---');
-    console.error(result.stderr);
+    console.error(compileResult.stderr);
   }
 
-  assert.equal(result.status, 0, `Compiler exited with status ${result.status}`);
+  assert.equal(compileResult.status, 0, `Compiler exited with status ${compileResult.status}`);
 
-  const output = result.stdout + result.stderr;
+  const output = compileResult.stdout + compileResult.stderr;
   const errorLines = output.split('\n').filter(l => l.includes('[error]'));
   assert.equal(
     errorLines.length,
@@ -41,13 +42,7 @@ test('compile.mjs --validate-only exits 0 against real skills', () => {
 });
 
 test('compile.mjs --validate-only reports skills and platforms loaded', () => {
-  const result = spawnSync(
-    process.execPath,
-    [COMPILE_MJS, '--validate-only'],
-    { cwd: REPO_ROOT, encoding: 'utf8' }
-  );
-
-  assert.equal(result.status, 0);
-  assert.ok(result.stdout.includes('Validated:'), 'Expected "Validated:" summary line');
-  assert.ok(result.stdout.includes('Loaded'), 'Expected "Loaded N platform(s)" line');
+  assert.equal(compileResult.status, 0, `Compiler exited with status ${compileResult.status}`);
+  assert.ok(compileResult.stdout.includes('Validated:'), 'Expected "Validated:" summary line');
+  assert.ok(compileResult.stdout.includes('Loaded'), 'Expected "Loaded N platform(s)" line');
 });

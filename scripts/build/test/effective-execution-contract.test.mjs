@@ -100,6 +100,76 @@ test('buildEffectiveExecutionContractFromRuntime uses runtime capability resolve
   assert.deepEqual(contract.missing_capabilities, ['local_fs']);
 });
 
+// ── Slice D: Structured Upgrade Explanation ───────────────────────────────────
+
+test('weak profile produces upgrade_explanation with before/now/unlocks', () => {
+  const contract = buildEffectiveExecutionContract({
+    taskId: 'task_review_repository_006',
+    taskType: 'review_repository',
+    capabilityProfile: profileFromCaps({
+      local_fs: false,
+      local_shell: false,
+      local_repo: false,
+      network_http: true,
+    }),
+    computedAt: '2026-03-13T00:00:00.000Z',
+  });
+
+  assert.ok(contract.upgrade_explanation, 'upgrade_explanation should be present for degraded route');
+  assert.ok(contract.upgrade_explanation.before.length > 0, 'before must be non-empty');
+  assert.ok(contract.upgrade_explanation.now.length > 0, 'now must be non-empty');
+  assert.ok(contract.upgrade_explanation.unlocks.length > 0, 'unlocks must be non-empty');
+});
+
+test('strongest route (local_repo) has no upgrade_explanation', () => {
+  const contract = buildEffectiveExecutionContract({
+    taskId: 'task_review_repository_007',
+    taskType: 'review_repository',
+    capabilityProfile: profileFromCaps({
+      local_fs: true,
+      local_shell: true,
+      local_repo: true,
+      network_http: true,
+    }),
+    computedAt: '2026-03-13T00:00:00.000Z',
+  });
+
+  assert.equal(contract.selected_route.route_id, 'local_repo');
+  assert.equal(contract.upgrade_explanation, undefined);
+});
+
+test('upgrade_explanation.unlocks mentions full repository access for github_pr → local_repo', () => {
+  const contract = buildEffectiveExecutionContract({
+    taskId: 'task_review_repository_008',
+    taskType: 'review_repository',
+    capabilityProfile: profileFromCaps({
+      local_fs: false,
+      local_shell: false,
+      local_repo: false,
+      network_http: true,
+    }),
+    computedAt: '2026-03-13T00:00:00.000Z',
+  });
+
+  // github_pr is degraded; stronger is local_repo
+  assert.match(contract.upgrade_explanation?.unlocks || '', /[Ff]ull repository/);
+});
+
+test('getUpgradeExplanation returns null for unknown route pair', async () => {
+  const { getUpgradeExplanation } = await import('../../../runtime/lib/upgrade-explanations.mjs');
+  const result = getUpgradeExplanation('unknown_a', 'unknown_b');
+  assert.equal(result, null);
+});
+
+test('getUpgradeExplanation returns structured object for valid pair', async () => {
+  const { getUpgradeExplanation } = await import('../../../runtime/lib/upgrade-explanations.mjs');
+  const result = getUpgradeExplanation('pasted_diff', 'local_repo');
+  assert.ok(result);
+  assert.ok(result.before.length > 0);
+  assert.ok(result.now.length > 0);
+  assert.ok(result.unlocks.length > 0);
+});
+
 test('buildEffectiveExecutionContractFromRuntime fails fast on malformed runtime resolution', async () => {
   await assert.rejects(() => buildEffectiveExecutionContractFromRuntime({
     taskId: 'task_review_repository_005',

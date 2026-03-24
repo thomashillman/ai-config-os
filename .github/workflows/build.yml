@@ -9,7 +9,10 @@ on:
       - 'shared/targets/**'
       - 'schemas/**'
       - 'scripts/build/**'
+      - 'scripts/ci/**'
       - 'scripts/lint/**'
+      - 'PLAN.md'
+      - 'README.md'
       - 'package.json'
       - 'runtime/adapters/**'
       - '.github/workflows/build.yml'
@@ -20,7 +23,10 @@ on:
       - 'shared/targets/**'
       - 'schemas/**'
       - 'scripts/build/**'
+      - 'scripts/ci/**'
       - 'scripts/lint/**'
+      - 'PLAN.md'
+      - 'README.md'
       - 'package.json'
       - 'runtime/adapters/**'
       - '.github/workflows/build.yml'
@@ -30,7 +36,7 @@ jobs:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
@@ -42,12 +48,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Check version parity
         run: npm run version:check
+
+      - name: Check documented skill count drift
+        run: npm run check:skill-count-drift
 
       - name: Lint platform files
         if: runner.os != 'Windows'
@@ -59,9 +69,6 @@ jobs:
 
       - name: Run test suite (includes resolver-selection + sync-loop ETag/version + worker version-pointer gates)
         run: npm test
-
-      - name: Validate compiler (canonical source contract + resolver selection gate context)
-        run: node scripts/build/compile.mjs --validate-only
 
       - name: Build emitted packages (self-sufficient packages + worker version-pointer consistency contract)
         run: node scripts/build/compile.mjs

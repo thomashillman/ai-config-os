@@ -78,7 +78,7 @@ The `review_repository` portable task journey is complete end-to-end:
 - preserve findings with explicit provenance (`verified`, `reused`, `hypothesis`)
 - finish without asking the user to restate the task
 
-The **Momentum Engine** (v0.8.0) is now complete — it adds the experience layer on top of the task control plane:
+The **Momentum Engine** (Phase 10 milestone) is now complete — it adds the experience layer on top of the task control plane:
 
 - **Narrator:** produces structured prose from task state at start, resume, finding-evolution, and upgrade-available moments
 - **Observer:** records narrations and user responses via the existing ProgressEventPipeline
@@ -87,6 +87,13 @@ The **Momentum Engine** (v0.8.0) is now complete — it adds the experience laye
 - **Reflector:** analyzes observation data and proposes narrator/lexicon improvements; invoke via `/momentum-reflect` or `/loop 10m /momentum-reflect`
 
 Task state is now persisted cross-session via **Cloudflare KV** (`runtime/lib/task-store-kv.mjs`). The session-start hook queries the Worker for active tasks and surfaces resume prompts automatically.
+
+### Operational validation snapshot (2026-03-24)
+
+Current operational verification status is aligned with `PLAN.md` acceptance criteria:
+- **Marketplace add + Claude Code install:** partially validated (local package build/extract complete; interactive Claude Code marketplace flow blocked in this runner due missing `claude` binary/UI).
+- **Installed skill exposure:** validated on two environments (`claude-code` package extraction + `codex` install with skill presence checks in `~/.codex/AGENTS.md`).
+- **Cross-device sync (A push → B restart):** push/pull sync verified across separate A/B clones; full post-sync restart validation on B is still blocked pending fresh-device dependency bootstrap.
 
 The detailed planning notes live in `PLAN.md`, with supporting research documents in `specs/`.
 
@@ -154,15 +161,17 @@ cd dashboard && npm run dev
 
 Security note: dashboard API requests are denied by default unless they originate from loopback or provide tunnel assertions (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS verification header). CORS follows the same tunnel policy: loopback origins stay enabled for local development, and you can allow a public dashboard origin with `DASHBOARD_PUBLIC_ORIGINS`. Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
-The dashboard provides eight tabs:
+The dashboard provides eight top-level tabs:
 - **Tools:** Runtime status and sync for Claude Code, Cursor, Codex
 - **Skills:** Complete skill library with metadata and variants
 - **Context Cost:** Real-time token footprint tracking
 - **Config:** View merged configuration across all tiers
 - **Audit:** Run validation checks on the entire setup
-- **Analytics:** Track which skills you use most and their performance
-- **Hub:** Active task shelf ranked by environment-aware continuation value
-- **Task Detail:** Task state, route history, findings provenance, and readiness view
+- **Analytics:** Track which skills you use most and their performance; Friction Signals section shows signal-type breakdown and top-5 skill recommendations from retrospective data
+- **Tasks:** Active task shelf ranked by environment-aware continuation value
+- **Bootstrap Runs:** Observability timeline for bootstrap execution runs
+
+Within **Tasks**, selecting a task opens the nested **Task Detail** view with task state, route history, findings provenance, and readiness context.
 
 ---
 
@@ -321,7 +330,8 @@ When Claude Code starts in a remote environment, the session-start hook automati
 1. **Validates skill structure** (early error detection)
 2. **Probes platform capabilities** (filesystem, shell, MCP)
 3. **Fetches latest manifest in background** (non-blocking)
-4. **Falls back to cached manifest** if Worker is unreachable
+4. **Refreshes retrospectives aggregate cache** in background (non-blocking; skipped if cache is <6 days old)
+5. **Falls back to cached manifest** if Worker is unreachable
 
 This means skills are available **immediately**, even if:
 - Network is slow or partitioned
@@ -352,46 +362,6 @@ bash adapters/claude/materialise.sh
 
 # Verify it's cached
 bash adapters/claude/materialise.sh status
-```
-
----
-
-### Claude Code CLI (remote environments)
-
-**Best for:** Cloud development, SSH sessions, Codespaces, CI/CD agents.
-
-When Claude Code runs in a remote environment (Codespaces, SSH, cloud VM, etc.), the session-start hook validates structure and handles offline scenarios gracefully:
-
-```bash
-# Setup is identical to local; the difference is automatic at session start
-
-# 1. Set your Worker URL and authentication token
-export AI_CONFIG_TOKEN=<your-token>
-export AI_CONFIG_WORKER=https://ai-config-os.workers.dev
-
-# 2. In Codespaces or SSH, Claude Code automatically:
-#    - Validates skill structure (.claude/hooks/session-start.sh)
-#    - Probes platform capabilities (filesystem, shell, MCP)
-#    - Fetches manifest in background (non-blocking)
-#    - Falls back to cached manifest if Worker unavailable
-
-# 3. Skills are available immediately, even if:
-#    - Network is slow or partitioned
-#    - Worker is temporarily down
-#    - Manifest cache is >1 day old
-```
-
-**Robustness guarantees:**
-- **Worker unavailable?** Uses last-known-good manifest indefinitely
-- **Network partition?** All cached skills work offline
-- **Manifest stale?** Still usable; versions are immutable with no retroactive breaking changes
-- **New skill published?** Available next session; current session uses cached version
-
-**Testing robustness locally:**
-```bash
-# Simulate Worker unavailable
-rm ~/.ai-config-os/cache/claude-code/latest.json
-bash adapters/claude/materialise.sh status    # See cached vs remote
 ```
 
 ---
@@ -683,20 +653,30 @@ bash ops/runtime-status.sh
 
 ### Example 3: Share a workflow across your team
 
-Workflows compose multiple skills:
+Workflows compose multiple skills. Use a checked-in workflow definition from `shared/workflows/daily-brief.json` so teammates can open the exact file:
 
-```yaml
-# shared/workflows/daily-standup.yaml
-name: daily-standup
-description: Morning review of changes and tasks
-skills:
-  - git-ops       # Fetch latest, summarize commits
-  - memory        # Load context from yesterday
-  - task-decompose # Break down priority work
-  - web-search    # Current events check (optional)
+```json
+{
+  "name": "daily-brief",
+  "description": "Morning standup: synthesize recent changes, open issues, blocked work",
+  "type": "workflow",
+  "version": "1.0.0",
+  "composed_skills": [
+    { "skill": "git-ops", "variant": "sonnet" },
+    { "skill": "changelog", "variant": "sonnet" },
+    { "skill": "memory", "variant": "sonnet" },
+    { "skill": "task-decompose", "variant": "sonnet" }
+  ]
+}
 ```
 
-Run it: `Claude Code → Run Workflow → daily-standup`
+Run it: `Claude Code → Run Workflow → daily-brief`
+
+Other checked-in workflow names you can run immediately:
+- `pre-commit` (`shared/workflows/pre-commit.json`)
+- `code-quality` (`shared/workflows/code-quality/workflow.json`)
+- `release-agent` (`shared/workflows/release-agent/workflow.json`)
+- `research-mode` (`shared/workflows/research-mode/workflow.json`)
 
 ---
 
@@ -707,7 +687,11 @@ Run it: `Claude Code → Run Workflow → daily-standup`
 | Phase 1–7 | ✅ Complete | 22 skills, skill metadata, testing, composition, multi-device sync |
 | Phase 8 | ✅ Complete | Runtime config layer, MCP server, React dashboard, desired-state sync |
 | Phase 9.1–9.7 | ✅ Complete | Build compiler, distribution pipeline, capability contracts, delivery contract (28 tests), portability contract (76 tests), manifest feature flags |
-| Phase 10 (v0.8.0) | ✅ Complete | KV-backed task persistence, Codex emitter, Hub + Task Detail dashboard tabs, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
+| Phase 10 milestone | ✅ Complete | KV-backed task persistence, Codex emitter, Tasks tab + nested Task Detail view, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
+
+> Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels are internal roadmap checkpoints.
+
+Canonical skill count declaration format (for deterministic CI parsing in docs): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
 
 ### Platform maturity
 

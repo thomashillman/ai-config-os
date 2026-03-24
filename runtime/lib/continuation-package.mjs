@@ -1,4 +1,5 @@
 import { validateContract } from '../../shared/contracts/validate.mjs';
+import { workTitleForTaskType } from './intent-lexicon.mjs';
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -38,11 +39,27 @@ export function createContinuationPackage({
     throw new Error('createContinuationPackage task_type mismatch between task and effectiveExecutionContract');
   }
 
-  return validateContract('continuationPackage', {
+  // Derive UX fields
+  const workTitle = workTitleForTaskType(validatedTask.task_type);
+  const resumeHeadline = `Continuing ${workTitle}`;
+  const bestNextStep = validatedTask.next_action;
+  const upgradeValueStatement = validatedContract.upgrade_explanation?.unlocks;
+
+  const pkg = {
     schema_version: '1.0.0',
     task: validatedTask,
     effective_execution_contract: validatedContract,
     handoff_token_id: handoffTokenId,
     created_at: createdAt,
-  });
+    resume_headline: resumeHeadline,
+  };
+
+  if (bestNextStep) {
+    pkg.best_next_step = bestNextStep;
+  }
+  if (upgradeValueStatement) {
+    pkg.upgrade_value_statement = upgradeValueStatement;
+  }
+
+  return validateContract('continuationPackage', pkg);
 }

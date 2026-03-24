@@ -14,8 +14,18 @@ import REGISTRY_JSON from '../../dist/registry/index.json';
 // @ts-ignore - generated at build time
 import CLAUDE_CODE_PLUGIN_JSON from '../../dist/clients/claude-code/.claude-plugin/plugin.json';
 import { createWorkerHandler } from './router';
+import { cleanupExpiredRetrospectives } from './retrospectives/cleanup';
 import type { Env } from './types';
 
 export type { Env };
 
-export default createWorkerHandler(REGISTRY_JSON as { version: string; built_at?: string; skills: unknown[] }, CLAUDE_CODE_PLUGIN_JSON) satisfies ExportedHandler<Env>;
+const _handler = createWorkerHandler(REGISTRY_JSON as { version: string; built_at?: string; skills: unknown[] }, CLAUDE_CODE_PLUGIN_JSON);
+
+export default {
+  ..._handler,
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (env.MANIFEST_KV && env.ARTEFACTS_R2) {
+      ctx.waitUntil(cleanupExpiredRetrospectives(env.MANIFEST_KV, env.ARTEFACTS_R2, 60));
+    }
+  },
+} satisfies ExportedHandler<Env>;

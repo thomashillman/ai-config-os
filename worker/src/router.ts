@@ -18,6 +18,19 @@ import {
 } from './handlers/capabilities';
 import { handleExecute } from './handlers/executor';
 import {
+  handleObservabilityRunCreate,
+  handleObservabilityRunGet,
+  handleObservabilityRunList,
+  handleObservabilitySettingsGet,
+  handleObservabilitySettingsPut,
+} from './handlers/observability';
+import {
+  handleRetrospectiveAggregate,
+  handleRetrospectiveCreate,
+  handleRetrospectiveGet,
+  handleRetrospectiveList,
+} from './handlers/retrospectives';
+import {
   handleHubLatest,
   handleTaskAppendFinding,
   handleTaskByCode,
@@ -35,9 +48,90 @@ import {
 } from './handlers/tasks';
 import type { Env } from './types';
 
+type RouteContext = {
+  request: Request;
+  env: Env;
+  url: URL;
+  params: string[];
+};
+
+type RouteHandler = (ctx: RouteContext) => Response | Promise<Response>;
+
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH';
+
+type RouteEntry = {
+  method: HttpMethod;
+  pattern: string | RegExp;
+  handler: RouteHandler;
+};
+
 export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown): ExportedHandler<Env> {
-  // Cast once — capability handlers need the extended registry type
-  const registryWithPlatforms = registry as RegistryWithPlatforms;
+  const rp = registry as RegistryWithPlatforms;
+
+  const ROUTES: RouteEntry[] = [
+    // ── Health & manifests ──────────────────────────────────────────────
+    { method: 'GET',   pattern: '/v1/health',                                        handler: ({ env }) => handleHealth(env, registry) },
+    { method: 'GET',   pattern: '/v1/manifest/latest',                               handler: ({ env }) => handleManifestLatest(env, registry) },
+    { method: 'GET',   pattern: '/v1/outcomes/latest',                               handler: ({ env }) => handleLatestArtifact(env, registry, 'outcomes.json') },
+    { method: 'GET',   pattern: '/v1/routes/latest',                                 handler: ({ env }) => handleLatestArtifact(env, registry, 'routes.json') },
+    { method: 'GET',   pattern: '/v1/tools/latest',                                  handler: ({ env }) => handleLatestArtifact(env, registry, 'tools.json') },
+
+    // ── Versioned artifacts ─────────────────────────────────────────────
+    { method: 'GET',   pattern: /^\/v1\/outcomes\/([^/]+)$/,                         handler: ({ env, params }) => handleVersionedArtifact(env, params[0], 'outcomes.json') },
+    { method: 'GET',   pattern: /^\/v1\/routes\/([^/]+)$/,                           handler: ({ env, params }) => handleVersionedArtifact(env, params[0], 'routes.json') },
+    { method: 'GET',   pattern: /^\/v1\/tools\/([^/]+)$/,                            handler: ({ env, params }) => handleVersionedArtifact(env, params[0], 'tools.json') },
+
+    // ── Effective contract ──────────────────────────────────────────────
+    { method: 'GET',   pattern: '/v1/effective-contract/preview',                    handler: ({ env }) => handleEffectiveContractPreview(env, registry) },
+
+    // ── Client & skills ─────────────────────────────────────────────────
+    { method: 'GET',   pattern: /^\/v1\/client\/([^/]+)\/latest$/,                   handler: ({ params }) => handleClientLatest(params[0], registry, pluginJson) },
+    { method: 'GET',   pattern: /^\/v1\/client\/([^/]+)\/package$/,                  handler: ({ env, params }) => handleClientPackage(params[0], env) },
+    { method: 'GET',   pattern: /^\/v1\/skill\/([^/]+)$/,                            handler: ({ params }) => handleSkill(params[0], registry) },
+
+    // ── Capability discovery (web/mobile-safe, CORS-enabled) ────────────
+    { method: 'GET',   pattern: /^\/v1\/capabilities\/platform\/([^/]+)$/,           handler: ({ params }) => handleCapabilitiesForPlatform(params[0], rp) },
+    { method: 'GET',   pattern: '/v1/skills/compatible',                             handler: ({ url }) => handleSkillsCompatible(rp, url.searchParams.get('caps')) },
+
+    // ── Observability reads ─────────────────────────────────────────────
+    { method: 'GET',   pattern: '/v1/observability/runs',                            handler: ({ request, env }) => handleObservabilityRunList(request, env) },
+    { method: 'GET',   pattern: /^\/v1\/observability\/runs\/([^/]+)$/,              handler: ({ env, params }) => handleObservabilityRunGet(params[0], env) },
+    { method: 'GET',   pattern: '/v1/observability/settings',                        handler: ({ env }) => handleObservabilitySettingsGet(env) },
+
+    // ── Observability mutations ─────────────────────────────────────────
+    { method: 'POST',  pattern: '/v1/observability/runs',                            handler: ({ request, env }) => handleObservabilityRunCreate(request, env) },
+    { method: 'PUT',   pattern: '/v1/observability/settings',                        handler: ({ request, env }) => handleObservabilitySettingsPut(request, env) },
+
+    // ── Retrospective reads ─────────────────────────────────────────────
+    { method: 'GET',   pattern: '/v1/retrospectives',                                handler: ({ request, env }) => handleRetrospectiveList(request, env) },
+    { method: 'GET',   pattern: '/v1/retrospectives/aggregate',                      handler: ({ request, env }) => handleRetrospectiveAggregate(request, env) },
+    { method: 'GET',   pattern: /^\/v1\/retrospectives\/([^/]+)$/,                   handler: ({ env, params }) => handleRetrospectiveGet(params[0], env) },
+
+    // ── Retrospective mutations ─────────────────────────────────────────
+    { method: 'POST',  pattern: '/v1/retrospectives',                                handler: ({ request, env }) => handleRetrospectiveCreate(request, env) },
+
+    // ── Execute ─────────────────────────────────────────────────────────
+    { method: 'POST',  pattern: '/v1/execute',                                       handler: ({ request, env }) => handleExecute(request, env) },
+
+    // ── Task reads ──────────────────────────────────────────────────────
+    { method: 'GET',   pattern: '/v1/tasks',                                         handler: ({ env, url }) => handleTaskList(env, url) },
+    { method: 'GET',   pattern: '/v1/hub/latest',                                    handler: ({ env }) => handleHubLatest(env) },
+    { method: 'GET',   pattern: /^\/v1\/t\/([^/]+)$/,                               handler: ({ env, params }) => handleTaskByCode(env, params[0]) },
+    { method: 'GET',   pattern: /^\/v1\/tasks\/by-name\/([^/]+)$/,                  handler: ({ env, params }) => handleTaskByName(env, decodeURIComponent(params[0])) },
+    { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/progress-events$/,           handler: ({ env, params }) => handleTaskProgressEvents(env, params[0]) },
+    { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/readiness$/,                 handler: ({ env, params }) => handleTaskReadiness(env, params[0]) },
+    { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/snapshots\/([^/]+)$/,        handler: ({ env, params }) => handleTaskSnapshots(env, params[0], params[1]) },
+    { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/snapshots$/,                 handler: ({ env, params }) => handleTaskSnapshots(env, params[0], null) },
+    { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)$/,                            handler: ({ env, params }) => handleTaskGet(env, params[0]) },
+
+    // ── Task mutations ──────────────────────────────────────────────────
+    { method: 'POST',  pattern: '/v1/tasks',                                         handler: ({ request, env }) => handleTaskCreate(request, env) },
+    { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/route-selection$/,           handler: ({ request, env, params }) => handleTaskRouteSelection(request, env, params[0]) },
+    { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/continuation$/,              handler: ({ request, env, params }) => handleTaskContinuation(request, env, params[0]) },
+    { method: 'PATCH', pattern: /^\/v1\/tasks\/([^/]+)\/state$/,                     handler: ({ request, env, params }) => handleTaskTransitionState(request, env, params[0]) },
+    { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/findings\/transition$/,      handler: ({ request, env, params }) => handleTaskTransitionFindings(request, env, params[0]) },
+    { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/findings$/,                  handler: ({ request, env, params }) => handleTaskAppendFinding(request, env, params[0]) },
+  ];
 
   return {
     async fetch(request: Request, env: Env): Promise<Response> {
@@ -48,143 +142,25 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
 
       const url = new URL(request.url);
       const path = url.pathname;
+      const method = request.method as HttpMethod;
 
       if (!isAuthorized(request, env)) {
         return unauthorizedResponse();
       }
 
-      if (request.method === 'GET') {
-        // ── Health & manifests ──────────────────────────────────────────────
-        if (path === '/v1/health') {
-          return handleHealth(env, registry);
+      for (const route of ROUTES) {
+        if (route.method !== method) continue;
+        if (typeof route.pattern === 'string') {
+          if (path !== route.pattern) continue;
+          return route.handler({ request, env, url, params: [] });
         }
-        if (path === '/v1/manifest/latest') {
-          return handleManifestLatest(env, registry);
-        }
-        if (path === '/v1/outcomes/latest') {
-          return handleLatestArtifact(env, registry, 'outcomes.json');
-        }
-        if (path === '/v1/routes/latest') {
-          return handleLatestArtifact(env, registry, 'routes.json');
-        }
-        if (path === '/v1/tools/latest') {
-          return handleLatestArtifact(env, registry, 'tools.json');
-        }
-
-        // ── Versioned artifacts ─────────────────────────────────────────────
-        const outcomesVersionedMatch = path.match(/^\/v1\/outcomes\/([^/]+)$/);
-        if (outcomesVersionedMatch) {
-          return handleVersionedArtifact(env, outcomesVersionedMatch[1], 'outcomes.json');
-        }
-        const routesVersionedMatch = path.match(/^\/v1\/routes\/([^/]+)$/);
-        if (routesVersionedMatch) {
-          return handleVersionedArtifact(env, routesVersionedMatch[1], 'routes.json');
-        }
-        const toolsVersionedMatch = path.match(/^\/v1\/tools\/([^/]+)$/);
-        if (toolsVersionedMatch) {
-          return handleVersionedArtifact(env, toolsVersionedMatch[1], 'tools.json');
-        }
-
-        // ── Effective contract ──────────────────────────────────────────────
-        if (path === '/v1/effective-contract/preview') {
-          return handleEffectiveContractPreview(env, registry);
-        }
-
-        // ── Client & skills ─────────────────────────────────────────────────
-        const clientMatch = path.match(/^\/v1\/client\/([^/]+)\/latest$/);
-        if (clientMatch) {
-          return handleClientLatest(clientMatch[1], registry, pluginJson);
-        }
-
-        const clientPackageMatch = path.match(/^\/v1\/client\/([^/]+)\/package$/);
-        if (clientPackageMatch) {
-          return handleClientPackage(clientPackageMatch[1], env);
-        }
-
-        const skillMatch = path.match(/^\/v1\/skill\/([^/]+)$/);
-        if (skillMatch) {
-          return handleSkill(skillMatch[1], registry);
-        }
-
-        // ── Capability discovery (web/mobile-safe, CORS-enabled) ────────────
-        const capabilitiesMatch = path.match(/^\/v1\/capabilities\/platform\/([^/]+)$/);
-        if (capabilitiesMatch) {
-          return handleCapabilitiesForPlatform(capabilitiesMatch[1], registryWithPlatforms);
-        }
-
-        if (path === '/v1/skills/compatible') {
-          const capsParam = url.searchParams.get('caps');
-          return handleSkillsCompatible(registryWithPlatforms, capsParam);
-        }
-
-        // ── Tasks ───────────────────────────────────────────────────────────
-        if (path === '/v1/tasks') {
-          return handleTaskList(env, url);
-        }
-        if (path === '/v1/hub/latest') {
-          return handleHubLatest(env);
-        }
-
-        const taskByCodeMatch = path.match(/^\/v1\/t\/([^/]+)$/);
-        if (taskByCodeMatch) {
-          return handleTaskByCode(env, taskByCodeMatch[1]);
-        }
-        const taskByNameMatch = path.match(/^\/v1\/tasks\/by-name\/([^/]+)$/);
-        if (taskByNameMatch) {
-          return handleTaskByName(env, decodeURIComponent(taskByNameMatch[1]));
-        }
-        const taskGetMatch = path.match(/^\/v1\/tasks\/([^/]+)$/);
-        if (taskGetMatch) {
-          return handleTaskGet(env, taskGetMatch[1]);
-        }
-        const taskProgressMatch = path.match(/^\/v1\/tasks\/([^/]+)\/progress-events$/);
-        if (taskProgressMatch) {
-          return handleTaskProgressEvents(env, taskProgressMatch[1]);
-        }
-        const taskReadinessMatch = path.match(/^\/v1\/tasks\/([^/]+)\/readiness$/);
-        if (taskReadinessMatch) {
-          return handleTaskReadiness(env, taskReadinessMatch[1]);
-        }
-        const taskSnapshotByVersionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/snapshots\/([^/]+)$/);
-        if (taskSnapshotByVersionMatch) {
-          return handleTaskSnapshots(env, taskSnapshotByVersionMatch[1], taskSnapshotByVersionMatch[2]);
-        }
-        const taskSnapshotsMatch = path.match(/^\/v1\/tasks\/([^/]+)\/snapshots$/);
-        if (taskSnapshotsMatch) {
-          return handleTaskSnapshots(env, taskSnapshotsMatch[1], null);
-        }
+        const m = path.match(route.pattern);
+        if (!m) continue;
+        return route.handler({ request, env, url, params: m.slice(1) as string[] });
       }
 
-      // ── Mutations ─────────────────────────────────────────────────────────
-      if (request.method === 'POST' && path === '/v1/execute') {
-        return handleExecute(request, env);
-      }
-      if (request.method === 'POST' && path === '/v1/tasks') {
-        return handleTaskCreate(request, env);
-      }
-
-      const taskRouteSelectionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/route-selection$/);
-      if (request.method === 'POST' && taskRouteSelectionMatch) {
-        return handleTaskRouteSelection(request, env, taskRouteSelectionMatch[1]);
-      }
-      const taskContinuationMatch = path.match(/^\/v1\/tasks\/([^/]+)\/continuation$/);
-      if (request.method === 'POST' && taskContinuationMatch) {
-        return handleTaskContinuation(request, env, taskContinuationMatch[1]);
-      }
-      const taskStatePatchMatch = path.match(/^\/v1\/tasks\/([^/]+)\/state$/);
-      if (request.method === 'PATCH' && taskStatePatchMatch) {
-        return handleTaskTransitionState(request, env, taskStatePatchMatch[1]);
-      }
-      const taskFindingsMatch = path.match(/^\/v1\/tasks\/([^/]+)\/findings$/);
-      if (request.method === 'POST' && taskFindingsMatch) {
-        return handleTaskAppendFinding(request, env, taskFindingsMatch[1]);
-      }
-      const taskFindingsTransitionMatch = path.match(/^\/v1\/tasks\/([^/]+)\/findings\/transition$/);
-      if (request.method === 'POST' && taskFindingsTransitionMatch) {
-        return handleTaskTransitionFindings(request, env, taskFindingsTransitionMatch[1]);
-      }
-
-      if (request.method !== 'GET' && request.method !== 'POST' && request.method !== 'PATCH') {
+      const knownMethods: HttpMethod[] = ['GET', 'POST', 'PATCH', 'PUT'];
+      if (!knownMethods.includes(method)) {
         return jsonResponse({ error: 'Method Not Allowed' }, 405);
       }
 

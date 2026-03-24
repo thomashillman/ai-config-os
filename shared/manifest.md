@@ -35,13 +35,22 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `momentum-reflect` | Analyzes momentum narration effectiveness and proposes improvements | `shared/skills/momentum-reflect/SKILL.md` |
 | `surface-probe` | Investigates environment signals when a user manually states their surface; produces a structured report to improve automatic platform detection | `shared/skills/surface-probe/SKILL.md` |
 | `list-available-skills` | List skills available on the current surface, filtered by detected runtime capabilities. | `shared/skills/list-available-skills/SKILL.md` |
+| `failed-build-analysis` | Queries failed CI/CD build jobs on an open PR, identifies root causes, and produces a KISS + TDD fix plan. | `shared/skills/failed-build-analysis/SKILL.md` |
+| `ci-conditional-audit` | Audits GitHub Actions workflow files for unpaired conditional steps — flags steps that consume a conditional dependency's output but run unconditionally | `shared/skills/ci-conditional-audit/SKILL.md` |
+| `lockfile-audit` | Scans the repo for package.json files missing a committed lockfile, cross-references deploy configs, and classifies severity as BLOCKING or WARNING | `shared/skills/lockfile-audit/SKILL.md` |
+| `skill-effectiveness` | Reports which skills are most effective by analysing output-used vs output-replaced outcome data from the skill-outcome-tracker hook | `shared/skills/skill-effectiveness/SKILL.md` |
+| `autoresearch` | Autonomously optimise any skill by running it repeatedly, scoring outputs against binary evals, mutating the prompt, and keeping improvements (Karpathy autoresearch methodology) | `shared/skills/autoresearch/SKILL.md` |
+| `post-merge-retrospective` | Analyzes the session conversation after a PR merge to surface friction signals, recommend new skills, and emit a machine-readable JSON artifact | `shared/skills/post-merge-retrospective/SKILL.md` |
 
 ## Workflows
 
-| Workflow | Composed Skills | Description |
-|---|---|---|
-| `daily-brief` | git-ops, changelog, memory, task-decompose | Morning standup: synthesize recent changes, open issues, blocked work |
-| `pre-commit` | security-review, code-review, commit-conventions | Quality gate before committing: security + code quality + conventions |
+| Workflow | File | Format | Composed Skills | Description |
+|---|---|---|---|---|
+| `daily-brief` | `shared/workflows/daily-brief.json` | JSON | git-ops, changelog, memory, task-decompose | Morning standup: synthesize recent changes, open issues, blocked work |
+| `pre-commit` | `shared/workflows/pre-commit.json` | JSON | security-review, code-review, commit-conventions | Quality gate before committing: security + code quality + conventions |
+| `code-quality` | `shared/workflows/code-quality/workflow.json` | JSON | code-review, debug, explain-code | Full code quality loop: review, debug, and explain code changes |
+| `release-agent` | `shared/workflows/release-agent/workflow.json` | JSON | git-ops, commit-conventions, changelog, release-checklist | End-to-end release workflow: version bump, changelog generation, release commit, and quality checklist |
+| `research-mode` | `shared/workflows/research-mode/workflow.json` | JSON | web-search | Deep research persona for comprehensive information synthesis |
 
 ## Plugins
 

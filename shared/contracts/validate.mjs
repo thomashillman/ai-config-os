@@ -33,6 +33,7 @@ const continuationPackageSchema = loadSchema('shared/contracts/schemas/v1/contin
 const handoffTokenSchema = loadSchema('shared/contracts/schemas/v1/handoff-token.schema.json');
 const narrationOutputSchema = loadSchema('shared/contracts/schemas/v1/narration-output.schema.json');
 const shelfEntrySchema = loadSchema('shared/contracts/schemas/v1/shelf-entry.schema.json');
+const momentumViewSchema = loadSchema('shared/contracts/schemas/v1/momentum-view.schema.json');
 
 const kindToSchemaId = {
   manifest: manifestSchema.$id,
@@ -54,6 +55,7 @@ const kindToSchemaId = {
   handoffToken: handoffTokenSchema.$id,
   narrationOutput: narrationOutputSchema.$id,
   shelfEntry: shelfEntrySchema.$id,
+  momentumView: momentumViewSchema.$id,
 };
 
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -79,6 +81,7 @@ ajv.addSchema(continuationPackageSchema);
 ajv.addSchema(handoffTokenSchema);
 ajv.addSchema(narrationOutputSchema);
 ajv.addSchema(shelfEntrySchema);
+ajv.addSchema(momentumViewSchema);
 
 const validators = Object.fromEntries(
   Object.entries(kindToSchemaId).map(([kind, schemaId]) => [kind, ajv.getSchema(schemaId)])

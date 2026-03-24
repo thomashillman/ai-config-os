@@ -26,109 +26,92 @@ test('Package Materialisation Contract', async (t) => {
     return;
   }
 
+  // Parse manifest once; all subtests share this reference.
+  const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
+  const skillsDir = join(DIST_PACKAGE, 'skills');
+
   await t.test('should have complete plugin.json with all skills materialized', () => {
-    const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
-    assert(manifest.skills, 'plugin.json must have skills array');
-    assert(Array.isArray(manifest.skills), 'skills must be an array');
-    assert(manifest.skills.length > 0, 'skills array must be non-empty');
+    assert.ok(Array.isArray(manifest.skills), 'plugin.json must have skills array');
+    assert.ok(manifest.skills.length > 0, `skills array must be non-empty (got ${manifest.skills.length})`);
   });
 
   await t.test('should have all skills in dist/clients/claude-code/skills/', () => {
-    const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
-    const skillsDir = join(DIST_PACKAGE, 'skills');
-    assert(existsSync(skillsDir), 'dist/clients/claude-code/skills/ must exist');
+    assert.ok(existsSync(skillsDir), 'dist/clients/claude-code/skills/ must exist');
 
-    manifest.skills.forEach(skill => {
+    for (const skill of manifest.skills) {
       const skillFilePath = join(DIST_PACKAGE, skill.path);
-      assert(existsSync(skillFilePath), `${skill.path} must exist in dist/`);
-      assert(skill.path.startsWith('skills/'), 'skill path must be relative to dist root');
-    });
+      assert.ok(existsSync(skillFilePath), `${skill.path} must exist in dist/`);
+      assert.ok(skill.path.startsWith('skills/'), `skill '${skill.name}' path must be relative to dist root (got '${skill.path}')`);
+    }
   });
 
   await t.test('should use only relative paths in plugin.json (no source references)', () => {
-    const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
-
-    manifest.skills.forEach(skill => {
-      assert(
+    for (const skill of manifest.skills) {
+      assert.ok(
         !skill.path.includes('shared/skills'),
-        `Skill ${skill.name}: path must not reference shared/skills/`
+        `Skill ${skill.name}: path must not reference shared/skills/ (got '${skill.path}')`
       );
-      assert(
+      assert.ok(
         !skill.path.startsWith('/'),
-        `Skill ${skill.name}: path must be relative, not absolute`
+        `Skill ${skill.name}: path must be relative, not absolute (got '${skill.path}')`
       );
-      assert(
+      assert.ok(
         !skill.path.includes('..'),
-        `Skill ${skill.name}: path must not escape dist/ root with ../`
+        `Skill ${skill.name}: path must not escape dist/ root with ../ (got '${skill.path}')`
       );
-    });
+    }
   });
 
   await t.test('should have complete SKILL.md files with all required sections', () => {
-    const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
-    const skillsDir = join(DIST_PACKAGE, 'skills');
-
-    manifest.skills.forEach(skill => {
+    for (const skill of manifest.skills) {
       const skillFilePath = join(DIST_PACKAGE, skill.path);
       const content = readFileSync(skillFilePath, 'utf8');
 
-      // Verify SKILL.md has frontmatter
-      assert(content.startsWith('---'), `${skill.name}/SKILL.md must start with --- frontmatter`);
-
-      // Verify it has required frontmatter fields
-      assert(
+      assert.ok(content.startsWith('---'), `${skill.name}/SKILL.md must start with --- frontmatter`);
+      assert.ok(
         /^---[\s\S]*?skill:\s*["']?[\w-]+["']?/.test(content),
         `${skill.name}/SKILL.md must have 'skill' field in frontmatter`
       );
-      assert(
+      assert.ok(
         /^---[\s\S]*?description:/.test(content),
         `${skill.name}/SKILL.md must have 'description' field in frontmatter`
       );
-      assert(
+      assert.ok(
         /^---[\s\S]*?type:/.test(content),
         `${skill.name}/SKILL.md must have 'type' field in frontmatter`
       );
-      assert(
+      assert.ok(
         /^---[\s\S]*?status:/.test(content),
         `${skill.name}/SKILL.md must have 'status' field in frontmatter`
       );
-    });
+    }
   });
 
   await t.test('should have prompt files included for skills that reference them', () => {
-    const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
-    const skillsDir = join(DIST_PACKAGE, 'skills');
-
-    manifest.skills.forEach(skill => {
+    for (const skill of manifest.skills) {
       const skillFilePath = join(DIST_PACKAGE, skill.path);
       const content = readFileSync(skillFilePath, 'utf8');
 
-      // Extract any prompt_file references from variants
       const promptFileMatches = content.match(/prompt_file:\s*([^\n]+)/g);
-      if (promptFileMatches) {
-        promptFileMatches.forEach(match => {
-          let promptPath = match.replace(/prompt_file:\s*/, '').trim();
-          // Remove surrounding quotes if present
-          promptPath = promptPath.replace(/^["']|["']$/g, '');
-          const fullPath = join(skillsDir, skill.name, promptPath);
-          assert(
-            existsSync(fullPath),
-            `Prompt file ${promptPath} referenced in ${skill.name}/SKILL.md must exist in dist/`
-          );
-        });
+      if (!promptFileMatches) continue;
+
+      for (const match of promptFileMatches) {
+        let promptPath = match.replace(/prompt_file:\s*/, '').trim().replace(/^["']|["']$/g, '');
+        const fullPath = join(skillsDir, skill.name, promptPath);
+        assert.ok(
+          existsSync(fullPath),
+          `Prompt file '${promptPath}' referenced in ${skill.name}/SKILL.md must exist in dist/ (looked at ${fullPath})`
+        );
       }
-    });
+    }
   });
 
   await t.test('package version should match root VERSION file', () => {
-    const versionFile = join(ROOT, 'VERSION');
-    const versionFromFile = readFileSync(versionFile, 'utf8').trim();
-
-    const manifest = JSON.parse(readFileSync(PLUGIN_MANIFEST, 'utf8'));
+    const versionFromFile = readFileSync(join(ROOT, 'VERSION'), 'utf8').trim();
     assert.equal(
       manifest.version,
       versionFromFile,
-      'package version must match root VERSION file'
+      `package version must match root VERSION file (manifest: '${manifest.version}', VERSION: '${versionFromFile}')`
     );
   });
 });

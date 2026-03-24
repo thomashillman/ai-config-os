@@ -30,6 +30,14 @@
       "type": "string",
       "description": "Trigger hint — slash command, keyword, or invocation pattern (e.g. /code-review)"
     },
+    "disable-model-invocation": {
+      "type": "boolean",
+      "description": "Claude Code: if true, only the user can invoke via /skill-name. Claude will not trigger it automatically. Use for side-effect workflows (deploy, commit, autoresearch loops)."
+    },
+    "user-invocable": {
+      "type": "boolean",
+      "description": "Claude Code: if false, only Claude can invoke. Hidden from the / menu. Use for background knowledge not actionable as a command."
+    },
     "type": {
       "type": "string",
       "enum": ["prompt", "hook", "agent", "workflow-blueprint"],

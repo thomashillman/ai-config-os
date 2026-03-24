@@ -5,66 +5,13 @@
 
 import { transitionPortableTaskState, appendRouteSelection } from './portable-task-lifecycle-worker.mjs';
 import { appendFindingToTask, transitionFindingsForRouteUpgrade } from './findings-ledger-worker.mjs';
+import { TaskConflictError, TaskNotFoundError, createReadinessView as toTaskReadinessView } from './task-shared.mjs';
+import { KvPersistence, normaliseSlug, generateShortCode } from './kv-persistence.mjs';
 
-export class TaskConflictError extends Error {
-  constructor(message, details = {}) {
-    super(message);
-    this.name = 'TaskConflictError';
-    this.code = 'task_version_conflict';
-    this.details = details;
-  }
-}
-
-export class TaskNotFoundError extends Error {
-  constructor(taskId) {
-    super(`Task not found: ${taskId}`);
-    this.name = 'TaskNotFoundError';
-    this.code = 'task_not_found';
-    this.details = { taskId };
-  }
-}
+export { TaskConflictError, TaskNotFoundError };
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
-}
-
-function normaliseSlug(name) {
-  return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 32);
-}
-
-function generateShortCode(name, count) {
-  const prefix = normaliseSlug(name).slice(0, 4) || 'task';
-  return `${prefix}${count}`;
-}
-
-function summariseFindingsProvenance(findings = []) {
-  return findings.reduce((summary, finding) => {
-    const status = typeof finding?.provenance?.status === 'string'
-      ? finding.provenance.status
-      : 'unknown';
-    summary[status] = (summary[status] ?? 0) + 1;
-    return summary;
-  }, {});
-}
-
-function toTaskReadinessView(task, progressEvents = []) {
-  const totalSteps = task.progress?.total_steps ?? 0;
-  const completedSteps = task.progress?.completed_steps ?? 0;
-  return {
-    task_id: task.task_id,
-    task_type: task.task_type,
-    current_route: task.current_route,
-    state: task.state,
-    next_action: task.next_action,
-    route_history: task.route_history,
-    readiness: {
-      is_ready: task.state === 'active' && completedSteps < totalSteps,
-      stronger_route_available: task.task_type === 'review_repository' && task.current_route !== 'local_repo',
-      progress_ratio: totalSteps === 0 ? 1 : Number((completedSteps / totalSteps).toFixed(4)),
-    },
-    findings_provenance: summariseFindingsProvenance(Array.isArray(task.findings) ? task.findings : []),
-    progress_event_count: progressEvents.length,
-  };
 }
 
 function createSnapshot(task) {
@@ -79,69 +26,24 @@ function createSnapshot(task) {
 
 export class KvTaskStore {
   constructor(kv, handoffTokenService = null) {
-    this.kv = kv;
+    this.kvp = new KvPersistence(kv);
     this.handoffTokenService = handoffTokenService;
-    // Instance-level index cache — avoids repeated KV reads when the same
-    // store instance handles multiple mutations (e.g., tests, batch ops).
-    this._indexCache = null;
-    this._indexDirty = false;
   }
 
-  // --- KV key helpers ---
-  _taskKey(taskId) { return `task:${taskId}`; }
-  _logKey(taskId) { return `task:${taskId}:log`; }
-  _eventsKey(taskId) { return `task:${taskId}:events`; }
-  _snapshotsKey(taskId) { return `task:${taskId}:snapshots`; }
-  _shortCodeKey(code) { return `task:short:${code}`; }
-  _nameSlugKey(slug) { return `task:name:${slug}`; }
-  _indexKey() { return 'task:index'; }
-
-  // --- Low-level KV helpers ---
-  async _get(key) {
-    const raw = await this.kv.get(key);
-    if (raw === null || raw === undefined) return null;
-    return JSON.parse(raw);
-  }
-
-  async _put(key, value) {
-    await this.kv.put(key, JSON.stringify(value));
-  }
-
-  async _append(key, item) {
-    const arr = (await this._get(key)) || [];
-    arr.push(item);
-    await this._put(key, arr);
-  }
-
-  // Load index from KV on first call; subsequent calls use the in-memory cache.
-  async _loadIndex() {
-    if (this._indexCache === null) {
-      this._indexCache = (await this._get(this._indexKey())) || [];
-    }
-    return this._indexCache;
-  }
-
-  // Write the dirty cache back to KV. Call at the end of each mutating method.
-  async _flushIndex() {
-    if (this._indexDirty && this._indexCache !== null) {
-      await this._put(this._indexKey(), this._indexCache.slice(0, 200));
-      this._indexDirty = false;
-    }
-  }
-
-  async _updateIndex(taskId, meta) {
-    const index = await this._loadIndex();
-    const i = index.findIndex(t => t.task_id === taskId);
-    if (i >= 0) {
-      index[i] = { ...index[i], ...meta };
-    } else {
-      index.push({ task_id: taskId, ...meta });
-    }
-    index.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
-    if (index.length > 200) index.length = 200;
-    this._indexDirty = true;
-    // Note: KV write is deferred to _flushIndex() to batch repeated updates
-  }
+  // Delegate all persistence operations to KvPersistence
+  _taskKey(taskId) { return this.kvp._taskKey(taskId); }
+  _logKey(taskId) { return this.kvp._logKey(taskId); }
+  _eventsKey(taskId) { return this.kvp._eventsKey(taskId); }
+  _snapshotsKey(taskId) { return this.kvp._snapshotsKey(taskId); }
+  _shortCodeKey(code) { return this.kvp._shortCodeKey(code); }
+  _nameSlugKey(slug) { return this.kvp._nameSlugKey(slug); }
+  _indexKey() { return this.kvp._indexKey(); }
+  async _get(key) { return this.kvp._get(key); }
+  async _put(key, value) { return this.kvp._put(key, value); }
+  async _append(key, item) { return this.kvp._append(key, item); }
+  async _loadIndex() { return this.kvp._loadIndex(); }
+  async _flushIndex() { return this.kvp._flushIndex(); }
+  async _updateIndex(taskId, meta) { return this.kvp._updateIndex(taskId, meta); }
 
   // --- TaskStore interface (async) ---
 

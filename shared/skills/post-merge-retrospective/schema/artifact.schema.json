@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "post-merge-retrospective/artifact",
+  "title": "Post-Merge Retrospective Artifact",
+  "description": "Machine-readable output from a post-merge session retrospective",
+  "type": "object",
+  "required": ["schema_version", "generated_at", "pr_ref", "session_stats", "friction_signals", "skill_recommendations", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when artifact was generated"
+    },
+    "pr_ref": {
+      "type": "string",
+      "description": "PR number or branch name that was merged"
+    },
+    "session_stats": {
+      "type": "object",
+      "required": ["turn_count", "tool_calls", "duration_hint"],
+      "additionalProperties": false,
+      "properties": {
+        "turn_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duration_hint": {
+          "type": "string",
+          "description": "Human-readable session duration estimate (e.g. '~45 min') or 'unknown'"
+        }
+      }
+    },
+    "friction_signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "turn_index", "description", "impact", "repeatable"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["error", "correction", "loop", "assumption_failure", "missing_context", "inefficiency", "capability_gap"]
+          },
+          "turn_index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Approximate assistant turn number in the conversation"
+          },
+          "description": {
+            "type": "string",
+            "description": "One concrete sentence describing the friction event"
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["low", "medium", "high"]
+          },
+          "repeatable": {
+            "type": "boolean",
+            "description": "True if the same issue would likely recur in a similar session"
+          }
+        }
+      }
+    },
+    "skill_recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "category", "rationale", "trigger_description", "priority", "estimated_reuse"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "description": "Proposed skill name in kebab-case"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["library-api-reference", "product-verification", "data-fetching", "business-automation", "scaffolding", "code-quality", "ci-cd", "runbook"]
+          },
+          "rationale": {
+            "type": "string",
+            "description": "One sentence linking the recommendation to an observed friction signal"
+          },
+          "trigger_description": {
+            "type": "string",
+            "description": "What user request or context should activate this skill"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          },
+          "estimated_reuse": {
+            "type": "string",
+            "enum": ["once", "occasional", "frequent"]
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total_signals", "high_impact_signals", "recommendation_count"],
+      "additionalProperties": false,
+      "properties": {
+        "total_signals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high_impact_signals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recommendation_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

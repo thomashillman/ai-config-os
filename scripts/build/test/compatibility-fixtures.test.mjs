@@ -364,7 +364,34 @@ test('resolveSkillPlatform: multiple unsupported capabilities → all listed in 
   assert.ok(result.unsupported.includes('net.http'), 'Should include net.http');
 });
 
-// ─── Test 13: Mixed unknown and unsupported ───
+// ─── Test 13: Cache hit — identical capability declarations ───
+
+test('resolveAll: skills with identical capability declarations share equivalent results', () => {
+  const capDecl = { required: ['git.read'], fallback_mode: 'prompt-only' };
+  const skills = [
+    { skillName: 'skill-a', frontmatter: { skill: 'skill-a', capabilities: capDecl } },
+    { skillName: 'skill-b', frontmatter: { skill: 'skill-b', capabilities: capDecl } },
+  ];
+  const platforms = new Map([
+    [
+      'claude-code',
+      {
+        id: 'claude-code',
+        default_package: 'rules',
+        capabilities: { 'git.read': { status: 'supported' } },
+      },
+    ],
+  ]);
+
+  const matrix = resolveAll(skills, platforms);
+
+  const resultA = matrix.get('skill-a').get('claude-code');
+  const resultB = matrix.get('skill-b').get('claude-code');
+
+  assert.deepEqual(resultA, resultB, 'Identical capability contracts should produce equal results');
+});
+
+// ─── Test 13 (original): Mixed unknown and unsupported ───
 
 test('resolveSkillPlatform: mixed unknown and unsupported → excluded (unsupported takes precedence)', () => {
   const skillFrontmatter = {

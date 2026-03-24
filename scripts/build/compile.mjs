@@ -19,7 +19,7 @@ import { parseSkill } from './lib/parse-skill.mjs';
 import { emitClaudeCode } from './lib/emit-claude-code.mjs';
 import { emitCursor } from './lib/emit-cursor.mjs';
 import { emitCodex } from './lib/emit-codex.mjs';
-import { emitRegistry } from './lib/emit-registry.mjs';
+import { emitRegistry, emitSummary } from './lib/emit-registry.mjs';
 import { emitRuntime } from './lib/emit-runtime.mjs';
 import { loadPlatforms } from './lib/load-platforms.mjs';
 import { loadRoutes, loadOutcomes } from './lib/load-definitions.mjs';
@@ -29,9 +29,7 @@ import { buildPlatformSkillsAndCheckZeroEmit } from './lib/build-platform-skills
 import { validateSkillPolicy, validatePlatformPolicy } from './lib/validate-skill-policy.mjs';
 import { readReleaseVersion, validateReleaseVersion, getBuildProvenance } from './lib/versioning.mjs';
 import { getSkillValidator, getPlatformValidator, getRouteValidator, getOutcomeValidator, getSkillSchema } from './lib/validators-cache.mjs';
-import { registeredToolIds } from '../../runtime/tool-definitions.mjs';
-import { loadTaskRouteDefinitions } from '../../runtime/lib/task-route-definition-loader.mjs';
-import { loadTaskRouteInputDefinitions } from '../../runtime/lib/task-route-input-loader.mjs';
+import { loadToolIds, loadRouteDefinitions, loadRouteInputDefinitions } from './lib/load-runtime-data.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -47,6 +45,7 @@ const DIST_DIR = join(ROOT, 'dist');
 const VALIDATE_ONLY = process.argv.includes('--validate-only');
 const TASK_ROUTE_DEFINITIONS_PATH = join(ROOT, 'runtime', 'task-route-definitions.yaml');
 const TASK_ROUTE_INPUT_DEFINITIONS_PATH = join(ROOT, 'runtime', 'task-route-input-definitions.yaml');
+const TOOL_REGISTRY_PATH = join(ROOT, 'runtime', 'tool-registry.yaml');
 
 
 // Release version from VERSION file; provenance only in release mode
@@ -103,10 +102,18 @@ async function main() {
   const parsed = [];
   let fatalErrors = 0;
 
-  // Load platforms first for policy validation
-  const { platforms, errors: loadErrors } = loadPlatforms(ROOT);
+  // Load all independent data sources concurrently
+  const [
+    { platforms, errors: loadErrors },
+    { records: routes, errors: routeLoadErrors },
+    { records: outcomes, errors: outcomeLoadErrors },
+  ] = await Promise.all([
+    loadPlatforms(ROOT),
+    loadRoutes(ROOT),
+    loadOutcomes(ROOT),
+  ]);
   const knownPlatforms = new Set(platforms.keys());
-  const knownTools = registeredToolIds();
+  const knownTools = loadToolIds(TOOL_REGISTRY_PATH);
 
   // Validate all platform definitions
   console.log('[platforms]');
@@ -151,8 +158,6 @@ async function main() {
 
   // Validate route and outcome definitions
   console.log('\n[routes/outcomes]');
-  const { records: routes, errors: routeLoadErrors } = loadRoutes(ROOT);
-  const { records: outcomes, errors: outcomeLoadErrors } = loadOutcomes(ROOT);
 
   for (const err of [...routeLoadErrors, ...outcomeLoadErrors]) {
     console.error(`  [error] ${err}`);
@@ -329,10 +334,11 @@ async function main() {
 
   console.log('\n[registry]');
   emitRegistry(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion, provenance, compatMatrix, platformDefs: platforms });
+  emitSummary(parsed, actuallyEmittedPlatforms, { distDir: DIST_DIR, releaseVersion });
 
   console.log('\n[runtime]');
-  const { taskTypes: taskRouteDefinitions } = loadTaskRouteDefinitions(TASK_ROUTE_DEFINITIONS_PATH);
-  const { taskTypes: taskRouteInputDefinitions } = loadTaskRouteInputDefinitions(TASK_ROUTE_INPUT_DEFINITIONS_PATH);
+  const { taskTypes: taskRouteDefinitions } = loadRouteDefinitions(TASK_ROUTE_DEFINITIONS_PATH);
+  const { taskTypes: taskRouteInputDefinitions } = loadRouteInputDefinitions(TASK_ROUTE_INPUT_DEFINITIONS_PATH);
   emitRuntime(parsed, actuallyEmittedPlatforms, {
     distDir: DIST_DIR,
     releaseVersion,

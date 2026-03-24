@@ -30,6 +30,7 @@ const {
   classifyAll,
   loadProbeResults,
   loadManifest,
+  resolveRegistryPlatformHint,
   filterSkills,
   formatSummary,
   formatText,
@@ -213,6 +214,32 @@ describe('loadProbeResults — edge cases', () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test('claude-ssh probe remains useful for classification, not just detection', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'filter-skills-test-'));
+    const probeFile = join(dir, 'probe.json');
+    try {
+      writeFileSync(probeFile, JSON.stringify({
+        probe_version: '1.0.0',
+        platform_hint: 'claude-ssh',
+        surface_hint:  'remote-shell',
+        hostname:      'ssh-host',
+        results: {
+          'fs.read':    { status: 'supported' },
+          'shell.exec': { status: 'supported' },
+          'git.read':   { status: 'supported' },
+        },
+      }));
+
+      const result = loadProbeResults(probeFile);
+      assert.equal(result.platform_hint, 'claude-ssh');
+      assert.equal(result.surface_hint, 'remote-shell');
+      assert.ok(result.supported.has('shell.exec'));
+      assert.ok(result.supported.has('git.read'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 // ─── loadManifest ─────────────────────────────────────────────────────────────
@@ -243,6 +270,43 @@ describe('loadManifest — edge cases', () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+// ─── resolveRegistryPlatformHint ─────────────────────────────────────────────
+
+describe('resolveRegistryPlatformHint', () => {
+  test('returns the probe platform when manifest already knows claude-ssh', () => {
+    const result = resolveRegistryPlatformHint('claude-ssh', {
+      platforms: ['claude-code', 'claude-ssh'],
+      platform_definitions: {},
+      skills: [],
+    });
+
+    assert.equal(result.registry_platform_hint, 'claude-ssh');
+    assert.equal(result.warning, null);
+  });
+
+  test('normalises claude-code-remote to claude-code for registry compatibility', () => {
+    const result = resolveRegistryPlatformHint('claude-code-remote', {
+      platforms: ['claude-code', 'claude-ios'],
+      platform_definitions: {},
+      skills: [],
+    });
+
+    assert.equal(result.registry_platform_hint, 'claude-code');
+    assert.equal(result.warning, null);
+  });
+
+  test('warns when probe platform is unknown to the manifest registry', () => {
+    const result = resolveRegistryPlatformHint('mystery-shell', {
+      platforms: ['claude-code'],
+      platform_definitions: {},
+      skills: [],
+    });
+
+    assert.equal(result.registry_platform_hint, 'unknown');
+    assert.match(result.warning, /mystery-shell/);
   });
 });
 
@@ -338,6 +402,113 @@ describe('filterSkills — end-to-end with temp files', () => {
       assert.equal(result.excluded.length,    1, 'should have 1 excluded');
       assert.equal(result.unavailable.length, 1, 'should have 1 unavailable');
       assert.equal(result.warning, null);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('claude-ssh probe does not crash or downgrade everything when platform is recognised', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'filter-skills-test-'));
+    const probeFile    = join(dir, 'probe.json');
+    const manifestFile = join(dir, 'manifest.json');
+    try {
+      writeFileSync(probeFile, JSON.stringify({
+        probe_version: '1.0.0',
+        platform_hint: 'claude-ssh',
+        surface_hint:  'remote-shell',
+        hostname:      'ssh-host',
+        results: {
+          'fs.read':    { status: 'supported' },
+          'shell.exec': { status: 'supported' },
+          'git.read':   { status: 'supported' },
+        },
+      }));
+
+      writeFileSync(manifestFile, JSON.stringify({
+        version: '0.5.4',
+        platforms: ['claude-code', 'claude-ssh'],
+        skills: [
+          makeSkill({ id: 'ssh-native', required: ['shell.exec', 'git.read'] }),
+          makeSkill({ id: 'ssh-degraded', required: ['fs.read'], optional: ['mcp.client'] }),
+          makeSkill({ id: 'ssh-fallback', required: ['mcp.client'], fallback_mode: 'prompt-only' }),
+        ],
+      }));
+
+      const result = filterSkills({ probePath: probeFile, manifestPath: manifestFile });
+      assert.equal(result.platform_hint, 'claude-ssh');
+      assert.equal(result.registry_platform_hint, 'claude-ssh');
+      assert.equal(result.surface_hint, 'remote-shell');
+      assert.deepEqual(result.available.map(skill => skill.id), ['ssh-native']);
+      assert.deepEqual(result.degraded.map(skill => skill.id), ['ssh-degraded']);
+      assert.deepEqual(result.excluded.map(skill => skill.id), ['ssh-fallback']);
+      assert.deepEqual(result.unavailable, []);
+      assert.equal(result.warning, null);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('claude-code-remote is normalised through the filtering path instead of treated as unknown', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'filter-skills-test-'));
+    const probeFile    = join(dir, 'probe.json');
+    const manifestFile = join(dir, 'manifest.json');
+    try {
+      writeFileSync(probeFile, JSON.stringify({
+        probe_version: '1.0.0',
+        platform_hint: 'claude-code-remote',
+        surface_hint:  'desktop-cli',
+        hostname:      'remote-host',
+        results: {
+          'shell.exec': { status: 'supported' },
+        },
+      }));
+
+      writeFileSync(manifestFile, JSON.stringify({
+        version: '0.5.4',
+        platforms: ['claude-code'],
+        skills: [
+          makeSkill({ id: 'remote-shell', required: ['shell.exec'] }),
+        ],
+      }));
+
+      const result = filterSkills({ probePath: probeFile, manifestPath: manifestFile });
+      assert.equal(result.platform_hint, 'claude-code-remote');
+      assert.equal(result.registry_platform_hint, 'claude-code');
+      assert.equal(result.available.map(skill => skill.id)[0], 'remote-shell');
+      assert.equal(result.warning, null);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('unknown probe platform warns instead of silently failing classification', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'filter-skills-test-'));
+    const probeFile    = join(dir, 'probe.json');
+    const manifestFile = join(dir, 'manifest.json');
+    try {
+      writeFileSync(probeFile, JSON.stringify({
+        probe_version: '1.0.0',
+        platform_hint: 'mystery-shell',
+        surface_hint:  'remote-shell',
+        hostname:      'mystery-host',
+        results: {
+          'shell.exec': { status: 'supported' },
+        },
+      }));
+
+      writeFileSync(manifestFile, JSON.stringify({
+        version: '0.5.4',
+        platforms: ['claude-code'],
+        skills: [
+          makeSkill({ id: 'still-available', required: ['shell.exec'] }),
+        ],
+      }));
+
+      const result = filterSkills({ probePath: probeFile, manifestPath: manifestFile });
+      assert.equal(result.platform_hint, 'mystery-shell');
+      assert.equal(result.registry_platform_hint, 'unknown');
+      assert.equal(result.available.map(skill => skill.id)[0], 'still-available');
+      assert.match(result.warning, /mystery-shell/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -143,4 +143,22 @@ describe('schema contract — unknown fields rejected', () => {
     const valid = validate(fm);
     assert.equal(valid, true, `Should accept known monitoring fields: ${JSON.stringify(validate.errors)}`);
   });
+
+  test('disable-model-invocation boolean is accepted', () => {
+    const fm = { ...baseSkill, 'disable-model-invocation': true };
+    const valid = validate(fm);
+    assert.equal(valid, true, `Should accept disable-model-invocation: ${JSON.stringify(validate.errors)}`);
+  });
+
+  test('user-invocable boolean is accepted', () => {
+    const fm = { ...baseSkill, 'user-invocable': false };
+    const valid = validate(fm);
+    assert.equal(valid, true, `Should accept user-invocable: ${JSON.stringify(validate.errors)}`);
+  });
+
+  test('disable-model-invocation rejects non-boolean', () => {
+    const fm = { ...baseSkill, 'disable-model-invocation': 'yes' };
+    const valid = validate(fm);
+    assert.equal(valid, false, 'Should reject non-boolean disable-model-invocation');
+  });
 });

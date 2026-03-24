@@ -118,8 +118,6 @@ test('buildSkillsPackage_fails_when_skill_has_no_skill_md', async () => {
   }
 });
 
-
-
 test('uploadToKV_surfaces_cloudflare_error_when_runner_fails_without_stderr', async () => {
   const { uploadToKV } = await safeImport('../upload-skills-kv.mjs', import.meta.url);
 
@@ -145,6 +143,43 @@ test('uploadToKV_surfaces_cloudflare_error_when_runner_fails_without_stderr', as
     ),
     /Authentication error/,
   );
+});
+
+test('uploadToKV_streams_json_to_curl_without_shell_wrapping', async () => {
+  const { uploadToKV } = await safeImport('../upload-skills-kv.mjs', import.meta.url);
+  const calls = [];
+
+  uploadToKV(
+    { version: '9.9.9', skills: { debug: { 'SKILL.md': '# Debug\n' } } },
+    {
+      env: {
+        CLOUDFLARE_ACCOUNT_ID: 'acct-123',
+        CLOUDFLARE_API_TOKEN: 'token-123',
+        MANIFEST_KV_NAMESPACE_ID: 'kv-123',
+      },
+      runner: (command, args, options) => {
+        calls.push({ command, args, options });
+        return {
+          status: 0,
+          stdout: JSON.stringify({ success: true }),
+          stderr: '',
+        };
+      },
+      logger: () => {},
+    },
+  );
+
+  assert.equal(calls.length, 2);
+  for (const call of calls) {
+    assert.equal(call.command, 'curl');
+    assert.ok(call.args.includes('--fail-with-body'));
+    assert.ok(call.args.includes('--data-binary'));
+    assert.ok(call.args.includes('@-'));
+    assert.equal(
+      call.options.input,
+      JSON.stringify({ version: '9.9.9', skills: { debug: { 'SKILL.md': '# Debug\n' } } }),
+    );
+  }
 });
 
 test('upload_skills_kv_dry_run_prints_target_keys_without_upload', () => {
