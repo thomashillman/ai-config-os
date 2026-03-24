@@ -4,6 +4,7 @@
 // All outputs are contract-validated against narration-output.schema.json.
 
 import { validateContract } from '../../shared/contracts/validate.mjs';
+import { resolveTaskRoute } from './task-route-resolver.mjs';
 import {
   TEMPLATE_VERSION,
   strengthLabels,
@@ -50,18 +51,77 @@ function isStrongerRoute(a, b) {
 }
 
 function findStrongerRoute(currentRoute, contract) {
-  if (contract?.stronger_host_guidance) {
-    const match = contract.stronger_host_guidance.match(/route '([a-z_]+)'/);
-    if (match) return match[1];
-    const preferMatch = contract.stronger_host_guidance.match(/Prefer '([a-z_]+)'/);
-    if (preferMatch) return preferMatch[1];
-  }
-  // Fallback: find the strongest available route
-  for (let i = ROUTE_STRENGTH_ORDER.length - 1; i >= 0; i--) {
-    const candidate = ROUTE_STRENGTH_ORDER[i];
-    if (isStrongerRoute(candidate, currentRoute)) return candidate;
+  const selectedRoute = contract?.selected_route;
+  const missingCapabilities = Array.isArray(selectedRoute?.missing_capabilities)
+    ? selectedRoute.missing_capabilities
+    : [];
+  const selectedRouteId = selectedRoute?.route_id;
+  if (
+    selectedRouteId
+    && selectedRouteId !== currentRoute
+    && isStrongerRoute(selectedRouteId, currentRoute)
+    && selectedRoute?.equivalence_level === 'equal'
+    && missingCapabilities.length === 0
+  ) {
+    return selectedRouteId;
   }
   return null;
+}
+
+function parseUpgradeBlockedState(contract) {
+  const guidance = contract?.stronger_host_guidance;
+  if (typeof guidance !== 'string' || guidance.length === 0) {
+    return null;
+  }
+  const capabilitiesMatch = guidance.match(/supports:\s*(.+)\.?$/i);
+  if (!capabilitiesMatch) {
+    return 'Upgrade unavailable due to missing capability support.';
+  }
+  const capabilities = capabilitiesMatch[1]
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (capabilities.length === 0) {
+    return 'Upgrade unavailable due to missing capability support.';
+  }
+  return `Upgrade unavailable due to missing capability: ${capabilities.join(', ')}.`;
+}
+
+function routeDecisionFromCapabilities(task, currentCapabilities) {
+  if (!task?.task_type || !task?.current_route || !currentCapabilities) {
+    return { strongerRoute: null, blockedCapabilities: [] };
+  }
+  try {
+    const resolution = resolveTaskRoute({
+      taskType: task.task_type,
+      capabilityProfile: currentCapabilities,
+    });
+    const currentIndex = ROUTE_STRENGTH_ORDER.indexOf(task.current_route);
+    const candidates = Array.isArray(resolution?.candidates) ? resolution.candidates : [];
+
+    const strongerSupportedCandidate = candidates.find((candidate) => (
+      ROUTE_STRENGTH_ORDER.indexOf(candidate.route_id) > currentIndex
+      && candidate.equivalence_level === 'equal'
+      && Array.isArray(candidate.missing_capabilities)
+      && candidate.missing_capabilities.length === 0
+    ));
+    if (strongerSupportedCandidate) {
+      return { strongerRoute: strongerSupportedCandidate.route_id, blockedCapabilities: [] };
+    }
+
+    const strongerBlockedCandidate = candidates.find((candidate) => (
+      ROUTE_STRENGTH_ORDER.indexOf(candidate.route_id) > currentIndex
+      && candidate.equivalence_level === 'equal'
+      && Array.isArray(candidate.missing_capabilities)
+      && candidate.missing_capabilities.length > 0
+    ));
+    return {
+      strongerRoute: null,
+      blockedCapabilities: strongerBlockedCandidate?.missing_capabilities || [],
+    };
+  } catch {
+    return { strongerRoute: null, blockedCapabilities: [] };
+  }
 }
 
 function buildFindingNarrative(finding) {
@@ -114,6 +174,7 @@ export function createNarrator(options = {}) {
       const routeLabel = getRouteLabel(routeId);
 
       const strongerRoute = findStrongerRoute(routeId, contract);
+      const upgradeBlockedMessage = strongerRoute ? null : parseUpgradeBlockedState(contract);
 
       const vars = {
         taskTypeLabel,
@@ -125,15 +186,12 @@ export function createNarrator(options = {}) {
       };
 
       const headline = interpolate(tmpl.onStart.headline, vars);
-      const upgradeText = strongerRoute
-        ? interpolate(tmpl.onStart.upgrade_available, vars)
-        : null;
 
       const findings = (task.findings || []).map(buildFindingNarrative);
 
       return validateNarrationOutput({
         headline,
-        progress: null,
+        progress: upgradeBlockedMessage,
         strength,
         next_action: task.next_action || contract?.required_inputs?.join(', ') || null,
         upgrade: strongerRoute ? buildUpgradeBlock(routeId, strongerRoute) : null,
@@ -150,6 +208,7 @@ export function createNarrator(options = {}) {
       const upgraded = previousRoute && previousRoute !== routeId;
 
       const strongerRoute = findStrongerRoute(routeId, contract);
+      const upgradeBlockedMessage = strongerRoute ? null : parseUpgradeBlockedState(contract);
       const upgradeDescription = upgraded
         ? `full verification with ${getRouteLabel(routeId)}`
         : (strongerRoute ? `verification with ${getRouteLabel(strongerRoute)}` : 'continued analysis');
@@ -167,13 +226,16 @@ export function createNarrator(options = {}) {
           vars,
         )
         : null;
+      const progressWithUpgradeBlockMessage = upgradeBlockedMessage && !upgraded
+        ? [progress, upgradeBlockedMessage].filter(Boolean).join(' ')
+        : progress;
 
       const findings = (task.findings || []).map(buildFindingNarrative);
       const upgrade = upgraded ? buildUpgradeBlock(previousRoute, routeId) : null;
 
       return validateNarrationOutput({
         headline,
-        progress,
+        progress: progressWithUpgradeBlockMessage,
         strength,
         next_action: task.next_action || null,
         upgrade,
@@ -199,17 +261,21 @@ export function createNarrator(options = {}) {
 
     onUpgradeAvailable(task, currentContract, availableContract) {
       const currentRoute = task.current_route;
-      const strongerRoute = availableContract?.selected_route?.route_id || findStrongerRoute(currentRoute, currentContract);
+      const strongerRoute = findStrongerRoute(currentRoute, availableContract)
+        || findStrongerRoute(currentRoute, currentContract);
+      const upgradeBlockedMessage = strongerRoute ? null : parseUpgradeBlockedState(availableContract || currentContract);
       const findingsCount = (task.findings || []).length;
 
       const headline = interpolate(tmpl.onUpgradeAvailable.headline, {
-        strongerRouteLabel: strongerRoute ? getRouteLabel(strongerRoute) : 'a stronger environment',
+        strongerRouteLabel: strongerRoute
+          ? getRouteLabel(strongerRoute)
+          : (upgradeBlockedMessage || 'a stronger environment'),
         findingsCount,
       });
 
       return validateNarrationOutput({
         headline,
-        progress: null,
+        progress: upgradeBlockedMessage,
         strength: getStrength(currentRoute),
         next_action: tmpl.onUpgradeAvailable.prompt,
         upgrade: buildUpgradeBlock(currentRoute, strongerRoute),
@@ -225,13 +291,17 @@ export function createNarrator(options = {}) {
           (f) => f?.provenance?.status === 'hypothesis' || f?.provenance?.status === 'reused',
         ).length;
 
-        // Determine if an upgrade is available based on current capabilities
-        const strongerRoute = findStrongerRoute(task.current_route, null);
+        const capabilityRouteDecision = routeDecisionFromCapabilities(task, currentCapabilities);
+        const strongerRoute = capabilityRouteDecision.strongerRoute;
         const hasUpgrade = Boolean(strongerRoute);
         const upgradeDescription = hasUpgrade
           ? `verification with ${getRouteLabel(strongerRoute)}`
           : null;
         const strongerRouteLabel = hasUpgrade ? getRouteLabel(strongerRoute) : null;
+        const blockedCapabilities = capabilityRouteDecision.blockedCapabilities;
+        const blockedUpgradeMessage = !hasUpgrade && blockedCapabilities.length > 0
+          ? `Upgrade unavailable due to missing capability: ${blockedCapabilities.join(', ')}`
+          : null;
 
         const vars = {
           taskTypeLabel,
@@ -247,7 +317,7 @@ export function createNarrator(options = {}) {
 
         const continuation_reason = hasUpgrade
           ? interpolate(tmpl.onShelfView.continuation_with_upgrade, vars)
-          : interpolate(tmpl.onShelfView.continuation_without_upgrade, vars);
+          : (blockedUpgradeMessage || interpolate(tmpl.onShelfView.continuation_without_upgrade, vars));
 
         return {
           task_id: task.task_id,

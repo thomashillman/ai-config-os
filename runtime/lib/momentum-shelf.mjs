@@ -2,6 +2,7 @@
 // Pure function: no side effects.
 
 import { validateContract } from '../../shared/contracts/validate.mjs';
+import { resolveTaskRoute } from './task-route-resolver.mjs';
 
 function validateShelfEntry(entry) {
   return validateContract('shelfEntry', entry);
@@ -38,15 +39,24 @@ function getProgressRatio(task) {
   return total === 0 ? 0 : completed / total;
 }
 
-function determineBestRoute(task) {
+function determineBestRoute(task, currentCapabilities) {
   const currentIdx = routeStrengthIndex(task.current_route);
-  // The strongest route is always local_repo for review_repository tasks
-  // For other task types, we just check if there's a stronger route available
-  const strongestIdx = ROUTE_STRENGTH_ORDER.length - 1;
-  if (strongestIdx > currentIdx) {
-    return ROUTE_STRENGTH_ORDER[strongestIdx];
+  try {
+    const resolution = resolveTaskRoute({
+      taskType: task.task_type,
+      capabilityProfile: currentCapabilities,
+    });
+    const candidates = Array.isArray(resolution?.candidates) ? resolution.candidates : [];
+    const strongerSupported = candidates.find((candidate) => (
+      routeStrengthIndex(candidate.route_id) > currentIdx
+      && candidate.equivalence_level === 'equal'
+      && Array.isArray(candidate.missing_capabilities)
+      && candidate.missing_capabilities.length === 0
+    ));
+    return strongerSupported?.route_id || task.current_route;
+  } catch {
+    return task.current_route;
   }
-  return task.current_route;
 }
 
 export function buildMomentumShelf({ tasks, currentCapabilities, narrator } = {}) {
@@ -57,7 +67,7 @@ export function buildMomentumShelf({ tasks, currentCapabilities, narrator } = {}
   );
 
   const scored = activeTasks.map((task) => {
-    const bestRoute = determineBestRoute(task);
+    const bestRoute = determineBestRoute(task, currentCapabilities);
     const fit = classifyEnvironmentFit(task.current_route, bestRoute);
     const pendingVerification = countPendingVerification(task.findings);
     const recency = getLastActivityTime(task);

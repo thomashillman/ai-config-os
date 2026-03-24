@@ -4,6 +4,7 @@ import { TaskStore } from '../../../runtime/lib/task-store.mjs';
 import { createMomentumEngine } from '../../../runtime/lib/momentum-engine.mjs';
 import { createNarrator } from '../../../runtime/lib/momentum-narrator.mjs';
 import { MomentumObserver } from '../../../runtime/lib/momentum-observer.mjs';
+import { buildEffectiveExecutionContract } from '../../../runtime/lib/effective-execution-contract.mjs';
 import {
   startReviewRepositoryTask,
   resumeReviewRepositoryTask,
@@ -95,8 +96,8 @@ test('startReviewRepositoryTask with narrator produces narration and records obs
   assert.ok(result.narration, 'should return narration');
   assert.ok(result.narration.headline.length > 0, 'headline should not be empty');
   assert.equal(result.narration.strength.level, 'degraded');
-  assert.ok(result.narration.upgrade, 'should have upgrade block for weak route');
-  assert.ok(result.narration.upgrade.unlocks.includes('verify call sites'));
+  assert.equal(result.narration.upgrade, null, 'should not claim blocked upgrade');
+  assert.match(result.narration.progress, /Upgrade unavailable due to missing capability:/);
 
   // Observation is recorded in the event store
   const events = store.progressEvents.listByTaskId('task_narrated_start_001');
@@ -238,7 +239,7 @@ test('buildTaskReadinessView always includes narration key (null when no narrato
   assert.equal(view.narration, null);
 });
 
-test('buildTaskReadinessView with narrator produces narration when upgrade available', () => {
+test('buildTaskReadinessView with narrator does not produce upgrade narration when host lacks required capability', () => {
   const store = new TaskStore();
   const narrator = createNarrator();
 
@@ -261,9 +262,44 @@ test('buildTaskReadinessView with narrator produces narration when upgrade avail
     narrator,
   });
 
-  assert.ok(view.narration, 'should have narration when upgrade is available');
-  assert.ok(view.narration.headline.length > 0);
-  assert.ok(view.narration.upgrade, 'should describe the upgrade');
+  assert.equal(view.readiness.stronger_route_available, false);
+  assert.equal(view.narration, null);
+  assert.match(view.readiness.upgrade_unavailable_reason, /Upgrade unavailable due to missing capability:/);
+});
+
+test('buildTaskReadinessView with narrator produces narration when equal stronger route is supported now', () => {
+  const store = new TaskStore();
+  const narrator = createNarrator();
+
+  startReviewRepositoryTask({
+    taskStore: store,
+    taskId: 'task_readiness_upgrade_now',
+    goal: 'Check quality',
+    routeInputs: {
+      repository_slug: 'test/repo',
+      pull_request_number: '55',
+    },
+    capabilityProfile: weakProfile(),
+    now: '2026-03-17T10:08:00.000Z',
+  });
+
+  const upgradeNowContract = buildEffectiveExecutionContract({
+    taskId: 'task_readiness_upgrade_now',
+    taskType: 'review_repository',
+    capabilityProfile: strongProfile(),
+    computedAt: '2026-03-17T10:09:00.000Z',
+  });
+
+  const view = buildTaskReadinessView({
+    task: store.load('task_readiness_upgrade_now'),
+    effectiveExecutionContract: upgradeNowContract,
+    progressEvents: store.listProgressEvents('task_readiness_upgrade_now'),
+    narrator,
+  });
+
+  assert.equal(view.readiness.stronger_route_available, true);
+  assert.ok(view.narration);
+  assert.ok(view.narration.upgrade);
 });
 
 // ── Full orchestrator flow: start → narrate → record response → reflect ──
@@ -348,7 +384,7 @@ test('engine.buildShelf ranks tasks with narrator-produced headlines', () => {
     store.load('task_shelf_strong'),
   ];
 
-  const shelf = engine.buildShelf({ tasks });
+  const shelf = engine.buildShelf({ tasks, currentCapabilities: strongProfile() });
 
   assert.equal(shelf.length, 2);
   // Weak route task should rank higher (upgrade available = strong fit)

@@ -63,6 +63,37 @@ function summariseFindings(findings) {
   }, {});
 }
 
+function getReadinessUpgradeState(task, effectiveExecutionContract) {
+  const selectedRoute = effectiveExecutionContract?.selected_route;
+  const selectedRouteId = selectedRoute?.route_id;
+  const missingCapabilities = Array.isArray(selectedRoute?.missing_capabilities)
+    ? selectedRoute.missing_capabilities
+    : [];
+  const routeIsFullySupported = selectedRoute?.equivalence_level === 'equal' && missingCapabilities.length === 0;
+  const strongerRouteAvailable = Boolean(
+    selectedRouteId
+    && selectedRouteId !== task.current_route
+    && routeIsFullySupported
+  );
+
+  if (strongerRouteAvailable) {
+    return { strongerRouteAvailable, blockedReason: null };
+  }
+
+  const strongerGuidance = effectiveExecutionContract?.stronger_host_guidance;
+  if (typeof strongerGuidance === 'string' && strongerGuidance.length > 0) {
+    const blockedCapabilityText = missingCapabilities.length > 0
+      ? missingCapabilities.join(', ')
+      : 'required capability support';
+    return {
+      strongerRouteAvailable: false,
+      blockedReason: `Upgrade unavailable due to missing capability: ${blockedCapabilityText}.`,
+    };
+  }
+
+  return { strongerRouteAvailable: false, blockedReason: null };
+}
+
 export function startReviewRepositoryTask({
   taskStore,
   taskId,
@@ -234,10 +265,9 @@ export function buildTaskReadinessView({ task, effectiveExecutionContract, progr
   const totalSteps = task.progress?.total_steps || 0;
   const completedSteps = task.progress?.completed_steps || 0;
 
-  const strongerRouteAvailable = Boolean(
-    effectiveExecutionContract?.stronger_host_guidance
-    || (task.task_type === REVIEW_REPOSITORY_TASK_TYPE && task.current_route !== 'local_repo')
-  );
+  const readinessUpgradeState = getReadinessUpgradeState(task, effectiveExecutionContract);
+  const strongerRouteAvailable = task.task_type === REVIEW_REPOSITORY_TASK_TYPE
+    && readinessUpgradeState.strongerRouteAvailable;
 
   const narration = narrator && strongerRouteAvailable
     ? narrator.onUpgradeAvailable(task, effectiveExecutionContract, null)
@@ -254,6 +284,7 @@ export function buildTaskReadinessView({ task, effectiveExecutionContract, progr
       is_ready: task.state === 'active' && completedSteps < totalSteps,
       stronger_route_available: strongerRouteAvailable,
       progress_ratio: totalSteps === 0 ? 1 : Number((completedSteps / totalSteps).toFixed(4)),
+      upgrade_unavailable_reason: readinessUpgradeState.blockedReason,
     },
     findings_provenance: summariseFindings(task.findings || []),
     progress_event_count: progressEvents.length,

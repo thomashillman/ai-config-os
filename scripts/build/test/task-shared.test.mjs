@@ -89,13 +89,29 @@ test('createReadinessView computes is_ready correctly', () => {
 
 test('createReadinessView computes stronger_route_available', () => {
   const onPr = { task_type: 'review_repository', current_route: 'github_pr', state: 'active', progress: {}, findings: [] };
-  assert.equal(createReadinessView(onPr).readiness.stronger_route_available, true);
+  const upgradeAvailableContract = {
+    selected_route: { route_id: 'local_repo', equivalence_level: 'equal', missing_capabilities: [] },
+  };
+  assert.equal(createReadinessView(onPr, [], upgradeAvailableContract).readiness.stronger_route_available, true);
+
+  const blockedUpgradeContract = {
+    selected_route: { route_id: 'local_repo', equivalence_level: 'equal', missing_capabilities: ['local_fs'] },
+  };
+  assert.equal(createReadinessView(onPr, [], blockedUpgradeContract).readiness.stronger_route_available, false);
 
   const onLocal = { task_type: 'review_repository', current_route: 'local_repo', state: 'active', progress: {}, findings: [] };
-  assert.equal(createReadinessView(onLocal).readiness.stronger_route_available, false);
+  assert.equal(createReadinessView(onLocal, [], upgradeAvailableContract).readiness.stronger_route_available, false);
 
   const otherType = { task_type: 'other', current_route: 'github_pr', state: 'active', progress: {}, findings: [] };
-  assert.equal(createReadinessView(otherType).readiness.stronger_route_available, false);
+  assert.equal(createReadinessView(otherType, [], upgradeAvailableContract).readiness.stronger_route_available, false);
+});
+
+test('createReadinessView does not claim upgrade when contract route is still degraded', () => {
+  const task = { task_type: 'review_repository', current_route: 'github_pr', state: 'active', progress: {}, findings: [] };
+  const degradedContract = {
+    selected_route: { route_id: 'github_pr', equivalence_level: 'degraded', missing_capabilities: ['local_repo'] },
+  };
+  assert.equal(createReadinessView(task, [], degradedContract).readiness.stronger_route_available, false);
 });
 
 test('createReadinessView computes progress_ratio', () => {

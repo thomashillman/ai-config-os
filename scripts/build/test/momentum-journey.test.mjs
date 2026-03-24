@@ -251,7 +251,17 @@ test('scenario 4: buildMomentumShelf ranks active tasks with upgrade opportunity
     updatedAt: '2026-03-12T10:00:00.000Z',
   });
 
-  const shelf = buildMomentumShelf({ tasks: [taskStrong, taskPending, taskWithUpgrade] });
+  const shelf = buildMomentumShelf({
+    tasks: [taskStrong, taskPending, taskWithUpgrade],
+    currentCapabilities: {
+      capabilities: {
+        network_http: 'supported',
+        local_fs: 'supported',
+        local_shell: 'supported',
+        local_repo: 'supported',
+      },
+    },
+  });
 
   assert.ok(shelf.length >= 1, 'shelf should have entries');
   // All entries should have required fields

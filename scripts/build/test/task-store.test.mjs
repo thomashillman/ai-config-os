@@ -250,7 +250,7 @@ test('TaskStore getReadinessView returns canonical readiness projection', () => 
   assert.equal(readiness.task_id, task.task_id);
   assert.equal(readiness.current_route, 'github_pr');
   assert.equal(readiness.readiness.is_ready, true);
-  assert.equal(readiness.readiness.stronger_route_available, true);
+  assert.equal(readiness.readiness.stronger_route_available, false);
   assert.equal(readiness.findings_provenance.verified, 1);
   assert.equal(readiness.progress_event_count > 0, true);
 });
