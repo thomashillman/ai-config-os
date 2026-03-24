@@ -46,6 +46,8 @@ test('T005 alt: resolution uses a single loader snapshot even if loader changes 
   const contract = resolveEffectiveOutcomeContract({ toolName: 'unstable_tool' });
   assert.equal(contract.outcomeId, 'stable.outcome');
   assert.equal(contract.preferredRoute?.id, 'stable/route');
+  assert.equal(contract.routeScoringProfileSource, 'synthetic-static');
+  assert.deepEqual(contract.routeScoringProfileSynthetic, contract.capabilityProfile);
   assert.equal(calls, 1);
 });
 
