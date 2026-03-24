@@ -33,7 +33,7 @@ Last reconciled: 2026-03-24 (skills/tests/tabs/platform inventory claims verifie
 | shared/manifest.md (skill index) | — | Mirrors current `shared/skills/*/SKILL.md` inventory (34 installable skills, excluding `_template`) plus workflows/components |
 | shared/principles.md | — | Opinionated AI behaviour defaults |
 | adapters/claude/dev-test.sh | — | Non-interactive validation |
-| CLAUDE.md (dev context) | — | Extended with self-improvement, portability contract, delivery contract, CI pitfalls |
+| CLAUDE.md (dev context) | — | Critical constraints, agent working style, build/distribute commands, local proxy landmine, living docs protocol |
 | README.md | — | Full getting-started, architecture, troubleshooting |
 | .github/workflows/ | — | `validate.yml` (structure), `build.yml` (compile + test + dist artifact) |
 | .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics, skill-outcome-tracker |

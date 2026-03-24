@@ -21,7 +21,6 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `release-checklist` | End-to-end release workflow checklist: version bump, changelog, release commit, tag, push | `shared/skills/release-checklist/SKILL.md` |
 | `skill-audit` | Audit skill library for completeness: check required fields, variants, tests, dependencies | `shared/skills/skill-audit/SKILL.md` |
 | `task-decompose` | Decompose high-level tasks into concrete, measurable subtasks with acceptance criteria | `shared/skills/task-decompose/SKILL.md` |
-
 | `memory` | Maintain persistent cross-session project context (decisions, patterns, known issues, workarounds) | `shared/skills/memory/SKILL.md` |
 | `test-writer` | Generate comprehensive unit and integration tests from function/module code | `shared/skills/test-writer/SKILL.md` |
 | `security-review` | Perform OWASP-aware security review of code, dependencies, and configuration | `shared/skills/security-review/SKILL.md` |
@@ -62,7 +61,7 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 
 - **Author skills in** `shared/skills/<name>/SKILL.md` — never edit directly inside `plugins/`
 - **Symlinks** (Unix only, optional) connect `plugins/core-skills/skills/<name>` → `../../../shared/skills/<name>`
-- **Version bumps** are required in `plugins/core-skills/.claude-plugin/plugin.json` after any skill change
+- **Version bumps**: edit `VERSION`, then `npm run version:sync` to propagate to `package.json` and `plugin.json`. Never edit their versions by hand.
 - **Naming**: use kebab-case for skill directory names
 - **Template**: new skills should follow the structure in `shared/skills/_template/SKILL.md`
 
