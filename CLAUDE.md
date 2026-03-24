@@ -116,7 +116,11 @@ The **portability contract** guarantees that skills authored in source are emitt
 4. Run `bash adapters/claude/materialise.sh` to test extraction locally
 
 ## Testing locally
-Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
+```bash
+adapters/claude/dev-test.sh   # validate structure and test the plugin
+ops/validate-all.sh           # single entry point for all validators (pre-commit gate)
+npm test                      # delivery contract + portability tests
+```
 
 ## Delivery contract (v0.5.3+)
 
@@ -134,7 +138,9 @@ The **delivery contract** guarantees that all distributed artifacts (`dist/`) ar
 
 **Enforcement:**
 - Tests run on every `npm test` invocation
-- Tests are run automatically on all PRs via `.github/workflows/build.yml`
+- `.github/workflows/build.yml` — runs tests on all PRs; blocks merge on failure
+- `.github/workflows/pr-mergeability-gate.yml` — additional PR gate for main
+- `.github/workflows/validate.yml` — validates plugin structure on push to main
 - Build fails if delivery contract is violated (blocks merging to main)
 
 **What this prevents:**
@@ -279,7 +285,7 @@ All skills define metadata in YAML frontmatter. The `skill` and `description` fi
 
 ## Living docs protocol
 
-Four docs stay in sync; each owns a distinct slice:
+These docs stay in sync; each owns a distinct slice:
 
 | Doc | Update when |
 |---|---|
@@ -289,6 +295,7 @@ Four docs stay in sync; each owns a distinct slice:
 | `shared/manifest.md` | A skill is added, renamed, or removed (one row per skill) |
 | `docs/SKILLS.md` | Skill format changes, new Claude Code skill features, hooks patterns, Agent Skills standard updates |
 | `docs/CI_PATTERNS.md` | New CI pitfall found, new platform added to matrix, Windows portability pattern updated |
+| `docs/SUPPORTED_TODAY.md` | Platform support status changes, new surface confirmed or deprecated |
 
 **Rules for Claude agents:**
 - After any commit that creates or modifies a skill: update `shared/manifest.md` row + check if README or PLAN.md need a line.
