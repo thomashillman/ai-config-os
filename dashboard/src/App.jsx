@@ -61,17 +61,18 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 font-mono text-sm">
-      <header className="border-b border-gray-800 px-6 py-3 flex items-center gap-4">
-        <span className="text-gray-400 font-semibold tracking-wide">ai-config-os</span>
-        <nav className="flex gap-1">
+      <header className="border-b border-gray-800 px-6 flex items-center gap-4">
+        <span className="text-gray-200 font-semibold tracking-wide py-3 flex-shrink-0">ai-config-os</span>
+        <span className="w-px h-4 bg-gray-800 flex-shrink-0" />
+        <nav className="flex gap-0 overflow-auto">
           {TABS.map(t => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`px-3 py-1 rounded text-xs transition-colors ${
+              className={`px-3 py-3 text-xs transition-colors whitespace-nowrap border-b-2 ${
                 activeTab === t.id
-                  ? "bg-gray-700 text-white"
-                  : "text-gray-400 hover:text-gray-200"
+                  ? "text-white border-white"
+                  : "text-gray-500 border-transparent hover:text-gray-300"
               }`}
             >
               {t.label}
