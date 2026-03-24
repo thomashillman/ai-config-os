@@ -16,9 +16,11 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — Phase 10 milestone, updated 2026-03-23
+## Current state — Phase 10 milestone, updated 2026-03-24
 
 Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels in this plan track delivery checkpoints.
+
+Last reconciled: 2026-03-24 (skills/tests/tabs/platform inventory claims verified against repository source-of-truth).
 
 ### Completed infrastructure
 
@@ -69,7 +71,7 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Compiler (`scripts/build/compile.mjs`) | Done | Validates skills, resolves compatibility, emits `dist/` |
 | Skill schema (`schemas/skill.schema.json`) | Done | JSON Schema draft 2020-12; package manifest + adapter hints |
 | Platform schema (`schemas/platform.schema.json`) | Done | Capability state definitions |
-| Platform definitions (5 platforms) | Done | claude-code, claude-web, claude-ios, codex, cursor |
+| Platform definitions (14 targets) | Done | Canonical target definitions in `shared/targets/platforms/*.yaml` (including claude-code/web/ios, codex, cursor, and CI/IDE variants) |
 | Capability-driven compatibility resolver | Done | Skills declare required/optional caps; compiler resolves |
 | Claude Code emitter | Done | Full package: plugin.json + skill copies + prompts/ |
 | Cursor emitter | Done | .cursorrules from compatible skills with degradation notes |
@@ -96,7 +98,7 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Remote executor | — | Security, error handling |
 | Modularity refactoring | 46 (4 files) | task-shared, kv-persistence, load-runtime-data, worker-task-validators |
 | Dashboard formatters | 17 (2 files) | taskFormatters, dateFormatters |
-| **Total test files** | **98** | `scripts/build/test/` + `dashboard/src/__tests__/` |
+| **Total test files** | **133** | `scripts/build/test/` + `dashboard/src/__tests__/` |
 
 ### Runtime layer (v0.5.0+)
 
@@ -159,7 +161,7 @@ These tracks are grounded in:
 - `specs/worker-endpoint-inventory.md`
 - `specs/build-pipeline-research.md`
 
-### 1. Complete Phase 9.7 — Manifest-controlled runtime feature flags
+### 1. Historical completion record — Phase 9.7 manifest-controlled runtime feature flags
 
 **Version:** v0.5.4+
 **Status:** All 4 steps complete. ✓
@@ -184,7 +186,7 @@ These tracks are grounded in:
 - If outcome formatting regressions appear: set `outcome_resolution_enabled=false`
 - Rollback must be possible via manifest-only change (no code deploy required)
 
-### 2. Resolve hardcoded outcome resolver before MVA
+### 2. Historical completion record — hardcoded outcome resolver removal before MVA
 
 **Status:** T004–T005 complete (loader-backed resolver landed, deterministic/validation hardening added).
 
