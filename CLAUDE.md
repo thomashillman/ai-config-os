@@ -1,8 +1,8 @@
 # AI Config OS
 
-**Purpose:** Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents. Skills are authored once in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed or materialised without requiring source-tree access.
+**Purpose:** Personal AI behaviour layer (skills, hooks, and conventions) for Claude Code and other AI agents. Skills are authored once in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed or materialised without requiring source-tree access.
 
-Skills in this repo follow the [Agent Skills](https://agentskills.io) open standard — a portable format supported by 30+ agent products (Claude Code, Cursor, VS Code, GitHub Copilot, Gemini CLI, OpenAI Codex, and others). This repo extends the standard with multi-model variants, capability contracts, and cross-platform distribution. See `docs/SKILLS.md` for the comprehensive skills reference.
+Skills in this repo follow the [Agent Skills](https://agentskills.io) open standard, a portable format supported by 30+ agent products (Claude Code, Cursor, VS Code, GitHub Copilot, Gemini CLI, OpenAI Codex, and others). This repo extends the standard with multi-model variants, capability contracts, and cross-platform distribution. See `docs/SKILLS.md` for the comprehensive skills reference.
 
 ## Engineering Mindset
 
@@ -13,36 +13,7 @@ Skills in this repo follow the [Agent Skills](https://agentskills.io) open stand
 
 ## Engineering Principles
 
-**Design**
-- KISS: simplest solution that fully solves the problem. No speculative features (YAGNI).
-- DRY: one authoritative representation of every piece of logic.
-- High cohesion, low coupling: changes should be local, not system-wide.
-- SOLID as a refactoring lens, not an upfront prescription:
-  - SRP: one reason to change per class/module; extract when responsibilities diverge.
-  - OCP: extend via new implementations, not edits to existing core logic.
-  - LSP: subtypes must honour the contract of their base; prefer composition when they can't.
-  - ISP: depend only on the interface slice you actually need; split fat interfaces.
-  - DIP: inject abstractions into business logic; wire concrete implementations at the composition root.
-
-**Code quality**
-- Readability over cleverness. Code is read far more than it is written.
-- TDD by default: tests drive design, prevent regressions, and make refactoring safe.
-- Refactor continuously in small, test-backed steps rather than letting entropy accumulate.
-- Conform to codebase conventions: follow existing patterns, helpers, naming, and formatting; state explicitly if you must diverge.
-- Cover all relevant surfaces: ensure behaviour stays consistent across the application, not just at the point of change.
-- Tight error handling: no broad try/catch blocks or silent defaults; propagate or surface errors explicitly, consistent with repo patterns.
-- Read enough context before editing a file; batch logical changes together rather than many small patches.
-- Search for prior art before adding new helpers or logic; reuse or extract a shared helper instead of duplicating.
-
-**Delivery**
-- Ship in small, frequent increments to reduce risk and tighten feedback loops.
-- Instrument for observability: issues should be visible before users report them.
-- Quality is built in: testing, monitoring, and resilience are not afterthoughts.
-
-**Process**
-- Source control is the source of truth. Automate repetitive tasks.
-- Features are done when they deliver value in production, not when they pass QA.
-- Fix the system, not the person, when things go wrong.
+KISS, DRY, TDD, readability over cleverness, tight error handling, ship in small increments. See `docs/ENGINEERING.md` for the full SOLID breakdown, code quality rules, delivery, and process principles.
 
 ## Autonomy and Persistence
 
@@ -54,111 +25,66 @@ Skills in this repo follow the [Agent Skills](https://agentskills.io) open stand
 ## Structure
 
 ### Source & Distribution (Portability Contract)
-- **`shared/skills/`** — canonical skill definitions (author here). Compiler reads only from this directory.
-- **`dist/clients/<platform>/`** — emitted packages (claude-code, cursor). Each package is **self-sufficient**: contains complete skill copies and required resources (prompts/). No symlinks, no references to source tree.
-- **`dist/registry/index.json`** — cross-platform skill registry with compatibility matrix
+- **`shared/skills/`**: canonical skill definitions (author here). Compiler reads only from this directory.
+- **`dist/clients/<platform>/`**: emitted packages (claude-code, cursor). Each package is **self-sufficient**: contains complete skill copies and required resources (prompts/). No symlinks, no references to source tree.
+- **`dist/registry/index.json`**: cross-platform skill registry with compatibility matrix
 
 ### Metadata & Configuration
-- `shared/targets/platforms/` — platform capability definitions (v0.5.2+)
-- `shared/targets/clients.yaml` — DEPRECATED: use platforms/ directory instead
-- `VERSION` — canonical release version (only file humans edit for version bumps)
-- `.claude-plugin/marketplace.json` — marketplace manifest
-- `schemas/skill.schema.json` — JSON Schema for skill package manifests
-- `schemas/platform.schema.json` — JSON Schema for platform capability definitions
-- `schemas/probe-result.schema.json` — JSON Schema for runtime probe output
+- `shared/targets/platforms/`: platform capability definitions (v0.5.2+)
+- `shared/targets/clients.yaml`: DEPRECATED: use platforms/ directory instead
+- `VERSION`: canonical release version (only file humans edit for version bumps)
+- `.claude-plugin/marketplace.json`: marketplace manifest
+- `schemas/skill.schema.json`: JSON Schema for skill package manifests
+- `schemas/platform.schema.json`: JSON Schema for platform capability definitions
+- `schemas/probe-result.schema.json`: JSON Schema for runtime probe output
 
 ### Tools & Runtime
-- `scripts/build/` — compiler: validates skills, resolves compatibility, emits `dist/` artefacts
-- `scripts/lint/` — Node-based linters for skills and platform files
-- `scripts/build/lib/materialise-client.mjs` — extracts emitted packages (works from `dist/` alone, no source access)
-- `adapters/claude/materialise.sh` — shell wrapper for client-side package materialization
-- `worker/` — Cloudflare Worker serving compiled skills via bearer-auth REST API
-- `runtime/` — desired-state tool management: config, adapters, sync, manifest, MCP server
-- `dashboard/` — React SPA: tool status, skill stats, context cost, config, audit, analytics
+- `scripts/build/`: compiler: validates skills, resolves compatibility, emits `dist/` artefacts
+- `scripts/lint/`: Node-based linters for skills and platform files
+- `scripts/build/lib/materialise-client.mjs`: extracts emitted packages (works from `dist/` alone, no source access)
+- `adapters/claude/materialise.sh`: shell wrapper for client-side package materialization
+- `worker/`: Cloudflare Worker serving compiled skills via bearer-auth REST API
+- `runtime/`: desired-state tool management: config, adapters, sync, manifest, MCP server
+- `dashboard/`: React SPA: tool status, skill stats, context cost, config, audit, analytics
 
 ### Development Convenience (Unix Only)
-- `plugins/core-skills/skills/` — optional symlinks into shared/skills (never edit here directly). Created with `node scripts/build/new-skill.mjs` (with default --link flag). Use `--no-link` to skip on platforms without symlink support.
+- `plugins/core-skills/skills/`: optional symlinks into shared/skills (never edit here directly). Created with `node scripts/build/new-skill.mjs` (with default --link flag). Use `--no-link` to skip on platforms without symlink support.
 
 ## Creating a new skill
-Run `node scripts/build/new-skill.mjs <skill-name>` — this creates the skill directory, updates the manifest, and optionally creates a convenience symlink on Unix. Use `--no-link` to skip symlink creation. The Unix wrapper `ops/new-skill.sh` delegates to this command. It does **not** change `VERSION`, `package.json`, or `plugin.json`. Release version bumps are a separate, explicit action (edit `VERSION`, then `npm run version:sync`).
+Run `node scripts/build/new-skill.mjs <skill-name>` to create the skill directory, update the manifest, and optionally create a convenience symlink on Unix. Use `--no-link` to skip symlink creation. The Unix wrapper `ops/new-skill.sh` delegates to this command. It does **not** change `VERSION`, `package.json`, or `plugin.json`. Release version bumps are a separate, explicit action (edit `VERSION`, then `npm run version:sync`).
 
 ### Skill format overview
 
-Skills follow the [Agent Skills open standard](https://agentskills.io/specification). At minimum, a SKILL.md needs `name` and `description` in YAML frontmatter. This repo extends the standard with additional fields — see `docs/SKILLS.md` for the full reference covering:
-- **Invocation control** (`disable-model-invocation`, `user-invocable`) — who can trigger the skill
-- **Subagent execution** (`context: fork`, `agent`) — run skills in isolated contexts
-- **Dynamic context** (`` !`command` ``) — inject shell command output into skill prompts
-- **Argument substitution** (`$ARGUMENTS`, `$0`, `${CLAUDE_SKILL_DIR}`) — pass data to skills
-- **Capability contracts** — declare required/optional capabilities for cross-platform compatibility
-- **Multi-model variants** — model-specific prompt files with cost/latency metadata
-- **Testing** — automated validation in frontmatter
+Skills follow the [Agent Skills open standard](https://agentskills.io/specification). At minimum, a SKILL.md needs `name` and `description` in YAML frontmatter. This repo extends the standard with additional fields, see `docs/SKILLS.md` for the full reference covering:
+- **Invocation control** (`disable-model-invocation`, `user-invocable`), who can trigger the skill
+- **Subagent execution** (`context: fork`, `agent`), run skills in isolated contexts
+- **Dynamic context** (`` !`command` ``), inject shell command output into skill prompts
+- **Argument substitution** (`$ARGUMENTS`, `$0`, `${CLAUDE_SKILL_DIR}`), pass data to skills
+- **Capability contracts**: declare required/optional capabilities for cross-platform compatibility
+- **Multi-model variants**: model-specific prompt files with cost/latency metadata
+- **Testing**: automated validation in frontmatter
 
 ## Portability Contract (v0.6.0+)
 
-The **portability contract** guarantees that skills authored in source are emitted as self-sufficient packages that do not require source-tree access:
-
-**Definition:**
-1. **Canonical source:** `shared/skills/` is the only source of truth. Compiler reads directly from it.
-2. **Self-sufficient packages:** `dist/clients/<platform>/` contains complete skill copies (SKILL.md, prompts/, etc.). No relative references to source tree.
-3. **Materialisation:** Emitted packages can be extracted and used on any system (CI, cache, offline) without access to source code.
-4. **No symlink dependency:** Symlinks in `plugins/core-skills/skills/` are optional authoring convenience on Unix only. All builds work with `--no-link` flag.
-
-**Protected by automated tests:**
-- Canonical source contract: compiler reads only from `shared/skills/`
-- Materialisation contract: emitted packages extract without source access
-- Source-to-output flow: changes to source produce predictable, deterministic changes in emitted packages
-- Determinism: identical source → identical bytes in `dist/` (no timestamps in SKILL.md)
-
-**When you see a portability contract failure:**
-1. Check test suite: `npm test -- scripts/build/test/materialisation-contract.test.mjs`
-2. Verify emitted package has all referenced resources (prompts/, etc.)
-3. Ensure no source-tree paths are embedded in emitted files
-4. Run `bash adapters/claude/materialise.sh` to test extraction locally
+`shared/skills/` is the only source of truth. Emitted packages in `dist/clients/<platform>/` are self-sufficient (no source-tree access required). Symlinks in `plugins/` are optional Unix convenience. See `docs/PORTABILITY.md` for the full contract, automated tests, and failure recovery steps.
 
 ## Testing locally
 Run `adapters/claude/dev-test.sh` to validate structure and test the plugin.
 
 ## Delivery contract (v0.5.3+)
 
-The **delivery contract** guarantees that all distributed artifacts (`dist/`) are complete, consistent, and valid:
-
-**Protected by 28 automated tests** (scripts/build/test/delivery-contract.test.mjs):
-- All emitted files exist and are non-empty
-- Distributed SKILL.md files have required frontmatter (skill, description, type, status, version)
-- Plugin.json files for each platform are valid JSON with correct structure
-- Registry index.json is complete with all metadata (version, skill_count, platform_count)
-- All file paths referenced in plugin.json and registry exist on disk
-- Version is consistent across all platforms and artefacts
-- Cross-file references are valid (no dangling links)
-- Prompt files referenced in skill variants are present
-
-**Enforcement:**
-- Tests run on every `npm test` invocation
-- Tests are run automatically on all PRs via `.github/workflows/build.yml`
-- Build fails if delivery contract is violated (blocks merging to main)
-
-**What this prevents:**
-- Incomplete distributions (missing skills, prompts, or metadata)
-- Mismatched versions across platforms
-- Broken file references
-- Malformed JSON/YAML in distribution
-
-**When you see a delivery contract failure:**
-1. Check the error message for which test failed
-2. Run `npm test -- scripts/build/test/delivery-contract.test.mjs` locally
-3. Fix the underlying issue (missing file, malformed JSON, inconsistent version, etc.)
-4. Re-run tests to verify
+28 automated tests (scripts/build/test/delivery-contract.test.mjs) enforce that all `dist/` artifacts are complete, consistent, and valid. Build fails on any violation, blocking PR merges. See `docs/DELIVERY.md` for the full test list, enforcement details, and failure recovery steps.
 
 ## Continual self-improvement
 
 **Your self-improvement is key.** If a task has failed or not worked efficiently, you **must** visibly state:
 
-1. **What went wrong** — be explicit, not vague
-2. **What to do differently** — concrete steps to prevent recurrence
+1. **What went wrong**: be explicit, not vague
+2. **What to do differently**: concrete steps to prevent recurrence
 
 Token efficiency is paramount. **Unnecessary token wastage is forbidden.** Prefer concise tool calls, avoid re-reading files you already have in context, and do not repeat information already established.
 
-**Plan closure:** Before finishing any task, reconcile every previously stated intention or TODO — mark each as Done, Blocked (one-sentence reason + targeted question), or Cancelled (with reason). Do not end with in-progress or pending items.
+**Plan closure:** Before finishing any task, reconcile every previously stated intention or TODO, mark each as Done, Blocked (one-sentence reason + targeted question), or Cancelled (with reason). Do not end with in-progress or pending items.
 
 **Promise discipline:** Do not commit to tests or broad refactors unless executing them in the same turn. Label deferred work explicitly as optional "Next steps" and exclude it from the committed plan.
 
@@ -170,7 +96,7 @@ Token efficiency is paramount. **Unnecessary token wastage is forbidden.** Prefe
 - Run `claude plugin validate .` before committing
 - Start new skills from `shared/skills/_template/SKILL.md` (Phase 2: enhanced with full frontmatter)
 - Default to ASCII when editing or creating files; only introduce non-ASCII characters where the file already uses them and there is clear justification.
-- Add code comments only when logic is genuinely non-obvious; comments that explain *what* the code does add no value — reserve them for complex blocks that would otherwise take significant effort to parse.
+- Add code comments only when logic is genuinely non-obvious; comments that explain *what* the code does add no value, reserve them for complex blocks that would otherwise take significant effort to parse.
 - Never revert changes you did not make. If a file contains unrelated edits, work around them. If changes are in files you are actively editing, read and understand them before proceeding.
 - If unexpected changes appear in files you are working on mid-session, stop immediately and ask the user how to proceed before making further edits.
 
@@ -196,199 +122,18 @@ Before doing any work on a `claude/` branch:
    npm run version:sync
    npm run version:check
    ```
-   - `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` are derived — never edit their versions by hand
+   - `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` are derived, never edit their versions by hand
    - The parity check will fail in CI if any file is out of sync
 
 The `git-ops` skill automates rebasing checks. Use it when rebasing.
 
 ## Session-Start Robustness Contract (v0.8.0+)
 
-The **session-start robustness contract** guarantees that Claude Code can discover and use skills reliably, even when the Worker is unavailable or manifests are stale.
-
-### What happens at session start
-
-When Claude Code starts in a remote environment (`.claude/hooks/session-start.sh`):
-
-1. **Task resumption** — Query Worker KV for active tasks (or detect from clipboard)
-2. **Validation** — Run skill structure validation (catches config errors early)
-3. **Runtime sync** — Reconcile desired vs installed runtime config
-4. **Capability probe** — Detect local platform capabilities (filesystem, shell, MCP, etc.) and cache results at `~/.ai-config-os/probe-report.json`
-5. **Fetch manifest** — Background fetch latest manifest from Worker, compare with local cache
-   - If newer: update cache (`~/.ai-config-os/cache/claude-code/latest.json`)
-   - If unreachable: use cached version silently
-   - If stale (>1 day old): emit non-fatal warning
-
-### Robustness guarantees
-
-| Scenario | Behavior | Fallback |
-|----------|----------|----------|
-| Worker unavailable | Uses last-known-good manifest | Oldest cached manifest (forever valid) |
-| Network partition | Skills still work | All local skills loaded from cache |
-| Manifest 1 week old | Still usable | Versions are immutable; no retroactive breaking changes |
-| New skill published | Available next session | Current session uses cached skills |
-| Capability mismatch | Skill excluded from display | Manual prompt-only fallback available |
-
-### Architecture
-
-**Worker contract (immutable-by-version):**
-- `GET /v1/manifest/latest` → Returns manifest with `Cache-Control: max-age=31536000, immutable`
-- ETag: version hash (clients can use If-None-Match)
-- Fallback: Serve cached manifest if KV/R2 unavailable
-
-**Client contract (local-first):**
-- Manifest cache: `~/.ai-config-os/cache/claude-code/latest.json`
-- Capability cache: `~/.ai-config-os/probe-report.json`
-- Both caches survive Worker downtime indefinitely
-- Fetch new manifest in background (non-blocking)
-
-**Skill compatibility:**
-- Skills declare `capabilities.required` (e.g., `[shell.exec, fs.write]`)
-- Client filters display: show only skills compatible with detected capabilities
-- Fallback modes: if skill unavailable, show prompt-only guidance
-
-### Testing robustness locally
-
-```bash
-# Simulate Worker unavailable
-bash adapters/claude/materialise.sh status        # see cached vs remote
-rm ~/.ai-config-os/cache/claude-code/latest.json # clear cache
-bash ops/capability-probe.sh                      # run probe manually
-```
-
-### When robustness fails
-
-**Manifest cache corrupted or missing:**
-```bash
-rm ~/.ai-config-os/cache/claude-code/latest.json
-bash adapters/claude/materialise.sh fetch        # re-fetch
-```
-
-**Probe results stale (>1 week):**
-```bash
-bash ops/capability-probe.sh --quiet              # re-run probe
-```
-
-**Skills incompatible with detected capabilities:**
-→ Check `~/.ai-config-os/probe-report.json` for detected capabilities
-→ Cross-reference against skill's `capabilities.required` in SKILL.md
-→ File issue if skill declares wrong requirements
+At session start, `.claude/hooks/session-start.sh` runs five steps in order: task resumption, skill validation, runtime sync, capability probe (cached at `~/.ai-config-os/probe-report.json`), and background manifest fetch. Skills are local-first, the Worker being unreachable does not break the session. See `docs/ROBUSTNESS.md` for guarantees, architecture, and failure recovery.
 
 ## Phase 2: Enhanced SKILL.md Frontmatter
 
-All skills define metadata in YAML frontmatter (between `---` markers). The `skill` and `description` fields follow the [Agent Skills open standard](https://agentskills.io/specification); all other fields are repo-specific extensions. For the full skills reference including Claude Code-specific features (invocation control, subagents, hooks, dynamic context), see `docs/SKILLS.md`.
-
-```yaml
----
-# Identity
-skill: skill-name
-description: One sentence summary; one paragraph context max.
-type: prompt  # or: hook, agent, workflow-blueprint
-status: stable  # or: experimental, deprecated
-
-# Feature 1: Dependencies & Metadata
-inputs:
-  - name: input_name
-    type: string
-    description: Description
-    required: true
-
-outputs:
-  - name: output_name
-    type: string
-    description: Description
-
-dependencies:
-  skills:
-    - name: dependency-skill
-      version: "^1.0"  # semver constraint
-      optional: false
-  apis:
-    - external-api-name
-  models:
-    - opus  # or: sonnet, haiku
-
-examples:
-  - input: "User input"
-    output: "Skill output"
-    expected_model: sonnet
-
-# Feature 2: Multi-Model Variants
-variants:
-  opus:
-    prompt_file: prompts/detailed.md
-    description: For complex topics
-    cost_factor: 3.0
-    latency_baseline_ms: 800
-  sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; balanced
-    cost_factor: 1.0
-    latency_baseline_ms: 300
-  haiku:
-    prompt_file: prompts/brief.md
-    description: For quick lookups
-    cost_factor: 0.3
-    latency_baseline_ms: 150
-  fallback_chain:
-    - opus
-    - sonnet
-    - haiku
-
-# Feature 3: Skill Testing
-tests:
-  - id: test-id
-    type: prompt-validation  # or: structure-check, integration, performance
-    input: "Test input"
-    expected_substring: "expected text"
-    expected_not_null: true  # assert non-empty output
-    models_to_test:
-      - sonnet
-  - id: perf-test
-    type: performance
-    input: "Benchmark input"
-    max_latency_ms: 2000
-    iterations: 5
-    model: sonnet
-    track_metrics:
-      - latency
-
-# Feature 4: Skill Composition
-composition:
-  personas:
-    - name: persona-name
-      skills:
-        - skill-name
-
-# Feature 5: Auto-Generated Documentation
-docs:
-  auto_generate_readme: true
-  sections_to_include:
-    - description
-    - inputs
-    - outputs
-  help_text: "One-line contextual help with {placeholders}"
-  keywords:
-    - search-term
-    - discovery-tag
-
-# Feature 6: Performance Monitoring
-monitoring:
-  enabled: true
-  track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
-  alert_threshold_latency_ms: 5000
-  public_metrics: false
-
-version: "1.0.0"
-changelog:
-  "1.0.0": "Initial release"
----
-```
-
-See `shared/skills/_template/SKILL.md` for complete template.
+All skills define metadata in YAML frontmatter. The `skill` and `description` fields follow the [Agent Skills open standard](https://agentskills.io/specification); all other fields are repo-specific extensions. Start new skills from `shared/skills/_template/SKILL.md`. See `docs/SKILLS.md` for the full reference (invocation control, subagents, hooks, dynamic context, variants, testing).
 
 ## Living docs protocol
 
@@ -401,6 +146,12 @@ Four docs stay in sync; each owns a distinct slice:
 | `CLAUDE.md` | Dev conventions change, new ops scripts added, git/proxy workflow changes |
 | `shared/manifest.md` | A skill is added, renamed, or removed (one row per skill) |
 | `docs/SKILLS.md` | Skill format changes, new Claude Code skill features, hooks patterns, Agent Skills standard updates |
+| `docs/CI_PITFALLS.md` | A new multi-platform CI pitfall is identified |
+| `docs/WINDOWS_PATTERNS.md` | A new Windows/macOS-safe code pattern is established |
+| `docs/PORTABILITY.md` | Portability contract changes, new automated tests added |
+| `docs/DELIVERY.md` | Delivery contract changes, new delivery tests added |
+| `docs/ROBUSTNESS.md` | Session-start hook behaviour changes, new robustness guarantees |
+| `docs/ENGINEERING.md` | Core design or code quality principles change |
 
 **Rules for Claude agents:**
 - After any commit that creates or modifies a skill: update `shared/manifest.md` row + check if README or PLAN.md need a line.
@@ -421,11 +172,11 @@ node scripts/build/compile.mjs --validate-only  # full validation pipeline, no f
 node scripts/build/compile.mjs --release        # emit with provenance (CI/release only)
 ```
 
-The compiler reads the release version from the root `VERSION` file. Local builds are deterministic — no timestamps or git metadata are injected. Provenance (built_at, build_id, source_commit) is only added in release mode (`--release` flag or `AI_CONFIG_RELEASE=1` env var).
+The compiler reads the release version from the root `VERSION` file. Local builds are deterministic, no timestamps or git metadata are injected. Provenance (built_at, build_id, source_commit) is only added in release mode (`--release` flag or `AI_CONFIG_RELEASE=1` env var).
 
 Output: `dist/clients/<platform>/` (claude-code, cursor) + `dist/registry/index.json`
 
-The registry now includes `platform_definitions` — full capability definitions from `shared/targets/platforms/*.yaml` embedded at build time. This lets the Worker serve canonical capability data without YAML file access. See `docs/CAPABILITY_API.md`.
+The registry now includes `platform_definitions`: full capability definitions from `shared/targets/platforms/*.yaml` embedded at build time. This lets the Worker serve canonical capability data without YAML file access. See `docs/CAPABILITY_API.md`.
 
 ### Capability Discovery API
 
@@ -451,7 +202,7 @@ capabilities:
   fallback_notes: "User can paste git output manually"
 ```
 
-Platform overrides are thin and optional — most skills need none:
+Platform overrides are thin and optional, most skills need none:
 ```yaml
 platforms:
   cursor:
@@ -482,34 +233,7 @@ wrangler deploy                        # deploy to Cloudflare
 
 ### Executor Worker (Phase 1)
 
-The executor Worker is a separate Cloudflare Worker that implements Phase 1 tools only:
-- **health_check** — Worker health status
-- **list_phase1_tools** — Available Phase 1 tools
-- **get_skill_metadata** — Fetch skill metadata from KV
-- **get_artifact** — Fetch versioned artifacts from R2
-- **skill_stats_cached** — Pre-computed statistics from KV
-
-Phase 0 tools (sync_tools, list_tools, get_config, context_cost, validate_all) are **not** available and return 403 TOOL_NOT_SUPPORTED (they require shell/filesystem access).
-
-**Architecture:**
-- Service binding from main Worker to executor Worker (primary Phase 1 path, Cloudflare-only)
-- HTTP proxy fallback to `EXECUTOR_PROXY_URL` (optional, preserved for Phase 2 seam or Phase 0 backward compat)
-- Timeout clamped to 15s maximum (Cloudflare Worker constraint)
-- All data pre-computed and stored in KV/R2 (no shell or filesystem)
-
-**Deployment (Phase 1 primary path):**
-```bash
-# Deploy executor Worker first
-cd worker/executor
-npm install
-wrangler deploy
-
-# Then deploy main Worker (includes service binding)
-cd ../
-wrangler deploy
-```
-
-See `worker/executor/README.md` for configuration and local development.
+A separate Cloudflare Worker that serves pre-computed skill metadata and artifacts from KV/R2. Phase 0 tools (sync_tools, list_tools, etc.) are not available and return 403. See `worker/executor/README.md` for tools, architecture, deployment, and local development.
 
 ### Fetching from Worker (local)
 ```bash
@@ -524,10 +248,10 @@ bash adapters/claude/materialise.sh status  # compare versions
 The `runtime/` layer manages tool installation and configuration:
 
 - **Config:** Three-tier YAML (`global.yaml` < `machines/{hostname}.yaml` < `project.yaml`)
-- **Sync:** `bash runtime/sync.sh` — reconciles desired config with live Claude Code environment
-- **Dry run:** `bash runtime/sync.sh --dry-run` — previews changes without applying
-- **Watch mode:** `bash runtime/watch.sh` — triggers sync on config file changes
-- **Status:** `bash ops/runtime-status.sh` — full runtime health check
+- **Sync:** `bash runtime/sync.sh`: reconciles desired config with live Claude Code environment
+- **Dry run:** `bash runtime/sync.sh --dry-run`: previews changes without applying
+- **Watch mode:** `bash runtime/watch.sh`: triggers sync on config file changes
+- **Status:** `bash ops/runtime-status.sh`: full runtime health check
 
 ### Adding an MCP server
 
@@ -539,7 +263,7 @@ The `runtime/` layer manages tool installation and configuration:
 
 The MCP server at `runtime/mcp/server.js` exposes sync and skill operations as MCP tools, allowing Claude Code to manage its own configuration. Start with `bash runtime/mcp/start.sh`. Treat as experimental until validated in daily use.
 
-## Workflow — Local Proxy Environment
+## Workflow: Local Proxy Environment
 
 This repo's remote is a local proxy (`http://local_proxy@127.0.0.1:41590/git/…`), not a direct GitHub connection. This has important implications for how Claude agents should operate:
 
@@ -547,14 +271,14 @@ This repo's remote is a local proxy (`http://local_proxy@127.0.0.1:41590/git/…
 
 - Edit files locally
 - `git add` + `git commit` on the designated `claude/…` branch
-- `git push -u origin <branch-name>` — the proxy supports git smart-HTTP push/pull
+- `git push -u origin <branch-name>`: the proxy supports git smart-HTTP push/pull
 
-### What does NOT work — skip these immediately
+### What does NOT work: skip these immediately
 
-- `gh pr create` — gh cannot resolve the local proxy as a known GitHub host
-- Direct `git push origin main` — branch protection returns HTTP 403
-- Probing the proxy REST API (e.g. `/api/v1/…`) — the proxy only handles git protocol, not REST
-- Temporarily repointing the remote to github.com and retrying — the GITHUB_TOKEN in the environment is not valid for that repo
+- `gh pr create`: gh cannot resolve the local proxy as a known GitHub host
+- Direct `git push origin main`: branch protection returns HTTP 403
+- Probing the proxy REST API (e.g. `/api/v1/…`), the proxy only handles git protocol, not REST
+- Temporarily repointing the remote to github.com and retrying, the GITHUB_TOKEN in the environment is not valid for that repo
 
 ### Correct approach
 
@@ -565,199 +289,21 @@ Do the minimum that is known to succeed:
 git add <files>
 git commit -m "type: description"
 
-# 2. Push the branch — this is the reliable endpoint
+# 2. Push the branch, this is the reliable endpoint
 git push -u origin claude/<branch-name>
 ```
 
-Merging to main happens outside the agent session (via the repo owner's GitHub UI or equivalent). Do not waste turns attempting `gh pr create`, REST API calls, or direct main pushes after the first failure.
+Merging to main happens outside the agent session (via the repo owner's GitHub UI or equivalent). Do not waste turns attempting `gh pr create`: REST API calls, or direct main pushes after the first failure.
 
-## Common CI Pitfalls to Avoid
+## Cross-Platform Build Patterns
 
-When building for multi-platform CI (Windows, macOS, Linux), avoid these mistakes:
-
-### 1. Shell glob patterns in npm scripts
-**Problem:** `npm test` with `node --test scripts/build/test/*.test.mjs` fails on Windows CMD (doesn't expand globs).
-**Solution:** Use Node.js `glob()` in a dedicated test runner script instead.
-```json
-"test": "node scripts/build/test/run-tests.mjs"
-```
-Create `run-tests.mjs` using `import { globSync } from 'glob'` to discover test files on all platforms.
-
-### 2. Platform-specific code in test suites run on all OSes
-**Problem:** Tests using `execFileSync("bash", ...)` or depending on `jq`/`yq` fail on Windows or minimal CI images.
-**Solution:** Test Node.js code across all platforms. Keep bash script testing local-only.
-- Don't test shell adapters in multi-platform CI
-- Focus CI on portable Node.js code
-- Document local testing procedures for shell scripts
-
-### 3. Build artifacts not available to tests
-**Problem:** Tests fail because pretest build didn't complete or dist/ was cleaned up.
-**Solution:**
-- Ensure `pretest` hook runs before tests (already in package.json: `"pretest": "node scripts/build/compile.mjs"`)
-- Make tests independent of build artifacts when possible
-- If tests need dist/, verify the pretest step completes before tests start
-
-### 4. Platform-specific path separators in config
-**Problem:** Test code assumes forward slashes; fails on Windows with backslashes.
-**Solution:** Use `path.join()` and normalize paths early in tests.
-```javascript
-import { join, normalize } from 'path';
-const safePath = normalize(rawPath); // Converts to platform-native separators
-```
-
-### 5. Comparing resolved paths against raw Unix-style string literals
-**Problem:** `path.resolve('/home/user/project', 'sub/file')` returns
-`C:\home\user\project\sub\file` on Windows (the drive letter and backslashes are
-injected). Any subsequent `result.startsWith('/home/user/project')` check will
-**always fail on Windows**, even though the path is logically correct.
-```javascript
-// WRONG — fails on Windows
-assert.ok(result.startsWith(repoRoot), '...');
-
-// RIGHT — platform-neutral
-import { resolve, sep } from 'node:path';
-const resolvedRoot = resolve(repoRoot);
-assert.ok(
-  result.startsWith(resolvedRoot + sep) || result === resolvedRoot,
-  `path ${result} should be inside ${resolvedRoot}`
-);
-```
-**Rule:** In tests that check whether a resolved path is inside a boundary, always
-call `resolve()` on the boundary constant before comparing — never compare against
-a raw Unix-style string literal.
-
-### 6. Unconditional symlink creation in tests on macOS CI
-**Problem:** `fs.symlinkSync()` without a try/catch causes a test failure on macOS
-CI runners where unprivileged symlink creation can return `EPERM`. The test exits
-immediately, making the build fail very fast (≈18 s).
-**Solution:** Wrap symlink creation in try/catch and skip the test gracefully if the
-OS rejects the operation:
-```javascript
-import { test } from 'node:test';
-test('symlink test', (t) => {
-  try {
-    fs.symlinkSync(target, link);
-  } catch (err) {
-    if (err.code === 'EPERM' || err.code === 'ENOTSUP') {
-      t.skip('symlink creation not permitted on this platform');
-      return;
-    }
-    throw err;
-  }
-  // ... rest of test
-});
-```
-
-## Windows-Safe Code Patterns
-
-This section documents safe patterns for common tasks that fail on Windows. When writing tests, scripts, or build tools, consult these patterns to avoid platform-specific failures.
-
-### Dynamic Imports (ESM)
-
-**✅ Safe: new URL() pattern**
-```javascript
-// Works on Windows, Linux, macOS
-const moduleUrl = new URL('../lib/module.mjs', import.meta.url).href;
-const module = await import(moduleUrl);
-```
-
-**❌ Unsafe: path.resolve() passed to import()**
-```javascript
-// Fails on Windows — path.resolve() returns D:\path\to\file.mjs
-// import() treats D: as a protocol, not a drive letter
-const mod = await import(path.resolve(__dirname, '../lib/module.mjs'));
-```
-
-**Why:** On Windows, `path.resolve()` produces paths like `D:\project\file.mjs`. When passed to `import()`, Node.js sees `D:` and tries to use it as a URL scheme (like `http:` or `file:`), which fails with `ERR_UNSUPPORTED_ESM_URL_SCHEME`. The `new URL(..., import.meta.url)` pattern uses the module's own file:// URL as a base, so it works identically on all platforms.
-
-### Path Comparisons in Tests
-
-**✅ Safe: resolve both sides before comparing**
-```javascript
-import { resolve, sep } from 'node:path';
-
-const repoRoot = resolve('/home/user/project');
-const result = resolve(repoRoot, 'src/file.js');
-
-// Always resolve the boundary — never hardcode Unix-style paths
-assert.ok(
-  result.startsWith(repoRoot + sep) || result === repoRoot,
-  `path ${result} should be inside ${repoRoot}`
-);
-```
-
-**❌ Unsafe: comparing against Unix-style string literals**
-```javascript
-// Fails on Windows — result is D:\home\user\project\src\file.js
-// The check result.startsWith('/home/user/project') always fails
-const result = path.resolve('/home/user/project', 'src/file.js');
-assert.ok(result.startsWith('/home/user/project'), '...');  // Always fails on Windows
-```
-
-**Why:** On Windows, `path.resolve()` injects the drive letter and converts separators to backslashes, so `/home/user/project` becomes `D:\home\user\project`. The string check then fails. Always call `resolve()` on the boundary constant before comparing.
-
-### Symlink Operations in Tests
-
-**✅ Safe: wrap in try/catch with skip**
-```javascript
-import { test } from 'node:test';
-import { symlinkSync } from 'node:fs';
-
-test('symlink functionality', (t) => {
-  try {
-    symlinkSync(target, link);
-  } catch (err) {
-    if (err.code === 'EPERM' || err.code === 'ENOTSUP') {
-      t.skip('symlinks not permitted on this platform');
-      return;
-    }
-    throw err;
-  }
-  // Test symlink behavior
-});
-```
-
-**❌ Unsafe: unconditional symlink creation**
-```javascript
-// Fails on macOS CI where unprivileged symlink creation is denied
-fs.symlinkSync(target, link);
-```
-
-**Why:** macOS CI runners and some Windows configurations deny unprivileged symlink creation, causing immediate test failure. Gracefully skip the test if the OS doesn't support it.
-
-### Temp Files and Directories
-
-**✅ Safe: use os.tmpdir()**
-```javascript
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
-const tempDir = tmpdir();
-const tempFile = join(tempDir, 'my-temp-file.txt');
-```
-
-**❌ Unsafe: hardcode /tmp**
-```javascript
-// Fails on Windows where /tmp doesn't exist
-const tempFile = '/tmp/my-temp-file.txt';
-```
-
-### Reusable Safe Import Utility
-
-For repeated dynamic imports, use the utility at `scripts/build/lib/windows-safe-import.mjs`:
-
-```javascript
-import { safeImport } from './lib/windows-safe-import.mjs';
-
-// In any test or build script:
-const { someExport } = await safeImport('../path/to/module.mjs', import.meta.url);
-```
-
-See the utility source for implementation details.
+When writing tests, scripts, or build tools that run on multi-platform CI (Windows, macOS, Linux), see:
+- `docs/CI_PITFALLS.md`, 6 common pitfalls (glob patterns, path separators, symlinks, build artifacts)
+- `docs/WINDOWS_PATTERNS.md`: safe vs unsafe patterns for ESM imports, path comparisons, temp files
 
 ## Communication style
 
-- For code changes: open with a quick explanation of what changed and why (where in the codebase, what it fixes or enables) — not a "Summary:" heading.
+- For code changes: open with a quick explanation of what changed and why (where in the codebase, what it fixes or enables), not a "Summary:" heading.
 - Suggest natural next steps briefly at the end; omit entirely if there are none.
 - When offering multiple options, use a numbered list so the user can respond with a single number.
 - Never reproduce large files in responses; reference paths instead.
