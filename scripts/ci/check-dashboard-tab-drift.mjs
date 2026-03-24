@@ -30,28 +30,20 @@ function extractTabsFromApp(appSource) {
   return labels;
 }
 
-function extractTabsFromReadme(readmeSource) {
-  const sectionMatch = readmeSource.match(/The dashboard provides[^\n]*top-level tabs:\n(?<bullets>(?:- .*\n)+)/);
-  if (!sectionMatch?.groups?.bullets) {
-    throw new Error('Unable to find dashboard top-level tab bullet list in README.md.');
+function extractTabsFromSupportedToday(supportedTodaySource) {
+  const rowMatch = supportedTodaySource.match(/\|\s*Dashboard tabs:\s*([^|]+)\|/);
+  if (!rowMatch) {
+    throw new Error('Unable to find "Dashboard tabs:" row in docs/SUPPORTED_TODAY.md.');
   }
 
-  const lines = sectionMatch.groups.bullets
+  const labels = rowMatch[1]
     .trim()
-    .split('\n')
-    .map(line => line.trim())
+    .split(',')
+    .map(s => s.trim())
     .filter(Boolean);
 
-  const labels = lines.map(line => {
-    const bulletMatch = line.match(/^-\s+\*\*(.+?)\*\*/);
-    if (!bulletMatch) {
-      throw new Error(`Unable to parse README tab bullet: "${line}"`);
-    }
-    return bulletMatch[1].trim().replace(/:\s*$/, '');
-  });
-
   if (labels.length === 0) {
-    throw new Error('Dashboard tab bullet list in README.md is empty.');
+    throw new Error('Dashboard tabs row in docs/SUPPORTED_TODAY.md is empty.');
   }
 
   return labels;
@@ -104,20 +96,20 @@ function compareOrderedNormalizedSets(sourceName, appLabels, documentedLabels) {
   ].join('\n');
 }
 
-function runDashboardTabDriftCheck({ appSource, readmeSource, planSource }) {
+function runDashboardTabDriftCheck({ appSource, supportedTodaySource, planSource }) {
   const appLabels = extractTabsFromApp(appSource);
-  const readmeLabels = extractTabsFromReadme(readmeSource);
+  const supportedTodayLabels = extractTabsFromSupportedToday(supportedTodaySource);
   const planLabels = extractTabsFromPlan(planSource);
 
   const errors = [
-    compareOrderedNormalizedSets('README.md', appLabels, readmeLabels),
+    compareOrderedNormalizedSets('docs/SUPPORTED_TODAY.md', appLabels, supportedTodayLabels),
     compareOrderedNormalizedSets('PLAN.md', appLabels, planLabels),
   ].filter(Boolean);
 
   return {
     ok: errors.length === 0,
     appLabels,
-    readmeLabels,
+    supportedTodayLabels,
     planLabels,
     errors,
   };
@@ -125,12 +117,12 @@ function runDashboardTabDriftCheck({ appSource, readmeSource, planSource }) {
 
 function runCli() {
   const appPath = resolve(REPO_ROOT, 'dashboard', 'src', 'App.jsx');
-  const readmePath = resolve(REPO_ROOT, 'README.md');
+  const supportedTodayPath = resolve(REPO_ROOT, 'docs', 'SUPPORTED_TODAY.md');
   const planPath = resolve(REPO_ROOT, 'PLAN.md');
 
   const result = runDashboardTabDriftCheck({
     appSource: readFileSync(appPath, 'utf8'),
-    readmeSource: readFileSync(readmePath, 'utf8'),
+    supportedTodaySource: readFileSync(supportedTodayPath, 'utf8'),
     planSource: readFileSync(planPath, 'utf8'),
   });
 
@@ -149,7 +141,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 export {
   normalizeLabel,
   extractTabsFromApp,
-  extractTabsFromReadme,
+  extractTabsFromSupportedToday,
   extractTabsFromPlan,
   compareOrderedNormalizedSets,
   runDashboardTabDriftCheck,
