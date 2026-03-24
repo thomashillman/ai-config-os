@@ -11,8 +11,9 @@ on:
       - 'scripts/build/**'
       - 'scripts/ci/**'
       - 'scripts/lint/**'
-      - 'PLAN.md'
+      - 'dashboard/src/App.jsx'
       - 'README.md'
+      - 'PLAN.md'
       - 'package.json'
       - 'runtime/adapters/**'
       - '.github/workflows/build.yml'
@@ -25,8 +26,9 @@ on:
       - 'scripts/build/**'
       - 'scripts/ci/**'
       - 'scripts/lint/**'
-      - 'PLAN.md'
+      - 'dashboard/src/App.jsx'
       - 'README.md'
+      - 'PLAN.md'
       - 'package.json'
       - 'runtime/adapters/**'
       - '.github/workflows/build.yml'
@@ -66,6 +68,9 @@ jobs:
       - name: Lint skill files
         if: runner.os != 'Windows'
         run: node scripts/lint/skill.mjs shared/skills/[!_]*/SKILL.md
+
+      - name: Check dashboard tab documentation parity
+        run: node scripts/ci/check-dashboard-tab-drift.mjs
 
       - name: Run test suite (includes resolver-selection + sync-loop ETag/version + worker version-pointer gates)
         run: npm test

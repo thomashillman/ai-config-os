@@ -162,16 +162,18 @@ cd dashboard && npm run dev
 Security note: dashboard API requests are denied by default unless they originate from loopback or provide tunnel assertions (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS verification header). CORS follows the same tunnel policy: loopback origins stay enabled for local development, and you can allow a public dashboard origin with `DASHBOARD_PUBLIC_ORIGINS`. Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
 The dashboard provides eight top-level tabs:
+- **Tasks:** Active task shelf ranked by environment-aware continuation value
 - **Tools:** Runtime status and sync for Claude Code, Cursor, Codex
 - **Skills:** Complete skill library with metadata and variants
 - **Context Cost:** Real-time token footprint tracking
 - **Config:** View merged configuration across all tiers
 - **Audit:** Run validation checks on the entire setup
 - **Analytics:** Track which skills you use most and their performance; Friction Signals section shows signal-type breakdown and top-5 skill recommendations from retrospective data
-- **Tasks:** Active task shelf ranked by environment-aware continuation value
 - **Bootstrap Runs:** Observability timeline for bootstrap execution runs
 
 Within **Tasks**, selecting a task opens the nested **Task Detail** view with task state, route history, findings provenance, and readiness context.
+
+Contributor note: when editing `dashboard/src/App.jsx` `TABS`, update this list and the PLAN dashboard runtime table in the same PR to keep CI parity checks green.
 
 ---
 
