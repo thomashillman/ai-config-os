@@ -1,17 +1,36 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 
 /**
  * Read skill outcomes from ~/.claude/skill-analytics/skill-outcomes.jsonl
  * Maps each line into a canonical observation event.
  *
  * @param {string} filePath - Path to skill-outcomes.jsonl
+ * @param {Object} [options]
+ * @param {number} [options.maxBytes] - If set and file exceeds this size, read only the last maxBytes bytes
  * @returns {Array<Object>} Array of canonical events with type 'skill_outcome'
  */
-export function readSkillOutcomes(filePath) {
+export function readSkillOutcomes(filePath, { maxBytes } = {}) {
   const events = [];
 
   try {
-    const content = readFileSync(filePath, 'utf-8');
+    let content;
+    if (maxBytes) {
+      const stat = statSync(filePath);
+      if (stat.size > maxBytes) {
+        const buf = Buffer.alloc(maxBytes);
+        const fd = openSync(filePath, 'r');
+        try {
+          readSync(fd, buf, 0, maxBytes, stat.size - maxBytes);
+        } finally {
+          closeSync(fd);
+        }
+        content = buf.toString('utf-8');
+      } else {
+        content = readFileSync(filePath, 'utf-8');
+      }
+    } else {
+      content = readFileSync(filePath, 'utf-8');
+    }
     const lines = content.split('\n').filter((line) => line.trim().length > 0);
 
     for (const line of lines) {

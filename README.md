@@ -167,7 +167,7 @@ The dashboard provides eight top-level tabs:
 - **Context Cost:** Real-time token footprint tracking
 - **Config:** View merged configuration across all tiers
 - **Audit:** Run validation checks on the entire setup
-- **Analytics:** Track which skills you use most and their performance
+- **Analytics:** Track which skills you use most and their performance; Friction Signals section shows signal-type breakdown and top-5 skill recommendations from retrospective data
 - **Tasks:** Active task shelf ranked by environment-aware continuation value
 - **Bootstrap Runs:** Observability timeline for bootstrap execution runs
 
@@ -330,7 +330,8 @@ When Claude Code starts in a remote environment, the session-start hook automati
 1. **Validates skill structure** (early error detection)
 2. **Probes platform capabilities** (filesystem, shell, MCP)
 3. **Fetches latest manifest in background** (non-blocking)
-4. **Falls back to cached manifest** if Worker is unreachable
+4. **Refreshes retrospectives aggregate cache** in background (non-blocking; skipped if cache is <6 days old)
+5. **Falls back to cached manifest** if Worker is unreachable
 
 This means skills are available **immediately**, even if:
 - Network is slow or partitioned

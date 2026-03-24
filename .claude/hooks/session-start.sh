@@ -106,5 +106,33 @@ else
   echo "[probe] Same device (${_CURRENT_HOSTNAME}) — using cached probe"
 fi
 
+# Refresh retrospectives aggregate cache if absent or older than 6 days.
+# Non-blocking: runs in a background subshell; any failure is silent.
+_RETRO_CACHE="${HOME}/.ai-config-os/cache/claude-code/retrospectives-aggregate.json"
+if [ -n "${AI_CONFIG_WORKER:-}" ] && [ -n "${AI_CONFIG_TOKEN:-}" ]; then
+  _retro_stale=false
+  if [ ! -f "$_RETRO_CACHE" ]; then
+    _retro_stale=true
+  elif find "$_RETRO_CACHE" -mtime +6 -print -quit 2>/dev/null | grep -q .; then
+    _retro_stale=true
+  fi
+
+  if [ "$_retro_stale" = true ]; then
+    mkdir -p "$(dirname "$_RETRO_CACHE")"
+    (
+      _tmp=$(mktemp 2>/dev/null) || _tmp="/tmp/retro-agg-$$"
+      if curl -sf \
+        -H "Authorization: Bearer ${AI_CONFIG_TOKEN}" \
+        --connect-timeout 2 --max-time 5 \
+        "${AI_CONFIG_WORKER}/v1/retrospectives/aggregate?limit=100" \
+        -o "$_tmp" 2>/dev/null; then
+        mv "$_tmp" "$_RETRO_CACHE"
+      else
+        rm -f "$_tmp"
+      fi
+    ) &
+  fi
+fi
+
 cd "${PROJECT_DIR}"
 exec node "${INSTALL_ROOT}/adapters/bootstrap/run-bootstrap.mjs"

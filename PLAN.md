@@ -100,7 +100,8 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Remote executor | — | Security, error handling |
 | Modularity refactoring | 46 (4 files) | task-shared, kv-persistence, load-runtime-data, worker-task-validators |
 | Dashboard formatters | 17 (2 files) | taskFormatters, dateFormatters |
-| **Total test files** | **133** | `scripts/build/test/` + `dashboard/src/__tests__/` |
+| Worker retrospectives | 20 (1 file) | deriveRetrospectiveId, writeRetrospectiveArtifact, listRetrospectives, getRetrospectiveArtifact, aggregateRetrospectives |
+| **Total test files** | **134** | `scripts/build/test/` + `dashboard/src/__tests__/` + `worker/src/` |
 
 ### Runtime layer (v0.5.0+)
 
@@ -112,13 +113,14 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Sync engine | Done | `runtime/sync.sh` with manifest state tracking, dry-run |
 | Watch mode | Done | `runtime/watch.sh` — auto-sync on config changes |
 | MCP server | Done | `runtime/mcp/server.js` — exposes runtime ops as Claude Code tools |
-| Dashboard API | Done | `runtime/mcp/dashboard-api.mjs` with tunnel security |
-| React dashboard | Done | `dashboard/` — 8 top-level tabs: Tasks, Tools, Skills, Context Cost, Config, Audit, Analytics, Bootstrap Runs (Task Detail is nested within Tasks) |
+| Dashboard API | Done | `runtime/mcp/dashboard-api.mjs` with tunnel security; `/api/analytics` and `/api/skill-analytics` unified through observation read model; `/api/retrospectives-summary` returns cached friction signals and skill recommendations |
+| Observation read model | Done | `runtime/lib/observation-read-model.mjs` — unified snapshot wiring skill-outcomes (5 MB tail-read), retrospectives, bootstrap telemetry, and tool-usage sources |
+| React dashboard | Done | `dashboard/` — 8 top-level tabs: Tasks, Tools, Skills, Context Cost, Config, Audit, Analytics, Bootstrap Runs (Task Detail is nested within Tasks); Analytics tab has 4 sections including Friction Signals (bar chart + top-5 skill recommendations) |
 | Ops tools | Done | `ops/runtime-status.sh`, `ops/validate-all.sh`, etc. |
 | KV-backed task store | Done | `runtime/lib/task-store-kv.mjs` — portable task persistence via Cloudflare KV |
 | Worker task store adapter | Done | `runtime/lib/task-store-worker.mjs` — thin Worker-side adapter over KV store |
 | Worker task control plane service | Done | `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer |
-| Session-start task resumption | Done | `.claude/hooks/session-start.sh` — queries Worker KV for active tasks on session start |
+| Session-start task resumption | Done | `.claude/hooks/session-start.sh` — queries Worker KV for active tasks on session start; background-fetches `/v1/retrospectives/aggregate` into cache (non-blocking, refreshes if absent or >6 days old) |
 | Shared task primitives | Done | `runtime/lib/task-shared.mjs` — error classes, readiness view, findings provenance (DRY extraction) |
 | KV persistence layer | Done | `runtime/lib/kv-persistence.mjs` — key builders, low-level KV helpers, index management (SRP extraction) |
 | Build-local runtime data loaders | Done | `scripts/build/lib/load-runtime-data.mjs` — decouples compiler from runtime imports (DIP) |

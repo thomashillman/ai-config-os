@@ -9,6 +9,8 @@
 import { join } from 'node:path';
 import { readdirSync, readFileSync } from 'node:fs';
 import { loadToolUsageObservations } from './observation-sources/tool-usage.mjs';
+import { readSkillOutcomes } from './observation-sources/skill-outcomes.mjs';
+import { mapRetrospectiveToObservations } from './observation-sources/retrospectives.mjs';
 
 /**
  * Load observation snapshot from all available sources
@@ -19,7 +21,7 @@ import { loadToolUsageObservations } from './observation-sources/tool-usage.mjs'
  * @returns {Promise<{events: Array, summary: Object}>}
  */
 export async function loadObservationSnapshot(options = {}) {
-  const { home = process.env.HOME || '/root', projectDir = process.cwd(), limit = 1000 } = options;
+  const { home = process.env.HOME || '/root', projectDir = process.cwd(), limit = 1000, retrospectivesDir } = options;
   const logsDir = join(home, '.ai-config-os', 'logs');
 
   const events = [];
@@ -77,6 +79,41 @@ export async function loadObservationSnapshot(options = {}) {
     }
   }
 
+  // Load skill outcome observations
+  if (events.length < limit) {
+    const skillOutcomesFile = join(home, '.claude', 'skill-analytics', 'skill-outcomes.jsonl');
+    const outcomeEvents = readSkillOutcomes(skillOutcomesFile, { maxBytes: 5 * 1024 * 1024 });
+    for (const event of outcomeEvents) {
+      if (events.length >= limit) break;
+      events.push(event);
+      updateSummary(summary, event);
+    }
+  }
+
+  // Load retrospective observations from local cache directory (if provided)
+  if (retrospectivesDir && events.length < limit) {
+    try {
+      const files = readdirSync(retrospectivesDir).filter((f) => f.endsWith('.json'));
+      for (const file of files) {
+        if (events.length >= limit) break;
+        try {
+          const artifact = JSON.parse(readFileSync(join(retrospectivesDir, file), 'utf-8'));
+          const id = file.replace(/\.json$/, '');
+          const mapped = mapRetrospectiveToObservations({ retrospectiveId: id, artifact });
+          for (const event of mapped) {
+            if (events.length >= limit) break;
+            events.push(event);
+            updateSummary(summary, event);
+          }
+        } catch {
+          // Skip malformed or unreadable artifact files
+        }
+      }
+    } catch {
+      // retrospectivesDir missing or unreadable — continue silently
+    }
+  }
+
   summary.total_events = events.length;
   return { events, summary };
 }
@@ -119,9 +156,9 @@ function updateSummary(summary, event) {
     if (event.status === 'error') {
       summary.tool_error_count++;
     }
+  } else if (event.type === 'skill_outcome') {
+    summary.skill_outcome_count++;
   }
-
-  // Add other event type handling here as needed
 }
 
 /**
