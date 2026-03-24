@@ -44,19 +44,10 @@ The main execution flow:
 
 All execution is contained within Cloudflare Workers. The two Workers communicate via **service binding** (no external HTTP overhead).
 
-### Phase 1 Constraints (by design)
+### Current support truth
 
-Phase 1 does **not** support:
-- Shell execution (`bash`, `sh`, etc.)
-- Filesystem read/write
-- Git operations
-- Long-lived processes
-- External subprocess spawning
-
-Phase 1 **does** support:
-- KV/R2 queries (metadata, artifacts)
-- Service binding between Workers (fast, no HTTP)
-- Portable task state and continuation
+For the current, evidence-backed support matrix (platforms, runtime vs compile surfaces, marketplace/install, sync, dashboard/runtime features), see **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)**.
+Roadmap intent remains in `PLAN.md`.
 
 ### Supporting Components
 
@@ -69,6 +60,8 @@ Phase 1 **does** support:
 A future phase may add VPS-backed executor for shell, filesystem, git, and long-running tasks. The seam for Phase 2 is preserved in code but not implemented yet. Phase 1 will remain the primary fast path for metadata operations.
 
 ## Current state
+
+For current support truth (what is supported now), use **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)**.
 
 The `review_repository` portable task journey is complete end-to-end:
 
@@ -161,17 +154,7 @@ cd dashboard && npm run dev
 
 Security note: dashboard API requests are denied by default unless they originate from loopback or provide tunnel assertions (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS verification header). CORS follows the same tunnel policy: loopback origins stay enabled for local development, and you can allow a public dashboard origin with `DASHBOARD_PUBLIC_ORIGINS`. Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
-The dashboard provides eight top-level tabs:
-- **Tools:** Runtime status and sync for Claude Code, Cursor, Codex
-- **Skills:** Complete skill library with metadata and variants
-- **Context Cost:** Real-time token footprint tracking
-- **Config:** View merged configuration across all tiers
-- **Audit:** Run validation checks on the entire setup
-- **Analytics:** Track which skills you use most and their performance; Friction Signals section shows signal-type breakdown and top-5 skill recommendations from retrospective data
-- **Tasks:** Active task shelf ranked by environment-aware continuation value
-- **Bootstrap Runs:** Observability timeline for bootstrap execution runs
-
-Within **Tasks**, selecting a task opens the nested **Task Detail** view with task state, route history, findings provenance, and readiness context.
+For the current dashboard/runtime feature support list, see **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)**.
 
 ---
 

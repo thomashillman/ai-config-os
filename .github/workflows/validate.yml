@@ -109,6 +109,9 @@ jobs:
             echo "::warning::Structural files (ops/, adapters/, plugins/) changed but README.md was not updated. Check the directory table."
           fi
 
+      - name: Enforce canonical support-truth doc
+        run: bash ops/check-support-truth.sh
+
       - name: Install runtime dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
