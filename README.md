@@ -78,7 +78,7 @@ The `review_repository` portable task journey is complete end-to-end:
 - preserve findings with explicit provenance (`verified`, `reused`, `hypothesis`)
 - finish without asking the user to restate the task
 
-The **Momentum Engine** (v0.8.0) is now complete — it adds the experience layer on top of the task control plane:
+The **Momentum Engine** (Phase 10 milestone) is now complete — it adds the experience layer on top of the task control plane:
 
 - **Narrator:** produces structured prose from task state at start, resume, finding-evolution, and upgrade-available moments
 - **Observer:** records narrations and user responses via the existing ProgressEventPipeline
@@ -667,7 +667,9 @@ Run it: `Claude Code → Run Workflow → daily-standup`
 | Phase 1–7 | ✅ Complete | 22 skills, skill metadata, testing, composition, multi-device sync |
 | Phase 8 | ✅ Complete | Runtime config layer, MCP server, React dashboard, desired-state sync |
 | Phase 9.1–9.7 | ✅ Complete | Build compiler, distribution pipeline, capability contracts, delivery contract (28 tests), portability contract (76 tests), manifest feature flags |
-| Phase 10 (v0.8.0) | ✅ Complete | KV-backed task persistence, Codex emitter, Hub + Task Detail dashboard tabs, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
+| Phase 10 milestone | ✅ Complete | KV-backed task persistence, Codex emitter, Hub + Task Detail dashboard tabs, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
+
+> Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels are internal roadmap checkpoints.
 
 ### Platform maturity
 
