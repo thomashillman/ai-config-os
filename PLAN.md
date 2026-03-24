@@ -16,9 +16,11 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — Phase 10 milestone, updated 2026-03-23
+## Current state — Phase 10 milestone, updated 2026-03-24
 
 Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels in this plan track delivery checkpoints.
+
+Last reconciled: 2026-03-24 (skills/tests/tabs/platform inventory claims verified against repository source-of-truth).
 
 ### Completed infrastructure
 
@@ -35,6 +37,8 @@ Versioning note: `VERSION` is the canonical repository release number (see `./VE
 | .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics, skill-outcome-tracker |
 
 ### Skills (34 installable total from `shared/skills/*/SKILL.md`, excluding `_template`)
+
+Canonical declaration format (validated in CI): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
 
 | Skill | Type | Phase |
 |---|---|---|
@@ -69,7 +73,7 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Compiler (`scripts/build/compile.mjs`) | Done | Validates skills, resolves compatibility, emits `dist/` |
 | Skill schema (`schemas/skill.schema.json`) | Done | JSON Schema draft 2020-12; package manifest + adapter hints |
 | Platform schema (`schemas/platform.schema.json`) | Done | Capability state definitions |
-| Platform definitions (5 platforms) | Done | claude-code, claude-web, claude-ios, codex, cursor |
+| Platform definitions (14 targets) | Done | Canonical target definitions in `shared/targets/platforms/*.yaml` (including claude-code/web/ios, codex, cursor, and CI/IDE variants) |
 | Capability-driven compatibility resolver | Done | Skills declare required/optional caps; compiler resolves |
 | Claude Code emitter | Done | Full package: plugin.json + skill copies + prompts/ |
 | Cursor emitter | Done | .cursorrules from compatible skills with degradation notes |
@@ -96,7 +100,8 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Remote executor | — | Security, error handling |
 | Modularity refactoring | 46 (4 files) | task-shared, kv-persistence, load-runtime-data, worker-task-validators |
 | Dashboard formatters | 17 (2 files) | taskFormatters, dateFormatters |
-| **Total test files** | **98** | `scripts/build/test/` + `dashboard/src/__tests__/` |
+| Worker retrospectives | 20 (1 file) | deriveRetrospectiveId, writeRetrospectiveArtifact, listRetrospectives, getRetrospectiveArtifact, aggregateRetrospectives |
+| **Total test files** | **134** | `scripts/build/test/` + `dashboard/src/__tests__/` + `worker/src/` |
 
 ### Runtime layer (v0.5.0+)
 
@@ -108,13 +113,14 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Sync engine | Done | `runtime/sync.sh` with manifest state tracking, dry-run |
 | Watch mode | Done | `runtime/watch.sh` — auto-sync on config changes |
 | MCP server | Done | `runtime/mcp/server.js` — exposes runtime ops as Claude Code tools |
-| Dashboard API | Done | `runtime/mcp/dashboard-api.mjs` with tunnel security |
-| React dashboard | Done | `dashboard/` — 8 top-level tabs: Tasks, Tools, Skills, Context Cost, Config, Audit, Analytics, Bootstrap Runs (Task Detail is nested within Tasks) |
+| Dashboard API | Done | `runtime/mcp/dashboard-api.mjs` with tunnel security; `/api/analytics` and `/api/skill-analytics` unified through observation read model; `/api/retrospectives-summary` returns cached friction signals and skill recommendations |
+| Observation read model | Done | `runtime/lib/observation-read-model.mjs` — unified snapshot wiring skill-outcomes (5 MB tail-read), retrospectives, bootstrap telemetry, and tool-usage sources |
+| React dashboard | Done | `dashboard/` — 8 top-level tabs: Tasks, Tools, Skills, Context Cost, Config, Audit, Analytics, Bootstrap Runs (Task Detail is nested within Tasks); Analytics tab has 4 sections including Friction Signals (bar chart + top-5 skill recommendations) |
 | Ops tools | Done | `ops/runtime-status.sh`, `ops/validate-all.sh`, etc. |
 | KV-backed task store | Done | `runtime/lib/task-store-kv.mjs` — portable task persistence via Cloudflare KV |
 | Worker task store adapter | Done | `runtime/lib/task-store-worker.mjs` — thin Worker-side adapter over KV store |
 | Worker task control plane service | Done | `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer |
-| Session-start task resumption | Done | `.claude/hooks/session-start.sh` — queries Worker KV for active tasks on session start |
+| Session-start task resumption | Done | `.claude/hooks/session-start.sh` — queries Worker KV for active tasks on session start; background-fetches `/v1/retrospectives/aggregate` into cache (non-blocking, refreshes if absent or >6 days old) |
 | Shared task primitives | Done | `runtime/lib/task-shared.mjs` — error classes, readiness view, findings provenance (DRY extraction) |
 | KV persistence layer | Done | `runtime/lib/kv-persistence.mjs` — key builders, low-level KV helpers, index management (SRP extraction) |
 | Build-local runtime data loaders | Done | `scripts/build/lib/load-runtime-data.mjs` — decouples compiler from runtime imports (DIP) |
@@ -159,7 +165,7 @@ These tracks are grounded in:
 - `specs/worker-endpoint-inventory.md`
 - `specs/build-pipeline-research.md`
 
-### 1. Complete Phase 9.7 — Manifest-controlled runtime feature flags
+### 1. Historical completion record — Phase 9.7 manifest-controlled runtime feature flags
 
 **Version:** v0.5.4+
 **Status:** All 4 steps complete. ✓
@@ -184,7 +190,7 @@ These tracks are grounded in:
 - If outcome formatting regressions appear: set `outcome_resolution_enabled=false`
 - Rollback must be possible via manifest-only change (no code deploy required)
 
-### 2. Resolve hardcoded outcome resolver before MVA
+### 2. Historical completion record — hardcoded outcome resolver removal before MVA
 
 **Status:** T004–T005 complete (loader-backed resolver landed, deterministic/validation hardening added).
 
@@ -1156,10 +1162,27 @@ Additional implementation (2026-03-17):
 
 ## Acceptance criteria
 
-- [x] `claude plugin validate .` passes at repo root
-- [ ] Claude Code can add the marketplace and install `core-skills` (pending device test)
-- [ ] Installed plugin exposes expected skills (awaiting full validation)
-- [ ] Cross-device sync: push from device A, restart Claude Code on device B reflects changes
+### Operational validation evidence note (2026-03-24)
+
+Evidence artifacts captured from command runs (UTC ISO date):
+- `artifacts/evidence/2026-03-24/build-compile.log`
+- `artifacts/evidence/2026-03-24/env-a-claude.log`
+- `artifacts/evidence/2026-03-24/env-b-codex.log`
+- `artifacts/evidence/2026-03-24/cross-device-sync.log`
+- `artifacts/evidence/2026-03-24/claude-plugin-validate.log`
+- `artifacts/evidence/2026-03-24/pre-pr-mergeability-gate.log`
+
+- [ ] Marketplace add + `core-skills` install (Claude Code surface)
+  - [x] Local emitted `core-skills` package built successfully (`node scripts/build/compile.mjs`).
+  - [ ] Real Claude Code marketplace add/install flow blocked in this run (no `claude` binary and no interactive Claude Code UI in runner).
+  - Blocker owner: Platform/Ops (provide interactive Claude Code-capable device + auth token).
+- [x] Installed skill exposure verified on at least two real environments
+  - [x] Environment A (`claude-code` package): `extract` materialized 34 skills into local cache.
+  - [x] Environment B (`codex` package): `extract` + `install` wrote `~/.codex/AGENTS.md`; skill names verified in installed file (`list-available-skills`, `task-start`).
+- [ ] Cross-device sync: push from device A, restart on device B, verify sync
+  - [x] Push/pull sync verified using distinct device A/B clones against a bare remote; marker committed on A appeared on B.
+  - [ ] Post-sync “restart on device B” full re-materialization failed in fresh clone because build dependencies were absent (`ERR_MODULE_NOT_FOUND: yaml` during compile), so end-to-end restart validation remains incomplete.
+  - Blocker owner: Developer Experience/Build (ensure dependency bootstrap on fresh device before restart validation).
 - [x] `adapters/claude/dev-test.sh` runs clean
 - [x] CI validates plugin structure and symlink integrity on every push
 - [x] `ops/new-skill.sh <name>` creates skill, symlink, and bumps version

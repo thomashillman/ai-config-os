@@ -9,7 +9,10 @@ on:
       - 'shared/targets/**'
       - 'schemas/**'
       - 'scripts/build/**'
+      - 'scripts/ci/**'
       - 'scripts/lint/**'
+      - 'PLAN.md'
+      - 'README.md'
       - 'package.json'
       - 'runtime/adapters/**'
       - '.github/workflows/build.yml'
@@ -20,7 +23,10 @@ on:
       - 'shared/targets/**'
       - 'schemas/**'
       - 'scripts/build/**'
+      - 'scripts/ci/**'
       - 'scripts/lint/**'
+      - 'PLAN.md'
+      - 'README.md'
       - 'package.json'
       - 'runtime/adapters/**'
       - '.github/workflows/build.yml'
@@ -49,6 +55,9 @@ jobs:
 
       - name: Check version parity
         run: npm run version:check
+
+      - name: Check documented skill count drift
+        run: npm run check:skill-count-drift
 
       - name: Lint platform files
         if: runner.os != 'Windows'
