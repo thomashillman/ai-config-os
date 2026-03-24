@@ -16,7 +16,9 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — v0.8.0, updated 2026-03-23
+## Current state — Phase 10 milestone, updated 2026-03-23
+
+Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels in this plan track delivery checkpoints.
 
 ### Completed infrastructure
 
@@ -484,7 +486,7 @@ Before broadening to more task types or hosts:
 
 **Core principle:** The narrator is the product. Schemas serve the narrator, not the other way around. Every component exists to produce the exact right sentence at the exact right moment.
 
-**Version:** v0.8.0
+**Milestone tag:** Phase 10
 
 ### Architecture
 
@@ -1182,7 +1184,7 @@ Additional implementation (2026-03-17):
 - [x] Codex emitter: `scripts/build/lib/emit-codex.mjs` and `adapters/codex/materialise.sh`
 - [x] Dashboard: Hub and Task Detail tabs added (`dashboard/src/tabs/HubTab.jsx`, `TaskDetailTab.jsx`)
 - [x] Session-start hook: queries Worker KV for active tasks to surface resume opportunities
-- [x] Momentum Engine (v0.8.0): narrator, observer, shelf, intent lexicon, and reflector — all 6 slices complete
+- [x] Momentum Engine (Phase 10 milestone): narrator, observer, shelf, intent lexicon, and reflector — all 6 slices complete
 - [x] `momentum-reflect` skill: enables `/momentum-reflect` and `/loop 10m /momentum-reflect` self-improvement workflow
 - [x] Modularity/cohesion refactoring (2026-03-23): 5 SRP/DRY/DIP violations resolved across runtime, Worker, build, and dashboard layers; 63 new tests added
 
@@ -1305,7 +1307,7 @@ Multiple Codex-contributed branches merged to main:
 </details>
 
 <details>
-<summary>Phase 10: KV persistence + Momentum Engine (v0.8.0)</summary>
+<summary>Phase 10: KV persistence + Momentum Engine (milestone)</summary>
 
 **Branch:** merged to main 2026-03-17
 
