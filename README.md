@@ -645,20 +645,30 @@ bash ops/runtime-status.sh
 
 ### Example 3: Share a workflow across your team
 
-Workflows compose multiple skills:
+Workflows compose multiple skills. Use a checked-in workflow definition from `shared/workflows/daily-brief.json` so teammates can open the exact file:
 
-```yaml
-# shared/workflows/daily-standup.yaml
-name: daily-standup
-description: Morning review of changes and tasks
-skills:
-  - git-ops       # Fetch latest, summarize commits
-  - memory        # Load context from yesterday
-  - task-decompose # Break down priority work
-  - web-search    # Current events check (optional)
+```json
+{
+  "name": "daily-brief",
+  "description": "Morning standup: synthesize recent changes, open issues, blocked work",
+  "type": "workflow",
+  "version": "1.0.0",
+  "composed_skills": [
+    { "skill": "git-ops", "variant": "sonnet" },
+    { "skill": "changelog", "variant": "sonnet" },
+    { "skill": "memory", "variant": "sonnet" },
+    { "skill": "task-decompose", "variant": "sonnet" }
+  ]
+}
 ```
 
-Run it: `Claude Code → Run Workflow → daily-standup`
+Run it: `Claude Code → Run Workflow → daily-brief`
+
+Other checked-in workflow names you can run immediately:
+- `pre-commit` (`shared/workflows/pre-commit.json`)
+- `code-quality` (`shared/workflows/code-quality/workflow.json`)
+- `release-agent` (`shared/workflows/release-agent/workflow.json`)
+- `research-mode` (`shared/workflows/research-mode/workflow.json`)
 
 ---
 

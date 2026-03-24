@@ -44,10 +44,13 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 
 ## Workflows
 
-| Workflow | Composed Skills | Description |
-|---|---|---|
-| `daily-brief` | git-ops, changelog, memory, task-decompose | Morning standup: synthesize recent changes, open issues, blocked work |
-| `pre-commit` | security-review, code-review, commit-conventions | Quality gate before committing: security + code quality + conventions |
+| Workflow | File | Format | Composed Skills | Description |
+|---|---|---|---|---|
+| `daily-brief` | `shared/workflows/daily-brief.json` | JSON | git-ops, changelog, memory, task-decompose | Morning standup: synthesize recent changes, open issues, blocked work |
+| `pre-commit` | `shared/workflows/pre-commit.json` | JSON | security-review, code-review, commit-conventions | Quality gate before committing: security + code quality + conventions |
+| `code-quality` | `shared/workflows/code-quality/workflow.json` | JSON | code-review, debug, explain-code | Full code quality loop: review, debug, and explain code changes |
+| `release-agent` | `shared/workflows/release-agent/workflow.json` | JSON | git-ops, commit-conventions, changelog, release-checklist | End-to-end release workflow: version bump, changelog generation, release commit, and quality checklist |
+| `research-mode` | `shared/workflows/research-mode/workflow.json` | JSON | web-search | Deep research persona for comprehensive information synthesis |
 
 ## Plugins
 
