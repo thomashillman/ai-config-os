@@ -38,6 +38,8 @@ Last reconciled: 2026-03-24 (skills/tests/tabs/platform inventory claims verifie
 
 ### Skills (34 installable total from `shared/skills/*/SKILL.md`, excluding `_template`)
 
+Canonical declaration format (validated in CI): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
+
 | Skill | Type | Phase |
 |---|---|---|
 | session-start-hook, web-search, commit-conventions, git-ops, principles, plugin-setup | prompt/hook | Phase 1 |

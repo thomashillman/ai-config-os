@@ -690,6 +690,8 @@ Other checked-in workflow names you can run immediately:
 
 > Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels are internal roadmap checkpoints.
 
+Canonical skill count declaration format (for deterministic CI parsing in docs): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
+
 ### Platform maturity
 
 | Platform | Compiler | Worker | Runtime sync | Status |
