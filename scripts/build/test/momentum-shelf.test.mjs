@@ -39,6 +39,17 @@ function findingFixture(overrides = {}) {
   };
 }
 
+function strongCapabilityProfile() {
+  return {
+    capabilities: {
+      network_http: 'supported',
+      local_fs: 'supported',
+      local_shell: 'supported',
+      local_repo: 'supported',
+    },
+  };
+}
+
 test('empty task list returns empty shelf', () => {
   const result = buildMomentumShelf({ tasks: [], currentCapabilities: {} });
   assert.deepEqual(result, []);
@@ -56,7 +67,7 @@ test('completed and failed tasks are excluded', () => {
     taskFixture({ task_id: 'active_task', state: 'active' }),
   ];
 
-  const result = buildMomentumShelf({ tasks, currentCapabilities: {} });
+  const result = buildMomentumShelf({ tasks, currentCapabilities: strongCapabilityProfile() });
 
   assert.equal(result.length, 1);
   assert.equal(result[0].task_id, 'active_task');
@@ -68,7 +79,7 @@ test('task with route upgrade available ranks above task without', () => {
     taskFixture({ task_id: 'task_upgrade', current_route: 'pasted_diff' }),
   ];
 
-  const result = buildMomentumShelf({ tasks, currentCapabilities: {} });
+  const result = buildMomentumShelf({ tasks, currentCapabilities: strongCapabilityProfile() });
 
   assert.equal(result[0].task_id, 'task_upgrade');
   assert.equal(result[0].environment_fit, 'strong');
@@ -96,7 +107,7 @@ test('task with more unverified findings ranks above task with fewer (same env f
     }),
   ];
 
-  const result = buildMomentumShelf({ tasks, currentCapabilities: {} });
+  const result = buildMomentumShelf({ tasks, currentCapabilities: strongCapabilityProfile() });
 
   assert.equal(result[0].task_id, 'task_many_findings');
   assert.equal(result[0].findings_pending_verification, 3);
@@ -146,13 +157,30 @@ test('environment fit classification is correct', () => {
     taskFixture({ task_id: 'task_neutral', current_route: 'local_repo' }),
   ];
 
-  const result = buildMomentumShelf({ tasks, currentCapabilities: {} });
+  const result = buildMomentumShelf({ tasks, currentCapabilities: strongCapabilityProfile() });
 
   const strong = result.find((e) => e.task_id === 'task_strong');
   const neutral = result.find((e) => e.task_id === 'task_neutral');
 
   assert.equal(strong.environment_fit, 'strong');
   assert.equal(neutral.environment_fit, 'neutral');
+});
+
+test('unsupported capability profile does not mark route upgrade available', () => {
+  const tasks = [taskFixture({ task_id: 'task_no_supported_upgrade', current_route: 'github_pr' })];
+  const unsupportedCapabilities = {
+    capabilities: {
+      network_http: 'supported',
+      local_fs: 'unsupported',
+      local_shell: 'unknown',
+      local_repo: 'unsupported',
+    },
+  };
+
+  const result = buildMomentumShelf({ tasks, currentCapabilities: unsupportedCapabilities });
+  assert.equal(result.length, 1);
+  assert.equal(result[0].route_upgrade_available, false);
+  assert.equal(result[0].environment_fit, 'neutral');
 });
 
 test('rank numbers are sequential starting from 1', () => {

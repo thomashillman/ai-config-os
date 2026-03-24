@@ -7,6 +7,7 @@ import {
   resumeReviewRepositoryTask,
   buildTaskReadinessView,
 } from '../../../runtime/lib/review-repository-journey.mjs';
+import { buildEffectiveExecutionContract } from '../../../runtime/lib/effective-execution-contract.mjs';
 
 function createWeakCapabilityProfile() {
   return {
@@ -120,9 +121,41 @@ test('T017 buildTaskReadinessView exposes readiness, route history, and provenan
 
   assert.equal(readiness.task_id, started.task.task_id);
   assert.equal(readiness.current_route, 'github_pr');
-  assert.equal(readiness.readiness.stronger_route_available, true);
+  assert.equal(readiness.readiness.stronger_route_available, false);
+  assert.match(readiness.readiness.upgrade_unavailable_reason, /Upgrade unavailable due to missing capability:/);
   assert.equal(Array.isArray(readiness.route_history), true);
   assert.equal(readiness.progress_event_count > 0, true);
+});
+
+test('T017b buildTaskReadinessView marks stronger_route_available only when equal route is currently supported', () => {
+  const store = new TaskStore();
+  const started = startReviewRepositoryTask({
+    taskStore: store,
+    taskId: 'task_review_repository_t017b',
+    goal: 'Assess repository before merge.',
+    routeInputs: {
+      repository_slug: 'example/repo',
+      pull_request_number: '31',
+    },
+    capabilityProfile: createWeakCapabilityProfile(),
+    now: '2026-03-14T12:03:30.000Z',
+  });
+
+  const strongRuntimeContract = buildEffectiveExecutionContract({
+    taskId: started.task.task_id,
+    taskType: 'review_repository',
+    capabilityProfile: createStrongCapabilityProfile(),
+    computedAt: '2026-03-14T12:04:00.000Z',
+  });
+
+  const readiness = buildTaskReadinessView({
+    task: store.load(started.task.task_id),
+    effectiveExecutionContract: strongRuntimeContract,
+    progressEvents: store.listProgressEvents(started.task.task_id),
+  });
+
+  assert.equal(readiness.readiness.stronger_route_available, true);
+  assert.equal(readiness.readiness.upgrade_unavailable_reason, null);
 });
 
 test('T018 telemetry/audit event flow emits deterministic event types for start and resume', () => {

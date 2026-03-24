@@ -29,7 +29,27 @@ export function summariseFindingsProvenance(findings = []) {
   }, {});
 }
 
-export function createReadinessView(task, progressEvents = []) {
+function hasSupportedUpgrade(task, effectiveExecutionContract) {
+  if (!effectiveExecutionContract || typeof effectiveExecutionContract !== 'object') {
+    return false;
+  }
+  const selectedRoute = effectiveExecutionContract.selected_route;
+  if (!selectedRoute || typeof selectedRoute !== 'object') {
+    return false;
+  }
+  if (selectedRoute.equivalence_level !== 'equal') {
+    return false;
+  }
+  const missingCapabilities = Array.isArray(selectedRoute.missing_capabilities)
+    ? selectedRoute.missing_capabilities
+    : [];
+  if (missingCapabilities.length > 0) {
+    return false;
+  }
+  return selectedRoute.route_id !== task.current_route;
+}
+
+export function createReadinessView(task, progressEvents = [], effectiveExecutionContract = null) {
   const totalSteps = task.progress?.total_steps ?? 0;
   const completedSteps = task.progress?.completed_steps ?? 0;
   return {
@@ -41,7 +61,8 @@ export function createReadinessView(task, progressEvents = []) {
     route_history: task.route_history,
     readiness: {
       is_ready: task.state === 'active' && completedSteps < totalSteps,
-      stronger_route_available: task.task_type === 'review_repository' && task.current_route !== 'local_repo',
+      stronger_route_available: task.task_type === 'review_repository'
+        && hasSupportedUpgrade(task, effectiveExecutionContract),
       progress_ratio: totalSteps === 0 ? 1 : Number((completedSteps / totalSteps).toFixed(4)),
     },
     findings_provenance: summariseFindingsProvenance(Array.isArray(task.findings) ? task.findings : []),

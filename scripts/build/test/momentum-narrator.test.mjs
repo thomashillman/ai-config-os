@@ -53,7 +53,7 @@ function findingFixture(overrides = {}) {
   };
 }
 
-test('onStart produces structured output with headline, strength, and upgrade for pasted_diff', () => {
+test('onStart does not claim upgrade when stronger route is blocked by missing capabilities', () => {
   const narrator = createNarrator();
   const task = taskFixture();
   const contract = contractFixture();
@@ -63,11 +63,23 @@ test('onStart produces structured output with headline, strength, and upgrade fo
   assert.ok(result.headline.includes('repository review'));
   assert.equal(result.strength.level, 'limited');
   assert.equal(result.strength.label, 'Diff-only review');
-  assert.ok(result.upgrade, 'should have upgrade block');
-  assert.ok(result.upgrade.now.includes('Full repository'));
-  assert.ok(result.upgrade.unlocks.includes('verify call sites'));
-  assert.equal(result.progress, null);
+  assert.equal(result.upgrade, null);
+  assert.match(result.progress, /Upgrade unavailable due to missing capability:/);
   assert.ok(Array.isArray(result.findings));
+});
+
+test('onStart includes upgrade block when stronger equal route is already supported', () => {
+  const narrator = createNarrator();
+  const task = taskFixture({ current_route: 'github_pr' });
+  const contract = contractFixture({
+    selected_route: { route_id: 'local_repo', equivalence_level: 'equal', missing_capabilities: [] },
+    stronger_host_guidance: undefined,
+  });
+
+  const result = narrator.onStart(task, contract);
+  assert.ok(result.upgrade);
+  assert.ok(result.upgrade.now.includes('Full repository'));
+  assert.equal(result.progress, null);
 });
 
 test('onStart produces correct strength for github_pr route', () => {
@@ -189,6 +201,19 @@ test('onUpgradeAvailable describes what becomes possible', () => {
   assert.equal(result.findings.length, 2);
 });
 
+test('onUpgradeAvailable does not emit upgrade block when guidance is blocked by missing capability', () => {
+  const narrator = createNarrator();
+  const task = taskFixture({ current_route: 'github_pr' });
+  const blockedContract = contractFixture({
+    selected_route: { route_id: 'github_pr', equivalence_level: 'degraded', missing_capabilities: [] },
+    stronger_host_guidance: "Upgrade to route 'local_repo' when host supports: local_fs, local_shell, local_repo.",
+  });
+
+  const result = narrator.onUpgradeAvailable(task, blockedContract, null);
+  assert.equal(result.upgrade, null);
+  assert.match(result.progress, /Upgrade unavailable due to missing capability:/);
+});
+
 test('narrator returns valid structured output shape', () => {
   const narrator = createNarrator();
   const task = taskFixture();
@@ -221,6 +246,49 @@ test('onShelfView produces entries for multiple tasks', () => {
   assert.ok(result[0].headline);
   assert.ok(result[0].continuation_reason);
   assert.ok(result[0].environment_fit);
+});
+
+test('onShelfView does not claim upgrade when stronger route capability is unsupported', () => {
+  const narrator = createNarrator();
+  const tasks = [
+    taskFixture({ task_id: 'task_blocked_upgrade', current_route: 'github_pr' }),
+  ];
+
+  const capabilityProfile = {
+    capabilities: {
+      network_http: 'supported',
+      local_fs: 'unsupported',
+      local_shell: 'unsupported',
+      local_repo: 'unsupported',
+    },
+  };
+
+  const result = narrator.onShelfView(tasks, capabilityProfile);
+
+  assert.equal(result.length, 1);
+  assert.equal(result[0].environment_fit, 'neutral');
+  assert.match(result[0].continuation_reason, /Upgrade unavailable due to missing capability:/);
+});
+
+test('onShelfView advertises upgrade when stronger route capability is supported', () => {
+  const narrator = createNarrator();
+  const tasks = [
+    taskFixture({ task_id: 'task_upgrade_available', current_route: 'github_pr' }),
+  ];
+
+  const capabilityProfile = {
+    capabilities: {
+      network_http: 'supported',
+      local_fs: 'supported',
+      local_shell: 'supported',
+      local_repo: 'supported',
+    },
+  };
+
+  const result = narrator.onShelfView(tasks, capabilityProfile);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].environment_fit, 'strong');
+  assert.match(result[0].headline, /ready for verification with Full repository access/);
 });
 
 test('finding narrative uses Possible prefix for hypothesis status', () => {
