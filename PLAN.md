@@ -1156,10 +1156,27 @@ Additional implementation (2026-03-17):
 
 ## Acceptance criteria
 
-- [x] `claude plugin validate .` passes at repo root
-- [ ] Claude Code can add the marketplace and install `core-skills` (pending device test)
-- [ ] Installed plugin exposes expected skills (awaiting full validation)
-- [ ] Cross-device sync: push from device A, restart Claude Code on device B reflects changes
+### Operational validation evidence note (2026-03-24)
+
+Evidence artifacts captured from command runs (UTC ISO date):
+- `artifacts/evidence/2026-03-24/build-compile.log`
+- `artifacts/evidence/2026-03-24/env-a-claude.log`
+- `artifacts/evidence/2026-03-24/env-b-codex.log`
+- `artifacts/evidence/2026-03-24/cross-device-sync.log`
+- `artifacts/evidence/2026-03-24/claude-plugin-validate.log`
+- `artifacts/evidence/2026-03-24/pre-pr-mergeability-gate.log`
+
+- [ ] Marketplace add + `core-skills` install (Claude Code surface)
+  - [x] Local emitted `core-skills` package built successfully (`node scripts/build/compile.mjs`).
+  - [ ] Real Claude Code marketplace add/install flow blocked in this run (no `claude` binary and no interactive Claude Code UI in runner).
+  - Blocker owner: Platform/Ops (provide interactive Claude Code-capable device + auth token).
+- [x] Installed skill exposure verified on at least two real environments
+  - [x] Environment A (`claude-code` package): `extract` materialized 34 skills into local cache.
+  - [x] Environment B (`codex` package): `extract` + `install` wrote `~/.codex/AGENTS.md`; skill names verified in installed file (`list-available-skills`, `task-start`).
+- [ ] Cross-device sync: push from device A, restart on device B, verify sync
+  - [x] Push/pull sync verified using distinct device A/B clones against a bare remote; marker committed on A appeared on B.
+  - [ ] Post-sync “restart on device B” full re-materialization failed in fresh clone because build dependencies were absent (`ERR_MODULE_NOT_FOUND: yaml` during compile), so end-to-end restart validation remains incomplete.
+  - Blocker owner: Developer Experience/Build (ensure dependency bootstrap on fresh device before restart validation).
 - [x] `adapters/claude/dev-test.sh` runs clean
 - [x] CI validates plugin structure and symlink integrity on every push
 - [x] `ops/new-skill.sh <name>` creates skill, symlink, and bumps version

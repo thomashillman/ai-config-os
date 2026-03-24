@@ -1,0 +1,23 @@
+# Environment B (codex)
+date=2026-03-24T00:54:53Z
+$ bash adapters/codex/materialise.sh extract
+Extracting Codex package from ./dist/clients/codex...
+  Extracted to: /root/.ai-config-os/cache/codex
+$ bash adapters/codex/materialise.sh install
+Installed AGENTS.md to /root/.codex/AGENTS.md
+
+Codex will load these instructions automatically on next session.
+$ bash adapters/codex/materialise.sh status
+=== Codex Package Status ===
+  Cached version: none
+  Cache path: /root/.ai-config-os/cache/codex
+  Installed: /root/.codex/AGENTS.md ✓
+$ test -f ~/.codex/AGENTS.md && echo AGENTS_OK
+AGENTS_OK
+$ rg -n "list-available-skills|task-start" ~/.codex/AGENTS.md | head
+897:## list-available-skills
+901:# list-available-skills
+907:Invoke when the user asks: "what skills can I use here?", "list available skills", or "/list-available-skills".
+2557:2. **Detect current capabilities** — same as task-start. Map to route.
+2660:## task-start
+2664:# task-start
