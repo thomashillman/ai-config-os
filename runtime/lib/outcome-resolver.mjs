@@ -93,7 +93,12 @@ export function loadOutcomeAndRoutes(outcomeId, definitions = loadDefinitions())
   return { outcomeId, routes };
 }
 
-export function loadCapabilityProfile({ executionChannel = 'mcp' } = {}) {
+/**
+ * Builds a static profile used only for route scoring heuristics.
+ * This is intentionally synthetic and is not runtime-probed capability truth.
+ */
+export function buildStaticRouteScoringProfile({ executionChannel = 'mcp' } = {}) {
+  // Synthetic-by-design defaults for deterministic scoring in pre-execution resolution.
   return {
     executionChannel,
     capabilities: {
@@ -133,7 +138,8 @@ export function scoreRoutesByEquivalence(routes, capabilityProfile) {
 }
 
 export function resolveEffectiveOutcomeContract({ toolName, executionChannel = 'mcp', readFlags } = {}) {
-  const capabilityProfile = loadCapabilityProfile({ executionChannel });
+  const routeScoringProfileSynthetic = buildStaticRouteScoringProfile({ executionChannel });
+  const routeScoringProfileSource = 'synthetic-static';
 
   if (readFlags !== undefined && readFlags !== null) {
     const flags = readFlags();
@@ -141,7 +147,9 @@ export function resolveEffectiveOutcomeContract({ toolName, executionChannel = '
       return {
         toolName,
         outcomeId: null,
-        capabilityProfile,
+        capabilityProfile: routeScoringProfileSynthetic,
+        routeScoringProfileSynthetic,
+        routeScoringProfileSource,
         preferredRoute: null,
         fallbackRoutes: [],
         availableRoutes: [],
@@ -153,12 +161,14 @@ export function resolveEffectiveOutcomeContract({ toolName, executionChannel = '
   const definitions = loadDefinitions();
   const identifiedOutcome = identifyOutcome(toolName, definitions);
   const { outcomeId, routes } = loadOutcomeAndRoutes(identifiedOutcome, definitions);
-  const scoredRoutes = scoreRoutesByEquivalence(routes, capabilityProfile);
+  const scoredRoutes = scoreRoutesByEquivalence(routes, routeScoringProfileSynthetic);
 
   return {
     toolName,
     outcomeId,
-    capabilityProfile,
+    capabilityProfile: routeScoringProfileSynthetic,
+    routeScoringProfileSynthetic,
+    routeScoringProfileSource,
     preferredRoute: scoredRoutes[0] || null,
     fallbackRoutes: scoredRoutes.slice(1),
     availableRoutes: scoredRoutes,
