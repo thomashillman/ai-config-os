@@ -18,6 +18,8 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ## Current state — Phase 10 milestone, updated 2026-03-24
 
+Support status source of truth: **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)** (current, evidence-backed state only). This plan tracks roadmap/milestones and ambition.
+
 Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels in this plan track delivery checkpoints.
 
 Last reconciled: 2026-03-24 (skills/tests/tabs/platform inventory claims verified against repository source-of-truth).
