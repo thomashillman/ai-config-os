@@ -578,6 +578,8 @@ test('resolveEffectiveOutcomeContract returns preferred route for known tool', a
   assert.equal(contract.outcomeId, 'runtime.list-tools');
   assert.ok(contract.preferredRoute);
   assert.equal(Array.isArray(contract.availableRoutes), true);
+  assert.equal(contract.routeScoringProfileSource, 'synthetic-static');
+  assert.deepEqual(contract.routeScoringProfileSynthetic, contract.capabilityProfile);
 });
 
 test('handler resolve_outcome_contract returns contract JSON', async () => {

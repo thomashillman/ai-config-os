@@ -1,0 +1,87 @@
+# Environment A (claude-code) rerun
+date=2026-03-24T00:54:39Z
+$ bash adapters/claude/materialise.sh extract
+
+Materialising package: /workspace/ai-config-os/dist/clients/claude-code
+Destination: /root/.ai-config-os/cache/claude-code
+Package version: 0.5.4
+Skills to materialize: 34
+Total size: 182.9 KB
+  Materializing: autoresearch
+  Materializing: changelog
+  Materializing: ci-conditional-audit
+  Materializing: code-review
+  Materializing: commit-conventions
+  Materializing: context-budget
+  Materializing: debug
+  Materializing: explain-code
+  Materializing: failed-build-analysis
+  Materializing: git-ops
+  Materializing: issue-triage
+  Materializing: list-available-skills
+  Materializing: lockfile-audit
+  Materializing: memory
+  Materializing: momentum-reflect
+  Materializing: plugin-setup
+  Materializing: post-merge-retrospective
+  Materializing: pr-description
+  Materializing: principles
+  Materializing: refactor
+  Materializing: release-checklist
+  Materializing: review-pr
+  Materializing: security-review
+  Materializing: session-start-hook
+  Materializing: simplify
+  Materializing: skill-audit
+  Materializing: skill-effectiveness
+  Materializing: surface-probe
+  Materializing: task-decompose
+  Materializing: task-resume
+  Materializing: task-save
+  Materializing: task-start
+  Materializing: test-writer
+  Materializing: web-search
+
+Materialised 34 skills
+  ✓ autoresearch (1.0.0)
+  ✓ changelog (1.0.0)
+  ✓ ci-conditional-audit (1.0.0)
+  ✓ code-review (1.0.0)
+  ✓ commit-conventions (1.0.0)
+  ✓ context-budget (1.0.0)
+  ✓ debug (1.0.0)
+  ✓ explain-code (1.0.0)
+  ✓ failed-build-analysis (1.0.0)
+  ✓ git-ops (1.0.0)
+  ✓ issue-triage (1.0.0)
+  ✓ list-available-skills (1.1.0)
+  ✓ lockfile-audit (1.0.0)
+  ✓ memory (1.0.0)
+  ✓ momentum-reflect (1.0.0)
+  ✓ plugin-setup (1.0.0)
+  ✓ post-merge-retrospective (1.0.0)
+  ✓ pr-description (1.0.0)
+  ✓ principles (1.0.0)
+  ✓ refactor (1.0.0)
+  ✓ release-checklist (1.0.0)
+  ✓ review-pr (1.0.0)
+  ✓ security-review (1.0.0)
+  ✓ session-start-hook (1.0.0)
+  ✓ simplify (1.0.0)
+  ✓ skill-audit (1.0.0)
+  ✓ skill-effectiveness (1.0.0)
+  ✓ surface-probe (1.0.0)
+  ✓ task-decompose (1.0.0)
+  ✓ task-resume (1.0.0)
+  ✓ task-save (1.0.0)
+  ✓ task-start (1.0.0)
+  ✓ test-writer (1.0.0)
+  ✓ web-search (1.0.0)
+Materialisation complete: /root/.ai-config-os/cache/claude-code
+$ bash adapters/claude/materialise.sh install
+ERROR: No cached version found. Run 'bash adapters/claude/materialise.sh extract' first.
+$ find ~/.claude/skills -maxdepth 2 -type f -name SKILL.md | wc -l
+find: ‘/root/.claude/skills’: No such file or directory
+0
+$ ls ~/.claude/skills | head
+ls: cannot access '/root/.claude/skills': No such file or directory
