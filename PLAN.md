@@ -25,8 +25,8 @@ Versioning note: `VERSION` is the canonical repository release number (see `./VE
 | Area | Version | Notes |
 |---|---|---|
 | Repo scaffold, .gitignore, marketplace.json | v0.1.0 | Phase 1 |
-| core-skills plugin.json | v0.5.4 | 28 skills, all symlinked |
-| shared/manifest.md (skill index) | — | 28 skills, 2 workflows listed |
+| core-skills plugin.json | v0.5.4 | Inventory source is `shared/skills/*/SKILL.md`; 34 installable skills currently materialized (excluding `_template`) |
+| shared/manifest.md (skill index) | — | Mirrors current `shared/skills/*/SKILL.md` inventory (34 installable skills, excluding `_template`) plus workflows/components |
 | shared/principles.md | — | Opinionated AI behaviour defaults |
 | adapters/claude/dev-test.sh | — | Non-interactive validation |
 | CLAUDE.md (dev context) | — | Extended with self-improvement, portability contract, delivery contract, CI pitfalls |
@@ -34,7 +34,7 @@ Versioning note: `VERSION` is the canonical repository release number (see `./VE
 | .github/workflows/ | — | `validate.yml` (structure), `build.yml` (compile + test + dist artifact) |
 | .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics, skill-outcome-tracker |
 
-### Skills (33 total)
+### Skills (34 installable total from `shared/skills/*/SKILL.md`, excluding `_template`)
 
 | Skill | Type | Phase |
 |---|---|---|
@@ -43,10 +43,13 @@ Versioning note: `VERSION` is the canonical repository release number (see `./VE
 | debug, changelog, task-decompose, explain-code, skill-audit, release-checklist | prompt/agent/workflow-blueprint | Phase 6 |
 | memory, test-writer, security-review, refactor, review-pr, issue-triage, simplify | prompt/agent | Phase 7 |
 | task-start, task-save, task-resume | agent | Phase 10 (KV persistence) |
-| momentum-reflect, momentum-observer, momentum-narrator, momentum-view, momentum-engine | agent | Phase 10 (Momentum Engine) |
+| momentum-reflect | agent | Phase 10 (Momentum Engine skill surface) |
+| list-available-skills, surface-probe | prompt/agent | Phase 10 (Runtime visibility + surface diagnostics) |
+| failed-build-analysis, ci-conditional-audit, lockfile-audit | prompt/agent | Phase 10 (CI/build reliability) |
+| post-merge-retrospective | prompt/agent | Phase 10 (Post-merge process improvement) |
 | skill-effectiveness, autoresearch | prompt/agent | Phase 10 (Skill Analytics) |
 
-All 33 skills have: YAML frontmatter, structured capability contracts, tests defined in frontmatter.
+All 34 installable skills in `shared/skills/*/SKILL.md` (excluding `_template`) have: YAML frontmatter, structured capability contracts, and tests defined in frontmatter.
 skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 
 ### Workflows (5 total)
