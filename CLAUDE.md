@@ -273,122 +273,9 @@ bash ops/capability-probe.sh --quiet              # re-run probe
 → Cross-reference against skill's `capabilities.required` in SKILL.md
 → File issue if skill declares wrong requirements
 
-## Phase 2: Enhanced SKILL.md Frontmatter
+## Skill frontmatter
 
-All skills define metadata in YAML frontmatter (between `---` markers). The `skill` and `description` fields follow the [Agent Skills open standard](https://agentskills.io/specification); all other fields are repo-specific extensions. For the full skills reference including Claude Code-specific features (invocation control, subagents, hooks, dynamic context), see `docs/SKILLS.md`.
-
-```yaml
----
-# Identity
-skill: skill-name
-description: One sentence summary; one paragraph context max.
-type: prompt  # or: hook, agent, workflow-blueprint
-status: stable  # or: experimental, deprecated
-
-# Feature 1: Dependencies & Metadata
-inputs:
-  - name: input_name
-    type: string
-    description: Description
-    required: true
-
-outputs:
-  - name: output_name
-    type: string
-    description: Description
-
-dependencies:
-  skills:
-    - name: dependency-skill
-      version: "^1.0"  # semver constraint
-      optional: false
-  apis:
-    - external-api-name
-  models:
-    - opus  # or: sonnet, haiku
-
-examples:
-  - input: "User input"
-    output: "Skill output"
-    expected_model: sonnet
-
-# Feature 2: Multi-Model Variants
-variants:
-  opus:
-    prompt_file: prompts/detailed.md
-    description: For complex topics
-    cost_factor: 3.0
-    latency_baseline_ms: 800
-  sonnet:
-    prompt_file: prompts/balanced.md
-    description: Default; balanced
-    cost_factor: 1.0
-    latency_baseline_ms: 300
-  haiku:
-    prompt_file: prompts/brief.md
-    description: For quick lookups
-    cost_factor: 0.3
-    latency_baseline_ms: 150
-  fallback_chain:
-    - opus
-    - sonnet
-    - haiku
-
-# Feature 3: Skill Testing
-tests:
-  - id: test-id
-    type: prompt-validation  # or: structure-check, integration, performance
-    input: "Test input"
-    expected_substring: "expected text"
-    expected_not_null: true  # assert non-empty output
-    models_to_test:
-      - sonnet
-  - id: perf-test
-    type: performance
-    input: "Benchmark input"
-    max_latency_ms: 2000
-    iterations: 5
-    model: sonnet
-    track_metrics:
-      - latency
-
-# Feature 4: Skill Composition
-composition:
-  personas:
-    - name: persona-name
-      skills:
-        - skill-name
-
-# Feature 5: Auto-Generated Documentation
-docs:
-  auto_generate_readme: true
-  sections_to_include:
-    - description
-    - inputs
-    - outputs
-  help_text: "One-line contextual help with {placeholders}"
-  keywords:
-    - search-term
-    - discovery-tag
-
-# Feature 6: Performance Monitoring
-monitoring:
-  enabled: true
-  track_metrics:
-    - latency
-    - token_count
-    - cost
-    - variant_selected
-  alert_threshold_latency_ms: 5000
-  public_metrics: false
-
-version: "1.0.0"
-changelog:
-  "1.0.0": "Initial release"
----
-```
-
-See `shared/skills/_template/SKILL.md` for complete template.
+All skills define metadata in YAML frontmatter. The `skill` and `description` fields follow the [Agent Skills open standard](https://agentskills.io/specification); all other fields are repo-specific extensions. See `docs/SKILLS.md` for the full reference (invocation control, subagents, hooks, dynamic context, multi-model variants, testing, composition). See `shared/skills/_template/SKILL.md` for the complete template.
 
 ## Living docs protocol
 
@@ -401,6 +288,7 @@ Four docs stay in sync; each owns a distinct slice:
 | `CLAUDE.md` | Dev conventions change, new ops scripts added, git/proxy workflow changes |
 | `shared/manifest.md` | A skill is added, renamed, or removed (one row per skill) |
 | `docs/SKILLS.md` | Skill format changes, new Claude Code skill features, hooks patterns, Agent Skills standard updates |
+| `docs/CI_PATTERNS.md` | New CI pitfall found, new platform added to matrix, Windows portability pattern updated |
 
 **Rules for Claude agents:**
 - After any commit that creates or modifies a skill: update `shared/manifest.md` row + check if README or PLAN.md need a line.
@@ -482,34 +370,7 @@ wrangler deploy                        # deploy to Cloudflare
 
 ### Executor Worker (Phase 1)
 
-The executor Worker is a separate Cloudflare Worker that implements Phase 1 tools only:
-- **health_check** — Worker health status
-- **list_phase1_tools** — Available Phase 1 tools
-- **get_skill_metadata** — Fetch skill metadata from KV
-- **get_artifact** — Fetch versioned artifacts from R2
-- **skill_stats_cached** — Pre-computed statistics from KV
-
-Phase 0 tools (sync_tools, list_tools, get_config, context_cost, validate_all) are **not** available and return 403 TOOL_NOT_SUPPORTED (they require shell/filesystem access).
-
-**Architecture:**
-- Service binding from main Worker to executor Worker (primary Phase 1 path, Cloudflare-only)
-- HTTP proxy fallback to `EXECUTOR_PROXY_URL` (optional, preserved for Phase 2 seam or Phase 0 backward compat)
-- Timeout clamped to 15s maximum (Cloudflare Worker constraint)
-- All data pre-computed and stored in KV/R2 (no shell or filesystem)
-
-**Deployment (Phase 1 primary path):**
-```bash
-# Deploy executor Worker first
-cd worker/executor
-npm install
-wrangler deploy
-
-# Then deploy main Worker (includes service binding)
-cd ../
-wrangler deploy
-```
-
-See `worker/executor/README.md` for configuration and local development.
+See `docs/DEPLOYMENT.md` for the full deployment runbook including Executor Worker architecture, Phase 1 tool reference, and service binding configuration.
 
 ### Fetching from Worker (local)
 ```bash
@@ -571,189 +432,11 @@ git push -u origin claude/<branch-name>
 
 Merging to main happens outside the agent session (via the repo owner's GitHub UI or equivalent). Do not waste turns attempting `gh pr create`, REST API calls, or direct main pushes after the first failure.
 
-## Common CI Pitfalls to Avoid
+## Cross-Platform CI Patterns
 
-When building for multi-platform CI (Windows, macOS, Linux), avoid these mistakes:
+See `docs/CI_PATTERNS.md` for the full reference (pitfalls, safe patterns, reusable utilities).
 
-### 1. Shell glob patterns in npm scripts
-**Problem:** `npm test` with `node --test scripts/build/test/*.test.mjs` fails on Windows CMD (doesn't expand globs).
-**Solution:** Use Node.js `glob()` in a dedicated test runner script instead.
-```json
-"test": "node scripts/build/test/run-tests.mjs"
-```
-Create `run-tests.mjs` using `import { globSync } from 'glob'` to discover test files on all platforms.
-
-### 2. Platform-specific code in test suites run on all OSes
-**Problem:** Tests using `execFileSync("bash", ...)` or depending on `jq`/`yq` fail on Windows or minimal CI images.
-**Solution:** Test Node.js code across all platforms. Keep bash script testing local-only.
-- Don't test shell adapters in multi-platform CI
-- Focus CI on portable Node.js code
-- Document local testing procedures for shell scripts
-
-### 3. Build artifacts not available to tests
-**Problem:** Tests fail because pretest build didn't complete or dist/ was cleaned up.
-**Solution:**
-- Ensure `pretest` hook runs before tests (already in package.json: `"pretest": "node scripts/build/compile.mjs"`)
-- Make tests independent of build artifacts when possible
-- If tests need dist/, verify the pretest step completes before tests start
-
-### 4. Platform-specific path separators in config
-**Problem:** Test code assumes forward slashes; fails on Windows with backslashes.
-**Solution:** Use `path.join()` and normalize paths early in tests.
-```javascript
-import { join, normalize } from 'path';
-const safePath = normalize(rawPath); // Converts to platform-native separators
-```
-
-### 5. Comparing resolved paths against raw Unix-style string literals
-**Problem:** `path.resolve('/home/user/project', 'sub/file')` returns
-`C:\home\user\project\sub\file` on Windows (the drive letter and backslashes are
-injected). Any subsequent `result.startsWith('/home/user/project')` check will
-**always fail on Windows**, even though the path is logically correct.
-```javascript
-// WRONG — fails on Windows
-assert.ok(result.startsWith(repoRoot), '...');
-
-// RIGHT — platform-neutral
-import { resolve, sep } from 'node:path';
-const resolvedRoot = resolve(repoRoot);
-assert.ok(
-  result.startsWith(resolvedRoot + sep) || result === resolvedRoot,
-  `path ${result} should be inside ${resolvedRoot}`
-);
-```
-**Rule:** In tests that check whether a resolved path is inside a boundary, always
-call `resolve()` on the boundary constant before comparing — never compare against
-a raw Unix-style string literal.
-
-### 6. Unconditional symlink creation in tests on macOS CI
-**Problem:** `fs.symlinkSync()` without a try/catch causes a test failure on macOS
-CI runners where unprivileged symlink creation can return `EPERM`. The test exits
-immediately, making the build fail very fast (≈18 s).
-**Solution:** Wrap symlink creation in try/catch and skip the test gracefully if the
-OS rejects the operation:
-```javascript
-import { test } from 'node:test';
-test('symlink test', (t) => {
-  try {
-    fs.symlinkSync(target, link);
-  } catch (err) {
-    if (err.code === 'EPERM' || err.code === 'ENOTSUP') {
-      t.skip('symlink creation not permitted on this platform');
-      return;
-    }
-    throw err;
-  }
-  // ... rest of test
-});
-```
-
-## Windows-Safe Code Patterns
-
-This section documents safe patterns for common tasks that fail on Windows. When writing tests, scripts, or build tools, consult these patterns to avoid platform-specific failures.
-
-### Dynamic Imports (ESM)
-
-**✅ Safe: new URL() pattern**
-```javascript
-// Works on Windows, Linux, macOS
-const moduleUrl = new URL('../lib/module.mjs', import.meta.url).href;
-const module = await import(moduleUrl);
-```
-
-**❌ Unsafe: path.resolve() passed to import()**
-```javascript
-// Fails on Windows — path.resolve() returns D:\path\to\file.mjs
-// import() treats D: as a protocol, not a drive letter
-const mod = await import(path.resolve(__dirname, '../lib/module.mjs'));
-```
-
-**Why:** On Windows, `path.resolve()` produces paths like `D:\project\file.mjs`. When passed to `import()`, Node.js sees `D:` and tries to use it as a URL scheme (like `http:` or `file:`), which fails with `ERR_UNSUPPORTED_ESM_URL_SCHEME`. The `new URL(..., import.meta.url)` pattern uses the module's own file:// URL as a base, so it works identically on all platforms.
-
-### Path Comparisons in Tests
-
-**✅ Safe: resolve both sides before comparing**
-```javascript
-import { resolve, sep } from 'node:path';
-
-const repoRoot = resolve('/home/user/project');
-const result = resolve(repoRoot, 'src/file.js');
-
-// Always resolve the boundary — never hardcode Unix-style paths
-assert.ok(
-  result.startsWith(repoRoot + sep) || result === repoRoot,
-  `path ${result} should be inside ${repoRoot}`
-);
-```
-
-**❌ Unsafe: comparing against Unix-style string literals**
-```javascript
-// Fails on Windows — result is D:\home\user\project\src\file.js
-// The check result.startsWith('/home/user/project') always fails
-const result = path.resolve('/home/user/project', 'src/file.js');
-assert.ok(result.startsWith('/home/user/project'), '...');  // Always fails on Windows
-```
-
-**Why:** On Windows, `path.resolve()` injects the drive letter and converts separators to backslashes, so `/home/user/project` becomes `D:\home\user\project`. The string check then fails. Always call `resolve()` on the boundary constant before comparing.
-
-### Symlink Operations in Tests
-
-**✅ Safe: wrap in try/catch with skip**
-```javascript
-import { test } from 'node:test';
-import { symlinkSync } from 'node:fs';
-
-test('symlink functionality', (t) => {
-  try {
-    symlinkSync(target, link);
-  } catch (err) {
-    if (err.code === 'EPERM' || err.code === 'ENOTSUP') {
-      t.skip('symlinks not permitted on this platform');
-      return;
-    }
-    throw err;
-  }
-  // Test symlink behavior
-});
-```
-
-**❌ Unsafe: unconditional symlink creation**
-```javascript
-// Fails on macOS CI where unprivileged symlink creation is denied
-fs.symlinkSync(target, link);
-```
-
-**Why:** macOS CI runners and some Windows configurations deny unprivileged symlink creation, causing immediate test failure. Gracefully skip the test if the OS doesn't support it.
-
-### Temp Files and Directories
-
-**✅ Safe: use os.tmpdir()**
-```javascript
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
-const tempDir = tmpdir();
-const tempFile = join(tempDir, 'my-temp-file.txt');
-```
-
-**❌ Unsafe: hardcode /tmp**
-```javascript
-// Fails on Windows where /tmp doesn't exist
-const tempFile = '/tmp/my-temp-file.txt';
-```
-
-### Reusable Safe Import Utility
-
-For repeated dynamic imports, use the utility at `scripts/build/lib/windows-safe-import.mjs`:
-
-```javascript
-import { safeImport } from './lib/windows-safe-import.mjs';
-
-// In any test or build script:
-const { someExport } = await safeImport('../path/to/module.mjs', import.meta.url);
-```
-
-See the utility source for implementation details.
+**Critical landmine:** Never pass `path.resolve()` output to `import()`. Use `new URL('../path.mjs', import.meta.url).href` instead — on Windows, `path.resolve()` produces `D:\...` paths that Node treats as a URL scheme and rejects.
 
 ## Communication style
 
