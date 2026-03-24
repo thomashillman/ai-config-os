@@ -280,17 +280,78 @@ function AutoresearchSection({ runs, loading }) {
   )
 }
 
+// -- Friction signals section -------------------------------------------------
+
+function FrictionSignalsSection({ retroSummary, loading }) {
+  const artifactCount = retroSummary?.artifact_count || 0
+  const signalBreakdown = retroSummary?.signal_breakdown || {}
+  const topRecommendations = retroSummary?.top_recommendations || []
+
+  const signalEntries = Object.entries(signalBreakdown).sort((a, b) => b[1] - a[1])
+  const maxCount = signalEntries[0]?.[1] || 1
+
+  return (
+    <div>
+      <SectionHeader
+        title="Friction Signals"
+        count={artifactCount > 0 ? `${artifactCount} retros` : null}
+        subtitle="Signal types observed across merged PRs. Populated by /post-merge-retrospective."
+      />
+      {loading ? (
+        <SectionSkeleton rows={3} />
+      ) : artifactCount === 0 ? (
+        <EmptyState
+          message="No retrospective data yet."
+          hint="Run /post-merge-retrospective after merging a PR to start populating."
+        />
+      ) : (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            {signalEntries.map(([type, count]) => (
+              <div key={type} className="flex items-center gap-3">
+                <span className="text-gray-400 w-36 truncate text-xs" title={type}>{type}</span>
+                <div className="flex-1 bg-gray-900 rounded overflow-hidden h-3">
+                  <div
+                    className="bg-orange-700 h-full rounded transition-all duration-300"
+                    style={{ width: `${(count / maxCount) * 100}%` }}
+                  />
+                </div>
+                <span className="text-gray-600 text-xs w-6 text-right">{count}</span>
+              </div>
+            ))}
+          </div>
+          {topRecommendations.length > 0 && (
+            <div>
+              <p className="text-gray-600 text-xs mb-2">Top skill recommendations</p>
+              <div className="space-y-1">
+                {topRecommendations.slice(0, 5).map(rec => (
+                  <div key={rec.name} className="flex items-center gap-2">
+                    <span className="text-gray-400 text-xs w-36 truncate" title={rec.name}>{rec.name}</span>
+                    <span className="text-gray-700 text-[10px] px-1 py-0.5 bg-gray-900 rounded">{rec.category}</span>
+                    <span className="text-gray-600 text-xs ml-auto">{rec.occurrences}x</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // -- Root tab ------------------------------------------------------------------
 
 export default function AnalyticsTab({ api }) {
   const [metrics, setMetrics] = useState([])
   const [skillData, setSkillData] = useState(null)
   const [arRuns, setArRuns] = useState([])
-  const [loading, setLoading] = useState({ tools: true, skills: true, autoresearch: true })
+  const [retroSummary, setRetroSummary] = useState(null)
+  const [loading, setLoading] = useState({ tools: true, skills: true, autoresearch: true, retro: true })
   const [lastFetched, setLastFetched] = useState(null)
 
   const fetchAll = useCallback(() => {
-    setLoading({ tools: true, skills: true, autoresearch: true })
+    setLoading({ tools: true, skills: true, autoresearch: true, retro: true })
 
     // Each chain returns true on success and undefined on failure; .finally() passes
     // through that value so allSettled results carry it — no mutable closure needed.
@@ -309,7 +370,12 @@ export default function AnalyticsTab({ api }) {
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, autoresearch: false })))
 
-    Promise.allSettled([p1, p2, p3])
+    const p4 = fetchJson(`${api}/retrospectives-summary`)
+      .then(d => { if (d && typeof d === 'object') { setRetroSummary(d); return true } })
+      .catch(() => undefined)
+      .finally(() => setLoading(prev => ({ ...prev, retro: false })))
+
+    Promise.allSettled([p1, p2, p3, p4])
       .then(results => {
         if (results.some(r => r.value === true)) setLastFetched(new Date().toLocaleTimeString())
       })
@@ -323,6 +389,7 @@ export default function AnalyticsTab({ api }) {
       <ToolUsageSection metrics={metrics} loading={loading.tools} />
       <SkillEffectivenessSection skillData={skillData} loading={loading.skills} />
       <AutoresearchSection runs={arRuns} loading={loading.autoresearch} />
+      <FrictionSignalsSection retroSummary={retroSummary} loading={loading.retro} />
     </div>
   )
 }

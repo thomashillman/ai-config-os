@@ -88,6 +88,13 @@ The **Momentum Engine** (Phase 10 milestone) is now complete — it adds the exp
 
 Task state is now persisted cross-session via **Cloudflare KV** (`runtime/lib/task-store-kv.mjs`). The session-start hook queries the Worker for active tasks and surfaces resume prompts automatically.
 
+### Operational validation snapshot (2026-03-24)
+
+Current operational verification status is aligned with `PLAN.md` acceptance criteria:
+- **Marketplace add + Claude Code install:** partially validated (local package build/extract complete; interactive Claude Code marketplace flow blocked in this runner due missing `claude` binary/UI).
+- **Installed skill exposure:** validated on two environments (`claude-code` package extraction + `codex` install with skill presence checks in `~/.codex/AGENTS.md`).
+- **Cross-device sync (A push → B restart):** push/pull sync verified across separate A/B clones; full post-sync restart validation on B is still blocked pending fresh-device dependency bootstrap.
+
 The detailed planning notes live in `PLAN.md`, with supporting research documents in `specs/`.
 
 ---
@@ -161,7 +168,7 @@ The dashboard provides eight top-level tabs:
 - **Context Cost:** Real-time token footprint tracking
 - **Config:** View merged configuration across all tiers
 - **Audit:** Run validation checks on the entire setup
-- **Analytics:** Track which skills you use most and their performance
+- **Analytics:** Track which skills you use most and their performance; Friction Signals section shows signal-type breakdown and top-5 skill recommendations from retrospective data
 - **Bootstrap Runs:** Observability timeline for bootstrap execution runs
 
 Within **Tasks**, selecting a task opens the nested **Task Detail** view with task state, route history, findings provenance, and readiness context.
@@ -325,7 +332,8 @@ When Claude Code starts in a remote environment, the session-start hook automati
 1. **Validates skill structure** (early error detection)
 2. **Probes platform capabilities** (filesystem, shell, MCP)
 3. **Fetches latest manifest in background** (non-blocking)
-4. **Falls back to cached manifest** if Worker is unreachable
+4. **Refreshes retrospectives aggregate cache** in background (non-blocking; skipped if cache is <6 days old)
+5. **Falls back to cached manifest** if Worker is unreachable
 
 This means skills are available **immediately**, even if:
 - Network is slow or partitioned
@@ -684,6 +692,8 @@ Other checked-in workflow names you can run immediately:
 | Phase 10 milestone | ✅ Complete | KV-backed task persistence, Codex emitter, Tasks tab + nested Task Detail view, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
 
 > Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels are internal roadmap checkpoints.
+
+Canonical skill count declaration format (for deterministic CI parsing in docs): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
 
 ### Platform maturity
 

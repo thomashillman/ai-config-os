@@ -1,0 +1,76 @@
+# Cross-device sync simulation (device A/B worktrees)
+date=2026-03-24T00:55:17Z
+$ git init --bare /tmp/ai-config-os-device-sync/remote.git
+hint: Using 'master' as the name for the initial branch. This default branch name
+hint: is subject to change. To configure the initial branch name to use in all
+hint: of your new repositories, which will suppress this warning, call:
+hint: 
+hint: 	git config --global init.defaultBranch <name>
+hint: 
+hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+hint: 'development'. The just-created branch can be renamed via this command:
+hint: 
+hint: 	git branch -m <name>
+Initialized empty Git repository in /tmp/ai-config-os-device-sync/remote.git/
+$ git clone /workspace/ai-config-os /tmp/ai-config-os-device-sync/deviceA
+Cloning into '/tmp/ai-config-os-device-sync/deviceA'...
+done.
+$ git clone /workspace/ai-config-os /tmp/ai-config-os-device-sync/deviceB
+Cloning into '/tmp/ai-config-os-device-sync/deviceB'...
+done.
+$ git -C /tmp/ai-config-os-device-sync/deviceA remote add sync-remote /tmp/ai-config-os-device-sync/remote.git
+$ git -C /tmp/ai-config-os-device-sync/deviceB remote add sync-remote /tmp/ai-config-os-device-sync/remote.git
+$ git -C /tmp/ai-config-os-device-sync/deviceA push sync-remote HEAD:refs/heads/sync-e2e
+To /tmp/ai-config-os-device-sync/remote.git
+ * [new branch]      HEAD -> sync-e2e
+$ git -C /tmp/ai-config-os-device-sync/deviceB fetch sync-remote sync-e2e && git -C /tmp/ai-config-os-device-sync/deviceB checkout -B sync-e2e FETCH_HEAD
+From /tmp/ai-config-os-device-sync/remote
+ * branch            sync-e2e   -> FETCH_HEAD
+ * [new branch]      sync-e2e   -> sync-remote/sync-e2e
+Switched to a new branch 'sync-e2e'
+$ printf '# sync marker A\n' >> /tmp/ai-config-os-device-sync/deviceA/runtime/cache/sync/e2e-device-marker.txt
+$ git -C /tmp/ai-config-os-device-sync/deviceA add runtime/cache/sync/e2e-device-marker.txt
+$ git -C /tmp/ai-config-os-device-sync/deviceA -c user.name='e2e' -c user.email='e2e@example.com' commit -m 'test(sync): marker from device A'
+[work a57070f] test(sync): marker from device A
+ 1 file changed, 1 insertion(+)
+ create mode 100644 runtime/cache/sync/e2e-device-marker.txt
+$ git -C /tmp/ai-config-os-device-sync/deviceA push sync-remote HEAD:sync-e2e
+To /tmp/ai-config-os-device-sync/remote.git
+   f019c60..a57070f  HEAD -> sync-e2e
+$ git -C /tmp/ai-config-os-device-sync/deviceB fetch sync-remote sync-e2e && git -C /tmp/ai-config-os-device-sync/deviceB reset --hard FETCH_HEAD
+From /tmp/ai-config-os-device-sync/remote
+ * branch            sync-e2e   -> FETCH_HEAD
+   f019c60..a57070f  sync-e2e   -> sync-remote/sync-e2e
+HEAD is now at a57070f test(sync): marker from device A
+$ test -f /tmp/ai-config-os-device-sync/deviceB/runtime/cache/sync/e2e-device-marker.txt && echo SYNC_FILE_PRESENT_ON_B
+SYNC_FILE_PRESENT_ON_B
+$ cat /tmp/ai-config-os-device-sync/deviceB/runtime/cache/sync/e2e-device-marker.txt
+# sync marker A
+$ (cd /tmp/ai-config-os-device-sync/deviceB && bash adapters/codex/materialise.sh extract && bash adapters/codex/materialise.sh install)
+Error: Package directory not found: ./dist/clients/codex
+Run 'node scripts/build/compile.mjs' first to build the package.
+# Cross-device sync simulation continuation
+date=2026-03-24T00:55:24Z
+$ (cd /tmp/ai-config-os-device-sync/deviceB && node scripts/build/compile.mjs)
+node:internal/modules/esm/resolve:873
+  throw new ERR_MODULE_NOT_FOUND(packageName, fileURLToPath(base), null);
+        ^
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'yaml' imported from /tmp/ai-config-os-device-sync/deviceB/scripts/build/lib/parse-skill.mjs
+    at packageResolve (node:internal/modules/esm/resolve:873:9)
+    at moduleResolve (node:internal/modules/esm/resolve:946:18)
+    at defaultResolve (node:internal/modules/esm/resolve:1188:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:708:12)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:657:25)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:640:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:264:38)
+    at ModuleJob._link (node:internal/modules/esm/module_job:168:49) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}
+
+Node.js v20.19.6
+$ (cd /tmp/ai-config-os-device-sync/deviceB && bash adapters/codex/materialise.sh extract && bash adapters/codex/materialise.sh install)
+Error: Package directory not found: ./dist/clients/codex
+Run 'node scripts/build/compile.mjs' first to build the package.
+$ test -f ~/.codex/AGENTS.md && echo RESTART_VALIDATION_READY
+RESTART_VALIDATION_READY

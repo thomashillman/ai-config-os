@@ -35,6 +35,7 @@ export class MomentumObserver {
     assertObject('progressEventStore', progressEventStore);
     this.store = progressEventStore;
     this.narrationCounter = 0;
+    this.responseCounter = 0;
   }
 
   recordNarration({ taskId, narrationPoint, templateVersion, narratorOutput, taskSnapshot } = {}) {
@@ -77,7 +78,8 @@ export class MomentumObserver {
     }
 
     const timestamp = Date.now();
-    const eventId = `evt_t${timestamp}_user_response_${responseType}`;
+    this.responseCounter += 1;
+    const eventId = `evt_t${timestamp}_user_response_${responseType}_${this.responseCounter}`;
 
     const metadata = {
       narration_event_id: narrationEventId,

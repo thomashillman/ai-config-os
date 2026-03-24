@@ -38,6 +38,8 @@ test('resolveEffectiveOutcomeContract returns bypassed contract when outcome_res
   assert.deepEqual(contract.fallbackRoutes, []);
   assert.equal(contract.bypassed, true);
   assert.equal(contract.toolName, 'sync_tools');
+  assert.equal(contract.routeScoringProfileSource, 'synthetic-static');
+  assert.deepEqual(contract.routeScoringProfileSynthetic, contract.capabilityProfile);
 });
 
 test('resolveEffectiveOutcomeContract resolves normally when outcome_resolution_enabled=true', () => {
@@ -49,6 +51,8 @@ test('resolveEffectiveOutcomeContract resolves normally when outcome_resolution_
   assert.equal(contract.outcomeId, 'runtime.sync-tools');
   assert.ok(contract.preferredRoute !== null, 'should have a preferred route');
   assert.equal(contract.bypassed, undefined, 'bypassed should not be set in normal mode');
+  assert.equal(contract.routeScoringProfileSource, 'synthetic-static');
+  assert.deepEqual(contract.routeScoringProfileSynthetic, contract.capabilityProfile);
 });
 
 test('resolveEffectiveOutcomeContract behaves normally when readFlags is not provided (backward compat)', () => {
@@ -58,6 +62,8 @@ test('resolveEffectiveOutcomeContract behaves normally when readFlags is not pro
   });
   assert.equal(contract.outcomeId, 'runtime.sync-tools');
   assert.ok(contract.preferredRoute !== null);
+  assert.equal(contract.routeScoringProfileSource, 'synthetic-static');
+  assert.deepEqual(contract.routeScoringProfileSynthetic, contract.capabilityProfile);
 });
 
 test('loadOutcomeAndRoutes includes remote_exec route for runtime.sync-tools', () => {

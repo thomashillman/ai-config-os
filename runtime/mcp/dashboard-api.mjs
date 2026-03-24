@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ActionValidationError, createRuntimeActionDispatcher } from '../lib/runtime-action-dispatcher.mjs';
+import { loadObservationSnapshot } from '../lib/observation-read-model.mjs';
 
 export function createDashboardApi({
   app,
@@ -82,19 +83,18 @@ export function createDashboardApi({
     executeRuntimeAction('get_config', {}, res);
   });
 
-  app.get('/api/analytics', (req, res) => {
+  app.get('/api/analytics', async (req, res) => {
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-    const metricsFile = `${repoRoot}/.claude/metrics.jsonl`;
     try {
-      const lines = fs.readFileSync(metricsFile, 'utf8').trim().split('\n').filter(Boolean);
-      const metrics = lines.map((line) => JSON.parse(line));
+      const { events } = await loadObservationSnapshot({ projectDir: repoRoot });
+      const metrics = events.filter((e) => e.type === 'tool_usage');
       res.json({ metrics, success: true, effectiveOutcomeContract });
     } catch {
       res.json({ metrics: [], success: true, note: 'No metrics collected yet', effectiveOutcomeContract });
     }
   });
 
-  app.get('/api/skill-analytics', (req, res) => {
+  app.get('/api/skill-analytics', async (req, res) => {
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
 
     if (!process.env.HOME) {
@@ -102,46 +102,12 @@ export function createDashboardApi({
       return;
     }
 
-    const outcomesFile = path.join(process.env.HOME, '.claude', 'skill-analytics', 'skill-outcomes.jsonl');
-    const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB - beyond this, read the last portion only
-
     try {
-      let raw;
-      try {
-        const stat = fs.statSync(outcomesFile);
-        if (stat.size > MAX_FILE_BYTES) {
-          // Read the last MAX_FILE_BYTES to avoid loading enormous files into memory.
-          // A partial first line is expected and filtered out below.
-          const buf = Buffer.alloc(MAX_FILE_BYTES);
-          const fd = fs.openSync(outcomesFile, 'r');
-          try {
-            fs.readSync(fd, buf, 0, MAX_FILE_BYTES, stat.size - MAX_FILE_BYTES);
-          } finally {
-            fs.closeSync(fd);
-          }
-          raw = buf.toString('utf8');
-        } else {
-          raw = fs.readFileSync(outcomesFile, 'utf8');
-        }
-      } catch {
-        res.json({ skills: [], total_events: 0, success: true, note: 'No skill outcome data yet', effectiveOutcomeContract });
-        return;
-      }
-
-      const events = [];
-      let malformed = 0;
-      for (const line of raw.split('\n')) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          events.push(JSON.parse(trimmed));
-        } catch {
-          malformed++;
-        }
-      }
+      const { events } = await loadObservationSnapshot({ home: process.env.HOME, projectDir: repoRoot });
+      const outcomeEvents = events.filter((e) => e.type === 'skill_outcome');
 
       const totals = {};
-      for (const e of events) {
+      for (const e of outcomeEvents) {
         if (typeof e.skill !== 'string') continue;
         if (!totals[e.skill]) totals[e.skill] = { used: 0, replaced: 0 };
         if (e.outcome === 'output_used') totals[e.skill].used++;
@@ -155,11 +121,32 @@ export function createDashboardApi({
         use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
       })).sort((a, b) => b.total - a.total);
 
-      const response = { skills, total_events: events.length, success: true, effectiveOutcomeContract };
-      if (malformed > 0) response.note = `${malformed} malformed line(s) skipped`;
-      res.json(response);
+      res.json({ skills, total_events: outcomeEvents.length, success: true, effectiveOutcomeContract });
     } catch (err) {
       res.status(500).json({ skills: [], total_events: 0, success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });
+    }
+  });
+
+  app.get('/api/retrospectives-summary', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    const empty = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true, effectiveOutcomeContract };
+
+    if (!process.env.HOME) { res.json(empty); return; }
+
+    const cacheFile = path.join(
+      process.env.HOME, '.ai-config-os', 'cache', 'claude-code', 'retrospectives-aggregate.json'
+    );
+    try {
+      const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+      res.json({
+        artifact_count: typeof data.artifact_count === 'number' ? data.artifact_count : 0,
+        signal_breakdown: data.signal_breakdown && typeof data.signal_breakdown === 'object' && !Array.isArray(data.signal_breakdown) ? data.signal_breakdown : {},
+        top_recommendations: Array.isArray(data.top_recommendations) ? data.top_recommendations : [],
+        success: true,
+        effectiveOutcomeContract,
+      });
+    } catch {
+      res.json(empty);
     }
   });
 

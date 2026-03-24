@@ -7,11 +7,13 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "deploy:dry": "wrangler deploy --dry-run"
+    "deploy:dry": "wrangler deploy --dry-run",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241224.0",
     "typescript": "^5.7.2",
+    "vitest": "^2.0.0",
     "wrangler": "^3.101.0"
   }
 }
