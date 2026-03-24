@@ -38,7 +38,7 @@ Last reconciled: 2026-03-24 (skills/tests/tabs/platform inventory claims verifie
 | .github/workflows/ | — | `validate.yml` (structure), `build.yml` (compile + test + dist artifact) |
 | .claude/hooks/ | — | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics, skill-outcome-tracker |
 
-### Skills (34 installable total from `shared/skills/*/SKILL.md`, excluding `_template`)
+### Skills (35 installable total from `shared/skills/*/SKILL.md`, excluding `_template`)
 
 Canonical declaration format (validated in CI): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
 
