@@ -155,6 +155,7 @@ function uploadPackageKey({
   assertCloudflareUploadSucceeded(result, key);
 }
 
+
 export function buildSkillsPackage({ distDir = DEFAULT_DIST_DIR, logger = console.log } = {}) {
   const pluginPath = join(distDir, '.claude-plugin', 'plugin.json');
 
