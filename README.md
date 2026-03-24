@@ -608,9 +608,6 @@ ops/new-skill.sh security-scan
 # Edit the skill to include OWASP mappings
 vim shared/skills/security-scan/SKILL.md
 
-# Add test cases
-vim shared/skills/security-scan/tests.yaml
-
 # Validate
 bash adapters/claude/dev-test.sh
 ```
