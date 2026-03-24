@@ -154,15 +154,17 @@ cd dashboard && npm run dev
 
 Security note: dashboard API requests are denied by default unless they originate from loopback or provide tunnel assertions (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS verification header). CORS follows the same tunnel policy: loopback origins stay enabled for local development, and you can allow a public dashboard origin with `DASHBOARD_PUBLIC_ORIGINS`. Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
-The dashboard provides eight tabs:
+The dashboard provides eight top-level tabs:
 - **Tools:** Runtime status and sync for Claude Code, Cursor, Codex
 - **Skills:** Complete skill library with metadata and variants
 - **Context Cost:** Real-time token footprint tracking
 - **Config:** View merged configuration across all tiers
 - **Audit:** Run validation checks on the entire setup
 - **Analytics:** Track which skills you use most and their performance
-- **Hub:** Active task shelf ranked by environment-aware continuation value
-- **Task Detail:** Task state, route history, findings provenance, and readiness view
+- **Tasks:** Active task shelf ranked by environment-aware continuation value
+- **Bootstrap Runs:** Observability timeline for bootstrap execution runs
+
+Within **Tasks**, selecting a task opens the nested **Task Detail** view with task state, route history, findings provenance, and readiness context.
 
 ---
 
@@ -667,7 +669,7 @@ Run it: `Claude Code → Run Workflow → daily-standup`
 | Phase 1–7 | ✅ Complete | 22 skills, skill metadata, testing, composition, multi-device sync |
 | Phase 8 | ✅ Complete | Runtime config layer, MCP server, React dashboard, desired-state sync |
 | Phase 9.1–9.7 | ✅ Complete | Build compiler, distribution pipeline, capability contracts, delivery contract (28 tests), portability contract (76 tests), manifest feature flags |
-| Phase 10 milestone | ✅ Complete | KV-backed task persistence, Codex emitter, Hub + Task Detail dashboard tabs, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
+| Phase 10 milestone | ✅ Complete | KV-backed task persistence, Codex emitter, Tasks tab + nested Task Detail view, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
 
 > Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels are internal roadmap checkpoints.
 

@@ -109,7 +109,7 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Watch mode | Done | `runtime/watch.sh` — auto-sync on config changes |
 | MCP server | Done | `runtime/mcp/server.js` — exposes runtime ops as Claude Code tools |
 | Dashboard API | Done | `runtime/mcp/dashboard-api.mjs` with tunnel security |
-| React dashboard | Done | `dashboard/` — 8 tabs: Tools, Skills, Context Cost, Config, Audit, Analytics, Hub, Task Detail |
+| React dashboard | Done | `dashboard/` — 8 top-level tabs: Tasks, Tools, Skills, Context Cost, Config, Audit, Analytics, Bootstrap Runs (Task Detail is nested within Tasks) |
 | Ops tools | Done | `ops/runtime-status.sh`, `ops/validate-all.sh`, etc. |
 | KV-backed task store | Done | `runtime/lib/task-store-kv.mjs` — portable task persistence via Cloudflare KV |
 | Worker task store adapter | Done | `runtime/lib/task-store-worker.mjs` — thin Worker-side adapter over KV store |
@@ -1185,7 +1185,7 @@ Additional implementation (2026-03-17):
 - [x] MVA: `review_repository` portable journey proven end-to-end
 - [x] Portable task persistence: KV-backed TaskStore (`runtime/lib/task-store-kv.mjs`) for cross-environment continuity
 - [x] Codex emitter: `scripts/build/lib/emit-codex.mjs` and `adapters/codex/materialise.sh`
-- [x] Dashboard: Hub and Task Detail tabs added (`dashboard/src/tabs/HubTab.jsx`, `TaskDetailTab.jsx`)
+- [x] Dashboard: Tasks tab and nested Task Detail view shipped (`dashboard/src/tabs/HubTab.jsx`, `TaskDetailTab.jsx`)
 - [x] Session-start hook: queries Worker KV for active tasks to surface resume opportunities
 - [x] Momentum Engine (Phase 10 milestone): narrator, observer, shelf, intent lexicon, and reflector — all 6 slices complete
 - [x] `momentum-reflect` skill: enables `/momentum-reflect` and `/loop 10m /momentum-reflect` self-improvement workflow
@@ -1246,7 +1246,7 @@ Deferred improvements: interop markers, sync guardrails, plugin splitting, backg
 
 **Branch:** `claude/phase-8-runtime-Z3Zo4`
 
-Three-tier config (global, machine, project) with field-level merge for MCPs. Tool registry (claude-code, cursor, codex) with adapter abstraction. Adapter layer: MCP, CLI, file adapters. Sync engine with manifest state tracking and dry-run. MCP server exposing runtime operations as Claude Code tools. React dashboard with 6 tabs. Updated session-start hook. Ops tools: runtime-status.sh, validate-registry.sh. CI integration.
+Three-tier config (global, machine, project) with field-level merge for MCPs. Tool registry (claude-code, cursor, codex) with adapter abstraction. Adapter layer: MCP, CLI, file adapters. Sync engine with manifest state tracking and dry-run. MCP server exposing runtime operations as Claude Code tools. React dashboard with 8 top-level tabs (Tasks, Tools, Skills, Context Cost, Config, Audit, Analytics, Bootstrap Runs) plus nested Task Detail in Tasks. Updated session-start hook. Ops tools: runtime-status.sh, validate-registry.sh. CI integration.
 </details>
 
 <details>
@@ -1320,8 +1320,8 @@ Multiple Codex-contributed branches merged to main:
 - `runtime/lib/task-control-plane-service-worker.mjs` — Worker-compatible service layer (parallel to existing `task-control-plane-service.mjs`)
 - `worker/src/task-runtime.ts` — Worker task runtime wiring KV into the control plane
 - 3 new skills: `task-start`, `task-save`, `task-resume` — user-facing MCP skills for task lifecycle management
-- Dashboard Hub tab (`dashboard/src/tabs/HubTab.jsx`): active task list with shelf ranking
-- Dashboard Task Detail tab (`dashboard/src/tabs/TaskDetailTab.jsx`): task state, findings, route history
+- Dashboard Tasks tab (`dashboard/src/tabs/HubTab.jsx`): active task list with shelf ranking
+- Dashboard Task Detail nested view (`dashboard/src/tabs/TaskDetailTab.jsx`): task state, findings, route history
 - ResumeSheet component (`dashboard/src/components/ResumeSheet.jsx`): surfaces continuable tasks at session start
 - Session-start hook enhanced: queries `GET /v1/tasks?status=active&limit=1&updated_within=86400` on session start; presents resume prompt when active task found
 - Codex emitter (`scripts/build/lib/emit-codex.mjs`) and materialise adapter (`adapters/codex/materialise.sh`)
