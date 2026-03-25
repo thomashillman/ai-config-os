@@ -54,13 +54,13 @@ Two frontmatter fields control who can invoke a skill:
 | `disable-model-invocation: true` | Only the user can invoke via `/skill-name`. Claude won't trigger it automatically. Use for side-effect workflows like deploy, commit. |
 | `user-invocable: false`      | Only Claude can invoke. Hidden from the `/` menu. Use for background knowledge that isn't actionable as a command. |
 
-**Default behavior:** Both user and Claude can invoke. Skill description is always in context so Claude knows when to use it.
+**Default behavior (advisory):** Both user and Claude are expected to be able to invoke the skill. Description preloading depends on the active Claude Code runtime and should be treated as expected behavior, not an enforcement guarantee from this repository alone.
 
 | Frontmatter                      | User can invoke | Claude can invoke | Context loading                                             |
 |----------------------------------|-----------------|-------------------|-------------------------------------------------------------|
-| (default)                        | Yes             | Yes               | Description always in context; full skill loads when invoked |
+| (default)                        | Yes             | Yes               | Description is typically in context; full skill usually loads when invoked (runtime-dependent) |
 | `disable-model-invocation: true` | Yes             | No                | Description not in context; full skill loads on user invoke   |
-| `user-invocable: false`          | No              | Yes               | Description always in context; full skill loads when invoked |
+| `user-invocable: false`          | No              | Yes               | Description is typically in context; full skill usually loads when invoked (runtime-dependent) |
 
 ### Running skills in a subagent
 
@@ -203,7 +203,7 @@ capabilities:
 
 Available capabilities: `fs.read`, `fs.write`, `shell.exec`, `shell.long-running`, `git.read`, `git.write`, `network.http`, `browser.fetch`, `mcp.client`, `env.read`, `secrets.inject`, `ui.prompt-only`.
 
-Platform capability states live in `shared/targets/platforms/*.yaml`. The compiler resolves skill-platform compatibility automatically.
+Platform capability states live in `shared/targets/platforms/*.yaml`. The compiler computes compatibility during build/runtime checks; compatibility outcomes are enforced only where validation scripts or tests execute.
 
 ### Multi-model variants
 
@@ -249,7 +249,7 @@ tests:
 
 ## Hooks
 
-Hooks are deterministic shell commands that execute at specific Claude Code lifecycle points. Unlike skills (which are prompt-based), hooks provide guaranteed execution.
+Hooks are configured shell commands intended to run at Claude Code lifecycle points. In practice, execution depends on host/runtime hook support and setup state. Treat hook behavior as advisory unless enforced by explicit automation checks in this repo.
 
 ### Hook types
 
