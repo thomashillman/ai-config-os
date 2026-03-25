@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 const REPO_ROOT = resolve(process.cwd());
@@ -20,7 +20,7 @@ function readSections(dirPath, fileNames) {
     .filter(Boolean);
 }
 
-function composeForSurface(surfaceName) {
+export function composeForSurface(surfaceName) {
   if (!SUPPORTED_SURFACES.has(surfaceName)) {
     throw new Error(`Unsupported surface: ${surfaceName}`);
   }
@@ -36,17 +36,52 @@ function composeForSurface(surfaceName) {
   return [GENERATED_HEADER, ...baseSections, surfaceSection, ...overlaySections].join('\n\n').trim() + '\n';
 }
 
-function emitEntrypoints() {
-  const outputs = [
-    { surface: 'claude', outputFile: 'CLAUDE.md' },
-    { surface: 'codex', outputFile: 'AGENTS.md' }
-  ];
+function upsertOutput(outputFile, content, checkMode) {
+  const outputPath = join(REPO_ROOT, outputFile);
+  const current = existsSync(outputPath) ? readFileSync(outputPath, 'utf8') : null;
 
-  for (const output of outputs) {
-    const content = composeForSurface(output.surface);
-    writeFileSync(join(REPO_ROOT, output.outputFile), content, 'utf8');
-    console.log(`Wrote ${output.outputFile}`);
+  if (current === content) {
+    console.log(`  [ok] ${outputFile} unchanged`);
+    return true;
   }
+
+  if (checkMode) {
+    console.error(`  [drift] ${outputFile} is out of date`);
+    return false;
+  }
+
+  writeFileSync(outputPath, content, 'utf8');
+  console.log(`  [write] ${outputFile} updated`);
+  return true;
 }
 
-emitEntrypoints();
+export function emitEntrypoints({ checkMode = false } = {}) {
+  const outputs = [
+    { surface: 'claude', outputFile: 'CLAUDE.md' },
+    { surface: 'codex', outputFile: 'AGENTS.md' },
+  ];
+
+  let allCurrent = true;
+  for (const output of outputs) {
+    const content = composeForSurface(output.surface);
+    const current = upsertOutput(output.outputFile, content, checkMode);
+    allCurrent = allCurrent && current;
+  }
+
+  return allCurrent;
+}
+
+function main() {
+  const checkMode = process.argv.includes('--check');
+  const ok = emitEntrypoints({ checkMode });
+
+  if (!ok) {
+    process.exitCode = 1;
+    console.error('\nDoctrine entrypoints are stale. Run: npm run doctrine:build');
+    return;
+  }
+
+  console.log('\nDoctrine entrypoints are up to date.');
+}
+
+main();
