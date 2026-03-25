@@ -1,5 +1,3 @@
-> Generated file. Edit doctrine fragments, not this file.
-
 # AI Config OS
 
 **Purpose:** Personal AI behaviour layer - skills, hooks, and conventions for Claude Code and other AI agents. Skills are authored in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed without requiring source-tree access. See `docs/SKILLS.md` for the skills reference.
@@ -148,12 +146,3 @@ Token efficiency is paramount. Prefer concise tool calls; avoid re-reading files
 ## Git Commit Conventions
 
 [Conventional Commits](https://www.conventionalcommits.org/): `feat|fix|style|refactor|docs|build|chore: <description>`
-
-## Surface Adapter: Claude
-
-This entrypoint is loaded from `CLAUDE.md` by Claude-compatible clients.
-
-## Repository Overlay: ai-config-os
-
-- Run the repository mergeability gate before PR preparation.
-- Keep runtime and build scripts portable across CI environments.
