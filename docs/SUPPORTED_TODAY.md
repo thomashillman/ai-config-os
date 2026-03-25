@@ -2,7 +2,7 @@
 
 Last verified: 2026-03-24
 
-This file is the single source of truth for **what is supported today**. If another doc disagrees, this file wins.
+This file is the primary documentation reference for **what is supported today**. If another doc disagrees, confirm against implementation and automated checks (tests/scripts) before treating either claim as authoritative.
 
 ## 1) Supported platforms today
 
@@ -63,3 +63,5 @@ This file is the single source of truth for **what is supported today**. If anot
 
 - `README.md` and `PLAN.md` should link to this file for current support truth.
 - Roadmap ambition stays in `PLAN.md`; present-tense support claims belong here with evidence.
+
+- Deterministic wording policy and enforcement roadmap are tracked in `docs/agent-doctrine-enforcement.md`.
