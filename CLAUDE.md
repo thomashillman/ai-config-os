@@ -1,8 +1,6 @@
 # AI Config OS
 
-**Purpose:** Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents. Skills are authored once in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed or materialised without requiring source-tree access.
-
-Skills in this repo follow the [Agent Skills](https://agentskills.io) open standard — a portable format supported by 30+ agent products (Claude Code, Cursor, VS Code, GitHub Copilot, Gemini CLI, OpenAI Codex, and others). This repo extends the standard with multi-model variants, capability contracts, and cross-platform distribution. See `docs/SKILLS.md` for the comprehensive skills reference.
+**Purpose:** Personal AI behaviour layer - skills, hooks, and conventions for Claude Code and other AI agents. Skills are authored in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed without requiring source-tree access. See `docs/SKILLS.md` for the skills reference.
 
 ## Engineering Mindset
 
@@ -53,247 +51,105 @@ Skills in this repo follow the [Agent Skills](https://agentskills.io) open stand
 
 ## Structure
 
-### Source & Distribution (Portability Contract)
-- **`shared/skills/`** — canonical skill definitions (author here). Compiler reads only from this directory.
-- **`dist/clients/<platform>/`** — emitted packages (claude-code, cursor). Each package is **self-sufficient**: contains complete skill copies and required resources (prompts/). No symlinks, no references to source tree.
-- **`dist/registry/index.json`** — cross-platform skill registry with compatibility matrix
-
-### Metadata & Configuration
-- `shared/targets/platforms/` — platform capability definitions (v0.5.2+)
-- `shared/targets/clients.yaml` — DEPRECATED: use platforms/ directory instead
-- `VERSION` — canonical release version (only file humans edit for version bumps)
-- `.claude-plugin/marketplace.json` — marketplace manifest
-- `schemas/skill.schema.json` — JSON Schema for skill package manifests
-- `schemas/platform.schema.json` — JSON Schema for platform capability definitions
-- `schemas/probe-result.schema.json` — JSON Schema for runtime probe output
-
-### Tools & Runtime
-- `scripts/build/` — compiler: validates skills, resolves compatibility, emits `dist/` artefacts
-- `scripts/lint/` — Node-based linters for skills and platform files
-- `scripts/build/lib/materialise-client.mjs` — extracts emitted packages (works from `dist/` alone, no source access)
-- `adapters/claude/materialise.sh` — shell wrapper for client-side package materialization
-- `worker/` — Cloudflare Worker serving compiled skills via bearer-auth REST API
-- `runtime/` — desired-state tool management: config, adapters, sync, manifest, MCP server
-- `dashboard/` — React SPA: tool status, skill stats, context cost, config, audit, analytics
-
-### Development Convenience (Unix Only)
-- `plugins/core-skills/skills/` — optional symlinks into shared/skills (never edit here directly). Created with `node scripts/build/new-skill.mjs` (with default --link flag). Use `--no-link` to skip on platforms without symlink support.
+- `shared/skills/` - canonical skill definitions (author here only; compiler reads only from this directory)
+- `dist/clients/<platform>/` - emitted packages (claude-code, cursor); self-sufficient, no source-tree references
+- `dist/registry/index.json` - cross-platform skill registry
+- `shared/targets/platforms/` - platform capability definitions
+- `VERSION` - canonical release version (only file humans edit for version bumps)
+- `scripts/build/` - compiler: validates skills, resolves compatibility, emits `dist/`
+- `scripts/lint/` - Node-based linters for skills and platform files
+- `adapters/claude/materialise.sh` - shell wrapper for client-side package materialization
+- `worker/` - Cloudflare Worker serving compiled skills via bearer-auth REST API
+- `runtime/` - desired-state tool management: config, adapters, sync, manifest, MCP server
+- `dashboard/` - React SPA: tool status, skill stats, context cost, config, audit, analytics
+- `plugins/core-skills/skills/` - optional symlinks into shared/skills (never edit here directly)
 
 ## Creating a new skill
-Run `node scripts/build/new-skill.mjs <skill-name>` — this creates the skill directory, updates the manifest, and optionally creates a convenience symlink on Unix. Use `--no-link` to skip symlink creation. The Unix wrapper `ops/new-skill.sh` delegates to this command. It does **not** change `VERSION`, `package.json`, or `plugin.json`. Release version bumps are a separate, explicit action (edit `VERSION`, then `npm run version:sync`).
 
-### Skill format overview
-
-Skills follow the [Agent Skills open standard](https://agentskills.io/specification). At minimum, a SKILL.md needs `name` and `description` in YAML frontmatter. This repo extends the standard with additional fields — see `docs/SKILLS.md` for the full reference covering:
-- **Invocation control** (`disable-model-invocation`, `user-invocable`) — who can trigger the skill
-- **Subagent execution** (`context: fork`, `agent`) — run skills in isolated contexts
-- **Dynamic context** (`` !`command` ``) — inject shell command output into skill prompts
-- **Argument substitution** (`$ARGUMENTS`, `$0`, `${CLAUDE_SKILL_DIR}`) — pass data to skills
-- **Capability contracts** — declare required/optional capabilities for cross-platform compatibility
-- **Multi-model variants** — model-specific prompt files with cost/latency metadata
-- **Testing** — automated validation in frontmatter
-
-## Portability Contract (v0.6.0+)
-
-The **portability contract** guarantees that skills authored in source are emitted as self-sufficient packages that do not require source-tree access:
-
-**Definition:**
-1. **Canonical source:** `shared/skills/` is the only source of truth. Compiler reads directly from it.
-2. **Self-sufficient packages:** `dist/clients/<platform>/` contains complete skill copies (SKILL.md, prompts/, etc.). No relative references to source tree.
-3. **Materialisation:** Emitted packages can be extracted and used on any system (CI, cache, offline) without access to source code.
-4. **No symlink dependency:** Symlinks in `plugins/core-skills/skills/` are optional authoring convenience on Unix only. All builds work with `--no-link` flag.
-
-**Protected by automated tests:**
-- Canonical source contract: compiler reads only from `shared/skills/`
-- Materialisation contract: emitted packages extract without source access
-- Source-to-output flow: changes to source produce predictable, deterministic changes in emitted packages
-- Determinism: identical source → identical bytes in `dist/` (no timestamps in SKILL.md)
-
-**When you see a portability contract failure:**
-1. Check test suite: `npm test -- scripts/build/test/materialisation-contract.test.mjs`
-2. Verify emitted package has all referenced resources (prompts/, etc.)
-3. Ensure no source-tree paths are embedded in emitted files
-4. Run `bash adapters/claude/materialise.sh` to test extraction locally
-
-## Testing locally
 ```bash
-adapters/claude/dev-test.sh   # validate structure and test the plugin
-ops/validate-all.sh           # single entry point for all validators (pre-commit gate)
-npm test                      # delivery contract + portability tests
+node scripts/build/new-skill.mjs <skill-name>            # creates dir, updates manifest, optional symlink
+node scripts/build/new-skill.mjs <skill-name> --no-link  # skip symlink (non-Unix)
 ```
 
-## Delivery contract (v0.5.3+)
+Start from `shared/skills/_template/SKILL.md`. See `docs/SKILLS.md` for frontmatter reference (invocation control, subagents, capability contracts, multi-model variants).
 
-The **delivery contract** guarantees that all distributed artifacts (`dist/`) are complete, consistent, and valid:
+## Build and test
 
-**Protected by 28 automated tests** (scripts/build/test/delivery-contract.test.mjs):
-- All emitted files exist and are non-empty
-- Distributed SKILL.md files have required frontmatter (skill, description, type, status, version)
-- Plugin.json files for each platform are valid JSON with correct structure
-- Registry index.json is complete with all metadata (version, skill_count, platform_count)
-- All file paths referenced in plugin.json and registry exist on disk
-- Version is consistent across all platforms and artefacts
-- Cross-file references are valid (no dangling links)
-- Prompt files referenced in skill variants are present
+```bash
+npm install                                     # first time only
+node scripts/build/compile.mjs                  # validate + resolve compatibility + emit dist/
+npm test                                        # delivery contract + portability tests
+adapters/claude/dev-test.sh                     # validate plugin structure
+ops/validate-all.sh                             # pre-commit gate (all validators)
+```
 
-**Enforcement:**
-- Tests run on every `npm test` invocation
-- `.github/workflows/build.yml` — runs tests on all PRs; blocks merge on failure
-- `.github/workflows/pr-mergeability-gate.yml` — additional PR gate for main
-- `.github/workflows/validate.yml` — validates plugin structure on push to main
-- Build fails if delivery contract is violated (blocks merging to main)
-
-**What this prevents:**
-- Incomplete distributions (missing skills, prompts, or metadata)
-- Mismatched versions across platforms
-- Broken file references
-- Malformed JSON/YAML in distribution
-
-**When you see a delivery contract failure:**
-1. Check the error message for which test failed
-2. Run `npm test -- scripts/build/test/delivery-contract.test.mjs` locally
-3. Fix the underlying issue (missing file, malformed JSON, inconsistent version, etc.)
-4. Re-run tests to verify
-
-## Continual self-improvement
-
-**Your self-improvement is key.** If a task has failed or not worked efficiently, you **must** visibly state:
-
-1. **What went wrong** — be explicit, not vague
-2. **What to do differently** — concrete steps to prevent recurrence
-
-Token efficiency is paramount. **Unnecessary token wastage is forbidden.** Prefer concise tool calls, avoid re-reading files you already have in context, and do not repeat information already established.
-
-**Plan closure:** Before finishing any task, reconcile every previously stated intention or TODO — mark each as Done, Blocked (one-sentence reason + targeted question), or Cancelled (with reason). Do not end with in-progress or pending items.
-
-**Promise discipline:** Do not commit to tests or broad refactors unless executing them in the same turn. Label deferred work explicitly as optional "Next steps" and exclude it from the committed plan.
+See `docs/DEPLOYMENT.md` for Worker deployment and Executor Worker architecture.
+See `docs/SESSION_START.md` for session-start robustness contract.
 
 ## Key rules
+
 - Always author skills in `shared/skills/`, never directly in `plugins/`
-- Only bump version in the root `VERSION` file; run `npm run version:sync` to mirror it, then `npm run version:check` before committing
-- The scaffold command (`scripts/build/new-skill.mjs`) must not mutate release-version mirrors (`VERSION`, `package.json`, `plugin.json`)
-- Symlinks are optional Unix convenience; if created, they must use relative paths: `../../../shared/skills/<name>`
+- Only bump version in `VERSION`; run `npm run version:sync` then `npm run version:check` before committing
+- `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` versions are derived - never edit by hand
+- Symlinks are optional Unix convenience; if created, use relative paths: `../../../shared/skills/<name>`
 - Run `claude plugin validate .` before committing
-- Start new skills from `shared/skills/_template/SKILL.md` (Phase 2: enhanced with full frontmatter)
-- Default to ASCII when editing or creating files; only introduce non-ASCII characters where the file already uses them and there is clear justification.
-- Add code comments only when logic is genuinely non-obvious; comments that explain *what* the code does add no value — reserve them for complex blocks that would otherwise take significant effort to parse.
-- Never revert changes you did not make. If a file contains unrelated edits, work around them. If changes are in files you are actively editing, read and understand them before proceeding.
-- If unexpected changes appear in files you are working on mid-session, stop immediately and ask the user how to proceed before making further edits.
+- Default to ASCII when editing or creating files; only introduce non-ASCII where already present with clear justification
+- Add code comments only when logic is genuinely non-obvious; comments that explain what the code does add no value
+- Never revert changes you did not make; work around unrelated edits in files you touch
+- If unexpected changes appear in files you are editing mid-session, stop and ask before proceeding
 
 ## Session startup checklist
 
 Before doing any work on a `claude/` branch:
 
-1. **Fetch main to get latest state**
+1. **Fetch main**
    ```sh
    git fetch origin main
    ```
-
-2. **Rebase onto main** (if safe)
+2. **Rebase onto main** (skip if branch has been reviewed, 5+ commits with likely conflicts, or cut from historical tag)
    ```sh
    git rebase origin/main
    ```
-   - Skip if: branch has been reviewed, 5+ commits with likely conflicts, or deliberately cut from a historical tag
-   - Use the `git-ops` skill to validate before rebasing
-
-3. **When bumping the release version, edit only the `VERSION` file**
+3. **Version bump** - edit `VERSION` only, then sync derived files:
    ```sh
-   # Edit VERSION, then sync derived files
    npm run version:sync
    npm run version:check
    ```
-   - `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` are derived — never edit their versions by hand
-   - The parity check will fail in CI if any file is out of sync
 
-The `git-ops` skill automates rebasing checks. Use it when rebasing.
+Use the `git-ops` skill to validate before rebasing.
 
-## Session-Start Robustness Contract (v0.8.0+)
+## Workflow - Local Proxy Environment
 
-The **session-start robustness contract** guarantees that Claude Code can discover and use skills reliably, even when the Worker is unavailable or manifests are stale.
+Remote is `http://local_proxy@127.0.0.1:41590/git/...` - not a direct GitHub connection.
 
-### What happens at session start
+**Works:**
+- `git add` + `git commit` + `git push -u origin <branch-name>`
 
-When Claude Code starts in a remote environment (`.claude/hooks/session-start.sh`):
+**Does NOT work - skip these immediately:**
+- `gh pr create` - gh cannot resolve the local proxy as a known GitHub host
+- `git push origin main` - branch protection returns HTTP 403
+- Proxy REST API calls (`/api/v1/...`) - proxy handles git protocol only, not REST
+- Repointing remote to github.com - the GITHUB_TOKEN in the environment is not valid for that repo
 
-1. **Task resumption** — Query Worker KV for active tasks (or detect from clipboard)
-2. **Validation** — Run skill structure validation (catches config errors early)
-3. **Runtime sync** — Reconcile desired vs installed runtime config
-4. **Capability probe** — Detect local platform capabilities (filesystem, shell, MCP, etc.) and cache results at `~/.ai-config-os/probe-report.json`
-5. **Fetch manifest** — Background fetch latest manifest from Worker, compare with local cache
-   - If newer: update cache (`~/.ai-config-os/cache/claude-code/latest.json`)
-   - If unreachable: use cached version silently
-   - If stale (>1 day old): emit non-fatal warning
+Merging to main happens via the repo owner's GitHub UI. Do not retry failing approaches.
 
-### Robustness guarantees
+## Cross-Platform CI Patterns
 
-| Scenario | Behavior | Fallback |
-|----------|----------|----------|
-| Worker unavailable | Uses last-known-good manifest | Oldest cached manifest (forever valid) |
-| Network partition | Skills still work | All local skills loaded from cache |
-| Manifest 1 week old | Still usable | Versions are immutable; no retroactive breaking changes |
-| New skill published | Available next session | Current session uses cached skills |
-| Capability mismatch | Skill excluded from display | Manual prompt-only fallback available |
+See `docs/CI_PATTERNS.md` for the full reference (pitfalls, safe patterns, reusable utilities).
 
-### Architecture
-
-**Worker contract (immutable-by-version):**
-- `GET /v1/manifest/latest` → Returns manifest with `Cache-Control: max-age=31536000, immutable`
-- ETag: version hash (clients can use If-None-Match)
-- Fallback: Serve cached manifest if KV/R2 unavailable
-
-**Client contract (local-first):**
-- Manifest cache: `~/.ai-config-os/cache/claude-code/latest.json`
-- Capability cache: `~/.ai-config-os/probe-report.json`
-- Both caches survive Worker downtime indefinitely
-- Fetch new manifest in background (non-blocking)
-
-**Skill compatibility:**
-- Skills declare `capabilities.required` (e.g., `[shell.exec, fs.write]`)
-- Client filters display: show only skills compatible with detected capabilities
-- Fallback modes: if skill unavailable, show prompt-only guidance
-
-### Testing robustness locally
-
-```bash
-# Simulate Worker unavailable
-bash adapters/claude/materialise.sh status        # see cached vs remote
-rm ~/.ai-config-os/cache/claude-code/latest.json # clear cache
-bash ops/capability-probe.sh                      # run probe manually
-```
-
-### When robustness fails
-
-**Manifest cache corrupted or missing:**
-```bash
-rm ~/.ai-config-os/cache/claude-code/latest.json
-bash adapters/claude/materialise.sh fetch        # re-fetch
-```
-
-**Probe results stale (>1 week):**
-```bash
-bash ops/capability-probe.sh --quiet              # re-run probe
-```
-
-**Skills incompatible with detected capabilities:**
-→ Check `~/.ai-config-os/probe-report.json` for detected capabilities
-→ Cross-reference against skill's `capabilities.required` in SKILL.md
-→ File issue if skill declares wrong requirements
-
-## Skill frontmatter
-
-All skills define metadata in YAML frontmatter. The `skill` and `description` fields follow the [Agent Skills open standard](https://agentskills.io/specification); all other fields are repo-specific extensions. See `docs/SKILLS.md` for the full reference (invocation control, subagents, hooks, dynamic context, multi-model variants, testing, composition). See `shared/skills/_template/SKILL.md` for the complete template.
+**Critical landmine:** Never pass `path.resolve()` output to `import()`. Use `new URL('../path.mjs', import.meta.url).href` instead - on Windows, `path.resolve()` produces `D:\...` paths that Node treats as a URL scheme and rejects.
 
 ## Living docs protocol
 
-These docs stay in sync; each owns a distinct slice:
+Each doc owns a distinct slice - never duplicate content across them:
 
 | Doc | Update when |
-|---|---|
+|-----|-------------|
 | `README.md` | Directory structure changes, install steps change, new major capability added |
 | `PLAN.md` | A phase completes, acceptance criteria are met, recommended next steps change |
 | `CLAUDE.md` | Dev conventions change, new ops scripts added, git/proxy workflow changes |
 | `shared/manifest.md` | A skill is added, renamed, or removed (one row per skill) |
-| `docs/SKILLS.md` | Skill format changes, new Claude Code skill features, hooks patterns, Agent Skills standard updates |
+| `docs/SKILLS.md` | Skill format changes, new Claude Code skill features, hooks patterns |
 | `docs/CI_PATTERNS.md` | New CI pitfall found, new platform added to matrix, Windows portability pattern updated |
 | `docs/SUPPORTED_TODAY.md` | Platform support status changes, new surface confirmed or deprecated |
 
@@ -301,157 +157,28 @@ These docs stay in sync; each owns a distinct slice:
 - After any commit that creates or modifies a skill: update `shared/manifest.md` row + check if README or PLAN.md need a line.
 - After any commit that changes repo structure (new top-level dir, new ops script): update README directory table + CLAUDE.md Structure section.
 - After any merge to main: update PLAN.md "Current state" table and "Recommended next" section.
-- Never duplicate content across docs. If you find the same fact in two places, pick the authoritative owner (table above) and remove it from the other, replacing with a link.
+- Never duplicate content across docs. If you find the same fact in two places, pick the authoritative owner above and remove it from the other.
 - Run `ops/check-docs.sh` before committing to see which docs the changed files are expected to touch.
 
-## Distribution layer
+## Continual self-improvement
 
-Skills are compiled and distributed via a GitHub-authored, CI-built, Cloudflare-served pipeline. Compatibility is computed from capability contracts (v0.5.2+).
+If a task failed or ran inefficiently, state explicitly:
+1. What went wrong
+2. What to do differently next time
 
-### Build
-```bash
-npm install                            # first time only
-node scripts/build/compile.mjs         # validate + resolve compatibility + emit dist/
-node scripts/build/compile.mjs --validate-only  # full validation pipeline, no file output
-node scripts/build/compile.mjs --release        # emit with provenance (CI/release only)
-```
+Token efficiency is paramount. Prefer concise tool calls; avoid re-reading files already in context.
 
-The compiler reads the release version from the root `VERSION` file. Local builds are deterministic — no timestamps or git metadata are injected. Provenance (built_at, build_id, source_commit) is only added in release mode (`--release` flag or `AI_CONFIG_RELEASE=1` env var).
+**Plan closure:** Before finishing any task, reconcile every stated intention or TODO - mark each Done, Blocked (one sentence + targeted question), or Cancelled (with reason). Do not end with in-progress items.
 
-Output: `dist/clients/<platform>/` (claude-code, cursor) + `dist/registry/index.json`
-
-The registry now includes `platform_definitions` — full capability definitions from `shared/targets/platforms/*.yaml` embedded at build time. This lets the Worker serve canonical capability data without YAML file access. See `docs/CAPABILITY_API.md`.
-
-### Capability Discovery API
-
-The Worker exposes two CORS-enabled endpoints for all platforms (web, iOS, desktop):
-
-```
-GET /v1/capabilities/platform/{platform}   → capability profile (immutable by platform)
-GET /v1/skills/compatible?caps=cap1,cap2   → filtered skills (immutable by version+caps)
-```
-
-**Reference client:** `adapters/claude/capabilities-client.mjs`
-**API docs:** `docs/CAPABILITY_API.md`
-**Web integration guide:** `docs/WEB_INTEGRATION.md`
-
-### Skill capability contract
-Skills declare structured capability requirements in YAML frontmatter:
-
-```yaml
-capabilities:
-  required: [git.read, shell.exec]     # must be supported for skill to work
-  optional: [fs.write]                 # enhances skill but not essential
-  fallback_mode: prompt-only           # none | manual | prompt-only
-  fallback_notes: "User can paste git output manually"
-```
-
-Platform overrides are thin and optional — most skills need none:
-```yaml
-platforms:
-  cursor:
-    package: rules                     # override default package format
-    mode: degraded                     # native | degraded | excluded
-    notes: "No hook surface in Cursor"
-  claude-web:
-    allow_unverified: true             # emit even for unverified capabilities
-```
-
-Skills without a `platforms:` block are emitted to all platforms where their required capabilities are supported. See `schemas/skill.schema.json` for the full contract.
-
-### Platform definitions
-Platform capability states live in `shared/targets/platforms/*.yaml`. Each capability has a status (`supported`/`unsupported`/`unknown`), evidence date, confidence level, and source. The compiler resolves skill-platform compatibility from these.
-
-### Linting
-```bash
-node scripts/lint/skill.mjs shared/skills/*/SKILL.md      # schema + custom rules
-node scripts/lint/platform.mjs shared/targets/platforms/*.yaml  # schema validation
-```
-
-### Worker deployment
-```bash
-cd worker
-wrangler secret put AUTH_TOKEN         # set bearer token
-wrangler deploy                        # deploy to Cloudflare
-```
-
-### Executor Worker (Phase 1)
-
-See `docs/DEPLOYMENT.md` for the full deployment runbook including Executor Worker architecture, Phase 1 tool reference, and service binding configuration.
-
-### Fetching from Worker (local)
-```bash
-export AI_CONFIG_TOKEN=<your-token>
-export AI_CONFIG_WORKER=https://ai-config-os.workers.dev  # or local
-bash adapters/claude/materialise.sh         # fetch + cache
-bash adapters/claude/materialise.sh status  # compare versions
-```
-
-## Runtime
-
-The `runtime/` layer manages tool installation and configuration:
-
-- **Config:** Three-tier YAML (`global.yaml` < `machines/{hostname}.yaml` < `project.yaml`)
-- **Sync:** `bash runtime/sync.sh` — reconciles desired config with live Claude Code environment
-- **Dry run:** `bash runtime/sync.sh --dry-run` — previews changes without applying
-- **Watch mode:** `bash runtime/watch.sh` — triggers sync on config file changes
-- **Status:** `bash ops/runtime-status.sh` — full runtime health check
-
-### Adding an MCP server
-
-1. Edit `runtime/config/global.yaml` (or machine/project override)
-2. Add entry under `mcps:`
-3. Run `bash runtime/sync.sh`
-
-### MCP self-management (experimental)
-
-The MCP server at `runtime/mcp/server.js` exposes sync and skill operations as MCP tools, allowing Claude Code to manage its own configuration. Start with `bash runtime/mcp/start.sh`. Treat as experimental until validated in daily use.
-
-## Workflow — Local Proxy Environment
-
-This repo's remote is a local proxy (`http://local_proxy@127.0.0.1:41590/git/…`), not a direct GitHub connection. This has important implications for how Claude agents should operate:
-
-### What works
-
-- Edit files locally
-- `git add` + `git commit` on the designated `claude/…` branch
-- `git push -u origin <branch-name>` — the proxy supports git smart-HTTP push/pull
-
-### What does NOT work — skip these immediately
-
-- `gh pr create` — gh cannot resolve the local proxy as a known GitHub host
-- Direct `git push origin main` — branch protection returns HTTP 403
-- Probing the proxy REST API (e.g. `/api/v1/…`) — the proxy only handles git protocol, not REST
-- Temporarily repointing the remote to github.com and retrying — the GITHUB_TOKEN in the environment is not valid for that repo
-
-### Correct approach
-
-Do the minimum that is known to succeed:
-
-```sh
-# 1. Make changes on the designated claude/ branch
-git add <files>
-git commit -m "type: description"
-
-# 2. Push the branch — this is the reliable endpoint
-git push -u origin claude/<branch-name>
-```
-
-Merging to main happens outside the agent session (via the repo owner's GitHub UI or equivalent). Do not waste turns attempting `gh pr create`, REST API calls, or direct main pushes after the first failure.
-
-## Cross-Platform CI Patterns
-
-See `docs/CI_PATTERNS.md` for the full reference (pitfalls, safe patterns, reusable utilities).
-
-**Critical landmine:** Never pass `path.resolve()` output to `import()`. Use `new URL('../path.mjs', import.meta.url).href` instead — on Windows, `path.resolve()` produces `D:\...` paths that Node treats as a URL scheme and rejects.
+**Promise discipline:** Do not commit to tests or broad refactors unless executing them in the same turn. Label deferred work explicitly as optional next steps.
 
 ## Communication style
 
-- For code changes: open with a quick explanation of what changed and why (where in the codebase, what it fixes or enables) — not a "Summary:" heading.
-- Suggest natural next steps briefly at the end; omit entirely if there are none.
-- When offering multiple options, use a numbered list so the user can respond with a single number.
+- For code changes: open with what changed and why - not a "Summary:" heading.
+- Suggest next steps briefly at the end; omit entirely if there are none.
+- When offering options, use a numbered list so the user can respond with a single number.
 - Never reproduce large files in responses; reference paths instead.
-- If you could not complete a step, state the blocker explicitly and ask a targeted question rather than leaving it implicit.
+- If blocked, state the blocker explicitly and ask a targeted question rather than leaving it implicit.
 
 ## Git Commit Conventions
 
@@ -472,7 +199,6 @@ Examples:
 ```
 feat: add downloads archive template
 fix: guard feature_image in post-meta partial
-style: enforce --color-accent on all CTA buttons
 docs: add CLAUDE.md with theme coding standards
 build: Ghost theme scaffold (0.1.0)
 ```
