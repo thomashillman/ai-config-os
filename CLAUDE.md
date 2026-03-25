@@ -2,45 +2,13 @@
 
 **Purpose:** Personal AI behaviour layer - skills, hooks, and conventions for Claude Code and other AI agents. Skills are authored in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed without requiring source-tree access. See `docs/SKILLS.md` for the skills reference.
 
-## Engineering Mindset
-
-- Understand requirements, constraints, and context before writing any code.
-- Prioritise high-value problems; say no to low-impact work.
-- Take ownership from idea through to production and iteration.
-- Success is measured by outcomes for users, not lines of code or feature count.
-
 ## Engineering Principles
 
-**Design**
-- KISS: simplest solution that fully solves the problem. No speculative features (YAGNI).
-- DRY: one authoritative representation of every piece of logic.
-- High cohesion, low coupling: changes should be local, not system-wide.
-- SOLID as a refactoring lens, not an upfront prescription:
-  - SRP: one reason to change per class/module; extract when responsibilities diverge.
-  - OCP: extend via new implementations, not edits to existing core logic.
-  - LSP: subtypes must honour the contract of their base; prefer composition when they can't.
-  - ISP: depend only on the interface slice you actually need; split fat interfaces.
-  - DIP: inject abstractions into business logic; wire concrete implementations at the composition root.
-
-**Code quality**
-- Readability over cleverness. Code is read far more than it is written.
-- TDD by default: tests drive design, prevent regressions, and make refactoring safe.
-- Refactor continuously in small, test-backed steps rather than letting entropy accumulate.
-- Conform to codebase conventions: follow existing patterns, helpers, naming, and formatting; state explicitly if you must diverge.
-- Cover all relevant surfaces: ensure behaviour stays consistent across the application, not just at the point of change.
-- Tight error handling: no broad try/catch blocks or silent defaults; propagate or surface errors explicitly, consistent with repo patterns.
-- Read enough context before editing a file; batch logical changes together rather than many small patches.
-- Search for prior art before adding new helpers or logic; reuse or extract a shared helper instead of duplicating.
-
-**Delivery**
-- Ship in small, frequent increments to reduce risk and tighten feedback loops.
-- Instrument for observability: issues should be visible before users report them.
-- Quality is built in: testing, monitoring, and resilience are not afterthoughts.
-
-**Process**
-- Source control is the source of truth. Automate repetitive tasks.
-- Features are done when they deliver value in production, not when they pass QA.
-- Fix the system, not the person, when things go wrong.
+mindset:  prioritise high-value problems; take ownership end-to-end; success = user outcomes not lines of code
+design:   KISS/YAGNI | DRY | high-cohesion/low-coupling | SOLID-as-refactoring-lens
+quality:  readability>cleverness | TDD-by-default | conform-to-conventions | tight-error-handling/no-broad-catch | search-before-adding
+delivery: small-increments | instrument-observability | quality-built-in
+process:  source-control-is-truth | done=production-value-not-QA | fix-systems-not-people
 
 ## Autonomy and Persistence
 
@@ -162,15 +130,10 @@ Each doc owns a distinct slice - never duplicate content across them:
 
 ## Continual self-improvement
 
-If a task failed or ran inefficiently, state explicitly:
-1. What went wrong
-2. What to do differently next time
-
+If a task failed or ran inefficiently, state explicitly: (1) what went wrong, (2) what to do differently next time.
 Token efficiency is paramount. Prefer concise tool calls; avoid re-reading files already in context.
-
-**Plan closure:** Before finishing any task, reconcile every stated intention or TODO - mark each Done, Blocked (one sentence + targeted question), or Cancelled (with reason). Do not end with in-progress items.
-
-**Promise discipline:** Do not commit to tests or broad refactors unless executing them in the same turn. Label deferred work explicitly as optional next steps.
+**Plan closure:** Reconcile every stated TODO before finishing - mark each Done, Blocked (one sentence + question), or Cancelled.
+**Promise discipline:** Do not commit to tests or broad refactors unless executing them in the same turn.
 
 ## Communication style
 
@@ -182,23 +145,4 @@ Token efficiency is paramount. Prefer concise tool calls; avoid re-reading files
 
 ## Git Commit Conventions
 
-Use [Conventional Commits](https://www.conventionalcommits.org/):
-
-| Prefix | Use for |
-|--------|---------|
-| `feat:` | new feature or template |
-| `fix:` | bug fix |
-| `style:` | CSS-only change |
-| `refactor:` | restructure without behaviour change |
-| `docs:` | documentation only |
-| `build:` | build system / tooling |
-| `chore:` | maintenance |
-
-Examples:
-
-```
-feat: add downloads archive template
-fix: guard feature_image in post-meta partial
-docs: add CLAUDE.md with theme coding standards
-build: Ghost theme scaffold (0.1.0)
-```
+[Conventional Commits](https://www.conventionalcommits.org/): `feat|fix|style|refactor|docs|build|chore: <description>`
