@@ -22,6 +22,15 @@ test('build_workflow_invokes_kv_upload_on_main_linux_release_path', () => {
   assert.match(workflow, /(node scripts\/build\/upload-skills-kv\.mjs|npm run deploy:upload-kv)/);
 });
 
-test('package_json_exposes_deploy_upload_kv_script', () => {
+test('build_workflow_verifies_kv_publication_after_upload', () => {
+  assert.match(
+    workflow,
+    /Upload Claude package to KV[\s\S]*?Verify Claude package KV publication/,
+  );
+  assert.match(workflow, /(node scripts\/build\/verify-skills-kv-publication\.mjs|npm run deploy:verify-upload-kv)/);
+});
+
+test('package_json_exposes_deploy_kv_scripts', () => {
   assert.equal(pkg.scripts['deploy:upload-kv'], 'node scripts/build/upload-skills-kv.mjs');
+  assert.equal(pkg.scripts['deploy:verify-upload-kv'], 'node scripts/build/verify-skills-kv-publication.mjs');
 });

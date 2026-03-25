@@ -93,6 +93,14 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           MANIFEST_KV_NAMESPACE_ID: ${{ secrets.MANIFEST_KV_NAMESPACE_ID }}
 
+      - name: Verify Claude package KV publication
+        if: runner.os == 'Linux' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm run deploy:verify-upload-kv
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          MANIFEST_KV_NAMESPACE_ID: ${{ secrets.MANIFEST_KV_NAMESPACE_ID }}
+
       - name: Validate self-sufficiency (Cursor output)
         if: runner.os == 'Linux'
         run: |
