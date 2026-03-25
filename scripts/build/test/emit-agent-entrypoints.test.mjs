@@ -11,7 +11,7 @@ const SCRIPT_PATH = join(REPO_ROOT, 'scripts', 'build', 'emit-agent-entrypoints.
 function writeFixtureFile(rootDir, relativePath, content) {
   const fullPath = join(rootDir, relativePath);
   mkdirSync(join(fullPath, '..'), { recursive: true });
-  writeFileSync(fullPath, content);
+  writeFileSync(fullPath, content, 'utf8');
 }
 
 test('emit-agent-entrypoints composes deterministic outputs', () => {
@@ -27,7 +27,7 @@ test('emit-agent-entrypoints composes deterministic outputs', () => {
 
     const result = spawnSync(process.execPath, [SCRIPT_PATH], {
       cwd: repoDir,
-      encoding: 'utf8'
+      encoding: 'utf8',
     });
 
     assert.equal(result.status, 0, result.stderr || result.stdout);
@@ -41,6 +41,33 @@ test('emit-agent-entrypoints composes deterministic outputs', () => {
     assert.ok(claude.indexOf('Overlay A') < claude.indexOf('Overlay B'), 'Overlay fragments must be sorted');
     assert.match(claude, /Surface Claude/);
     assert.match(codex, /Surface Codex/);
+  } finally {
+    rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+test('emit-agent-entrypoints --check fails when generated output drifts', () => {
+  const repoDir = mkdtempSync(join(tmpdir(), 'agent-entrypoints-check-'));
+
+  try {
+    writeFixtureFile(repoDir, 'shared/agent-doctrine/base/10-first.md', 'Base A');
+    writeFixtureFile(repoDir, 'shared/agent-doctrine/surfaces/claude.md', 'Surface Claude');
+    writeFixtureFile(repoDir, 'shared/agent-doctrine/surfaces/codex.md', 'Surface Codex');
+    writeFixtureFile(repoDir, 'shared/agent-doctrine/repos/ai-config-os/10-first.overlay.md', 'Overlay A');
+
+    writeFixtureFile(repoDir, 'CLAUDE.md', 'stale\n');
+    writeFixtureFile(repoDir, 'AGENTS.md', 'stale\n');
+
+    const result = spawnSync(process.execPath, [SCRIPT_PATH, '--check'], {
+      cwd: repoDir,
+      encoding: 'utf8',
+    });
+
+    assert.equal(result.status, 1, result.stderr || result.stdout);
+    assert.match(result.stderr, /\[drift\] CLAUDE\.md is out of date/);
+    assert.match(result.stderr, /\[drift\] AGENTS\.md is out of date/);
+    assert.equal(readFileSync(join(repoDir, 'CLAUDE.md'), 'utf8'), 'stale\n');
+    assert.equal(readFileSync(join(repoDir, 'AGENTS.md'), 'utf8'), 'stale\n');
   } finally {
     rmSync(repoDir, { recursive: true, force: true });
   }
