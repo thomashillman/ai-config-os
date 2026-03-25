@@ -149,6 +149,51 @@ Token efficiency is paramount. Prefer concise tool calls; avoid re-reading files
 
 [Conventional Commits](https://www.conventionalcommits.org/): `feat|fix|style|refactor|docs|build|chore: <description>`
 
+# Autonomy
+
+- Once direction is clear, gather context, plan, implement, and verify without waiting for repeated prompts.
+- Continue until the requested outcome is complete, not just partially analyzed.
+- Make reasonable assumptions to keep momentum; pause only when blocked or when decisions are irreversible.
+- If progress stalls or loops, stop and present a concise blocker summary with targeted questions.
+
+# Change Discipline
+
+- Keep changes scoped to a single coherent objective.
+- Prefer incremental commits of working code.
+- Do not bypass hooks or required checks to force progress.
+- Avoid unrelated refactors unless they are required for correctness.
+- Preserve behavior-critical logic and test intent during conflict resolution.
+
+# Communication
+
+- Start by stating what changed and why.
+- Be concise, concrete, and explicit about uncertainty.
+- When blocked, state the blocker and ask one targeted follow-up question.
+- Present options as a numbered list when a choice is needed.
+
+# Engineering Principles
+
+- Prioritize high-value outcomes and own work end-to-end.
+- Prefer simple, readable solutions over clever or abstract designs.
+- Use established conventions before introducing new patterns.
+- Deliver in small, verifiable increments.
+- Build quality in from the start with focused testing and clear error handling.
+- Treat source control as the authoritative history of decisions.
+
+# Git Safety
+
+- Inspect branch and working-tree state before synchronization operations.
+- Verify remote and upstream configuration before fetch, pull, rebase, or merge.
+- Do not guess default branches, remotes, or merge intent.
+- Avoid history-rewriting or force operations unless explicitly requested.
+
+# Verification
+
+- Validate changes with the project's existing checks before declaring completion.
+- Prefer fast, relevant checks first, then broader validation when risk is higher.
+- Report exactly what was run and the outcome.
+- Do not claim tests passed unless they were executed successfully.
+
 ## Surface Adapter: Codex
 
 This entrypoint is loaded from `AGENTS.md` by Codex-compatible clients.
@@ -157,3 +202,100 @@ This entrypoint is loaded from `AGENTS.md` by Codex-compatible clients.
 
 - Run the repository mergeability gate before PR preparation.
 - Keep runtime and build scripts portable across CI environments.
+
+# ai-config-os Claude Overlay
+
+Use this overlay with the base doctrine fragments when operating as a Claude-oriented agent in this repository.
+
+## Repository-specific structure
+
+- Author skills in `shared/skills/`; do not edit generated outputs directly.
+- Generated packages live in `dist/clients/<platform>/` and registry output lives in `dist/registry/index.json`.
+- Platform capability definitions are in `shared/targets/platforms/`.
+- Canonical version source is `VERSION`; derived version files must be synchronized through project scripts.
+
+## Repository-specific verification commands
+
+Run relevant checks for touched surfaces:
+
+```bash
+node scripts/build/compile.mjs
+npm test
+adapters/claude/dev-test.sh
+ops/validate-all.sh
+claude plugin validate .
+```
+
+## Repository-specific git and release safety
+
+- Before major sync operations, inspect:
+  - `git status --short --branch`
+  - `git remote`
+  - `git branch -vv`
+- Use the local pre-PR gate before PR creation or update:
+
+```bash
+bash ops/pre-pr-mergeability-gate.sh
+```
+
+- Version bumps must modify `VERSION` first, then run:
+
+```bash
+npm run version:sync
+npm run version:check
+```
+
+## Local proxy constraints
+
+This repository may use a local proxy remote (`http://local_proxy@127.0.0.1:41590/git/...`).
+
+- Expected to work: `git add`, `git commit`, `git push -u origin <branch>`.
+- Expected not to work in this environment: `gh pr create`, direct push to protected `main`, proxy REST API calls.
+- Do not repoint the remote unless explicitly instructed.
+
+# ai-config-os Codex Overlay
+
+Use this overlay with the base doctrine fragments when operating as a Codex-oriented agent in this repository.
+
+## Repository-specific structure
+
+- Primary authoring surface for skills is `shared/skills/`.
+- Build and emit logic lives in `scripts/build/`.
+- Claude adapter materialization logic lives in `adapters/claude/`; Codex adapter logic lives in `adapters/codex/`.
+- Canonical release version is stored in `VERSION` and synced into derived files via scripts.
+
+## Repository-specific verification commands
+
+Run applicable checks before completion:
+
+```bash
+node scripts/build/compile.mjs
+npm test
+ops/validate-all.sh
+```
+
+If Claude packaging surfaces are touched, additionally run:
+
+```bash
+adapters/claude/dev-test.sh
+claude plugin validate .
+```
+
+## Repository-specific git and merge safety
+
+- Inspect branch, remote, and upstream state before synchronization actions:
+  - `git status --short --branch`
+  - `git remote`
+  - `git branch -vv`
+- Run the mandatory local gate as the final pre-PR step:
+
+```bash
+bash ops/pre-pr-mergeability-gate.sh
+```
+
+- For version updates, edit `VERSION` and then run:
+
+```bash
+npm run version:sync
+npm run version:check
+```
