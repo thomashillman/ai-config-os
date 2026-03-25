@@ -149,9 +149,9 @@ Token efficiency is paramount. Prefer concise tool calls; avoid re-reading files
 
 [Conventional Commits](https://www.conventionalcommits.org/): `feat|fix|style|refactor|docs|build|chore: <description>`
 
-## Surface Adapter: Claude
+## Surface Adapter: Codex
 
-This entrypoint is loaded from `CLAUDE.md` by Claude-compatible clients.
+This entrypoint is loaded from `AGENTS.md` by Codex-compatible clients.
 
 ## Repository Overlay: ai-config-os
 
