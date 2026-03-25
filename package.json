@@ -19,7 +19,8 @@
     "deploy:staging": "bash scripts/deploy/deploy-staging.sh",
     "smoke:test": "node scripts/deploy/smoke-tests.mjs",
     "doctrine:build": "node scripts/build/emit-agent-entrypoints.mjs",
-    "doctrine:check": "node scripts/ci/check-doctrine-generated.mjs"
+    "doctrine:check": "node scripts/ci/check-doctrine-generated.mjs",
+    "deploy:verify-upload-kv": "node scripts/build/verify-skills-kv-publication.mjs"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
