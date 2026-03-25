@@ -1,7 +1,7 @@
 {
   "name": "ai-config-os",
   "version": "0.6.0",
-  "description": "Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents",
+  "description": "Personal AI behaviour layer \u2014 skills, hooks, and conventions for Claude Code and other AI agents",
   "type": "module",
   "scripts": {
     "build": "node scripts/build/compile.mjs",
@@ -19,7 +19,8 @@
     "deploy:staging": "bash scripts/deploy/deploy-staging.sh",
     "smoke:test": "node scripts/deploy/smoke-tests.mjs",
     "doctrine:build": "node scripts/build/emit-agent-entrypoints.mjs",
-    "doctrine:check": "node scripts/ci/check-doctrine-generated.mjs"
+    "doctrine:check": "node scripts/ci/check-doctrine-generated.mjs",
+    "deploy:verify-upload-kv": "node scripts/build/verify-skills-kv-publication.mjs"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
