@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,12 +17,21 @@ const SAMPLE_OVERLAY = join(
   'project-instructions',
   'sample-external-repo-overlay'
 );
+const DOCTRINE_BASE_DIR = join(REPO_ROOT, 'shared', 'agent-doctrine', 'base');
 
 function run(args) {
   return spawnSync('node', [SCRIPT_PATH, ...args], {
     cwd: REPO_ROOT,
     encoding: 'utf8',
   });
+}
+
+function getFirstBaseHeading() {
+  const baseFiles = readdirSync(DOCTRINE_BASE_DIR)
+    .filter(name => name.endsWith('.md'))
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+  const firstBase = readFileSync(join(DOCTRINE_BASE_DIR, baseFiles[0]), 'utf8');
+  return firstBase.split('\n').find(line => line.startsWith('# '));
 }
 
 describe('materialise-project-instructions CLI', () => {
@@ -35,12 +44,14 @@ describe('materialise-project-instructions CLI', () => {
 
       const claude = readFileSync(join(target, 'CLAUDE.md'), 'utf8');
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8');
+      const firstBaseHeading = getFirstBaseHeading();
 
-      assert.match(claude, /# AI Config OS/);
+      assert.ok(firstBaseHeading, 'expected doctrine base to include a heading');
+      assert.match(claude, new RegExp(`^${firstBaseHeading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
       assert.match(claude, /## Surface Adapter: Claude/);
       assert.match(claude, /Sample Repo Overlay \(Claude\)/);
 
-      assert.match(agents, /# AI Config OS/);
+      assert.match(agents, new RegExp(`^${firstBaseHeading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'm'));
       assert.match(agents, /## Surface Adapter: Codex/);
       assert.match(agents, /Sample Repo Overlay \(Codex\)/);
     } finally {
