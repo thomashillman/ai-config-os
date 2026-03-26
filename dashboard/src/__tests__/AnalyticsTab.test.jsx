@@ -126,12 +126,8 @@ describe("AnalyticsTab — Friction Signals section", () => {
 
     render(<AnalyticsTab api={API} />)
 
-    await waitFor(() => {
-      expect(screen.getByText(/Friction Signals/i)).toBeInTheDocument()
-    }, { timeout: 5000 })
-
-    // signal type labels should be visible
-    expect(screen.getByText("loop")).toBeInTheDocument()
+    // wait for loaded signal rows (header renders before data resolves)
+    expect(await screen.findByText("loop", {}, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByText("error")).toBeInTheDocument()
     // retro count shown in section header — wrapped as "(2 retros)" by SectionHeader
     expect(screen.getByText("(2 retros)")).toBeInTheDocument()
