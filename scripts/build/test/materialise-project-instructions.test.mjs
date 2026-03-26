@@ -36,12 +36,12 @@ describe('materialise-project-instructions CLI', () => {
       const claude = readFileSync(join(target, 'CLAUDE.md'), 'utf8');
       const agents = readFileSync(join(target, 'AGENTS.md'), 'utf8');
 
-      assert.match(claude, /Project Instructions \(Base\)/);
-      assert.match(claude, /Claude Surface Addendum/);
+      assert.match(claude, /# AI Config OS/);
+      assert.match(claude, /## Surface Adapter: Claude/);
       assert.match(claude, /Sample Repo Overlay \(Claude\)/);
 
-      assert.match(agents, /Project Instructions \(Base\)/);
-      assert.match(agents, /Codex Surface Addendum/);
+      assert.match(agents, /# AI Config OS/);
+      assert.match(agents, /## Surface Adapter: Codex/);
       assert.match(agents, /Sample Repo Overlay \(Codex\)/);
     } finally {
       rmSync(target, { recursive: true, force: true });
