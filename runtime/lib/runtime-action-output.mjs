@@ -52,6 +52,11 @@ function parseManifestStatus(rawOutput) {
       local_only: false,
       worker_backed: true,
     },
+    capabilityBySchema: {
+      'runtime.capabilities': { local_only: true, worker_backed: false },
+      'tooling.manifest': { local_only: false, worker_backed: true },
+      'tooling.status': { local_only: false, worker_backed: true },
+    },
     summary: `Parsed manifest status for ${trackedTools.length} tracked tool(s).`,
   };
 }
@@ -82,6 +87,9 @@ function parseSyncOutput(rawOutput, normalizedArgs = {}) {
       local_only: false,
       worker_backed: true,
     },
+    capabilityBySchema: {
+      'tooling.sync': { local_only: false, worker_backed: true },
+    },
     summary: `Sync ${steps.complete ? 'completed' : 'did not complete'}${normalizedArgs.dry_run ? ' (dry-run)' : ''}.`,
   };
 }
@@ -104,6 +112,9 @@ function parseConfigSummary(rawOutput) {
     capability: {
       local_only: false,
       worker_backed: true,
+    },
+    capabilityBySchema: {
+      'config.summary': { local_only: false, worker_backed: true },
     },
     summary: `Parsed merged config with ${Array.from(new Set(topLevelKeys)).length} top-level key(s).`,
   };
@@ -130,6 +141,9 @@ function parseValidateAllOutput(rawOutput) {
     capability: {
       local_only: false,
       worker_backed: true,
+    },
+    capabilityBySchema: {
+      'audit.validate_all': { local_only: false, worker_backed: true },
     },
     summary: `Validation suite recorded ${passCount} pass result(s) and ${failCount} fail result(s).`,
   };
@@ -167,6 +181,9 @@ function parseContextCostOutput(rawOutput) {
       local_only: false,
       worker_backed: true,
     },
+    capabilityBySchema: {
+      'runtime.context_cost': { local_only: false, worker_backed: true },
+    },
     summary: `Context cost totals ${totalTokens} estimated token(s).`,
   };
 }
@@ -193,6 +210,7 @@ export function parseRuntimeActionOutput(actionName, rawOutput, { normalizedArgs
           local_only: true,
           worker_backed: false,
         },
+        capabilityBySchema: {},
         summary: 'No structured parser available for this action.',
       };
   }

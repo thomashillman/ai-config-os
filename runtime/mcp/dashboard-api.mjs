@@ -54,6 +54,7 @@ export function createDashboardApi({
         data: result.parsed?.data ?? {},
         schema_ids: result.parsed?.schemaIds ?? [],
         capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
+        capability_by_schema: result.parsed?.capabilityBySchema ?? {},
         diagnostics: result.output ? { raw_output: result.output } : undefined,
         effectiveOutcomeContract,
       });

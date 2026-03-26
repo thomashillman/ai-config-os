@@ -22,6 +22,7 @@ test('toToolResponse returns Full contract on success', async () => {
       capability: { local_only: true, worker_backed: false },
       schema_ids: [],
       data: {},
+      capability_by_schema: {},
       diagnostics: { raw_output: 'ok' },
     },
   });
@@ -40,6 +41,7 @@ test('toToolResponse returns empty string for success with no output', async () 
       capability: { local_only: true, worker_backed: false },
       schema_ids: [],
       data: {},
+      capability_by_schema: {},
       diagnostics: undefined,
     },
   });
@@ -58,6 +60,7 @@ test('toToolResponse returns null output as empty string on success', async () =
       capability: { local_only: true, worker_backed: false },
       schema_ids: [],
       data: {},
+      capability_by_schema: {},
       diagnostics: undefined,
     },
   });
