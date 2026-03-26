@@ -33,6 +33,8 @@ import {
 import {
   handleHubLatest,
   handleTaskAppendFinding,
+  handleTaskAnswerQuestion,
+  handleTaskAvailableRoutes,
   handleTaskByCode,
   handleTaskByName,
   handleTaskContinuation,
@@ -45,6 +47,7 @@ import {
   handleTaskSnapshots,
   handleTaskTransitionFindings,
   handleTaskTransitionState,
+  handleTaskDismissQuestion,
 } from './handlers/tasks';
 import type { Env } from './types';
 
@@ -119,6 +122,7 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
     { method: 'GET',   pattern: /^\/v1\/t\/([^/]+)$/,                               handler: ({ env, params }) => handleTaskByCode(env, params[0]) },
     { method: 'GET',   pattern: /^\/v1\/tasks\/by-name\/([^/]+)$/,                  handler: ({ env, params }) => handleTaskByName(env, decodeURIComponent(params[0])) },
     { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/progress-events$/,           handler: ({ env, params }) => handleTaskProgressEvents(env, params[0]) },
+    { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/available-routes$/,           handler: ({ env, params }) => handleTaskAvailableRoutes(env, params[0]) },
     { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/readiness$/,                 handler: ({ env, params }) => handleTaskReadiness(env, params[0]) },
     { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/snapshots\/([^/]+)$/,        handler: ({ env, params }) => handleTaskSnapshots(env, params[0], params[1]) },
     { method: 'GET',   pattern: /^\/v1\/tasks\/([^/]+)\/snapshots$/,                 handler: ({ env, params }) => handleTaskSnapshots(env, params[0], null) },
@@ -128,6 +132,8 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
     { method: 'POST',  pattern: '/v1/tasks',                                         handler: ({ request, env }) => handleTaskCreate(request, env) },
     { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/route-selection$/,           handler: ({ request, env, params }) => handleTaskRouteSelection(request, env, params[0]) },
     { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/continuation$/,              handler: ({ request, env, params }) => handleTaskContinuation(request, env, params[0]) },
+    { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/questions\/([^/]+)\/answer$/, handler: ({ request, env, params }) => handleTaskAnswerQuestion(request, env, params[0], params[1]) },
+    { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/questions\/([^/]+)\/dismiss$/, handler: ({ request, env, params }) => handleTaskDismissQuestion(request, env, params[0], params[1]) },
     { method: 'PATCH', pattern: /^\/v1\/tasks\/([^/]+)\/state$/,                     handler: ({ request, env, params }) => handleTaskTransitionState(request, env, params[0]) },
     { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/findings\/transition$/,      handler: ({ request, env, params }) => handleTaskTransitionFindings(request, env, params[0]) },
     { method: 'POST',  pattern: /^\/v1\/tasks\/([^/]+)\/findings$/,                  handler: ({ request, env, params }) => handleTaskAppendFinding(request, env, params[0]) },

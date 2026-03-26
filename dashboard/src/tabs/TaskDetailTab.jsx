@@ -167,19 +167,11 @@ function AnswerModal({ question, taskId, token, onClose, onSaved }) {
     setError("")
 
     try {
-      const taskResponse = await fetch(`${WORKER_URL}/v1/tasks/${taskId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
+      const questionId = encodeURIComponent(question.finding_id || question.summary || question.description || "question")
+      const version = question.taskVersion
+      if (!version) throw new Error("Missing task version")
 
-      if (!taskResponse.ok) {
-        throw new Error(await readErrorMessage(taskResponse, `Could not load task version (HTTP ${taskResponse.status})`))
-      }
-
-      const task = await taskResponse.json()
-      const version = task.task?.version
-      if (!version) throw new Error("Could not load task version")
-
-      const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/findings`, {
+      const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/questions/${questionId}/answer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -187,19 +179,9 @@ function AnswerModal({ question, taskId, token, onClose, onSaved }) {
         },
         body: JSON.stringify({
           expected_version: version,
-          finding: {
-            finding_id: `answer_${Date.now()}`,
-            type: "answer",
-            summary: `Answer: ${answer.trim()}`,
-            description: `Question: ${question.summary}
-Answer: ${answer.trim()}`,
-            provenance: {
-              status: "verified",
-              recorded_by_route: "hub",
-              recorded_at: new Date().toISOString(),
-            },
-          },
-          updated_at: new Date().toISOString(),
+          answer: answer.trim(),
+          answered_by_route: "hub",
+          answered_at: new Date().toISOString(),
         }),
       })
 
@@ -302,7 +284,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
     })
 
     try {
-      const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/findings`, {
+      const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/questions/${encodeURIComponent(questionId)}/dismiss`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -310,17 +292,9 @@ export default function TaskDetailTab({ taskId, onBack }) {
         },
         body: JSON.stringify({
           expected_version: task.version,
-          finding: {
-            finding_id: `dismiss_${Date.now()}`,
-            type: "dismissed",
-            summary: `Dismissed: ${question.summary}`,
-            provenance: {
-              status: "invalidated",
-              recorded_by_route: "hub",
-              recorded_at: new Date().toISOString(),
-            },
-          },
-          updated_at: new Date().toISOString(),
+          reason: question.summary || question.description || "Dismissed from task detail",
+          dismissed_by_route: "hub",
+          dismissed_at: new Date().toISOString(),
         }),
       })
 
@@ -445,7 +419,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
 
       {answerQuestion && task && (
         <AnswerModal
-          question={answerQuestion}
+          question={{ ...answerQuestion, taskVersion: task.version }}
           taskId={task.task_id}
           token={token}
           onClose={() => setAnswerQuestion(null)}
