@@ -22,7 +22,14 @@ function normalizeSuggestedActions(actions) {
     }));
 }
 
-export function createSuccessEnvelope({ resource, data, summary, capability, suggestedActions = [] }) {
+function normalizeMeta(meta) {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return undefined;
+  if (Object.keys(meta).length === 0) return undefined;
+  return meta;
+}
+
+export function createSuccessEnvelope({ resource, data, summary, capability, suggestedActions = [], meta }) {
+  const normalizedMeta = normalizeMeta(meta);
   return {
     contract_version: CONTRACT_VERSION,
     resource: String(resource || 'unknown.resource'),
@@ -30,13 +37,15 @@ export function createSuccessEnvelope({ resource, data, summary, capability, sug
     summary: String(summary || 'Request completed successfully.'),
     capability: createCapability(capability),
     suggested_actions: normalizeSuggestedActions(suggestedActions),
+    ...(normalizedMeta ? { meta: normalizedMeta } : {}),
   };
 }
 
-export function createErrorEnvelope({ resource, data = null, summary, capability, suggestedActions = [], error }) {
+export function createErrorEnvelope({ resource, data = null, summary, capability, suggestedActions = [], error, meta }) {
   const code = typeof error?.code === 'string' ? error.code : 'internal_error';
   const message = typeof error?.message === 'string' ? error.message : 'Unexpected error';
   const hint = typeof error?.hint === 'string' ? error.hint : 'Retry the request or inspect server logs.';
+  const normalizedMeta = normalizeMeta(meta);
 
   return {
     contract_version: CONTRACT_VERSION,
@@ -45,6 +54,7 @@ export function createErrorEnvelope({ resource, data = null, summary, capability
     summary: String(summary || 'Request failed.'),
     capability: createCapability(capability),
     suggested_actions: normalizeSuggestedActions(suggestedActions),
+    ...(normalizedMeta ? { meta: normalizedMeta } : {}),
     error: { code, message, hint },
   };
 }

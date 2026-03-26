@@ -26,5 +26,6 @@ export interface ContractEnvelope<TData = unknown> {
   summary: string;
   capability: ContractCapability;
   suggested_actions: SuggestedAction[];
+  meta?: Record<string, unknown>;
   error?: ContractError;
 }

@@ -165,6 +165,7 @@ test('dashboard script-wrapper routes use shared dispatcher mapping', () => {
   contextCostRoute.handler({ query: { threshold: 3001 } }, { json(value) { payload = value; } });
 
   assert.equal(payload.data.success, true);
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.context_cost');
   assert.deepEqual(calls, [{ command: 'ops/context-cost.sh', args: ['--threshold', '3001'] }]);
 });
 
@@ -207,6 +208,7 @@ test('dashboard context-cost returns 400 for invalid threshold', () => {
   assert.equal(statusCode, 400);
   assert.equal(payload.error.code, 'invalid_arguments');
   assert.match(payload.error.message, /threshold must be numeric/);
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.context_cost');
 });
 
 test('/api/analytics returns tool_usage events from observation snapshot', async () => {
@@ -247,6 +249,7 @@ test('/api/analytics returns tool_usage events from observation snapshot', async
   assert.ok(Array.isArray(payload.data.metrics));
   assert.ok(payload.data.metrics.every((m) => m.type === 'tool_usage'));
   assert.equal(payload.data.metrics.length, 2);
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.skill_stats');
 });
 
 test('/api/skill-analytics aggregates skill_outcome events via observation snapshot', async () => {
@@ -300,6 +303,7 @@ test('/api/skill-analytics aggregates skill_outcome events via observation snaps
   const dbg = payload.data.skills.find((s) => s.skill === 'debug');
   assert.ok(dbg);
   assert.equal(dbg.use_rate, 100);
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.skill_stats');
 });
 
 test('/api/retrospectives-summary returns parsed cache when file exists', async () => {

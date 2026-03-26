@@ -17,6 +17,7 @@ type EnvelopeOptions = {
   data: unknown;
   suggestedActions?: SuggestedAction[];
   capability?: Partial<ContractCapability>;
+  meta?: Record<string, unknown>;
 };
 
 type ErrorOptions = EnvelopeOptions & {
@@ -31,6 +32,7 @@ function capabilityFor(overrides?: Partial<ContractCapability>): ContractCapabil
 }
 
 export function successEnvelope(options: EnvelopeOptions): ContractEnvelope {
+  const meta = options.meta && Object.keys(options.meta).length > 0 ? options.meta : undefined;
   return {
     contract_version: CONTRACT_VERSION,
     resource: options.resource,
@@ -38,6 +40,7 @@ export function successEnvelope(options: EnvelopeOptions): ContractEnvelope {
     summary: options.summary,
     capability: capabilityFor(options.capability),
     suggested_actions: options.suggestedActions ?? [],
+    ...(meta ? { meta } : {}),
   };
 }
 

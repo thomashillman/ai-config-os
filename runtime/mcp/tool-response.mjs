@@ -11,7 +11,11 @@ function mcpCapability() {
   });
 }
 
-export function toToolResponse(result, _effectiveOutcomeContract = null, capabilityProfile = null, resource = 'mcp.tool') {
+export function toToolResponse(result, effectiveOutcomeContract = null, capabilityProfile = null, resource = 'mcp.tool') {
+  const outcomeMeta = effectiveOutcomeContract
+    ? { effective_outcome_contract: effectiveOutcomeContract }
+    : undefined;
+
   if (result.success) {
     const output = result.output ?? '';
     const envelope = createSuccessEnvelope({
@@ -19,6 +23,7 @@ export function toToolResponse(result, _effectiveOutcomeContract = null, capabil
       data: { output, success: true },
       summary: 'Tool execution completed successfully.',
       capability: mcpCapability(),
+      meta: outcomeMeta,
     });
 
     return attachCapabilityProfile({
@@ -42,6 +47,7 @@ export function toToolResponse(result, _effectiveOutcomeContract = null, capabil
       message: textBody,
       hint: 'Inspect the tool output, correct inputs, and retry.',
     },
+    meta: outcomeMeta,
   });
 
   return attachCapabilityProfile({
@@ -64,6 +70,7 @@ export function toolError(message, capabilityProfile = null, options = {}) {
       hint: options.hint || 'Review tool arguments and retry the request.',
     },
     suggestedActions: options.suggestedActions || [],
+    meta: options.meta,
   });
 
   return attachCapabilityProfile({

@@ -30,11 +30,11 @@ export function createDashboardApi({
     });
   }
 
-  function ok(resource, data, summary) {
-    return createSuccessEnvelope({ resource, data, summary, capability: dashboardCapability() });
+  function ok(resource, data, summary, meta = undefined) {
+    return createSuccessEnvelope({ resource, data, summary, capability: dashboardCapability(), meta });
   }
 
-  function fail(resource, status, error) {
+  function fail(resource, status, error, meta = undefined) {
     return {
       status,
       body: createErrorEnvelope({
@@ -43,6 +43,7 @@ export function createDashboardApi({
         summary: 'Dashboard API request failed.',
         capability: dashboardCapability(),
         error,
+        meta,
       }),
     };
   }
@@ -57,18 +58,6 @@ export function createDashboardApi({
   app.use(jsonMiddleware({ limit: '10kb' }));
   app.use(tunnelGuardFactory(tunnelPolicy));
 
-  function executeWithOutcomeContract(toolName, run) {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({
-      toolName,
-      executionChannel: 'dashboard',
-    });
-    const result = run();
-    return {
-      ...result,
-      effectiveOutcomeContract,
-    };
-  }
-
   function executeRuntimeAction(toolName, actionArgs, res) {
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({
       toolName,
@@ -77,10 +66,14 @@ export function createDashboardApi({
 
     try {
       const result = runtimeActionDispatcher.dispatch(toolName, actionArgs);
-      res.json(ok(toolName, { output: result.output, success: result.success, effectiveOutcomeContract }, 'Runtime action completed.'));
+      res.json(ok(toolName, { output: result.output, success: result.success }, 'Runtime action completed.', {
+        effective_outcome_contract: effectiveOutcomeContract,
+      }));
     } catch (error) {
       if (error instanceof ActionValidationError) {
-        const failure = fail(toolName, 400, { code: 'invalid_arguments', message: error.message, hint: 'Correct the request arguments and retry.' });
+        const failure = fail(toolName, 400, { code: 'invalid_arguments', message: error.message, hint: 'Correct the request arguments and retry.' }, {
+          effective_outcome_contract: effectiveOutcomeContract,
+        });
         res.status(failure.status).json(failure.body);
         return;
       }
@@ -88,6 +81,8 @@ export function createDashboardApi({
         code: 'dashboard_action_failed',
         message: error instanceof Error ? error.message : 'failed to run dashboard action',
         hint: 'Retry the request. If this persists, inspect dashboard runtime logs.',
+      }, {
+        effective_outcome_contract: effectiveOutcomeContract,
       });
       res.status(failure.status).json(failure.body);
     }
@@ -114,9 +109,13 @@ export function createDashboardApi({
     try {
       const { events } = await loadObservationSnapshot({ projectDir: repoRoot });
       const metrics = events.filter((e) => e.type === 'tool_usage');
-      res.json(ok('analytics.tool_usage', { metrics, success: true, effectiveOutcomeContract }, 'Loaded analytics metrics.'));
+      res.json(ok('analytics.tool_usage', { metrics, success: true }, 'Loaded analytics metrics.', {
+        effective_outcome_contract: effectiveOutcomeContract,
+      }));
     } catch {
-      res.json(ok('analytics.tool_usage', { metrics: [], success: true, note: 'No metrics collected yet', effectiveOutcomeContract }, 'No analytics metrics available yet.'));
+      res.json(ok('analytics.tool_usage', { metrics: [], success: true, note: 'No metrics collected yet' }, 'No analytics metrics available yet.', {
+        effective_outcome_contract: effectiveOutcomeContract,
+      }));
     }
   });
 
@@ -124,7 +123,7 @@ export function createDashboardApi({
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
 
     if (!process.env.HOME) {
-      { const failure = fail('analytics.skill_outcomes', 503, { code: 'home_missing', message: '$HOME is not set', hint: 'Set HOME in the dashboard process environment.' }); res.status(failure.status).json(failure.body); }
+      { const failure = fail('analytics.skill_outcomes', 503, { code: 'home_missing', message: '$HOME is not set', hint: 'Set HOME in the dashboard process environment.' }, { effective_outcome_contract: effectiveOutcomeContract }); res.status(failure.status).json(failure.body); }
       return;
     }
 
@@ -147,17 +146,19 @@ export function createDashboardApi({
         use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
       })).sort((a, b) => b.total - a.total);
 
-      res.json(ok('analytics.skill_outcomes', { skills, total_events: outcomeEvents.length, success: true, effectiveOutcomeContract }, 'Loaded skill analytics.'));
+      res.json(ok('analytics.skill_outcomes', { skills, total_events: outcomeEvents.length, success: true }, 'Loaded skill analytics.', {
+        effective_outcome_contract: effectiveOutcomeContract,
+      }));
     } catch (err) {
-      { const failure = fail('analytics.skill_outcomes', 500, { code: 'analytics_failed', message: err instanceof Error ? err.message : 'unexpected error', hint: 'Retry the request or inspect dashboard logs.' }); res.status(failure.status).json(failure.body); }
+      { const failure = fail('analytics.skill_outcomes', 500, { code: 'analytics_failed', message: err instanceof Error ? err.message : 'unexpected error', hint: 'Retry the request or inspect dashboard logs.' }, { effective_outcome_contract: effectiveOutcomeContract }); res.status(failure.status).json(failure.body); }
     }
   });
 
   app.get('/api/retrospectives-summary', (req, res) => {
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-    const empty = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true, effectiveOutcomeContract };
+    const empty = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true };
 
-    if (!process.env.HOME) { res.json(ok('retrospectives.summary', empty, 'Loaded retrospective summary.')); return; }
+    if (!process.env.HOME) { res.json(ok('retrospectives.summary', empty, 'Loaded retrospective summary.', { effective_outcome_contract: effectiveOutcomeContract })); return; }
 
     const cacheFile = path.join(
       process.env.HOME, '.ai-config-os', 'cache', 'claude-code', 'retrospectives-aggregate.json'
@@ -169,10 +170,9 @@ export function createDashboardApi({
         signal_breakdown: data.signal_breakdown && typeof data.signal_breakdown === 'object' && !Array.isArray(data.signal_breakdown) ? data.signal_breakdown : {},
         top_recommendations: Array.isArray(data.top_recommendations) ? data.top_recommendations : [],
         success: true,
-        effectiveOutcomeContract,
-      }, 'Loaded retrospective summary.'));
+      }, 'Loaded retrospective summary.', { effective_outcome_contract: effectiveOutcomeContract }));
     } catch {
-      res.json(ok('retrospectives.summary', empty, 'Loaded retrospective summary.'));
+      res.json(ok('retrospectives.summary', empty, 'Loaded retrospective summary.', { effective_outcome_contract: effectiveOutcomeContract }));
     }
   });
 
@@ -180,7 +180,7 @@ export function createDashboardApi({
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
 
     if (!repoRoot) {
-      { const failure = fail('autoresearch.runs', 503, { code: 'repo_root_missing', message: 'repoRoot not configured', hint: 'Set repoRoot for the dashboard API process.' }); res.status(failure.status).json(failure.body); }
+      { const failure = fail('autoresearch.runs', 503, { code: 'repo_root_missing', message: 'repoRoot not configured', hint: 'Set repoRoot for the dashboard API process.' }, { effective_outcome_contract: effectiveOutcomeContract }); res.status(failure.status).json(failure.body); }
       return;
     }
 
@@ -228,9 +228,11 @@ export function createDashboardApi({
         }
       }
       runs.sort((a, b) => (b.best_score ?? 0) - (a.best_score ?? 0));
-      res.json(ok('autoresearch.runs', { runs, success: true, effectiveOutcomeContract }, 'Loaded autoresearch runs.'));
+      res.json(ok('autoresearch.runs', { runs, success: true }, 'Loaded autoresearch runs.', {
+        effective_outcome_contract: effectiveOutcomeContract,
+      }));
     } catch (err) {
-      { const failure = fail('autoresearch.runs', 500, { code: 'autoresearch_failed', message: err instanceof Error ? err.message : 'unexpected error', hint: 'Retry the request or inspect dashboard logs.' }); res.status(failure.status).json(failure.body); }
+      { const failure = fail('autoresearch.runs', 500, { code: 'autoresearch_failed', message: err instanceof Error ? err.message : 'unexpected error', hint: 'Retry the request or inspect dashboard logs.' }, { effective_outcome_contract: effectiveOutcomeContract }); res.status(failure.status).json(failure.body); }
     }
   });
 
