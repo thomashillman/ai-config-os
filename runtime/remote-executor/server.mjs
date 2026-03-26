@@ -122,6 +122,7 @@ async function executeTool(body, timeoutMs) {
       data: parsed.data,
       schema_ids: parsed.schemaIds,
       capability: { local_only: parsed.capability.local_only, worker_backed: true },
+      capability_by_schema: parsed.capabilityBySchema ?? {},
       diagnostics: rawOutput ? { raw_output: rawOutput } : undefined,
       stderr: result.stderr?.trimEnd() ?? '',
     },

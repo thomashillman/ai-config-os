@@ -25,6 +25,7 @@ function buildFullContract(result) {
     capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
     schema_ids: result.parsed?.schemaIds ?? [],
     data: result.parsed?.data ?? {},
+    capability_by_schema: result.parsed?.capabilityBySchema ?? {},
     diagnostics: result.output
       ? { raw_output: result.output }
       : undefined,
@@ -48,6 +49,7 @@ function buildDegradedContract(textBody, result) {
     capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
     schema_ids: result.parsed?.schemaIds ?? [],
     data: result.parsed?.data ?? {},
+    capability_by_schema: result.parsed?.capabilityBySchema ?? {},
     diagnostics: { raw_output: textBody },
   };
 }
