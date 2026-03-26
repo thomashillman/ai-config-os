@@ -20,6 +20,16 @@ function readSections(dirPath, fileNames) {
     .filter(Boolean);
 }
 
+function overlayFilesForSurface(overlaysDir, surfaceName) {
+  const allOverlayFiles = sortedMarkdownFiles(overlaysDir, '.overlay.md');
+  const sharedOverlayFiles = allOverlayFiles
+    .filter((fileName) => !SUPPORTED_SURFACES.has(fileName.replace('.overlay.md', '')));
+  const surfaceOverlayFiles = allOverlayFiles
+    .filter((fileName) => fileName === `${surfaceName}.overlay.md`);
+
+  return [...sharedOverlayFiles, ...surfaceOverlayFiles];
+}
+
 export function composeForSurface(surfaceName) {
   if (!SUPPORTED_SURFACES.has(surfaceName)) {
     throw new Error(`Unsupported surface: ${surfaceName}`);
@@ -31,7 +41,7 @@ export function composeForSurface(surfaceName) {
 
   const baseSections = readSections(baseDir, sortedMarkdownFiles(baseDir));
   const surfaceSection = readFileSync(join(surfacesDir, `${surfaceName}.md`), 'utf8').trim();
-  const overlaySections = readSections(overlaysDir, sortedMarkdownFiles(overlaysDir, '.overlay.md'));
+  const overlaySections = readSections(overlaysDir, overlayFilesForSurface(overlaysDir, surfaceName));
 
   return [GENERATED_HEADER, ...baseSections, surfaceSection, ...overlaySections].join('\n\n').trim() + '\n';
 }
