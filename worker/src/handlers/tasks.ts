@@ -8,7 +8,13 @@ import {
   validateContinuationPayload,
   validateAppendFindingPayload,
   validateTransitionFindingsPayload,
+  validateAnswerQuestionPayload,
+  validateDismissQuestionPayload,
 } from '../validation/tasks';
+
+const TASK_AVAILABLE_ROUTES: Record<string, string[]> = {
+  review_repository: ['local_repo', 'github_pr', 'uploaded_bundle', 'pasted_diff'],
+};
 
 export async function handleTaskGet(env: Env, taskId: string): Promise<Response> {
   try {
@@ -235,6 +241,92 @@ export async function handleTaskTransitionFindings(request: Request, env: Env, t
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
     return badRequest(error instanceof Error ? error.message : 'Failed to transition findings');
+  }
+}
+
+function toQuestionFindingId(questionId: string): string {
+  return decodeURIComponent(questionId);
+}
+
+export async function handleTaskAnswerQuestion(request: Request, env: Env, taskId: string, questionId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const validation = validateAnswerQuestionPayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  const answeredAt = validation.value.answered_at || new Date().toISOString();
+  const questionFindingId = toQuestionFindingId(questionId);
+
+  try {
+    const updated = await getTaskService(env).appendFinding(taskId, {
+      expected_version: validation.value.expected_version,
+      finding: {
+        findingId: `answer_${Date.now()}`,
+        summary: `Answer: ${validation.value.answer.trim()}`,
+        status: 'verified',
+        recordedByRoute: validation.value.answered_by_route || 'hub',
+        recordedAt: answeredAt,
+        note: `Question ${questionFindingId}\nAnswer: ${validation.value.answer.trim()}`,
+      },
+      updated_at: answeredAt,
+    });
+    return jsonResponse({ task: updated }, 201);
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to answer question');
+  }
+}
+
+export async function handleTaskDismissQuestion(request: Request, env: Env, taskId: string, questionId: string): Promise<Response> {
+  const body = await readJsonBody(request);
+  if (!body.ok) return body.response;
+
+  const validation = validateDismissQuestionPayload(body.value);
+  if (!validation.ok) return badRequest(validation.error);
+
+  const dismissedAt = validation.value.dismissed_at || new Date().toISOString();
+  const questionFindingId = toQuestionFindingId(questionId);
+  const reason = validation.value.reason?.trim();
+
+  try {
+    const updated = await getTaskService(env).appendFinding(taskId, {
+      expected_version: validation.value.expected_version,
+      finding: {
+        findingId: `dismiss_${Date.now()}`,
+        summary: reason ? `Dismissed: ${reason}` : `Dismissed question ${questionFindingId}`,
+        status: 'invalidated',
+        recordedByRoute: validation.value.dismissed_by_route || 'hub',
+        recordedAt: dismissedAt,
+        note: reason || `Question ${questionFindingId} dismissed`,
+      },
+      updated_at: dismissedAt,
+    });
+    return jsonResponse({ task: updated }, 201);
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return badRequest(error instanceof Error ? error.message : 'Failed to dismiss question');
+  }
+}
+
+export async function handleTaskAvailableRoutes(env: Env, taskId: string): Promise<Response> {
+  try {
+    const task = await getTaskService(env).getTask(taskId);
+    const availableRoutes = TASK_AVAILABLE_ROUTES[task.task_type] || [task.current_route];
+    const bestNextRoute = task.task_type === 'review_repository' && task.current_route !== 'local_repo'
+      ? 'local_repo'
+      : task.current_route;
+    return jsonResponse({
+      task_id: taskId,
+      task_type: task.task_type,
+      current_route: task.current_route,
+      best_next_route: bestNextRoute,
+      available_routes: availableRoutes.map((route_id) => ({ route_id })),
+    });
+  } catch (error) {
+    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task route availability error' } }, 500);
   }
 }
 

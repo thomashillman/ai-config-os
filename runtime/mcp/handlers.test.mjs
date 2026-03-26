@@ -30,6 +30,13 @@ function makeDeps({ outcomeId = null, readFlags = null } = {}) {
       resumeReviewRepositoryTask: () => ({ task: { task_id: 'task_1' }, upgraded: true }),
       getReadiness: () => ({ task_id: 'task_1', readiness: { is_ready: true } }),
     },
+    callWorkerTaskApi: async ({ path }) => {
+      if (path === '/v1/tasks') return { tasks: [{ task_id: 'task_1', state: 'active', findings: [], current_route: 'github_pr' }] };
+      if (path === '/v1/tasks/task_1') return { task: { task_id: 'task_1', state: 'active', findings: [], current_route: 'github_pr', task_type: 'review_repository' } };
+      if (path === '/v1/tasks/task_1/progress-events') return { events: [] };
+      if (path === '/v1/tasks/task_1/available-routes') return { best_next_route: 'local_repo', available_routes: [{ route_id: 'local_repo' }] };
+      throw new Error(`Unexpected path ${path}`);
+    },
   };
 }
 
@@ -114,4 +121,20 @@ test('task tools return structured error when task service is not configured', a
 
   assert.equal(result.isError, true);
   assert.match(result.content[0].text, /Task service is not configured/);
+});
+
+test('worker-first tasks.get returns summary envelope', async () => {
+  const handler = createCallToolHandler(makeDeps());
+  const result = await handler({ params: { name: 'tasks.get', arguments: { task_id: 'task_1' } } });
+  assert.equal(result.isError, undefined);
+  assert.match(result.content[0].text, /best next route: local_repo/);
+});
+
+test('worker-first task tools error when worker api client is missing', async () => {
+  const deps = makeDeps();
+  deps.callWorkerTaskApi = null;
+  const handler = createCallToolHandler(deps);
+  const result = await handler({ params: { name: 'tasks.list', arguments: {} } });
+  assert.equal(result.isError, true);
+  assert.match(result.content[0].text, /Worker task API client is not configured/);
 });

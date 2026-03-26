@@ -74,6 +74,20 @@ export type TransitionFindingsPayload = {
   to_equivalence_level: string;
 };
 
+export type AnswerQuestionPayload = {
+  expected_version: number;
+  answer: string;
+  answered_by_route?: string;
+  answered_at?: string;
+};
+
+export type DismissQuestionPayload = {
+  expected_version: number;
+  reason?: string;
+  dismissed_by_route?: string;
+  dismissed_at?: string;
+};
+
 export type JsonReadResult =
   | { ok: true; value: unknown }
   | { ok: false; response: Response };
