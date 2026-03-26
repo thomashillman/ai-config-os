@@ -39,7 +39,8 @@ test('MCP and dashboard contract-resolution surfaces agree on route identity', a
   });
 
   const mcpResponse = await handler({ params: { name: 'resolve_outcome_contract', arguments: { tool_name: 'list_tools' } } });
-  const mcpContract = JSON.parse(mcpResponse.content[0].text);
+  const mcpEnvelope = JSON.parse(mcpResponse.content[0].text);
+  const mcpContract = mcpEnvelope.data;
 
   const app = makeFakeApp();
   createDashboardApi({
@@ -61,8 +62,8 @@ test('MCP and dashboard contract-resolution surfaces agree on route identity', a
   let jsonPayload = null;
   route({ query: { tool_name: 'list_tools' } }, { json(payload) { jsonPayload = payload; } });
 
-  assert.equal(mcpContract.preferredRoute.id, jsonPayload.effectiveOutcomeContract.preferredRoute.id);
-  assert.deepEqual(mcpContract.preferredRoute.args, jsonPayload.effectiveOutcomeContract.preferredRoute.args);
+  assert.equal(mcpContract.preferredRoute.id, jsonPayload.data.effectiveOutcomeContract.preferredRoute.id);
+  assert.deepEqual(mcpContract.preferredRoute.args, jsonPayload.data.effectiveOutcomeContract.preferredRoute.args);
 });
 
 test('MCP and dashboard script-wrapper actions resolve to equivalent command mappings', async () => {

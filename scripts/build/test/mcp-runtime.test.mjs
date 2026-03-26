@@ -9,73 +9,50 @@ import assert from 'node:assert/strict';
 
 // --- Helper response shaping tests ---
 
-test('toToolResponse returns Full contract on success', async () => {
+function parseEnvelope(result) {
+  return JSON.parse(result.content[0].text);
+}
+
+test('toToolResponse returns envelope on success', async () => {
   const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
 
   const result = toToolResponse({ success: true, output: 'ok', error: null });
-
-  assert.deepEqual(result, {
-    content: [{ type: 'text', text: 'Tool execution succeeded.' }],
-    structuredContent: {
-      status: 'Full',
-      selectedRoute: 'local-runtime-script',
-      capability: { local_only: true, worker_backed: false },
-      schema_ids: [],
-      data: {},
-      capability_by_schema: {},
-      diagnostics: { raw_output: 'ok' },
-    },
-  });
+  const envelope = parseEnvelope(result);
+  assert.equal(envelope.contract_version, '1.0.0');
+  assert.equal(envelope.data.diagnostics.raw_output, 'ok');
+  assert.equal(envelope.data.success, true);
+  assert.equal(result.content[0].type, 'text');
+  assert.deepEqual(result.structuredContent, envelope);
 });
 
 test('toToolResponse returns empty string for success with no output', async () => {
   const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
 
   const result = toToolResponse({ success: true, output: '', error: null });
-
-  assert.deepEqual(result, {
-    content: [{ type: 'text', text: 'Tool execution succeeded.' }],
-    structuredContent: {
-      status: 'Full',
-      selectedRoute: 'local-runtime-script',
-      capability: { local_only: true, worker_backed: false },
-      schema_ids: [],
-      data: {},
-      capability_by_schema: {},
-      diagnostics: undefined,
-    },
-  });
+  const envelope = parseEnvelope(result);
+  assert.equal(envelope.data.diagnostics, undefined);
+  assert.equal(envelope.data.success, true);
 });
 
 test('toToolResponse returns null output as empty string on success', async () => {
   const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
 
   const result = toToolResponse({ success: true, output: null, error: null });
-
-  assert.deepEqual(result, {
-    content: [{ type: 'text', text: 'Tool execution succeeded.' }],
-    structuredContent: {
-      status: 'Full',
-      selectedRoute: 'local-runtime-script',
-      capability: { local_only: true, worker_backed: false },
-      schema_ids: [],
-      data: {},
-      capability_by_schema: {},
-      diagnostics: undefined,
-    },
-  });
+  const envelope = parseEnvelope(result);
+  assert.equal(envelope.data.diagnostics, undefined);
+  assert.equal(envelope.data.success, true);
 });
 
 test('toToolResponse sets isError true on failure', async () => {
   const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
 
   const result = toToolResponse({ success: false, output: '', error: 'boom' });
+  const envelope = parseEnvelope(result);
 
   assert.equal(result.isError, true);
-  assert.equal(result.content[0].text, 'Tool execution failed.');
-  assert.equal(result.structuredContent.diagnostics.raw_output, 'boom');
-  assert.equal(result.structuredContent.status, 'Degraded');
-  assert.ok(Array.isArray(result.structuredContent.missingCapabilities));
+  assert.match(envelope.data.diagnostics.raw_output, /boom/);
+  assert.equal(envelope.data.success, false);
+  assert.equal(envelope.error.code, 'tool_execution_failed');
 });
 
 test('toToolResponse preserves both stderr and stdout on failure', async () => {
@@ -88,8 +65,9 @@ test('toToolResponse preserves both stderr and stdout on failure', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.structuredContent.diagnostics.raw_output, /stderr failure/);
-  assert.match(result.structuredContent.diagnostics.raw_output, /stdout details/);
+  const envelope = parseEnvelope(result);
+  assert.match(envelope.data.diagnostics.raw_output, /stderr failure/);
+  assert.match(envelope.data.diagnostics.raw_output, /stdout details/);
 });
 
 test('toToolResponse handles error without stdout', async () => {
@@ -102,7 +80,7 @@ test('toToolResponse handles error without stdout', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(result.structuredContent.diagnostics.raw_output, 'command failed');
+  assert.equal(parseEnvelope(result).data.diagnostics.raw_output, 'command failed');
 });
 
 test('toToolResponse handles stdout without error', async () => {
@@ -115,7 +93,7 @@ test('toToolResponse handles stdout without error', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(result.structuredContent.diagnostics.raw_output, 'some output');
+  assert.equal(parseEnvelope(result).data.diagnostics.raw_output, 'some output');
 });
 
 test('toToolResponse handles both missing on failure', async () => {
@@ -128,43 +106,45 @@ test('toToolResponse handles both missing on failure', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(result.structuredContent.diagnostics.raw_output, 'Unknown error');
+  assert.equal(parseEnvelope(result).data.diagnostics.raw_output, 'Unknown error');
 });
 
 
-test('toToolResponse includes EffectiveOutcomeContract prefix on failure', async () => {
+test('toToolResponse includes effective outcome contract in envelope meta on failure', async () => {
   const { toToolResponse } = await import('../../../runtime/mcp/tool-response.mjs');
+  const contract = { outcomeId: 'runtime.validate-all' };
 
   const result = toToolResponse(
     { success: false, output: 'stdout details', error: 'stderr failure' },
-    { outcomeId: 'runtime.validate-all' }
+    contract
   );
 
+  const envelope = parseEnvelope(result);
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /EffectiveOutcomeContract:/);
-  assert.match(result.content[0].text, /runtime.validate-all/);
-  assert.match(result.structuredContent.diagnostics.raw_output, /stderr failure/);
-  assert.match(result.structuredContent.diagnostics.raw_output, /stdout details/);
+  assert.deepEqual(envelope.meta.effective_outcome_contract, contract);
+  assert.match(envelope.data.diagnostics.raw_output, /stderr failure/);
+  assert.match(envelope.data.diagnostics.raw_output, /stdout details/);
 });
 
 test('toolError returns isError true', async () => {
   const { toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
   const result = toolError('something went wrong');
+  const envelope = parseEnvelope(result);
 
   assert.equal(result.isError, true);
-  assert.equal(result.content[0].text, 'something went wrong');
-  assert.equal(result.structuredContent.status, 'Degraded');
-  assert.equal(result.structuredContent.selectedRoute, 'manual-input-correction');
+  assert.equal(envelope.error.code, 'invalid_request');
+  assert.equal(envelope.error.message, 'something went wrong');
 });
 
 test('toolError handles null message gracefully', async () => {
   const { toolError } = await import('../../../runtime/mcp/tool-response.mjs');
 
   const result = toolError(null);
+  const envelope = parseEnvelope(result);
 
   assert.equal(result.isError, true);
-  assert.equal(result.structuredContent.output, 'Unknown error');
+  assert.equal(envelope.error.message, 'Unknown error');
 });
 
 // --- Handler-level tests (Slice 3) ---
@@ -265,8 +245,8 @@ test('handler script failure becomes MCP error response with full context', asyn
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.structuredContent.diagnostics.raw_output, /stderr: process exited with code 1/);
-  assert.match(result.structuredContent.diagnostics.raw_output, /stdout: some operation started/);
+  assert.match(result.content[0].text, /stderr: process exited with code 1/);
+  assert.match(result.content[0].text, /stdout: some operation started/);
 });
 
 test('handler context_cost validates number argument', async () => {
@@ -412,7 +392,7 @@ test('handler success response uses toToolResponse', async () => {
   });
 
   assert.equal(result.isError, undefined);
-  assert.ok(result.content[0].text.length > 0);
+  assert.match(result.content[0].text, /operation successful/);
 });
 
 // --- Slice 2: Runtime prerequisite helper injection tests ---

@@ -28,6 +28,8 @@ import { createMomentumEngine } from "../lib/momentum-engine.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
+const WORKER_BASE_URL = (process.env.AI_CONFIG_OS_WORKER_URL || process.env.WORKER_URL || '').replace(/\/+$/, '');
+const WORKER_AUTH_TOKEN = process.env.AI_CONFIG_OS_WORKER_TOKEN || process.env.AUTH_TOKEN || '';
 
 function runScript(script, args = []) {
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
@@ -56,6 +58,27 @@ const taskStore = new TaskStore();
 const taskService = createTaskControlPlaneService({ taskStore });
 const momentumEngine = createMomentumEngine({ taskStore });
 
+async function callWorkerTaskApi({ method, path: routePath, body }) {
+  if (!WORKER_BASE_URL) {
+    throw new Error('AI_CONFIG_OS_WORKER_URL (or WORKER_URL) is required for Worker-first task tools');
+  }
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(WORKER_AUTH_TOKEN ? { Authorization: `Bearer ${WORKER_AUTH_TOKEN}` } : {}),
+  };
+  const response = await fetch(`${WORKER_BASE_URL}${routePath}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = payload?.error?.message || `Worker request failed with HTTP ${response.status}`;
+    throw new Error(message);
+  }
+  return payload;
+}
+
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
   { capabilities: { tools: {} } }
@@ -80,6 +103,7 @@ const handleCallTool = createCallToolHandler({
   getCapabilityProfile: () => capabilityProfileResolver.getProfile(),
   taskService,
   momentumEngine,
+  callWorkerTaskApi,
 });
 
 server.setRequestHandler(CallToolRequestSchema, handleCallTool);

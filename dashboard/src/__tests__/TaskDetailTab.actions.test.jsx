@@ -56,7 +56,6 @@ describe("TaskDetailTab answer and dismiss actions", () => {
     fetchMock
       .mockImplementationOnce(() => jsonResponse({ task: BASE_TASK }))
       .mockImplementationOnce(() => jsonResponse({ events: [] }))
-      .mockImplementationOnce(() => jsonResponse({ task: BASE_TASK }))
       .mockImplementationOnce(() => jsonResponse({ task: updatedTask }))
       .mockImplementationOnce(() => jsonResponse({ task: updatedTask }))
       .mockImplementationOnce(() => jsonResponse({ events: [] }))
@@ -74,7 +73,7 @@ describe("TaskDetailTab answer and dismiss actions", () => {
     await waitFor(() => expect(screen.queryByPlaceholderText("Your answer...")).not.toBeInTheDocument())
     await waitFor(() => expect(screen.getByText("v4")).toBeInTheDocument())
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(`/v1/tasks/${BASE_TASK.task_id}/findings`),
+      expect.stringContaining(`/v1/tasks/${BASE_TASK.task_id}/questions/question-1/answer`),
       expect.objectContaining({ method: "POST" }),
     )
   })
@@ -84,7 +83,6 @@ describe("TaskDetailTab answer and dismiss actions", () => {
     fetchMock
       .mockImplementationOnce(() => jsonResponse({ task: BASE_TASK }))
       .mockImplementationOnce(() => jsonResponse({ events: [] }))
-      .mockImplementationOnce(() => jsonResponse({ task: BASE_TASK }))
       .mockImplementationOnce(() => jsonResponse({
         error: {
           code: "task_version_conflict",
@@ -105,7 +103,7 @@ describe("TaskDetailTab answer and dismiss actions", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Version conflict for task-123: expected 3, current 4")
     expect(screen.getByPlaceholderText("Your answer...")).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText("Save answer")).toBeEnabled())
-    expect(fetchMock).toHaveBeenCalledTimes(4)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 
   it("shows an inline error near the question when dismiss save fails", async () => {
@@ -128,6 +126,6 @@ describe("TaskDetailTab answer and dismiss actions", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Version conflict for task-123: expected 3, current 4")
     expect(fetchMock).toHaveBeenCalledTimes(3)
-    expect(fetchMock.mock.calls[2][0]).toContain(`/v1/tasks/${BASE_TASK.task_id}/findings`)
+    expect(fetchMock.mock.calls[2][0]).toContain(`/v1/tasks/${BASE_TASK.task_id}/questions/question-1/dismiss`)
   })
 })

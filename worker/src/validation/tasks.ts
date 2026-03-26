@@ -5,7 +5,15 @@
  * Query parameter parsers that return Response objects stay in handlers/tasks.ts.
  */
 
-import type { AppendFindingPayload, ContinuationPayload, RouteSelectionPayload, TransitionFindingsPayload, TransitionTaskStatePayload } from '../types';
+import type {
+  AnswerQuestionPayload,
+  AppendFindingPayload,
+  ContinuationPayload,
+  DismissQuestionPayload,
+  RouteSelectionPayload,
+  TransitionFindingsPayload,
+  TransitionTaskStatePayload,
+} from '../types';
 
 function asObject(payload: unknown): Record<string, unknown> | null {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
@@ -88,4 +96,28 @@ export function validateTransitionFindingsPayload(payload: unknown): { ok: true;
   if (!isIsoDateTime(data.upgraded_at)) return { ok: false, error: "Field 'upgraded_at' must be an ISO timestamp" };
   if (typeof data.to_equivalence_level !== 'string' || data.to_equivalence_level.length === 0) return { ok: false, error: "Field 'to_equivalence_level' must be a non-empty string" };
   return { ok: true, value: data as unknown as TransitionFindingsPayload };
+}
+
+export function validateAnswerQuestionPayload(payload: unknown): { ok: true; value: AnswerQuestionPayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+  if (!Number.isInteger(data.expected_version)) return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (typeof data.answer !== 'string' || data.answer.trim().length === 0) return { ok: false, error: "Field 'answer' must be a non-empty string" };
+  if (data.answered_at !== undefined && !isIsoDateTime(data.answered_at)) return { ok: false, error: "Field 'answered_at' must be an ISO timestamp" };
+  if (data.answered_by_route !== undefined && (typeof data.answered_by_route !== 'string' || data.answered_by_route.length === 0)) {
+    return { ok: false, error: "Field 'answered_by_route' must be a non-empty string when provided" };
+  }
+  return { ok: true, value: data as unknown as AnswerQuestionPayload };
+}
+
+export function validateDismissQuestionPayload(payload: unknown): { ok: true; value: DismissQuestionPayload } | { ok: false; error: string } {
+  const data = asObject(payload);
+  if (!data) return { ok: false, error: 'Payload must be a JSON object' };
+  if (!Number.isInteger(data.expected_version)) return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (data.dismissed_at !== undefined && !isIsoDateTime(data.dismissed_at)) return { ok: false, error: "Field 'dismissed_at' must be an ISO timestamp" };
+  if (data.dismissed_by_route !== undefined && (typeof data.dismissed_by_route !== 'string' || data.dismissed_by_route.length === 0)) {
+    return { ok: false, error: "Field 'dismissed_by_route' must be a non-empty string when provided" };
+  }
+  if (data.reason !== undefined && typeof data.reason !== 'string') return { ok: false, error: "Field 'reason' must be a string when provided" };
+  return { ok: true, value: data as unknown as DismissQuestionPayload };
 }
