@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ActionValidationError, createRuntimeActionDispatcher } from '../lib/runtime-action-dispatcher.mjs';
 import { loadObservationSnapshot } from '../lib/observation-read-model.mjs';
-import { createCapability, createErrorEnvelope, createSuccessEnvelope } from '../lib/contracts/envelope.mjs';
 
 export function createDashboardApi({
   app,
@@ -20,34 +19,6 @@ export function createDashboardApi({
 }) {
   const runtimeActionDispatcher = createRuntimeActionDispatcher({ runScript, validateNumber });
 
-  function dashboardCapability() {
-    return createCapability({
-      worker_backed: false,
-      local_only: true,
-      remote_safe: false,
-      tunnel_required: true,
-      unavailable_on_surface: false,
-    });
-  }
-
-  function ok(resource, data, summary, meta = undefined) {
-    return createSuccessEnvelope({ resource, data, summary, capability: dashboardCapability(), meta });
-  }
-
-  function fail(resource, status, error, meta = undefined) {
-    return {
-      status,
-      body: createErrorEnvelope({
-        resource,
-        data: null,
-        summary: 'Dashboard API request failed.',
-        capability: dashboardCapability(),
-        error,
-        meta,
-      }),
-    };
-  }
-
   app.use(
     corsMiddleware({
       origin(origin, callback) {
@@ -58,6 +29,18 @@ export function createDashboardApi({
   app.use(jsonMiddleware({ limit: '10kb' }));
   app.use(tunnelGuardFactory(tunnelPolicy));
 
+  function executeWithOutcomeContract(toolName, run) {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({
+      toolName,
+      executionChannel: 'dashboard',
+    });
+    const result = run();
+    return {
+      ...result,
+      effectiveOutcomeContract,
+    };
+  }
+
   function executeRuntimeAction(toolName, actionArgs, res) {
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({
       toolName,
@@ -66,25 +49,24 @@ export function createDashboardApi({
 
     try {
       const result = runtimeActionDispatcher.dispatch(toolName, actionArgs);
-      res.json(ok(toolName, { output: result.output, success: result.success }, 'Runtime action completed.', {
-        effective_outcome_contract: effectiveOutcomeContract,
-      }));
+      res.json({
+        success: result.success,
+        data: result.parsed?.data ?? {},
+        schema_ids: result.parsed?.schemaIds ?? [],
+        capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
+        diagnostics: result.output ? { raw_output: result.output } : undefined,
+        effectiveOutcomeContract,
+      });
     } catch (error) {
       if (error instanceof ActionValidationError) {
-        const failure = fail(toolName, 400, { code: 'invalid_arguments', message: error.message, hint: 'Correct the request arguments and retry.' }, {
-          effective_outcome_contract: effectiveOutcomeContract,
-        });
-        res.status(failure.status).json(failure.body);
+        res.status(400).json({ success: false, error: error.message, effectiveOutcomeContract });
         return;
       }
-      const failure = fail(toolName, 500, {
-        code: 'dashboard_action_failed',
-        message: error instanceof Error ? error.message : 'failed to run dashboard action',
-        hint: 'Retry the request. If this persists, inspect dashboard runtime logs.',
-      }, {
-        effective_outcome_contract: effectiveOutcomeContract,
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'failed to run dashboard action',
+        effectiveOutcomeContract,
       });
-      res.status(failure.status).json(failure.body);
     }
   }
 
@@ -109,13 +91,9 @@ export function createDashboardApi({
     try {
       const { events } = await loadObservationSnapshot({ projectDir: repoRoot });
       const metrics = events.filter((e) => e.type === 'tool_usage');
-      res.json(ok('analytics.tool_usage', { metrics, success: true }, 'Loaded analytics metrics.', {
-        effective_outcome_contract: effectiveOutcomeContract,
-      }));
+      res.json({ metrics, success: true, effectiveOutcomeContract });
     } catch {
-      res.json(ok('analytics.tool_usage', { metrics: [], success: true, note: 'No metrics collected yet' }, 'No analytics metrics available yet.', {
-        effective_outcome_contract: effectiveOutcomeContract,
-      }));
+      res.json({ metrics: [], success: true, note: 'No metrics collected yet', effectiveOutcomeContract });
     }
   });
 
@@ -123,7 +101,7 @@ export function createDashboardApi({
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
 
     if (!process.env.HOME) {
-      { const failure = fail('analytics.skill_outcomes', 503, { code: 'home_missing', message: '$HOME is not set', hint: 'Set HOME in the dashboard process environment.' }, { effective_outcome_contract: effectiveOutcomeContract }); res.status(failure.status).json(failure.body); }
+      res.status(503).json({ skills: [], total_events: 0, success: false, error: '$HOME is not set', effectiveOutcomeContract });
       return;
     }
 
@@ -146,33 +124,32 @@ export function createDashboardApi({
         use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
       })).sort((a, b) => b.total - a.total);
 
-      res.json(ok('analytics.skill_outcomes', { skills, total_events: outcomeEvents.length, success: true }, 'Loaded skill analytics.', {
-        effective_outcome_contract: effectiveOutcomeContract,
-      }));
+      res.json({ skills, total_events: outcomeEvents.length, success: true, effectiveOutcomeContract });
     } catch (err) {
-      { const failure = fail('analytics.skill_outcomes', 500, { code: 'analytics_failed', message: err instanceof Error ? err.message : 'unexpected error', hint: 'Retry the request or inspect dashboard logs.' }, { effective_outcome_contract: effectiveOutcomeContract }); res.status(failure.status).json(failure.body); }
+      res.status(500).json({ skills: [], total_events: 0, success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });
     }
   });
 
   app.get('/api/retrospectives-summary', (req, res) => {
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-    const empty = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true };
+    const empty = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true, effectiveOutcomeContract };
 
-    if (!process.env.HOME) { res.json(ok('retrospectives.summary', empty, 'Loaded retrospective summary.', { effective_outcome_contract: effectiveOutcomeContract })); return; }
+    if (!process.env.HOME) { res.json(empty); return; }
 
     const cacheFile = path.join(
       process.env.HOME, '.ai-config-os', 'cache', 'claude-code', 'retrospectives-aggregate.json'
     );
     try {
       const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-      res.json(ok('retrospectives.summary', {
+      res.json({
         artifact_count: typeof data.artifact_count === 'number' ? data.artifact_count : 0,
         signal_breakdown: data.signal_breakdown && typeof data.signal_breakdown === 'object' && !Array.isArray(data.signal_breakdown) ? data.signal_breakdown : {},
         top_recommendations: Array.isArray(data.top_recommendations) ? data.top_recommendations : [],
         success: true,
-      }, 'Loaded retrospective summary.', { effective_outcome_contract: effectiveOutcomeContract }));
+        effectiveOutcomeContract,
+      });
     } catch {
-      res.json(ok('retrospectives.summary', empty, 'Loaded retrospective summary.', { effective_outcome_contract: effectiveOutcomeContract }));
+      res.json(empty);
     }
   });
 
@@ -180,7 +157,7 @@ export function createDashboardApi({
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
 
     if (!repoRoot) {
-      { const failure = fail('autoresearch.runs', 503, { code: 'repo_root_missing', message: 'repoRoot not configured', hint: 'Set repoRoot for the dashboard API process.' }, { effective_outcome_contract: effectiveOutcomeContract }); res.status(failure.status).json(failure.body); }
+      res.status(503).json({ runs: [], success: false, error: 'repoRoot not configured', effectiveOutcomeContract });
       return;
     }
 
@@ -228,11 +205,9 @@ export function createDashboardApi({
         }
       }
       runs.sort((a, b) => (b.best_score ?? 0) - (a.best_score ?? 0));
-      res.json(ok('autoresearch.runs', { runs, success: true }, 'Loaded autoresearch runs.', {
-        effective_outcome_contract: effectiveOutcomeContract,
-      }));
+      res.json({ runs, success: true, effectiveOutcomeContract });
     } catch (err) {
-      { const failure = fail('autoresearch.runs', 500, { code: 'autoresearch_failed', message: err instanceof Error ? err.message : 'unexpected error', hint: 'Retry the request or inspect dashboard logs.' }, { effective_outcome_contract: effectiveOutcomeContract }); res.status(failure.status).json(failure.body); }
+      res.status(500).json({ runs: [], success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });
     }
   });
 
@@ -247,12 +222,12 @@ export function createDashboardApi({
   app.get('/api/outcome-contract', (req, res) => {
     const toolName = typeof req.query.tool_name === 'string' ? req.query.tool_name : '';
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName, executionChannel: 'dashboard' });
-    res.json(ok('outcome.contract.resolve', { effectiveOutcomeContract, success: true }, 'Resolved outcome contract.'));
+    res.json({ effectiveOutcomeContract, success: true });
   });
 
   app.post('/api/tasks/review/start', (req, res) => {
     if (!taskService) {
-      { const failure = fail('tasks.review.start', 503, { code: 'task_service_unavailable', message: 'task service unavailable', hint: 'Enable taskService in dashboard runtime.' }); res.status(failure.status).json(failure.body); }
+      res.status(503).json({ success: false, error: 'task service unavailable' });
       return;
     }
 
@@ -263,15 +238,15 @@ export function createDashboardApi({
         routeInputs: req.body?.route_inputs,
         capabilityProfile: req.body?.capability_profile,
       });
-      res.status(201).json(ok('tasks.review.start', { success: true, ...result }, 'Started review task.'));
+      res.status(201).json({ success: true, ...result });
     } catch (error) {
-      { const failure = fail('tasks.review.start', 400, { code: 'task_start_failed', message: error instanceof Error ? error.message : 'failed to start task', hint: 'Check task input fields and retry.' }); res.status(failure.status).json(failure.body); }
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to start task' });
     }
   });
 
   app.post('/api/tasks/:taskId/review/resume', (req, res) => {
     if (!taskService) {
-      { const failure = fail('tasks.review.resume', 503, { code: 'task_service_unavailable', message: 'task service unavailable', hint: 'Enable taskService in dashboard runtime.' }); res.status(failure.status).json(failure.body); }
+      res.status(503).json({ success: false, error: 'task service unavailable' });
       return;
     }
 
@@ -280,22 +255,22 @@ export function createDashboardApi({
         taskId: req.params.taskId,
         capabilityProfile: req.body?.capability_profile,
       });
-      res.json(ok('tasks.review.resume', { success: true, ...result }, 'Resumed review task.'));
+      res.json({ success: true, ...result });
     } catch (error) {
-      { const failure = fail('tasks.review.resume', 400, { code: 'task_resume_failed', message: error instanceof Error ? error.message : 'failed to resume task', hint: 'Check task id and retry.' }); res.status(failure.status).json(failure.body); }
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to resume task' });
     }
   });
 
   app.get('/api/tasks/:taskId/readiness', (req, res) => {
     if (!taskService) {
-      { const failure = fail('tasks.readiness', 503, { code: 'task_service_unavailable', message: 'task service unavailable', hint: 'Enable taskService in dashboard runtime.' }); res.status(failure.status).json(failure.body); }
+      res.status(503).json({ success: false, error: 'task service unavailable' });
       return;
     }
 
     try {
-      res.json(ok('tasks.readiness', { success: true, readiness: taskService.getReadiness(req.params.taskId) }, 'Loaded task readiness.'));
+      res.json({ success: true, readiness: taskService.getReadiness(req.params.taskId) });
     } catch (error) {
-      { const failure = fail('tasks.readiness', 400, { code: 'task_readiness_failed', message: error instanceof Error ? error.message : 'failed to load readiness', hint: 'Check task id and retry.' }); res.status(failure.status).json(failure.body); }
+      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to load readiness' });
     }
   });
 

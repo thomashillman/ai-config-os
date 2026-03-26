@@ -1,81 +1,122 @@
 import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
-import { createCapability, createErrorEnvelope, createSuccessEnvelope } from '../lib/contracts/envelope.mjs';
 
-function mcpCapability() {
-  return createCapability({
-    worker_backed: false,
-    local_only: true,
-    remote_safe: false,
-    tunnel_required: false,
-    unavailable_on_surface: false,
-  });
+/**
+ * tool-response.mjs
+ *
+ * Pure helpers for shaping MCP tool responses.
+ * Ensures consistent error handling and diagnostic context preservation.
+ */
+
+/**
+ * Convert a script execution result to an MCP tool response.
+ * On success: returns output only.
+ * On failure: preserves both stderr and stdout for full diagnostic context.
+ *
+ * @param {object} result
+ * @param {boolean} result.success - whether the script succeeded
+ * @param {string} result.output - stdout content
+ * @param {string|null} result.error - stderr content or error message
+ * @returns {object} MCP-formatted tool response
+ */
+function buildFullContract(result) {
+  return {
+    status: 'Full',
+    selectedRoute: 'local-runtime-script',
+    capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
+    schema_ids: result.parsed?.schemaIds ?? [],
+    data: result.parsed?.data ?? {},
+    diagnostics: result.output
+      ? { raw_output: result.output }
+      : undefined,
+  };
 }
 
-export function toToolResponse(result, effectiveOutcomeContract = null, capabilityProfile = null, resource = 'mcp.tool') {
-  const outcomeMeta = effectiveOutcomeContract
-    ? { effective_outcome_contract: effectiveOutcomeContract }
-    : undefined;
+function buildDegradedContract(textBody, result) {
+  return {
+    status: 'Degraded',
+    missingCapabilities: [
+      'local-runtime-script-execution',
+    ],
+    selectedRoute: 'manual-input-correction',
+    requiredUserInput: [
+      'Inspect the error details and confirm whether to retry or run the equivalent route manually.',
+    ],
+    guidanceEquivalentRoute:
+      'Run the corresponding runtime script directly in a shell and capture both stdout and stderr.',
+    guidanceFullWorkflowHigherCapabilityEnvironment:
+      'Re-run this action in an environment with local runtime script execution enabled.',
+    capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
+    schema_ids: result.parsed?.schemaIds ?? [],
+    data: result.parsed?.data ?? {},
+    diagnostics: { raw_output: textBody },
+  };
+}
+
+export function toToolResponse(result, effectiveOutcomeContract = null, capabilityProfile = null) {
+  const contractPrefix = effectiveOutcomeContract
+    ? `EffectiveOutcomeContract:
+${JSON.stringify(effectiveOutcomeContract, null, 2)}
+
+`
+    : '';
 
   if (result.success) {
-    const output = result.output ?? '';
-    const envelope = createSuccessEnvelope({
-      resource,
-      data: { output, success: true },
-      summary: 'Tool execution completed successfully.',
-      capability: mcpCapability(),
-      meta: outcomeMeta,
-    });
-
+    const summary = result.parsed?.summary || 'Tool execution succeeded.';
     return attachCapabilityProfile({
-      content: [{ type: 'text', text: JSON.stringify(envelope, null, 2) }],
-      structuredContent: envelope,
+      content: [{ type: 'text', text: `${contractPrefix}${summary}` }],
+      structuredContent: buildFullContract(result),
     }, capabilityProfile);
   }
 
+  // On failure: combine stderr and stdout to preserve diagnostic context.
   const parts = [];
   if (result.error) parts.push(result.error);
   if (result.output) parts.push(result.output);
+
   const textBody = parts.length > 0 ? parts.join('\n\n') : 'Unknown error';
+  const summary = result.parsed?.summary || 'Tool execution failed.';
+  const text = `${contractPrefix}${summary}`;
 
-  const envelope = createErrorEnvelope({
-    resource,
-    data: { output: textBody, success: false },
-    summary: 'Tool execution failed.',
-    capability: mcpCapability(),
-    error: {
-      code: 'tool_execution_failed',
-      message: textBody,
-      hint: 'Inspect the tool output, correct inputs, and retry.',
+  return attachCapabilityProfile(
+    {
+      content: [{ type: 'text', text }],
+      structuredContent: buildDegradedContract(textBody, result),
+      isError: true,
     },
-    meta: outcomeMeta,
-  });
-
-  return attachCapabilityProfile({
-    content: [{ type: 'text', text: JSON.stringify(envelope, null, 2) }],
-    structuredContent: envelope,
-    isError: true,
-  }, capabilityProfile);
+    capabilityProfile
+  );
 }
 
-export function toolError(message, capabilityProfile = null, options = {}) {
+/**
+ * Create an MCP error response for a validation or runtime error.
+ *
+ * @param {string} message - error message
+ * @returns {object} MCP-formatted error response
+ */
+export function toolError(message, capabilityProfile = null) {
   const text = String(message || 'Unknown error');
-  const envelope = createErrorEnvelope({
-    resource: options.resource || 'mcp.tool',
-    data: options.data ?? null,
-    summary: options.summary || 'Tool request failed.',
-    capability: mcpCapability(),
-    error: {
-      code: options.code || 'invalid_request',
-      message: text,
-      hint: options.hint || 'Review tool arguments and retry the request.',
-    },
-    suggestedActions: options.suggestedActions || [],
-    meta: options.meta,
-  });
 
-  return attachCapabilityProfile({
-    content: [{ type: 'text', text: JSON.stringify(envelope, null, 2) }],
-    structuredContent: envelope,
-    isError: true,
-  }, capabilityProfile);
+  return attachCapabilityProfile(
+    {
+      content: [{ type: 'text', text }],
+      structuredContent: {
+        status: 'Degraded',
+        missingCapabilities: [
+          'valid-tool-input',
+        ],
+        selectedRoute: 'manual-input-correction',
+        requiredUserInput: [
+          'Update the tool arguments and retry the request.',
+        ],
+        guidanceEquivalentRoute:
+          'Use the same tool with corrected arguments matching the declared schema.',
+        guidanceFullWorkflowHigherCapabilityEnvironment:
+          'After correcting the input, run the full MCP workflow in a higher-capability environment if additional execution permissions are required.',
+        output: text,
+      },
+      isError: true,
+    },
+    capabilityProfile
+  );
 }
+

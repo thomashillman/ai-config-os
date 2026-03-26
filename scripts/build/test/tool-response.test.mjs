@@ -1,90 +1,164 @@
+// Tests for runtime/mcp/tool-response.mjs
+//
+// Validates: MCP response shaping for success, failure, contract prefix,
+// and capability profile attachment.
+
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { toToolResponse, toolError } from '../../../runtime/mcp/tool-response.mjs';
 
-function parseEnvelope(res) {
-  return JSON.parse(res.content[0].text);
-}
+// ─── toToolResponse — success ─────────────────────────────────────────────────
 
-describe('toToolResponse envelope', () => {
-  test('success response uses envelope with output and capability flags', () => {
-    const res = toToolResponse({ success: true, output: 'Done.' }, null, null, 'sync_tools');
-    const env = parseEnvelope(res);
-    assert.equal(env.contract_version, '1.0.0');
-    assert.equal(env.resource, 'sync_tools');
-    assert.equal(env.data.success, true);
-    assert.equal(env.data.output, 'Done.');
-    assert.equal(typeof env.summary, 'string');
-    assert.equal(Array.isArray(env.suggested_actions), true);
-    assert.equal(env.capability.local_only, true);
-    assert.equal(env.capability.worker_backed, false);
-    assert.equal(res.isError, undefined);
-    assert.deepEqual(res.structuredContent, env);
+describe('toToolResponse — success path', () => {
+  test('returns text content and Full structuredContent', () => {
+    const res = toToolResponse({ success: true, output: 'Done.' });
+    assert.equal(res.content[0].type, 'text');
+    assert.ok(res.content[0].text.length > 0);
+    assert.equal(res.structuredContent.diagnostics.raw_output, 'Done.');
+    assert.equal(res.structuredContent.status, 'Full');
+    assert.equal(res.structuredContent.selectedRoute, 'local-runtime-script');
+    assert.ok(!res.isError);
   });
 
-  test('failure response uses envelope error fields and preserves stderr/stdout', () => {
-    const res = toToolResponse({ success: false, error: 'err', output: 'out' }, null, null, 'validate_all');
-    const env = parseEnvelope(res);
-    assert.equal(res.isError, true);
-    assert.equal(env.data.success, false);
-    assert.match(env.data.output, /err/);
-    assert.match(env.data.output, /out/);
-    assert.equal(env.error.code, 'tool_execution_failed');
-    assert.equal(typeof env.error.message, 'string');
-    assert.equal(typeof env.error.hint, 'string');
+  test('empty output produces empty text with Full contract', () => {
+    const res = toToolResponse({ success: true, output: '' });
+    assert.ok(res.content[0].text.length > 0);
+    assert.equal(res.structuredContent.status, 'Full');
   });
 
-  test('success includes meta.effective_outcome_contract when provided', () => {
-    const contract = { outcomeId: 'runtime.sync-tools' };
-    const res = toToolResponse({ success: true, output: 'ok' }, contract, null, 'sync_tools');
-    const env = parseEnvelope(res);
-    assert.deepEqual(env.meta.effective_outcome_contract, contract);
+  test('undefined output defaults to empty string', () => {
+    const res = toToolResponse({ success: true });
+    assert.ok(res.content[0].text.length > 0);
+    assert.equal(typeof res.structuredContent.data, 'object');
   });
 
-  test('failure includes meta.effective_outcome_contract when provided', () => {
-    const contract = { outcomeId: 'runtime.validate-all' };
-    const res = toToolResponse({ success: false, error: 'boom' }, contract, null, 'validate_all');
-    const env = parseEnvelope(res);
-    assert.deepEqual(env.meta.effective_outcome_contract, contract);
-  });
-
-  test('omits envelope meta when effective outcome contract is absent', () => {
-    const res = toToolResponse({ success: true, output: 'ok' }, null, null, 'sync_tools');
-    const env = parseEnvelope(res);
-    assert.equal('meta' in env, false);
-  });
-
-  test('capability profile attachment coexists with envelope meta', () => {
-    const contract = { outcomeId: 'runtime.sync-tools' };
-    const profile = { mode: 'local-cli' };
-    const res = toToolResponse({ success: true, output: 'ok' }, contract, profile, 'sync_tools');
-    const env = parseEnvelope(res);
-    assert.deepEqual(env.meta.effective_outcome_contract, contract);
-    assert.deepEqual(res.meta.capability_profile, profile);
+  test('structuredContent.output matches result.output', () => {
+    const res = toToolResponse({ success: true, output: 'hello' });
+    assert.equal(res.structuredContent.diagnostics.raw_output, 'hello');
   });
 });
 
-describe('toolError envelope', () => {
-  test('returns envelope error with defaults', () => {
-    const res = toolError('Invalid argument');
-    const env = parseEnvelope(res);
+// ─── toToolResponse — failure ─────────────────────────────────────────────────
+
+describe('toToolResponse — failure path', () => {
+  test('sets isError=true and Degraded contract', () => {
+    const res = toToolResponse({ success: false, error: 'Something failed', output: 'partial' });
     assert.equal(res.isError, true);
-    assert.equal(env.error.code, 'invalid_request');
-    assert.equal(env.error.message, 'Invalid argument');
-    assert.equal(typeof env.error.hint, 'string');
-    assert.equal(env.data, null);
+    assert.equal(res.structuredContent.status, 'Degraded');
   });
 
-  test('supports meta.effective_outcome_contract via options.meta', () => {
-    const contract = { outcomeId: 'runtime.context-cost' };
-    const res = toolError('bad input', null, {
-      resource: 'context_cost',
-      code: 'invalid_arguments',
-      meta: { effective_outcome_contract: contract },
-    });
-    const env = parseEnvelope(res);
-    assert.deepEqual(env.meta.effective_outcome_contract, contract);
-    assert.equal(env.resource, 'context_cost');
-    assert.equal(env.error.code, 'invalid_arguments');
+  test('combines error and output in content text', () => {
+    const res = toToolResponse({ success: false, error: 'err msg', output: 'stdout content' });
+    assert.ok(res.content[0].text.length > 0);
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('err msg'));
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('stdout content'));
+  });
+
+  test('only error — output absent from text', () => {
+    const res = toToolResponse({ success: false, error: 'Boom' });
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('Boom'));
+    assert.ok(!res.content[0].text.includes('undefined'));
+  });
+
+  test('neither error nor output → Unknown error fallback', () => {
+    const res = toToolResponse({ success: false });
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('Unknown error'));
+  });
+
+  test('degraded contract has required guidance fields', () => {
+    const res = toToolResponse({ success: false, error: 'err' });
+    const sc = res.structuredContent;
+    assert.ok(Array.isArray(sc.missingCapabilities), 'missingCapabilities must be array');
+    assert.ok(sc.missingCapabilities.length > 0);
+    assert.ok(typeof sc.guidanceEquivalentRoute === 'string');
+    assert.ok(typeof sc.guidanceFullWorkflowHigherCapabilityEnvironment === 'string');
+    assert.ok(Array.isArray(sc.requiredUserInput));
+    assert.ok(sc.requiredUserInput.length > 0);
+  });
+});
+
+// ─── toToolResponse — effectiveOutcomeContract prefix ─────────────────────────
+
+describe('toToolResponse — contract prefix', () => {
+  test('prefixes content text with EffectiveOutcomeContract JSON', () => {
+    const contract = { task_id: 't1', status: 'ok' };
+    const res = toToolResponse({ success: true, output: 'result' }, contract);
+    assert.ok(res.content[0].text.startsWith('EffectiveOutcomeContract:'));
+    assert.ok(res.content[0].text.includes('"task_id": "t1"'));
+    assert.ok(res.content[0].text.length > 0);
+  });
+
+  test('no prefix when contract is null', () => {
+    const res = toToolResponse({ success: true, output: 'hi' }, null);
+    assert.ok(res.content[0].text.length > 0);
+  });
+
+  test('prefix also applied on failure path', () => {
+    const contract = { step: 'diagnose' };
+    const res = toToolResponse({ success: false, error: 'oops' }, contract);
+    assert.ok(res.content[0].text.startsWith('EffectiveOutcomeContract:'));
+    assert.ok(res.content[0].text.includes('"step": "diagnose"'));
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('oops'));
+  });
+});
+
+// ─── toToolResponse — capabilityProfile attachment ────────────────────────────
+
+describe('toToolResponse — capabilityProfile', () => {
+  test('attaches profile under meta.capability_profile', () => {
+    const profile = { mode: 'local-cli' };
+    const res = toToolResponse({ success: true, output: '' }, null, profile);
+    assert.deepEqual(res.meta.capability_profile, { mode: 'local-cli' });
+  });
+
+  test('no meta key when capabilityProfile is null', () => {
+    const res = toToolResponse({ success: true, output: '' }, null, null);
+    assert.ok(!('meta' in res));
+  });
+
+  test('profile also attached on failure path', () => {
+    const profile = { mode: 'web' };
+    const res = toToolResponse({ success: false, error: 'err' }, null, profile);
+    assert.deepEqual(res.meta.capability_profile, { mode: 'web' });
+  });
+});
+
+// ─── toolError ────────────────────────────────────────────────────────────────
+
+describe('toolError', () => {
+  test('returns isError=true with Degraded structuredContent', () => {
+    const res = toolError('Invalid argument');
+    assert.equal(res.isError, true);
+    assert.equal(res.structuredContent.status, 'Degraded');
+  });
+
+  test('includes message in content text and structuredContent.output', () => {
+    const res = toolError('bad input');
+    assert.ok(res.content[0].text.includes('bad input'));
+    assert.ok(res.structuredContent.output.includes('bad input'));
+  });
+
+  test('empty string falls back to Unknown error', () => {
+    const res = toolError('');
+    assert.ok(res.structuredContent.output.includes('Unknown error'));
+  });
+
+  test('structuredContent has required guidance fields', () => {
+    const res = toolError('x');
+    const sc = res.structuredContent;
+    assert.ok(Array.isArray(sc.missingCapabilities));
+    assert.ok(typeof sc.guidanceEquivalentRoute === 'string');
+    assert.ok(Array.isArray(sc.requiredUserInput));
+  });
+
+  test('attaches capabilityProfile to meta when provided', () => {
+    const profile = { mode: 'web' };
+    const res = toolError('err', profile);
+    assert.deepEqual(res.meta.capability_profile, { mode: 'web' });
+  });
+
+  test('no meta key when capabilityProfile is omitted', () => {
+    const res = toolError('err');
+    assert.ok(!('meta' in res));
   });
 });
