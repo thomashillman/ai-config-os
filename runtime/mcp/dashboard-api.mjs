@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ActionValidationError, createRuntimeActionDispatcher } from '../lib/runtime-action-dispatcher.mjs';
 import { loadObservationSnapshot } from '../lib/observation-read-model.mjs';
+import { createCapability, createErrorEnvelope, createSuccessEnvelope } from '../lib/contracts/envelope.mjs';
 
 export function createDashboardApi({
   app,
@@ -18,6 +19,33 @@ export function createDashboardApi({
   port,
 }) {
   const runtimeActionDispatcher = createRuntimeActionDispatcher({ runScript, validateNumber });
+
+  function dashboardCapability() {
+    return createCapability({
+      worker_backed: false,
+      local_only: true,
+      remote_safe: false,
+      tunnel_required: true,
+      unavailable_on_surface: false,
+    });
+  }
+
+  function ok(resource, data, summary) {
+    return createSuccessEnvelope({ resource, data, summary, capability: dashboardCapability() });
+  }
+
+  function fail(resource, status, error) {
+    return {
+      status,
+      body: createErrorEnvelope({
+        resource,
+        data: null,
+        summary: 'Dashboard API request failed.',
+        capability: dashboardCapability(),
+        error,
+      }),
+    };
+  }
 
   app.use(
     corsMiddleware({
@@ -49,21 +77,19 @@ export function createDashboardApi({
 
     try {
       const result = runtimeActionDispatcher.dispatch(toolName, actionArgs);
-      res.json({
-        output: result.output,
-        success: result.success,
-        effectiveOutcomeContract,
-      });
+      res.json(ok(toolName, { output: result.output, success: result.success, effectiveOutcomeContract }, 'Runtime action completed.'));
     } catch (error) {
       if (error instanceof ActionValidationError) {
-        res.status(400).json({ success: false, error: error.message, effectiveOutcomeContract });
+        const failure = fail(toolName, 400, { code: 'invalid_arguments', message: error.message, hint: 'Correct the request arguments and retry.' });
+        res.status(failure.status).json(failure.body);
         return;
       }
-      res.status(500).json({
-        success: false,
-        error: error instanceof Error ? error.message : 'failed to run dashboard action',
-        effectiveOutcomeContract,
+      const failure = fail(toolName, 500, {
+        code: 'dashboard_action_failed',
+        message: error instanceof Error ? error.message : 'failed to run dashboard action',
+        hint: 'Retry the request. If this persists, inspect dashboard runtime logs.',
       });
+      res.status(failure.status).json(failure.body);
     }
   }
 
@@ -219,7 +245,7 @@ export function createDashboardApi({
   app.get('/api/outcome-contract', (req, res) => {
     const toolName = typeof req.query.tool_name === 'string' ? req.query.tool_name : '';
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName, executionChannel: 'dashboard' });
-    res.json({ effectiveOutcomeContract, success: true });
+    res.json(ok('outcome.contract.resolve', { effectiveOutcomeContract, success: true }, 'Resolved outcome contract.'));
   });
 
   app.post('/api/tasks/review/start', (req, res) => {

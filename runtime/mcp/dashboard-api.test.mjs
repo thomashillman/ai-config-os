@@ -164,7 +164,7 @@ test('dashboard script-wrapper routes use shared dispatcher mapping', () => {
   let payload = null;
   contextCostRoute.handler({ query: { threshold: 3001 } }, { json(value) { payload = value; } });
 
-  assert.equal(payload.success, true);
+  assert.equal(payload.data.success, true);
   assert.deepEqual(calls, [{ command: 'ops/context-cost.sh', args: ['--threshold', '3001'] }]);
 });
 
@@ -205,8 +205,8 @@ test('dashboard context-cost returns 400 for invalid threshold', () => {
   );
 
   assert.equal(statusCode, 400);
-  assert.equal(payload.success, false);
-  assert.match(payload.error, /threshold must be numeric/);
+  assert.equal(payload.error.code, 'invalid_arguments');
+  assert.match(payload.error.message, /threshold must be numeric/);
 });
 
 test('/api/analytics returns tool_usage events from observation snapshot', async () => {
