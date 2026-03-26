@@ -6,6 +6,7 @@ const REPO_ROOT = resolve(process.cwd());
 const DOCTRINE_ROOT = join(REPO_ROOT, 'shared', 'agent-doctrine');
 const GENERATED_HEADER = '> Generated file. Edit doctrine fragments, not this file.';
 const SUPPORTED_SURFACES = new Set(['claude', 'codex']);
+const SIZE_WARN_ENV = 'DOCTRINE_ENTRYPOINT_WARN_BYTES';
 
 function sortedMarkdownFiles(dirPath, suffix = '.md') {
   return readdirSync(dirPath, { withFileTypes: true })
@@ -66,6 +67,12 @@ function upsertOutput(outputFile, content, checkMode) {
 }
 
 export function emitEntrypoints({ checkMode = false } = {}) {
+  const configuredWarnThreshold = process.env[SIZE_WARN_ENV];
+  const parsedWarnThreshold = Number.parseInt(configuredWarnThreshold ?? '', 10);
+  const warnThresholdBytes = Number.isFinite(parsedWarnThreshold) && parsedWarnThreshold > 0
+    ? parsedWarnThreshold
+    : null;
+
   const outputs = [
     { surface: 'claude', outputFile: 'CLAUDE.md' },
     { surface: 'codex', outputFile: 'AGENTS.md' },
@@ -74,6 +81,13 @@ export function emitEntrypoints({ checkMode = false } = {}) {
   let allCurrent = true;
   for (const output of outputs) {
     const content = composeForSurface(output.surface);
+    if (warnThresholdBytes !== null) {
+      const size = Buffer.byteLength(content, 'utf8');
+      if (size > warnThresholdBytes) {
+        console.warn(`  [warn] ${output.outputFile} is ${size} bytes (> ${warnThresholdBytes})`);
+      }
+    }
+
     const current = upsertOutput(output.outputFile, content, checkMode);
     allCurrent = allCurrent && current;
   }

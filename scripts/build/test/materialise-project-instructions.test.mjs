@@ -130,6 +130,41 @@ describe('materialise-project-instructions CLI', () => {
     }
   });
 
+  test('does not include ai-config-os local rules unless explicitly overlayed', () => {
+    const target = mkdtempSync(join(tmpdir(), 'proj-instructions-local-rules-'));
+    const baseOverlayFile = join(target, 'overlay-base.md');
+    const localRuleMarker = '## Workflow - Local Proxy Environment';
+
+    try {
+      const withoutOverlay = run([target]);
+      assert.equal(withoutOverlay.status, 0, withoutOverlay.stderr);
+
+      const claudeWithoutOverlay = readFileSync(join(target, 'CLAUDE.md'), 'utf8');
+      const agentsWithoutOverlay = readFileSync(join(target, 'AGENTS.md'), 'utf8');
+      assert.equal(
+        claudeWithoutOverlay.includes(localRuleMarker),
+        false,
+        'external materialisation should not include ai-config-os local rules by default'
+      );
+      assert.equal(
+        agentsWithoutOverlay.includes(localRuleMarker),
+        false,
+        'external materialisation should not include ai-config-os local rules by default'
+      );
+
+      writeFileSync(baseOverlayFile, `${localRuleMarker}\n`);
+      const withOverlay = run([target, '--base-overlay-file', baseOverlayFile]);
+      assert.equal(withOverlay.status, 0, withOverlay.stderr);
+
+      const claudeWithOverlay = readFileSync(join(target, 'CLAUDE.md'), 'utf8');
+      const agentsWithOverlay = readFileSync(join(target, 'AGENTS.md'), 'utf8');
+      assert.match(claudeWithOverlay, /Workflow - Local Proxy Environment/);
+      assert.match(agentsWithOverlay, /Workflow - Local Proxy Environment/);
+    } finally {
+      rmSync(target, { recursive: true, force: true });
+    }
+  });
+
   test('fails fast when an option value is missing', () => {
     const target = mkdtempSync(join(tmpdir(), 'proj-instructions-missing-value-'));
 
