@@ -46,7 +46,10 @@ test('remote executor handler works end-to-end over HTTP', async () => {
         status: 200,
         result: {
           tool: body.tool,
-          stdout: `ran ${body.tool}`,
+          data: { 'tooling.sync': { dry_run: true, steps: {}, warning_count: 0, error_count: 0 } },
+          schema_ids: ['tooling.sync'],
+          capability: { local_only: false, worker_backed: true },
+          diagnostics: { raw_output: `ran ${body.tool}` },
           stderr: '',
         },
       };
@@ -99,7 +102,7 @@ test('remote executor handler works end-to-end over HTTP', async () => {
     assert.equal(success.status, 200);
     const successJson = await success.json();
     assert.equal(successJson.ok, true);
-    assert.equal(successJson.result.stdout, 'ran sync_tools');
+    assert.equal(successJson.result.schema_ids[0], 'tooling.sync');
     assert.equal(successJson.request_id, 'abc');
 
     const health = await fetch(`${baseUrl}/v1/health`);

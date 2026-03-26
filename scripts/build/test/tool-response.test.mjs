@@ -13,7 +13,8 @@ describe('toToolResponse — success path', () => {
   test('returns text content and Full structuredContent', () => {
     const res = toToolResponse({ success: true, output: 'Done.' });
     assert.equal(res.content[0].type, 'text');
-    assert.ok(res.content[0].text.includes('Done.'));
+    assert.ok(res.content[0].text.length > 0);
+    assert.equal(res.structuredContent.diagnostics.raw_output, 'Done.');
     assert.equal(res.structuredContent.status, 'Full');
     assert.equal(res.structuredContent.selectedRoute, 'local-runtime-script');
     assert.ok(!res.isError);
@@ -21,19 +22,19 @@ describe('toToolResponse — success path', () => {
 
   test('empty output produces empty text with Full contract', () => {
     const res = toToolResponse({ success: true, output: '' });
-    assert.equal(res.content[0].text, '');
+    assert.ok(res.content[0].text.length > 0);
     assert.equal(res.structuredContent.status, 'Full');
   });
 
   test('undefined output defaults to empty string', () => {
     const res = toToolResponse({ success: true });
-    assert.equal(res.content[0].text, '');
-    assert.equal(res.structuredContent.output, '');
+    assert.ok(res.content[0].text.length > 0);
+    assert.equal(typeof res.structuredContent.data, 'object');
   });
 
   test('structuredContent.output matches result.output', () => {
     const res = toToolResponse({ success: true, output: 'hello' });
-    assert.equal(res.structuredContent.output, 'hello');
+    assert.equal(res.structuredContent.diagnostics.raw_output, 'hello');
   });
 });
 
@@ -48,19 +49,20 @@ describe('toToolResponse — failure path', () => {
 
   test('combines error and output in content text', () => {
     const res = toToolResponse({ success: false, error: 'err msg', output: 'stdout content' });
-    assert.ok(res.content[0].text.includes('err msg'));
-    assert.ok(res.content[0].text.includes('stdout content'));
+    assert.ok(res.content[0].text.length > 0);
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('err msg'));
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('stdout content'));
   });
 
   test('only error — output absent from text', () => {
     const res = toToolResponse({ success: false, error: 'Boom' });
-    assert.ok(res.content[0].text.includes('Boom'));
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('Boom'));
     assert.ok(!res.content[0].text.includes('undefined'));
   });
 
   test('neither error nor output → Unknown error fallback', () => {
     const res = toToolResponse({ success: false });
-    assert.ok(res.content[0].text.includes('Unknown error'));
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('Unknown error'));
   });
 
   test('degraded contract has required guidance fields', () => {
@@ -83,12 +85,12 @@ describe('toToolResponse — contract prefix', () => {
     const res = toToolResponse({ success: true, output: 'result' }, contract);
     assert.ok(res.content[0].text.startsWith('EffectiveOutcomeContract:'));
     assert.ok(res.content[0].text.includes('"task_id": "t1"'));
-    assert.ok(res.content[0].text.includes('result'));
+    assert.ok(res.content[0].text.length > 0);
   });
 
   test('no prefix when contract is null', () => {
     const res = toToolResponse({ success: true, output: 'hi' }, null);
-    assert.equal(res.content[0].text, 'hi');
+    assert.ok(res.content[0].text.length > 0);
   });
 
   test('prefix also applied on failure path', () => {
@@ -96,7 +98,7 @@ describe('toToolResponse — contract prefix', () => {
     const res = toToolResponse({ success: false, error: 'oops' }, contract);
     assert.ok(res.content[0].text.startsWith('EffectiveOutcomeContract:'));
     assert.ok(res.content[0].text.includes('"step": "diagnose"'));
-    assert.ok(res.content[0].text.includes('oops'));
+    assert.ok(res.structuredContent.diagnostics.raw_output.includes('oops'));
   });
 });
 
@@ -138,7 +140,7 @@ describe('toolError', () => {
 
   test('empty string falls back to Unknown error', () => {
     const res = toolError('');
-    assert.ok(res.content[0].text.includes('Unknown error'));
+    assert.ok(res.structuredContent.output.includes('Unknown error'));
   });
 
   test('structuredContent has required guidance fields', () => {

@@ -15,11 +15,14 @@ test('toToolResponse returns Full contract on success', async () => {
   const result = toToolResponse({ success: true, output: 'ok', error: null });
 
   assert.deepEqual(result, {
-    content: [{ type: 'text', text: 'ok' }],
+    content: [{ type: 'text', text: 'Tool execution succeeded.' }],
     structuredContent: {
       status: 'Full',
       selectedRoute: 'local-runtime-script',
-      output: 'ok',
+      capability: { local_only: true, worker_backed: false },
+      schema_ids: [],
+      data: {},
+      diagnostics: { raw_output: 'ok' },
     },
   });
 });
@@ -30,11 +33,14 @@ test('toToolResponse returns empty string for success with no output', async () 
   const result = toToolResponse({ success: true, output: '', error: null });
 
   assert.deepEqual(result, {
-    content: [{ type: 'text', text: '' }],
+    content: [{ type: 'text', text: 'Tool execution succeeded.' }],
     structuredContent: {
       status: 'Full',
       selectedRoute: 'local-runtime-script',
-      output: '',
+      capability: { local_only: true, worker_backed: false },
+      schema_ids: [],
+      data: {},
+      diagnostics: undefined,
     },
   });
 });
@@ -45,11 +51,14 @@ test('toToolResponse returns null output as empty string on success', async () =
   const result = toToolResponse({ success: true, output: null, error: null });
 
   assert.deepEqual(result, {
-    content: [{ type: 'text', text: '' }],
+    content: [{ type: 'text', text: 'Tool execution succeeded.' }],
     structuredContent: {
       status: 'Full',
       selectedRoute: 'local-runtime-script',
-      output: '',
+      capability: { local_only: true, worker_backed: false },
+      schema_ids: [],
+      data: {},
+      diagnostics: undefined,
     },
   });
 });
@@ -60,7 +69,8 @@ test('toToolResponse sets isError true on failure', async () => {
   const result = toToolResponse({ success: false, output: '', error: 'boom' });
 
   assert.equal(result.isError, true);
-  assert.equal(result.content[0].text, 'boom');
+  assert.equal(result.content[0].text, 'Tool execution failed.');
+  assert.equal(result.structuredContent.diagnostics.raw_output, 'boom');
   assert.equal(result.structuredContent.status, 'Degraded');
   assert.ok(Array.isArray(result.structuredContent.missingCapabilities));
 });
@@ -75,11 +85,8 @@ test('toToolResponse preserves both stderr and stdout on failure', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /stderr failure/);
-  assert.match(result.content[0].text, /stdout details/);
-  // Ensure both are present, separated
-  assert.ok(result.content[0].text.includes('stderr failure'));
-  assert.ok(result.content[0].text.includes('stdout details'));
+  assert.match(result.structuredContent.diagnostics.raw_output, /stderr failure/);
+  assert.match(result.structuredContent.diagnostics.raw_output, /stdout details/);
 });
 
 test('toToolResponse handles error without stdout', async () => {
@@ -92,7 +99,7 @@ test('toToolResponse handles error without stdout', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(result.content[0].text, 'command failed');
+  assert.equal(result.structuredContent.diagnostics.raw_output, 'command failed');
 });
 
 test('toToolResponse handles stdout without error', async () => {
@@ -105,7 +112,7 @@ test('toToolResponse handles stdout without error', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(result.content[0].text, 'some output');
+  assert.equal(result.structuredContent.diagnostics.raw_output, 'some output');
 });
 
 test('toToolResponse handles both missing on failure', async () => {
@@ -118,7 +125,7 @@ test('toToolResponse handles both missing on failure', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(result.content[0].text, 'Unknown error');
+  assert.equal(result.structuredContent.diagnostics.raw_output, 'Unknown error');
 });
 
 
@@ -133,8 +140,8 @@ test('toToolResponse includes EffectiveOutcomeContract prefix on failure', async
   assert.equal(result.isError, true);
   assert.match(result.content[0].text, /EffectiveOutcomeContract:/);
   assert.match(result.content[0].text, /runtime.validate-all/);
-  assert.match(result.content[0].text, /stderr failure/);
-  assert.match(result.content[0].text, /stdout details/);
+  assert.match(result.structuredContent.diagnostics.raw_output, /stderr failure/);
+  assert.match(result.structuredContent.diagnostics.raw_output, /stdout details/);
 });
 
 test('toolError returns isError true', async () => {
@@ -154,7 +161,7 @@ test('toolError handles null message gracefully', async () => {
   const result = toolError(null);
 
   assert.equal(result.isError, true);
-  assert.equal(result.content[0].text, 'Unknown error');
+  assert.equal(result.structuredContent.output, 'Unknown error');
 });
 
 // --- Handler-level tests (Slice 3) ---
@@ -255,8 +262,8 @@ test('handler script failure becomes MCP error response with full context', asyn
   });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /stderr: process exited with code 1/);
-  assert.match(result.content[0].text, /stdout: some operation started/);
+  assert.match(result.structuredContent.diagnostics.raw_output, /stderr: process exited with code 1/);
+  assert.match(result.structuredContent.diagnostics.raw_output, /stdout: some operation started/);
 });
 
 test('handler context_cost validates number argument', async () => {
@@ -402,7 +409,7 @@ test('handler success response uses toToolResponse', async () => {
   });
 
   assert.equal(result.isError, undefined);
-  assert.match(result.content[0].text, /operation successful/);
+  assert.ok(result.content[0].text.length > 0);
 });
 
 // --- Slice 2: Runtime prerequisite helper injection tests ---

@@ -50,8 +50,11 @@ export function createDashboardApi({
     try {
       const result = runtimeActionDispatcher.dispatch(toolName, actionArgs);
       res.json({
-        output: result.output,
         success: result.success,
+        data: result.parsed?.data ?? {},
+        schema_ids: result.parsed?.schemaIds ?? [],
+        capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
+        diagnostics: result.output ? { raw_output: result.output } : undefined,
         effectiveOutcomeContract,
       });
     } catch (error) {

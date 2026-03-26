@@ -18,15 +18,20 @@ import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
  * @param {string|null} result.error - stderr content or error message
  * @returns {object} MCP-formatted tool response
  */
-function buildFullContract(output) {
+function buildFullContract(result) {
   return {
     status: 'Full',
     selectedRoute: 'local-runtime-script',
-    output,
+    capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
+    schema_ids: result.parsed?.schemaIds ?? [],
+    data: result.parsed?.data ?? {},
+    diagnostics: result.output
+      ? { raw_output: result.output }
+      : undefined,
   };
 }
 
-function buildDegradedContract(output) {
+function buildDegradedContract(textBody, result) {
   return {
     status: 'Degraded',
     missingCapabilities: [
@@ -40,7 +45,10 @@ function buildDegradedContract(output) {
       'Run the corresponding runtime script directly in a shell and capture both stdout and stderr.',
     guidanceFullWorkflowHigherCapabilityEnvironment:
       'Re-run this action in an environment with local runtime script execution enabled.',
-    output,
+    capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
+    schema_ids: result.parsed?.schemaIds ?? [],
+    data: result.parsed?.data ?? {},
+    diagnostics: { raw_output: textBody },
   };
 }
 
@@ -53,10 +61,10 @@ ${JSON.stringify(effectiveOutcomeContract, null, 2)}
     : '';
 
   if (result.success) {
-    const output = result.output ?? '';
+    const summary = result.parsed?.summary || 'Tool execution succeeded.';
     return attachCapabilityProfile({
-      content: [{ type: 'text', text: `${contractPrefix}${output}` }],
-      structuredContent: buildFullContract(output),
+      content: [{ type: 'text', text: `${contractPrefix}${summary}` }],
+      structuredContent: buildFullContract(result),
     }, capabilityProfile);
   }
 
@@ -66,12 +74,13 @@ ${JSON.stringify(effectiveOutcomeContract, null, 2)}
   if (result.output) parts.push(result.output);
 
   const textBody = parts.length > 0 ? parts.join('\n\n') : 'Unknown error';
-  const text = `${contractPrefix}${textBody}`;
+  const summary = result.parsed?.summary || 'Tool execution failed.';
+  const text = `${contractPrefix}${summary}`;
 
   return attachCapabilityProfile(
     {
       content: [{ type: 'text', text }],
-      structuredContent: buildDegradedContract(textBody),
+      structuredContent: buildDegradedContract(textBody, result),
       isError: true,
     },
     capabilityProfile

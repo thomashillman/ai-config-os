@@ -30,7 +30,29 @@ export const MCP_TOOL_DEFINITIONS = [
         dry_run: { type: 'boolean', description: 'Preview changes without applying', default: false }
       }
     },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['tooling.sync'] } },
+        data: {
+          type: 'object',
+          properties: {
+            'tooling.sync': {
+              type: 'object',
+              properties: {
+                dry_run: { type: 'boolean' },
+                steps: { type: 'object' },
+                warning_count: { type: 'number' },
+                error_count: { type: 'number' }
+              }
+            }
+          }
+        },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run runtime/sync.sh directly and inspect output.' }
   },
@@ -40,7 +62,16 @@ export const MCP_TOOL_DEFINITIONS = [
     executionClass: 'local',
     requiredCapabilities: ['fs.read', 'shell.exec'],
     inputSchema: { type: 'object', properties: {} },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['runtime.capabilities', 'tooling.manifest', 'tooling.status'] } },
+        data: { type: 'object' },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run runtime/manifest.sh status directly.' }
   },
@@ -50,7 +81,16 @@ export const MCP_TOOL_DEFINITIONS = [
     executionClass: 'local',
     requiredCapabilities: ['fs.read', 'shell.exec'],
     inputSchema: { type: 'object', properties: {} },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['config.summary'] } },
+        data: { type: 'object' },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run shared/lib/config-merger.sh directly.' }
   },
@@ -75,7 +115,16 @@ export const MCP_TOOL_DEFINITIONS = [
         threshold: { type: 'number', description: 'Token threshold for warnings', default: 2000 }
       }
     },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['runtime.context_cost'] } },
+        data: { type: 'object' },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run ops/context-cost.sh with --threshold.' }
   },
@@ -85,7 +134,16 @@ export const MCP_TOOL_DEFINITIONS = [
     executionClass: 'local',
     requiredCapabilities: ['fs.read', 'shell.exec'],
     inputSchema: { type: 'object', properties: {} },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['audit.validate_all'] } },
+        data: { type: 'object' },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run ops/validate-all.sh directly.' }
   },
