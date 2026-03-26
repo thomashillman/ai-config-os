@@ -114,9 +114,9 @@ export function createDashboardApi({
     try {
       const { events } = await loadObservationSnapshot({ projectDir: repoRoot });
       const metrics = events.filter((e) => e.type === 'tool_usage');
-      res.json({ metrics, success: true, effectiveOutcomeContract });
+      res.json(ok('analytics.tool_usage', { metrics, success: true, effectiveOutcomeContract }, 'Loaded analytics metrics.'));
     } catch {
-      res.json({ metrics: [], success: true, note: 'No metrics collected yet', effectiveOutcomeContract });
+      res.json(ok('analytics.tool_usage', { metrics: [], success: true, note: 'No metrics collected yet', effectiveOutcomeContract }, 'No analytics metrics available yet.'));
     }
   });
 
@@ -124,7 +124,7 @@ export function createDashboardApi({
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
 
     if (!process.env.HOME) {
-      res.status(503).json({ skills: [], total_events: 0, success: false, error: '$HOME is not set', effectiveOutcomeContract });
+      { const failure = fail('analytics.skill_outcomes', 503, { code: 'home_missing', message: '$HOME is not set', hint: 'Set HOME in the dashboard process environment.' }); res.status(failure.status).json(failure.body); }
       return;
     }
 
@@ -147,9 +147,9 @@ export function createDashboardApi({
         use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
       })).sort((a, b) => b.total - a.total);
 
-      res.json({ skills, total_events: outcomeEvents.length, success: true, effectiveOutcomeContract });
+      res.json(ok('analytics.skill_outcomes', { skills, total_events: outcomeEvents.length, success: true, effectiveOutcomeContract }, 'Loaded skill analytics.'));
     } catch (err) {
-      res.status(500).json({ skills: [], total_events: 0, success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });
+      { const failure = fail('analytics.skill_outcomes', 500, { code: 'analytics_failed', message: err instanceof Error ? err.message : 'unexpected error', hint: 'Retry the request or inspect dashboard logs.' }); res.status(failure.status).json(failure.body); }
     }
   });
 
@@ -157,22 +157,22 @@ export function createDashboardApi({
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
     const empty = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true, effectiveOutcomeContract };
 
-    if (!process.env.HOME) { res.json(empty); return; }
+    if (!process.env.HOME) { res.json(ok('retrospectives.summary', empty, 'Loaded retrospective summary.')); return; }
 
     const cacheFile = path.join(
       process.env.HOME, '.ai-config-os', 'cache', 'claude-code', 'retrospectives-aggregate.json'
     );
     try {
       const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-      res.json({
+      res.json(ok('retrospectives.summary', {
         artifact_count: typeof data.artifact_count === 'number' ? data.artifact_count : 0,
         signal_breakdown: data.signal_breakdown && typeof data.signal_breakdown === 'object' && !Array.isArray(data.signal_breakdown) ? data.signal_breakdown : {},
         top_recommendations: Array.isArray(data.top_recommendations) ? data.top_recommendations : [],
         success: true,
         effectiveOutcomeContract,
-      });
+      }, 'Loaded retrospective summary.'));
     } catch {
-      res.json(empty);
+      res.json(ok('retrospectives.summary', empty, 'Loaded retrospective summary.'));
     }
   });
 
@@ -180,7 +180,7 @@ export function createDashboardApi({
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
 
     if (!repoRoot) {
-      res.status(503).json({ runs: [], success: false, error: 'repoRoot not configured', effectiveOutcomeContract });
+      { const failure = fail('autoresearch.runs', 503, { code: 'repo_root_missing', message: 'repoRoot not configured', hint: 'Set repoRoot for the dashboard API process.' }); res.status(failure.status).json(failure.body); }
       return;
     }
 
@@ -228,9 +228,9 @@ export function createDashboardApi({
         }
       }
       runs.sort((a, b) => (b.best_score ?? 0) - (a.best_score ?? 0));
-      res.json({ runs, success: true, effectiveOutcomeContract });
+      res.json(ok('autoresearch.runs', { runs, success: true, effectiveOutcomeContract }, 'Loaded autoresearch runs.'));
     } catch (err) {
-      res.status(500).json({ runs: [], success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });
+      { const failure = fail('autoresearch.runs', 500, { code: 'autoresearch_failed', message: err instanceof Error ? err.message : 'unexpected error', hint: 'Retry the request or inspect dashboard logs.' }); res.status(failure.status).json(failure.body); }
     }
   });
 
@@ -250,7 +250,7 @@ export function createDashboardApi({
 
   app.post('/api/tasks/review/start', (req, res) => {
     if (!taskService) {
-      res.status(503).json({ success: false, error: 'task service unavailable' });
+      { const failure = fail('tasks.review.start', 503, { code: 'task_service_unavailable', message: 'task service unavailable', hint: 'Enable taskService in dashboard runtime.' }); res.status(failure.status).json(failure.body); }
       return;
     }
 
@@ -261,15 +261,15 @@ export function createDashboardApi({
         routeInputs: req.body?.route_inputs,
         capabilityProfile: req.body?.capability_profile,
       });
-      res.status(201).json({ success: true, ...result });
+      res.status(201).json(ok('tasks.review.start', { success: true, ...result }, 'Started review task.'));
     } catch (error) {
-      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to start task' });
+      { const failure = fail('tasks.review.start', 400, { code: 'task_start_failed', message: error instanceof Error ? error.message : 'failed to start task', hint: 'Check task input fields and retry.' }); res.status(failure.status).json(failure.body); }
     }
   });
 
   app.post('/api/tasks/:taskId/review/resume', (req, res) => {
     if (!taskService) {
-      res.status(503).json({ success: false, error: 'task service unavailable' });
+      { const failure = fail('tasks.review.resume', 503, { code: 'task_service_unavailable', message: 'task service unavailable', hint: 'Enable taskService in dashboard runtime.' }); res.status(failure.status).json(failure.body); }
       return;
     }
 
@@ -278,22 +278,22 @@ export function createDashboardApi({
         taskId: req.params.taskId,
         capabilityProfile: req.body?.capability_profile,
       });
-      res.json({ success: true, ...result });
+      res.json(ok('tasks.review.resume', { success: true, ...result }, 'Resumed review task.'));
     } catch (error) {
-      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to resume task' });
+      { const failure = fail('tasks.review.resume', 400, { code: 'task_resume_failed', message: error instanceof Error ? error.message : 'failed to resume task', hint: 'Check task id and retry.' }); res.status(failure.status).json(failure.body); }
     }
   });
 
   app.get('/api/tasks/:taskId/readiness', (req, res) => {
     if (!taskService) {
-      res.status(503).json({ success: false, error: 'task service unavailable' });
+      { const failure = fail('tasks.readiness', 503, { code: 'task_service_unavailable', message: 'task service unavailable', hint: 'Enable taskService in dashboard runtime.' }); res.status(failure.status).json(failure.body); }
       return;
     }
 
     try {
-      res.json({ success: true, readiness: taskService.getReadiness(req.params.taskId) });
+      res.json(ok('tasks.readiness', { success: true, readiness: taskService.getReadiness(req.params.taskId) }, 'Loaded task readiness.'));
     } catch (error) {
-      res.status(400).json({ success: false, error: error instanceof Error ? error.message : 'failed to load readiness' });
+      { const failure = fail('tasks.readiness', 400, { code: 'task_readiness_failed', message: error instanceof Error ? error.message : 'failed to load readiness', hint: 'Check task id and retry.' }); res.status(failure.status).json(failure.body); }
     }
   });
 
