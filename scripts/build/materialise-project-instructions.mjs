@@ -1,22 +1,28 @@
 #!/usr/bin/env node
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_BASE = resolve(SCRIPT_DIR, 'fixtures', 'project-instructions', 'base.md');
+const DEFAULT_BASE_DIR = resolve(SCRIPT_DIR, '..', '..', 'shared', 'agent-doctrine', 'base');
 const DEFAULT_CLAUDE_SURFACE = resolve(
   SCRIPT_DIR,
-  'fixtures',
-  'project-instructions',
-  'surface-claude.md'
+  '..',
+  '..',
+  'shared',
+  'agent-doctrine',
+  'surfaces',
+  'claude.md'
 );
 const DEFAULT_CODEX_SURFACE = resolve(
   SCRIPT_DIR,
-  'fixtures',
-  'project-instructions',
-  'surface-codex.md'
+  '..',
+  '..',
+  'shared',
+  'agent-doctrine',
+  'surfaces',
+  'codex.md'
 );
 
 function fail(message) {
@@ -158,6 +164,32 @@ function readIfExists(filePath) {
   return readFileSync(resolvedPath, 'utf8').trim();
 }
 
+function readRequired(filePath) {
+  const resolvedPath = resolve(filePath);
+  if (!existsSync(resolvedPath)) {
+    fail(`Required file does not exist: ${filePath}`);
+  }
+  return readFileSync(resolvedPath, 'utf8').trim();
+}
+
+function readBaseDefaults(baseDir) {
+  const resolvedBaseDir = resolve(baseDir);
+  if (!existsSync(resolvedBaseDir)) {
+    fail(`Required directory does not exist: ${baseDir}`);
+  }
+
+  const files = readdirSync(resolvedBaseDir, { withFileTypes: true })
+    .filter(entry => entry.isFile() && entry.name.endsWith('.md'))
+    .map(entry => entry.name)
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+  if (files.length === 0) {
+    fail(`No base markdown files found in: ${baseDir}`);
+  }
+
+  return files.map(fileName => readRequired(join(resolvedBaseDir, fileName)));
+}
+
 function resolveOverlayFiles(overlayDir) {
   if (!overlayDir) {
     return { base: null, claude: null, codex: null };
@@ -242,17 +274,17 @@ function main() {
   const claudeOverlay = readIfExists(parsed.claudeOverlayFile || overlayFromDir.claude);
   const codexOverlay = readIfExists(parsed.codexOverlayFile || overlayFromDir.codex);
 
-  const base = readIfExists(DEFAULT_BASE);
-  const claudeSurface = readIfExists(DEFAULT_CLAUDE_SURFACE);
-  const codexSurface = readIfExists(DEFAULT_CODEX_SURFACE);
+  const baseDefaults = readBaseDefaults(DEFAULT_BASE_DIR);
+  const claudeSurface = readRequired(DEFAULT_CLAUDE_SURFACE);
+  const codexSurface = readRequired(DEFAULT_CODEX_SURFACE);
 
   if (!parsed.codexOnly) {
-    const claudeContent = compose([base, claudeSurface, baseOverlay, claudeOverlay]);
+    const claudeContent = compose([...baseDefaults, claudeSurface, baseOverlay, claudeOverlay]);
     emitFile(join(targetRepoPath, 'CLAUDE.md'), claudeContent, parsed.dryRun);
   }
 
   if (!parsed.claudeOnly) {
-    const codexContent = compose([base, codexSurface, baseOverlay, codexOverlay]);
+    const codexContent = compose([...baseDefaults, codexSurface, baseOverlay, codexOverlay]);
     emitFile(join(targetRepoPath, 'AGENTS.md'), codexContent, parsed.dryRun);
   }
 }
