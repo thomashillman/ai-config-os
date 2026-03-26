@@ -181,7 +181,7 @@ function readBaseDefaults(baseDir) {
   const files = readdirSync(resolvedBaseDir, { withFileTypes: true })
     .filter(entry => entry.isFile() && entry.name.endsWith('.md'))
     .map(entry => entry.name)
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
   if (files.length === 0) {
     fail(`No base markdown files found in: ${baseDir}`);
