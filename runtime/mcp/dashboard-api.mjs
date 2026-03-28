@@ -2,6 +2,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { ActionValidationError, createRuntimeActionDispatcher } from '../lib/runtime-action-dispatcher.mjs';
 import { loadObservationSnapshot } from '../lib/observation-read-model.mjs';
+import {
+  buildAutoresearchRunGetContract,
+  buildAutoresearchRunsContract,
+  buildFrictionSignalsContract,
+  buildSkillEffectivenessContract,
+  buildSkillsListContract,
+  buildToolUsageContract,
+  parseSkillStatsOutput,
+  readAutoresearchRuns,
+} from '../lib/dashboard-analytics-contracts.mjs';
 
 export function createDashboardApi({
   app,
@@ -83,6 +93,158 @@ export function createDashboardApi({
     executeRuntimeAction('get_config', {}, res);
   });
 
+  app.get('/api/contracts/skills.list', (req, res) => {
+    executeRuntimeAction('skill_stats', {}, {
+      json(payload) {
+        const skills = parseSkillStatsOutput(payload.output || '');
+        res.json({ ...buildSkillsListContract(skills), effectiveOutcomeContract: payload.effectiveOutcomeContract });
+      },
+      status(code) {
+        return res.status(code);
+      },
+    });
+  });
+
+  app.get('/api/contracts/skills.stats', async (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    try {
+      const { events } = await loadObservationSnapshot({ home: process.env.HOME, projectDir: repoRoot });
+      const outcomeEvents = events.filter((e) => e.type === 'skill_outcome');
+      const totals = {};
+      for (const e of outcomeEvents) {
+        if (typeof e.skill !== 'string') continue;
+        if (!totals[e.skill]) totals[e.skill] = { used: 0, replaced: 0 };
+        if (e.outcome === 'output_used') totals[e.skill].used++;
+        else if (e.outcome === 'output_replaced') totals[e.skill].replaced++;
+      }
+      const skills = Object.entries(totals)
+        .map(([skill, c]) => ({
+          skill,
+          used: c.used,
+          replaced: c.replaced,
+          total: c.used + c.replaced,
+          use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
+        }))
+        .sort((a, b) => b.total - a.total);
+      res.json({ ...buildSkillEffectivenessContract(skills, outcomeEvents.length), contract: 'skills.stats', effectiveOutcomeContract });
+    } catch (err) {
+      res.status(500).json({
+        ...buildSkillEffectivenessContract([], 0),
+        contract: 'skills.stats',
+        success: false,
+        error: err instanceof Error ? err.message : 'unexpected error',
+        effectiveOutcomeContract,
+      });
+    }
+  });
+
+  app.get('/api/contracts/analytics.tool_usage', async (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    try {
+      const { events } = await loadObservationSnapshot({ projectDir: repoRoot });
+      const metrics = events.filter((e) => e.type === 'tool_usage');
+      res.json({ ...buildToolUsageContract(metrics), effectiveOutcomeContract });
+    } catch {
+      res.json({ ...buildToolUsageContract([]), note: 'No metrics collected yet', effectiveOutcomeContract });
+    }
+  });
+
+  app.get('/api/contracts/analytics.skill_effectiveness', async (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+
+    if (!process.env.HOME) {
+      res.status(503).json({ ...buildSkillEffectivenessContract([], 0), success: false, error: '$HOME is not set', effectiveOutcomeContract });
+      return;
+    }
+
+    try {
+      const { events } = await loadObservationSnapshot({ home: process.env.HOME, projectDir: repoRoot });
+      const outcomeEvents = events.filter((e) => e.type === 'skill_outcome');
+
+      const totals = {};
+      for (const e of outcomeEvents) {
+        if (typeof e.skill !== 'string') continue;
+        if (!totals[e.skill]) totals[e.skill] = { used: 0, replaced: 0 };
+        if (e.outcome === 'output_used') totals[e.skill].used++;
+        else if (e.outcome === 'output_replaced') totals[e.skill].replaced++;
+      }
+      const skills = Object.entries(totals).map(([skill, c]) => ({
+        skill,
+        used: c.used,
+        replaced: c.replaced,
+        total: c.used + c.replaced,
+        use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
+      })).sort((a, b) => b.total - a.total);
+
+      res.json({ ...buildSkillEffectivenessContract(skills, outcomeEvents.length), effectiveOutcomeContract });
+    } catch (err) {
+      res.status(500).json({ ...buildSkillEffectivenessContract([], 0), success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });
+    }
+  });
+
+  app.get('/api/contracts/analytics.friction_signals', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    const emptyRetro = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [] };
+
+    if (!process.env.HOME) {
+      res.json({ ...buildFrictionSignalsContract(emptyRetro), effectiveOutcomeContract });
+      return;
+    }
+
+    const cacheFile = path.join(process.env.HOME, '.ai-config-os', 'cache', 'claude-code', 'retrospectives-aggregate.json');
+    try {
+      const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+      const normalized = {
+        artifact_count: typeof data.artifact_count === 'number' ? data.artifact_count : 0,
+        signal_breakdown: data.signal_breakdown && typeof data.signal_breakdown === 'object' && !Array.isArray(data.signal_breakdown) ? data.signal_breakdown : {},
+        top_recommendations: Array.isArray(data.top_recommendations) ? data.top_recommendations : [],
+      };
+      res.json({ ...buildFrictionSignalsContract(normalized), effectiveOutcomeContract });
+    } catch {
+      res.json({ ...buildFrictionSignalsContract(emptyRetro), effectiveOutcomeContract });
+    }
+  });
+
+  app.get('/api/contracts/analytics.autoresearch_runs', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+
+    if (!repoRoot) {
+      res.status(503).json({ ...buildAutoresearchRunsContract([]), success: false, error: 'repoRoot not configured', effectiveOutcomeContract });
+      return;
+    }
+
+    try {
+      const runs = readAutoresearchRuns(repoRoot);
+      res.json({ ...buildAutoresearchRunsContract(runs), effectiveOutcomeContract });
+    } catch (err) {
+      res.status(500).json({ ...buildAutoresearchRunsContract([]), success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });
+    }
+  });
+
+  app.get('/api/contracts/analytics.autoresearch_run_get', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    const skill = typeof req.query.skill === 'string' ? req.query.skill : '';
+    const runDir = typeof req.query.run_dir === 'string' ? req.query.run_dir : '';
+
+    if (!repoRoot) {
+      res.status(503).json({ ...buildAutoresearchRunGetContract([], skill, runDir), success: false, error: 'repoRoot not configured', effectiveOutcomeContract });
+      return;
+    }
+
+    try {
+      const runs = readAutoresearchRuns(repoRoot);
+      const payload = buildAutoresearchRunGetContract(runs, skill, runDir);
+      if (!payload.run) {
+        res.status(404).json({ ...payload, success: false, error: 'run not found', effectiveOutcomeContract });
+        return;
+      }
+      res.json({ ...payload, effectiveOutcomeContract });
+    } catch (err) {
+      res.status(500).json({ ...buildAutoresearchRunGetContract([], skill, runDir), success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });
+    }
+  });
+
+  // Backward-compatible aliases for existing dashboard consumers.
   app.get('/api/analytics', async (req, res) => {
     const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
     try {
@@ -158,50 +320,8 @@ export function createDashboardApi({
       return;
     }
 
-    const skillsDir = path.join(repoRoot, 'shared', 'skills');
-    const runs = [];
-    const MAX_RESULTS_BYTES = 512 * 1024; // 512 KB per results.json - sanity limit
-
     try {
-      const skillDirs = fs.readdirSync(skillsDir, { withFileTypes: true })
-        .filter(d => d.isDirectory())
-        .map(d => d.name);
-
-      for (const skillName of skillDirs) {
-        const skillPath = path.join(skillsDir, skillName);
-        let runDirs;
-        try {
-          runDirs = fs.readdirSync(skillPath, { withFileTypes: true })
-            .filter(d => d.isDirectory() && d.name.startsWith('autoresearch-'))
-            .map(d => d.name);
-        } catch {
-          continue;
-        }
-        for (const runDir of runDirs) {
-          const resultsFile = path.join(skillPath, runDir, 'results.json');
-          try {
-            const stat = fs.statSync(resultsFile);
-            if (stat.size > MAX_RESULTS_BYTES) continue; // skip oversized files
-            const data = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
-            runs.push({
-              skill: skillName,
-              run_dir: runDir,
-              status: typeof data.status === 'string' ? data.status : 'unknown',
-              control_score: typeof data.control_score === 'number' ? data.control_score : null,
-              baseline_score: typeof data.baseline_score === 'number' ? data.baseline_score : null,
-              best_score: typeof data.best_score === 'number' ? data.best_score : null,
-              current_experiment: typeof data.current_experiment === 'number' ? data.current_experiment : 0,
-              experiment_count: Array.isArray(data.experiments) ? data.experiments.length : 0,
-              improved_by: typeof data.baseline_score === 'number' && typeof data.best_score === 'number'
-                ? Math.round(data.best_score - data.baseline_score)
-                : null,
-            });
-          } catch {
-            // results.json missing, malformed, or oversized - skip silently
-          }
-        }
-      }
-      runs.sort((a, b) => (b.best_score ?? 0) - (a.best_score ?? 0));
+      const runs = readAutoresearchRuns(repoRoot);
       res.json({ runs, success: true, effectiveOutcomeContract });
     } catch (err) {
       res.status(500).json({ runs: [], success: false, error: err instanceof Error ? err.message : 'unexpected error', effectiveOutcomeContract });

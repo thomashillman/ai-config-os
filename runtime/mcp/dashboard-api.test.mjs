@@ -97,6 +97,8 @@ test('dashboard API registers task and outcome contract routes', () => {
   const postPaths = app._posts.map((route) => route.path);
 
   assert.ok(getPaths.includes('/api/outcome-contract'));
+  assert.ok(getPaths.includes('/api/contracts/skills.list'));
+  assert.ok(getPaths.includes('/api/contracts/analytics.tool_usage'));
   assert.ok(getPaths.includes('/api/tasks/:taskId/readiness'));
   assert.ok(postPaths.includes('/api/tasks/review/start'));
   assert.ok(postPaths.includes('/api/tasks/:taskId/review/resume'));
@@ -379,6 +381,51 @@ test('/api/retrospectives-summary returns empty fallback when cache file is abse
   assert.equal(payload.artifact_count, 0);
   assert.deepEqual(payload.signal_breakdown, {});
   assert.deepEqual(payload.top_recommendations, []);
+});
+
+
+test('/api/contracts/analytics.tool_usage returns normalized tool usage contract', async () => {
+  const repoRoot = join(tmpdir(), `dash-api-contract-tool-usage-${process.pid}`);
+  const claudeDir = join(repoRoot, '.claude');
+  mkdirSync(claudeDir, { recursive: true });
+  writeFileSync(
+    join(claudeDir, 'metrics.jsonl'),
+    [
+      JSON.stringify({ type: 'tool_usage', tool: 'Read', status: 'success', duration_ms: 10 }),
+      JSON.stringify({ type: 'tool_usage', tool: 'Edit', status: 'success', duration_ms: 15 }),
+      JSON.stringify({ type: 'tool_usage', tool: 'Read', status: 'success', duration_ms: 12 }),
+    ].join('\n') + '\n'
+  );
+
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot,
+    port: 4242,
+  });
+
+  const route = app._gets.find((r) => r.path === '/api/contracts/analytics.tool_usage');
+  let payload = null;
+  await route.handler({}, { json(value) { payload = value; } });
+
+  rmSync(repoRoot, { recursive: true, force: true });
+
+  assert.equal(payload.success, true);
+  assert.equal(payload.contract, 'analytics.tool_usage');
+  assert.equal(payload.total_events, 3);
+  const readEntry = payload.tools.find((entry) => entry.tool === 'Read');
+  assert.ok(readEntry);
+  assert.equal(readEntry.count, 2);
+  assert.equal(typeof payload.interpretation.why_it_matters_now, 'string');
 });
 
 test('dashboard API CORS uses tunnel policy origin allowlisting for local and configured tunnel origins', async () => {
