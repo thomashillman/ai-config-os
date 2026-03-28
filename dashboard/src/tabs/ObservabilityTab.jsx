@@ -26,6 +26,40 @@ function fmtMs(started, finished) {
   return isNaN(ms) ? "—" : `${ms} ms`
 }
 
+function getSignals(run) {
+  if (!run) return null
+  const canonicalSignals = run.canonical_v2?.signals
+  return {
+    attention_required: run.attention_required ?? canonicalSignals?.attention_required ?? false,
+    failure_reason_summary: run.failure_reason_summary ?? canonicalSignals?.failure_reason_summary ?? "—",
+    next_actions: run.next_actions ?? canonicalSignals?.next_actions ?? [],
+    locality: run.locality ?? canonicalSignals?.locality ?? "—",
+    capability: run.capability ?? canonicalSignals?.capability ?? "—",
+  }
+}
+
+function RunSignalsPanel({ run }) {
+  const signals = getSignals(run)
+  if (!signals) return null
+  return (
+    <div className="bg-gray-950/70 rounded p-3 space-y-2">
+      <p className="text-gray-400 text-xs">
+        {signals.attention_required ? "⚠️ Attention required" : "✅ No attention required"}
+      </p>
+      <p className="text-gray-300 text-xs">{signals.failure_reason_summary}</p>
+      <div className="flex flex-wrap gap-2">
+        {signals.next_actions.map((action) => (
+          <span key={action} className="px-2 py-0.5 rounded text-[11px] bg-gray-800 text-gray-300">{action}</span>
+        ))}
+      </div>
+      <div className="text-[11px] text-gray-500">
+        <span className="mr-3">Locality: <span className="text-gray-300 font-mono">{signals.locality}</span></span>
+        <span>Capability: <span className="text-gray-300 font-mono">{signals.capability}</span></span>
+      </div>
+    </div>
+  )
+}
+
 // ── Latest Run Panel (Atom 9) ─────────────────────────────────────────────────
 
 function LatestRunPanel({ run }) {
@@ -69,6 +103,7 @@ function LatestRunPanel({ run }) {
         <div className="text-gray-500">Phase count</div>
         <div className="text-gray-300">{run.phase_count}</div>
       </div>
+      <RunSignalsPanel run={run} />
     </div>
   )
 }
@@ -80,7 +115,9 @@ function RunListPanel({ runs, onSelect }) {
 
   return (
     <div className="space-y-1">
-      {runs.map(run => (
+      {runs.map(run => {
+        const signals = getSignals(run)
+        return (
         <button
           key={run.run_id}
           onClick={() => onSelect(run.run_id)}
@@ -88,12 +125,15 @@ function RunListPanel({ runs, onSelect }) {
         >
           <span className="text-gray-500 text-xs font-mono w-52 truncate">{run.run_id}</span>
           {statusBadge(run.status)}
+          {signals?.attention_required && <span className="text-yellow-400 text-[11px]">needs attention</span>}
+          {signals?.next_actions?.[0] && <span className="text-gray-400 text-[11px] truncate max-w-56">{signals.next_actions[0]}</span>}
           <span className="text-gray-500 text-xs ml-auto">{fmtDate(run.started_at)}</span>
           {run.error_code && (
             <span className="text-red-400 text-xs font-mono">{run.error_code}</span>
           )}
         </button>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -131,6 +171,7 @@ function RunDetailPanel({ run, onClose }) {
           <div className="text-red-400 font-mono">{run.error_code}</div>
         </>}
       </div>
+      <RunSignalsPanel run={run} />
 
       {run.phases && run.phases.length > 0 && (
         <div>

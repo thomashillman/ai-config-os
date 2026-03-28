@@ -78,6 +78,19 @@ function buildSummary(run) {
   if (run.observed_version) s.observed_version = run.observed_version;
   return s;
 }
+function deriveSignals(run) {
+  return {
+    attention_required: run.status !== 'success',
+    failure_reason_summary: run.status === 'success' ? 'Run completed successfully.' : 'Run failed and needs investigation.',
+    next_actions: run.status === 'success' ? ['No action required'] : ['Inspect run details'],
+    locality: 'bootstrap/unknown',
+    capability: 'bootstrap.lifecycle',
+  };
+}
+function withSignals(run) {
+  const signals = deriveSignals(run);
+  return { ...run, ...signals, canonical_v2: { version: 'v2', signals } };
+}
 async function writeBootstrapRun(run, kv, r2) {
   const san = sanitizeRecord(run);
   const summary = buildSummary(san);
@@ -137,19 +150,19 @@ async function handleRunList(request, env) {
   const url = new URL(request.url);
   const limit = parseInt(url.searchParams.get('limit') || '20', 10) || 20;
   const [runs, latest] = await Promise.all([listBootstrapRuns(env.kv, limit), getLatestRunSummary(env.kv)]);
-  return jsonResp({ runs, latest, count: runs.length });
+  return jsonResp({ runs: runs.map(withSignals), latest: latest ? withSignals(latest) : null, count: runs.length, canonical_version: 'v2' });
 }
 
 async function handleRunGet(runId, env) {
   if (!env.r2) return jsonResp({ error: 'Observability storage not configured' }, 503);
   const run = await getBootstrapRun(runId, env.r2);
   if (!run) return nf(`Run '${runId}' not found`);
-  return jsonResp({ run });
+  return jsonResp({ run: withSignals(run), canonical_version: 'v2' });
 }
 
 async function handleSettingsGet(env) {
   const settings = await readObservabilitySettings(env.kv);
-  return jsonResp({ settings });
+  return jsonResp({ settings, canonical_v2: { version: 'v2', payload: { settings, locality: 'worker/kv', capability: 'observability.settings.retention' } } });
 }
 
 async function handleSettingsPut(request, env) {
@@ -159,7 +172,7 @@ async function handleSettingsPut(request, env) {
   if (!v.ok) return jsonResp({ error: 'Validation failed', details: v.errors }, 400);
   if (!env.kv) return jsonResp({ error: 'Settings storage not configured' }, 503);
   await writeObservabilitySettings(env.kv, v.value);
-  return jsonResp({ ok: true, settings: v.value });
+  return jsonResp({ ok: true, settings: v.value, canonical_v2: { version: 'v2', payload: { settings: v.value, locality: 'worker/kv', capability: 'observability.settings.retention' } } });
 }
 
 // ── Mock infra ────────────────────────────────────────────────────────────────
@@ -245,6 +258,8 @@ test('GET runs: returns summaries after writes', async () => {
   assert.equal(resp.body.count, 1);
   assert.equal(resp.body.runs[0].run_id, 'r-test');
   assert.equal(resp.body.latest.run_id, 'r-test');
+  assert.equal(resp.body.runs[0].canonical_v2.version, 'v2');
+  assert.equal(typeof resp.body.runs[0].attention_required, 'boolean');
 });
 
 test('GET runs: respects limit query parameter', async () => {
@@ -273,6 +288,7 @@ test('GET runs/:runId: returns full run', async () => {
   assert.equal(resp.status, 200);
   assert.equal(resp.body.run.run_id, 'r-test');
   assert.ok(Array.isArray(resp.body.run.phases));
+  assert.ok(Array.isArray(resp.body.run.next_actions));
 });
 
 test('GET runs/:runId: returns 404 for unknown run', async () => {
@@ -294,6 +310,7 @@ test('GET settings: returns default settings when KV empty', async () => {
   assert.equal(resp.status, 200);
   assert.equal(resp.body.settings.raw_retention_days, 7);
   assert.equal(resp.body.settings.summary_retention_days, 90);
+  assert.equal(resp.body.canonical_v2.version, 'v2');
 });
 
 // ── Tests: PUT /v1/observability/settings ─────────────────────────────────────
