@@ -23,6 +23,11 @@ import {
   writeObservabilitySettings,
   validateObservabilitySettings,
 } from '../observability/settings';
+import {
+  OBSERVABILITY_CANONICAL_VERSION,
+  settingsEnvelope,
+  withRunSignals,
+} from '../observability/canonical';
 
 // ── POST /v1/observability/runs ───────────────────────────────────────────────
 
@@ -70,7 +75,15 @@ export async function handleObservabilityRunList(
     getLatestRunSummary(env.MANIFEST_KV),
   ]);
 
-  return jsonResponse({ runs, latest, count: runs.length });
+  return jsonResponse({
+    runs: runs.map(withRunSignals),
+    latest: latest ? withRunSignals(latest) : null,
+    count: runs.length,
+    canonical_version: OBSERVABILITY_CANONICAL_VERSION,
+    migration: {
+      note: 'Legacy fields remain at the top level. Canonical signals are available under canonical_v2.signals.',
+    },
+  });
 }
 
 // ── GET /v1/observability/runs/:runId ─────────────────────────────────────────
@@ -88,14 +101,20 @@ export async function handleObservabilityRunGet(
     return notFound(`Run '${runId}' not found`);
   }
 
-  return jsonResponse({ run });
+  return jsonResponse({
+    run: withRunSignals(run),
+    canonical_version: OBSERVABILITY_CANONICAL_VERSION,
+    migration: {
+      note: 'Legacy run fields are retained. Canonical signals are mirrored under canonical_v2.signals.',
+    },
+  });
 }
 
 // ── GET /v1/observability/settings ────────────────────────────────────────────
 
 export async function handleObservabilitySettingsGet(env: Env): Promise<Response> {
   const settings = await readObservabilitySettings(env.MANIFEST_KV);
-  return jsonResponse({ settings });
+  return jsonResponse(settingsEnvelope(settings));
 }
 
 // ── PUT /v1/observability/settings ────────────────────────────────────────────
@@ -117,5 +136,5 @@ export async function handleObservabilitySettingsPut(
   }
 
   await writeObservabilitySettings(env.MANIFEST_KV, validation.value);
-  return jsonResponse({ ok: true, settings: validation.value });
+  return jsonResponse({ ok: true, ...settingsEnvelope(validation.value) });
 }

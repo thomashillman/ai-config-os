@@ -39,6 +39,11 @@ const FAILURE_RUN = {
   first_failed_phase: "worker_package_fetch",
   error_code: "WORKER_PACKAGE_NOT_PUBLISHED",
   phase_count: 2,
+  attention_required: true,
+  failure_reason_summary: "Run stopped while fetching worker package.",
+  next_actions: ["Inspect failed phase logs", "Retry bootstrap"],
+  locality: "bootstrap/worker",
+  capability: "artifact.fetch",
 }
 
 afterEach(() => {
@@ -87,6 +92,17 @@ describe("ObservabilityTab — latest run viewer (Atom 9)", () => {
     render(<ObservabilityTab workerUrl={WORKER} token={TOKEN} />)
     // error_code appears in latest panel and run list row
     expect(await screen.findAllByText("WORKER_PACKAGE_NOT_PUBLISHED")).not.toHaveLength(0)
+  })
+
+  it("renders shared signal fields for failed runs", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResp({ runs: [FAILURE_RUN], latest: FAILURE_RUN, count: 1 })
+    )
+
+    render(<ObservabilityTab workerUrl={WORKER} token={TOKEN} />)
+    expect(await screen.findByText(/attention required/i)).toBeInTheDocument()
+    expect(screen.getByText("Run stopped while fetching worker package.")).toBeInTheDocument()
+    expect(screen.getAllByText("Inspect failed phase logs").length).toBeGreaterThan(0)
   })
 
   it("shows expected_version and observed_version", async () => {
