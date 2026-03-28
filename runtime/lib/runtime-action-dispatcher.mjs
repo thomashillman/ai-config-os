@@ -1,4 +1,5 @@
 import { getRuntimeActionMeta, isScriptWrapperAction } from './runtime-action-matrix.mjs';
+import { parseRuntimeActionOutput } from './runtime-action-output.mjs';
 
 export class UnknownActionError extends Error {
   constructor(actionName) {
@@ -83,10 +84,12 @@ export function createRuntimeActionDispatcher({ runScript, validateNumber }) {
       }
 
       const result = runScript(command, commandArgs);
+      const parsed = parseRuntimeActionOutput(actionName, result.output, { normalizedArgs });
       return {
         ...result,
         actionName,
         normalizedArgs,
+        parsed,
       };
     },
   };

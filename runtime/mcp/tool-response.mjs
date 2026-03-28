@@ -1,29 +1,40 @@
 import { attachCapabilityProfile } from '../lib/capability-profile.mjs';
 import { createCapability, createErrorEnvelope, createSuccessEnvelope } from '../lib/contracts/envelope.mjs';
 
-function mcpCapability() {
+function mcpCapability(overrides = {}) {
   return createCapability({
     worker_backed: false,
     local_only: true,
     remote_safe: false,
     tunnel_required: false,
     unavailable_on_surface: false,
+    ...overrides,
   });
 }
 
-export function toToolResponse(result, effectiveOutcomeContract = null, capabilityProfile = null, resource = 'mcp.tool') {
-  const outcomeMeta = effectiveOutcomeContract
+function outcomeMeta(effectiveOutcomeContract) {
+  return effectiveOutcomeContract
     ? { effective_outcome_contract: effectiveOutcomeContract }
     : undefined;
+}
+
+export function toToolResponse(result, effectiveOutcomeContract = null, capabilityProfile = null, resource = 'mcp.tool') {
+  const parsed = result?.parsed ?? null;
 
   if (result.success) {
-    const output = result.output ?? '';
     const envelope = createSuccessEnvelope({
       resource,
-      data: { output, success: true },
-      summary: 'Tool execution completed successfully.',
+      data: {
+        success: true,
+        data: parsed?.data ?? {},
+        schema_ids: parsed?.schemaIds ?? [],
+        capability: parsed?.capability ?? { local_only: true, worker_backed: false },
+        capability_by_schema: parsed?.capabilityBySchema ?? {},
+        diagnostics: result.output ? { raw_output: result.output } : undefined,
+      },
+      summary: parsed?.summary || 'Tool execution completed successfully.',
       capability: mcpCapability(),
-      meta: outcomeMeta,
+      meta: outcomeMeta(effectiveOutcomeContract),
     });
 
     return attachCapabilityProfile({
@@ -39,15 +50,22 @@ export function toToolResponse(result, effectiveOutcomeContract = null, capabili
 
   const envelope = createErrorEnvelope({
     resource,
-    data: { output: textBody, success: false },
-    summary: 'Tool execution failed.',
+    data: {
+      success: false,
+      data: parsed?.data ?? {},
+      schema_ids: parsed?.schemaIds ?? [],
+      capability: parsed?.capability ?? { local_only: true, worker_backed: false },
+      capability_by_schema: parsed?.capabilityBySchema ?? {},
+      diagnostics: { raw_output: textBody },
+    },
+    summary: parsed?.summary || 'Tool execution failed.',
     capability: mcpCapability(),
     error: {
       code: 'tool_execution_failed',
       message: textBody,
-      hint: 'Inspect the tool output, correct inputs, and retry.',
+      hint: 'Inspect diagnostics.raw_output, correct inputs if needed, and retry.',
     },
-    meta: outcomeMeta,
+    meta: outcomeMeta(effectiveOutcomeContract),
   });
 
   return attachCapabilityProfile({

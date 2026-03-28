@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createPublicKey, verify } from 'node:crypto';
 import { ExecutorHttpError, toErrorResponse } from './errors.mjs';
+import { parseRuntimeActionOutput } from '../lib/runtime-action-output.mjs';
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -110,12 +111,19 @@ async function executeTool(body, timeoutMs) {
     throw new ExecutorHttpError(500, 'EXECUTOR_ERROR', error instanceof Error ? error.message : String(error));
   }
 
+  const rawOutput = result.stdout?.trimEnd() ?? '';
+  const parsed = parseRuntimeActionOutput(body.tool, rawOutput, { normalizedArgs: {} });
+
   return {
     ok: true,
     status: 200,
     result: {
       tool: body.tool,
-      stdout: result.stdout?.trimEnd() ?? '',
+      data: parsed.data,
+      schema_ids: parsed.schemaIds,
+      capability: { local_only: parsed.capability.local_only, worker_backed: true },
+      capability_by_schema: parsed.capabilityBySchema ?? {},
+      diagnostics: rawOutput ? { raw_output: rawOutput } : undefined,
       stderr: result.stderr?.trimEnd() ?? '',
     },
   };

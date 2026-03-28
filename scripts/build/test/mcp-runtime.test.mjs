@@ -19,7 +19,7 @@ test('toToolResponse returns envelope on success', async () => {
   const result = toToolResponse({ success: true, output: 'ok', error: null });
   const envelope = parseEnvelope(result);
   assert.equal(envelope.contract_version, '1.0.0');
-  assert.equal(envelope.data.output, 'ok');
+  assert.equal(envelope.data.diagnostics.raw_output, 'ok');
   assert.equal(envelope.data.success, true);
   assert.equal(result.content[0].type, 'text');
   assert.deepEqual(result.structuredContent, envelope);
@@ -30,7 +30,7 @@ test('toToolResponse returns empty string for success with no output', async () 
 
   const result = toToolResponse({ success: true, output: '', error: null });
   const envelope = parseEnvelope(result);
-  assert.equal(envelope.data.output, '');
+  assert.equal(envelope.data.diagnostics, undefined);
   assert.equal(envelope.data.success, true);
 });
 
@@ -39,7 +39,7 @@ test('toToolResponse returns null output as empty string on success', async () =
 
   const result = toToolResponse({ success: true, output: null, error: null });
   const envelope = parseEnvelope(result);
-  assert.equal(envelope.data.output, '');
+  assert.equal(envelope.data.diagnostics, undefined);
   assert.equal(envelope.data.success, true);
 });
 
@@ -50,7 +50,7 @@ test('toToolResponse sets isError true on failure', async () => {
   const envelope = parseEnvelope(result);
 
   assert.equal(result.isError, true);
-  assert.match(envelope.data.output, /boom/);
+  assert.match(envelope.data.diagnostics.raw_output, /boom/);
   assert.equal(envelope.data.success, false);
   assert.equal(envelope.error.code, 'tool_execution_failed');
 });
@@ -66,8 +66,8 @@ test('toToolResponse preserves both stderr and stdout on failure', async () => {
 
   assert.equal(result.isError, true);
   const envelope = parseEnvelope(result);
-  assert.match(envelope.data.output, /stderr failure/);
-  assert.match(envelope.data.output, /stdout details/);
+  assert.match(envelope.data.diagnostics.raw_output, /stderr failure/);
+  assert.match(envelope.data.diagnostics.raw_output, /stdout details/);
 });
 
 test('toToolResponse handles error without stdout', async () => {
@@ -80,7 +80,7 @@ test('toToolResponse handles error without stdout', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(parseEnvelope(result).data.output, 'command failed');
+  assert.equal(parseEnvelope(result).data.diagnostics.raw_output, 'command failed');
 });
 
 test('toToolResponse handles stdout without error', async () => {
@@ -93,7 +93,7 @@ test('toToolResponse handles stdout without error', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(parseEnvelope(result).data.output, 'some output');
+  assert.equal(parseEnvelope(result).data.diagnostics.raw_output, 'some output');
 });
 
 test('toToolResponse handles both missing on failure', async () => {
@@ -106,7 +106,7 @@ test('toToolResponse handles both missing on failure', async () => {
   });
 
   assert.equal(result.isError, true);
-  assert.equal(parseEnvelope(result).data.output, 'Unknown error');
+  assert.equal(parseEnvelope(result).data.diagnostics.raw_output, 'Unknown error');
 });
 
 
@@ -122,8 +122,8 @@ test('toToolResponse includes effective outcome contract in envelope meta on fai
   const envelope = parseEnvelope(result);
   assert.equal(result.isError, true);
   assert.deepEqual(envelope.meta.effective_outcome_contract, contract);
-  assert.match(envelope.data.output, /stderr failure/);
-  assert.match(envelope.data.output, /stdout details/);
+  assert.match(envelope.data.diagnostics.raw_output, /stderr failure/);
+  assert.match(envelope.data.diagnostics.raw_output, /stdout details/);
 });
 
 test('toolError returns isError true', async () => {
