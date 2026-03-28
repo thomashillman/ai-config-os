@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import ResumeSheet from "../components/ResumeSheet"
 import TaskDetailTab from "./TaskDetailTab"
-import { WORKER_URL } from "../lib/workerClient"
+import { WORKER_URL as DEFAULT_WORKER_URL } from "../lib/workerClient"
 import { routeLabel } from "../lib/taskFormatters"
 import { timeAgo } from "../lib/dateFormatters"
 import { summarizeTaskFindings } from "../lib/taskFindingSummary"
@@ -76,7 +76,7 @@ function TaskCard({ task, onResume, onView }) {
   )
 }
 
-export default function HubTab({ api }) {
+export default function HubTab({ workerUrl, token: tokenProp }) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -84,7 +84,8 @@ export default function HubTab({ api }) {
   const [filter, setFilter] = useState("active")
   const [detailTaskId, setDetailTaskId] = useState(null)
 
-  const token = import.meta.env.VITE_AUTH_TOKEN || ""
+  const WORKER_URL = workerUrl || DEFAULT_WORKER_URL
+  const token = tokenProp || import.meta.env.VITE_AUTH_TOKEN || ""
 
   if (detailTaskId) {
     return <TaskDetailTab taskId={detailTaskId} onBack={() => setDetailTaskId(null)} />

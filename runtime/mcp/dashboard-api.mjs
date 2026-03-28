@@ -1,18 +1,5 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { ActionValidationError, createRuntimeActionDispatcher } from '../lib/runtime-action-dispatcher.mjs';
-import { loadObservationSnapshot } from '../lib/observation-read-model.mjs';
 import { createCapability, createErrorEnvelope, createSuccessEnvelope } from '../lib/contracts/envelope.mjs';
-import {
-  buildAutoresearchRunGetContract,
-  buildAutoresearchRunsContract,
-  buildFrictionSignalsContract,
-  buildSkillEffectivenessContract,
-  buildSkillsListContract,
-  buildToolUsageContract,
-  parseSkillStatsOutput,
-  readAutoresearchRuns,
-} from '../lib/dashboard-analytics-contracts.mjs';
 
 export function createDashboardApi({
   app,
@@ -27,8 +14,13 @@ export function createDashboardApi({
   taskService,
   repoRoot,
   port,
+  workerUrl,
+  workerToken,
 }) {
   const runtimeActionDispatcher = createRuntimeActionDispatcher({ runScript, validateNumber });
+
+  const WORKER_BASE_URL = (workerUrl || process.env.AI_CONFIG_OS_WORKER_URL || process.env.WORKER_URL || '').replace(/\/+$/, '');
+  const WORKER_TOKEN = workerToken || process.env.AI_CONFIG_OS_WORKER_TOKEN || process.env.AUTH_TOKEN || '';
 
   function dashboardCapability() {
     return createCapability({
@@ -38,6 +30,32 @@ export function createDashboardApi({
       tunnel_required: true,
       unavailable_on_surface: false,
     });
+  }
+
+  async function proxyWorkerRead(resource, workerPath, res) {
+    if (!WORKER_BASE_URL || !WORKER_TOKEN) {
+      const failure = fail(resource, 503, {
+        code: 'worker_not_configured',
+        message: 'Worker URL or token not configured',
+        hint: 'Set AI_CONFIG_OS_WORKER_URL and AI_CONFIG_OS_WORKER_TOKEN, then re-run the dashboard server.',
+      });
+      res.status(failure.status).json(failure.body);
+      return;
+    }
+    try {
+      const upstream = await fetch(`${WORKER_BASE_URL}${workerPath}`, {
+        headers: { Authorization: `Bearer ${WORKER_TOKEN}` },
+      });
+      const body = await upstream.json();
+      res.status(upstream.status).json(body);
+    } catch (err) {
+      const failure = fail(resource, 502, {
+        code: 'worker_proxy_error',
+        message: err instanceof Error ? err.message : 'Worker fetch failed',
+        hint: 'Check that the Worker is reachable and the token is valid.',
+      });
+      res.status(failure.status).json(failure.body);
+    }
   }
 
   function ok(resource, data, summary, meta = undefined) {
@@ -114,52 +132,28 @@ export function createDashboardApi({
   });
 
   app.get('/api/context-cost', (req, res) => {
-    executeRuntimeAction('context_cost', { threshold: req.query.threshold }, res);
+    proxyWorkerRead('runtime.context_cost', '/v1/runtime/context-cost', res);
   });
 
   app.get('/api/config', (req, res) => {
     executeRuntimeAction('get_config', {}, res);
   });
 
+  // ── Contract routes: Worker-proxy shims ────────────────────────────────────
+  // These routes were the local source of truth. They now proxy the Worker read
+  // endpoint so the dashboard gets the same canonical envelope as Worker consumers.
+  // The Worker snapshot is populated by runtime/publish-dashboard-state.mjs.
+
   app.get('/api/contracts/skills.list', (req, res) => {
-    executeRuntimeAction('skill_stats', {}, {
-      json(payload) {
-        const skills = parseSkillStatsOutput(
-          payload?.data?.diagnostics?.raw_output || payload?.output || ''
-        );
-        const effectiveOutcomeContract = payload?.meta?.effective_outcome_contract || null;
-        res.json(ok('skills.list', buildSkillsListContract(skills), 'Loaded skills.list contract.', {
-          effective_outcome_contract: effectiveOutcomeContract,
-        }));
-      },
-      status(code) {
-        return res.status(code);
-      },
-    });
+    proxyWorkerRead('skills.list', '/v1/skills', res);
   });
 
   app.get('/api/contracts/tooling.status', (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'list_tools', executionChannel: 'dashboard' });
-    executeRuntimeAction('list_tools', {}, {
-      json(payload) {
-        res.json(ok('tooling.status', payload?.data?.data ?? {}, 'Loaded tooling.status contract.', {
-          effective_outcome_contract: effectiveOutcomeContract,
-        }));
-      },
-      status(code) { return res.status(code); },
-    });
+    proxyWorkerRead('tooling.status', '/v1/tooling/status', res);
   });
 
   app.get('/api/contracts/config.summary', (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'get_config', executionChannel: 'dashboard' });
-    executeRuntimeAction('get_config', {}, {
-      json(payload) {
-        res.json(ok('config.summary', payload?.data?.data ?? {}, 'Loaded config.summary contract.', {
-          effective_outcome_contract: effectiveOutcomeContract,
-        }));
-      },
-      status(code) { return res.status(code); },
-    });
+    proxyWorkerRead('config.summary', '/v1/config/summary', res);
   });
 
   app.get('/api/contracts/skills.stats', async (req, res) => {
@@ -199,168 +193,26 @@ export function createDashboardApi({
     }
   });
 
-  app.get('/api/contracts/analytics.tool_usage', async (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-    try {
-      const { events } = await loadObservationSnapshot({ projectDir: repoRoot });
-      const metrics = events.filter((e) => e.type === 'tool_usage');
-      res.json(ok('contracts.analytics.tool_usage', {
-        ...buildToolUsageContract(metrics),
-        effectiveOutcomeContract,
-      }, 'Loaded analytics.tool_usage contract.', { effective_outcome_contract: effectiveOutcomeContract }));
-    } catch {
-      res.json(ok('contracts.analytics.tool_usage', {
-        ...buildToolUsageContract([]),
-        note: 'No metrics collected yet',
-        effectiveOutcomeContract,
-      }, 'No analytics metrics available yet.', { effective_outcome_contract: effectiveOutcomeContract }));
-    }
+  app.get('/api/contracts/analytics.tool_usage', (req, res) => {
+    proxyWorkerRead('analytics.tool_usage', '/v1/analytics/tool-usage', res);
   });
 
-  app.get('/api/contracts/analytics.skill_effectiveness', async (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-
-    if (!process.env.HOME) {
-      const failure = fail('contracts.analytics.skill_effectiveness', 503, {
-        code: 'home_missing',
-        message: '$HOME is not set',
-        hint: 'Set HOME in the dashboard process environment.',
-      }, { effective_outcome_contract: effectiveOutcomeContract });
-      res.status(failure.status).json(failure.body);
-      return;
-    }
-
-    try {
-      const { events } = await loadObservationSnapshot({ home: process.env.HOME, projectDir: repoRoot });
-      const outcomeEvents = events.filter((e) => e.type === 'skill_outcome');
-      const totals = {};
-      for (const e of outcomeEvents) {
-        if (typeof e.skill !== 'string') continue;
-        if (!totals[e.skill]) totals[e.skill] = { used: 0, replaced: 0 };
-        if (e.outcome === 'output_used') totals[e.skill].used++;
-        else if (e.outcome === 'output_replaced') totals[e.skill].replaced++;
-      }
-      const skills = Object.entries(totals).map(([skill, c]) => ({
-        skill,
-        used: c.used,
-        replaced: c.replaced,
-        total: c.used + c.replaced,
-        use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
-      })).sort((a, b) => b.total - a.total);
-
-      res.json(ok('contracts.analytics.skill_effectiveness', {
-        ...buildSkillEffectivenessContract(skills, outcomeEvents.length),
-        effectiveOutcomeContract,
-      }, 'Loaded analytics.skill_effectiveness contract.', { effective_outcome_contract: effectiveOutcomeContract }));
-    } catch (err) {
-      const failure = fail('contracts.analytics.skill_effectiveness', 500, {
-        code: 'skill_effectiveness_failed',
-        message: err instanceof Error ? err.message : 'unexpected error',
-        hint: 'Retry the request or inspect dashboard logs.',
-      }, { effective_outcome_contract: effectiveOutcomeContract });
-      res.status(failure.status).json(failure.body);
-    }
+  app.get('/api/contracts/analytics.skill_effectiveness', (req, res) => {
+    proxyWorkerRead('analytics.skill_effectiveness', '/v1/analytics/skill-effectiveness', res);
   });
 
   app.get('/api/contracts/analytics.friction_signals', (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-    const emptyRetro = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [] };
-
-    if (!process.env.HOME) {
-      res.json(ok('contracts.analytics.friction_signals', {
-        ...buildFrictionSignalsContract(emptyRetro),
-        effectiveOutcomeContract,
-      }, 'Loaded analytics.friction_signals contract.', { effective_outcome_contract: effectiveOutcomeContract }));
-      return;
-    }
-
-    const cacheFile = path.join(process.env.HOME, '.ai-config-os', 'cache', 'claude-code', 'retrospectives-aggregate.json');
-    try {
-      const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
-      const normalized = {
-        artifact_count: typeof data.artifact_count === 'number' ? data.artifact_count : 0,
-        signal_breakdown: data.signal_breakdown && typeof data.signal_breakdown === 'object' && !Array.isArray(data.signal_breakdown) ? data.signal_breakdown : {},
-        top_recommendations: Array.isArray(data.top_recommendations) ? data.top_recommendations : [],
-      };
-      res.json(ok('contracts.analytics.friction_signals', {
-        ...buildFrictionSignalsContract(normalized),
-        effectiveOutcomeContract,
-      }, 'Loaded analytics.friction_signals contract.', { effective_outcome_contract: effectiveOutcomeContract }));
-    } catch {
-      res.json(ok('contracts.analytics.friction_signals', {
-        ...buildFrictionSignalsContract(emptyRetro),
-        effectiveOutcomeContract,
-      }, 'Loaded analytics.friction_signals contract.', { effective_outcome_contract: effectiveOutcomeContract }));
-    }
+    proxyWorkerRead('analytics.friction_signals', '/v1/analytics/friction-signals', res);
   });
 
   app.get('/api/contracts/analytics.autoresearch_runs', (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-
-    if (!repoRoot) {
-      const failure = fail('contracts.analytics.autoresearch_runs', 503, {
-        code: 'repo_root_missing',
-        message: 'repoRoot not configured',
-        hint: 'Set repoRoot for the dashboard API process.',
-      }, { effective_outcome_contract: effectiveOutcomeContract });
-      res.status(failure.status).json(failure.body);
-      return;
-    }
-
-    try {
-      const runs = readAutoresearchRuns(repoRoot);
-      res.json(ok('contracts.analytics.autoresearch_runs', {
-        ...buildAutoresearchRunsContract(runs),
-        effectiveOutcomeContract,
-      }, 'Loaded analytics.autoresearch_runs contract.', { effective_outcome_contract: effectiveOutcomeContract }));
-    } catch (err) {
-      const failure = fail('contracts.analytics.autoresearch_runs', 500, {
-        code: 'autoresearch_failed',
-        message: err instanceof Error ? err.message : 'unexpected error',
-        hint: 'Retry the request or inspect dashboard logs.',
-      }, { effective_outcome_contract: effectiveOutcomeContract });
-      res.status(failure.status).json(failure.body);
-    }
+    proxyWorkerRead('analytics.autoresearch_runs', '/v1/analytics/autoresearch-runs', res);
   });
 
   app.get('/api/contracts/analytics.autoresearch_run_get', (req, res) => {
-    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
-    const skill = typeof req.query.skill === 'string' ? req.query.skill : '';
-    const runDir = typeof req.query.run_dir === 'string' ? req.query.run_dir : '';
-
-    if (!repoRoot) {
-      const failure = fail('contracts.analytics.autoresearch_run_get', 503, {
-        code: 'repo_root_missing',
-        message: 'repoRoot not configured',
-        hint: 'Set repoRoot for the dashboard API process.',
-      }, { effective_outcome_contract: effectiveOutcomeContract });
-      res.status(failure.status).json(failure.body);
-      return;
-    }
-
-    try {
-      const payload = buildAutoresearchRunGetContract(readAutoresearchRuns(repoRoot), skill, runDir);
-      if (!payload.run) {
-        const failure = fail('contracts.analytics.autoresearch_run_get', 404, {
-          code: 'run_not_found',
-          message: 'run not found',
-          hint: 'Verify skill and run_dir query values.',
-        }, { effective_outcome_contract: effectiveOutcomeContract });
-        res.status(failure.status).json(failure.body);
-        return;
-      }
-      res.json(ok('contracts.analytics.autoresearch_run_get', {
-        ...payload,
-        effectiveOutcomeContract,
-      }, 'Loaded analytics.autoresearch_run_get contract.', { effective_outcome_contract: effectiveOutcomeContract }));
-    } catch (err) {
-      const failure = fail('contracts.analytics.autoresearch_run_get', 500, {
-        code: 'autoresearch_run_get_failed',
-        message: err instanceof Error ? err.message : 'unexpected error',
-        hint: 'Retry the request or inspect dashboard logs.',
-      }, { effective_outcome_contract: effectiveOutcomeContract });
-      res.status(failure.status).json(failure.body);
-    }
+    const skill = typeof req.query.skill === 'string' ? encodeURIComponent(req.query.skill) : '';
+    const runDir = typeof req.query.run_dir === 'string' ? encodeURIComponent(req.query.run_dir) : '';
+    proxyWorkerRead('analytics.autoresearch_run_get', `/v1/analytics/autoresearch-runs/${skill}/${runDir}`, res);
   });
 
   app.get('/api/analytics', async (req, res) => {
@@ -500,7 +352,7 @@ export function createDashboardApi({
   });
 
   app.get('/api/validate-all', (req, res) => {
-    executeRuntimeAction('validate_all', {}, res);
+    proxyWorkerRead('audit.validate_all', '/v1/audit/validate-all', res);
   });
 
   app.get('/api/outcome-contract', (req, res) => {

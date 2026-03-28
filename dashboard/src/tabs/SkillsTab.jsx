@@ -1,35 +1,37 @@
 import { useState, useEffect } from "react"
 import ResponseContractPanel from "../components/ResponseContractPanel"
-import { buildFetchError, getOutcomeContract } from "../lib/dashboardApi"
+import { getOutcomeContract } from "../lib/dashboardApi"
+import { fetchSkillsList, isStale } from "../lib/workerContractsClient"
 
 const CHECKMARK = "\u2713"
 
 const statusColour = (s) =>
   s === "stable" ? "text-green-400" : s === "experimental" ? "text-yellow-400" : "text-gray-500"
 
-export default function SkillsTab({ api }) {
+export default function SkillsTab({ workerUrl, token }) {
   const [skills, setSkills] = useState([])
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${api}/contracts/skills.list`)
-      .then(r => r.json())
+    fetchSkillsList(workerUrl, token)
       .then(payload => {
         setData(payload)
         setSkills(Array.isArray(payload.data?.skills) ? payload.data.skills : [])
         setLoading(false)
       })
-      .catch(() => {
-        setData(buildFetchError())
-        setLoading(false)
-      })
-  }, [api])
+      .catch(() => setLoading(false))
+  }, [workerUrl, token])
 
   return (
     <div>
-      <h2 className="text-gray-300 font-semibold mb-1">Skill Library ({skills.length} skills)</h2>
-      <p className="text-gray-600 text-xs mb-4">{data?.data?.interpretation?.why_it_matters_now || data?.summary || "Current skill inventory and readiness."}</p>
+      <div className="flex items-center gap-3 mb-1">
+        <h2 className="text-gray-300 font-semibold">Skill Library ({skills.length} skills)</h2>
+        {isStale(data) && (
+          <span className="px-2 py-0.5 text-xs bg-yellow-900 text-yellow-400 rounded">stale</span>
+        )}
+      </div>
+      <p className="text-gray-600 text-xs mb-4">{data?.meta?.interpretation?.why_it_matters_now || data?.data?.interpretation?.why_it_matters_now || data?.summary || "Current skill inventory and readiness."}</p>
       <ResponseContractPanel data={getOutcomeContract(data)} />
       {loading ? (
         <p className="text-gray-500">Loading...</p>

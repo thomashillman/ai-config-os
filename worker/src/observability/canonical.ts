@@ -2,8 +2,6 @@ import type { BootstrapRun } from './schema';
 import type { ObservabilitySettings } from './settings';
 import type { RunSummary } from './storage';
 
-export const OBSERVABILITY_CANONICAL_VERSION = 'v2';
-
 export interface RunSignals {
   attention_required: boolean;
   failure_reason_summary: string;
@@ -12,17 +10,7 @@ export interface RunSignals {
   capability: string;
 }
 
-export type RunWithSignals<T extends { status: BootstrapRun['status']; first_failed_phase?: string; error_code?: string; expected_version?: string; observed_version?: string }> = T & {
-  canonical_v2: {
-    version: typeof OBSERVABILITY_CANONICAL_VERSION;
-    signals: RunSignals;
-  };
-  attention_required: boolean;
-  failure_reason_summary: string;
-  next_actions: string[];
-  locality: string;
-  capability: string;
-};
+export type RunWithSignals<T extends { status: BootstrapRun['status']; first_failed_phase?: string; error_code?: string; expected_version?: string; observed_version?: string }> = T & RunSignals;
 
 function summarizeFailureReason(run: { status: BootstrapRun['status']; first_failed_phase?: string; error_code?: string; expected_version?: string; observed_version?: string }): string {
   if (run.status === 'success') return 'Run completed successfully.';
@@ -98,43 +86,5 @@ export function withRunSignals<T extends RunSummary | BootstrapRun>(run: T): Run
     next_actions: signals.next_actions,
     locality: signals.locality,
     capability: signals.capability,
-    canonical_v2: {
-      version: OBSERVABILITY_CANONICAL_VERSION,
-      signals,
-    },
-  };
-}
-
-export function settingsEnvelope(settings: ObservabilitySettings): {
-  settings: ObservabilitySettings;
-  canonical_v2: {
-    version: typeof OBSERVABILITY_CANONICAL_VERSION;
-    payload: {
-      settings: ObservabilitySettings;
-      locality: string;
-      capability: string;
-    };
-  };
-  migration: {
-    legacy_field: string;
-    canonical_field: string;
-    note: string;
-  };
-} {
-  return {
-    settings,
-    canonical_v2: {
-      version: OBSERVABILITY_CANONICAL_VERSION,
-      payload: {
-        settings,
-        locality: 'worker/kv',
-        capability: 'observability.settings.retention',
-      },
-    },
-    migration: {
-      legacy_field: 'settings',
-      canonical_field: 'canonical_v2.payload.settings',
-      note: 'Continue reading `settings` for compatibility; migrate clients to canonical_v2 for versioned contracts.',
-    },
   };
 }

@@ -10,6 +10,7 @@
  */
 
 import { badRequest, jsonResponse, notFound, readJsonBody } from '../http';
+import { contractSuccessResponse, contractErrorResponse } from '../contracts';
 import type { Env } from '../types';
 import { validateBootstrapRun } from '../observability/schema';
 import {
@@ -23,11 +24,7 @@ import {
   writeObservabilitySettings,
   validateObservabilitySettings,
 } from '../observability/settings';
-import {
-  OBSERVABILITY_CANONICAL_VERSION,
-  settingsEnvelope,
-  withRunSignals,
-} from '../observability/canonical';
+import { withRunSignals, deriveRunSignals } from '../observability/canonical';
 
 // ── POST /v1/observability/runs ───────────────────────────────────────────────
 
@@ -44,15 +41,28 @@ export async function handleObservabilityRunCreate(
   }
 
   if (!env.MANIFEST_KV || !env.ARTEFACTS_R2) {
-    return jsonResponse({ error: 'Observability storage not configured' }, 503);
+    return contractErrorResponse({
+      resource: 'observability.runs.create',
+      summary: 'Observability storage not configured',
+      data: null,
+      error: { code: 'storage_unavailable', message: 'MANIFEST_KV or ARTEFACTS_R2 not bound', hint: 'Check Worker storage binding configuration' },
+    }, 503);
   }
 
   try {
     const result = await writeBootstrapRun(validation.value, env.MANIFEST_KV, env.ARTEFACTS_R2);
-    return jsonResponse({ ok: true, run_id: result.run_id }, 201);
-  } catch (err) {
-    // Observability failure must not expose internals
-    return jsonResponse({ error: 'Failed to persist run record' }, 500);
+    return contractSuccessResponse({
+      resource: 'observability.runs.create',
+      summary: 'Bootstrap run recorded',
+      data: { run_id: result.run_id },
+    }, 201);
+  } catch {
+    return contractErrorResponse({
+      resource: 'observability.runs.create',
+      summary: 'Failed to persist run record',
+      data: null,
+      error: { code: 'storage_write_failed', message: 'Failed to persist run record', hint: 'Retry the request' },
+    }, 500);
   }
 }
 
@@ -63,7 +73,11 @@ export async function handleObservabilityRunList(
   env: Env,
 ): Promise<Response> {
   if (!env.MANIFEST_KV) {
-    return jsonResponse({ runs: [], latest: null });
+    return contractSuccessResponse({
+      resource: 'observability.runs.list',
+      summary: 'No bootstrap runs recorded yet',
+      data: { runs: [], latest: null, count: 0 },
+    });
   }
 
   const url = new URL(request.url);
@@ -75,13 +89,23 @@ export async function handleObservabilityRunList(
     getLatestRunSummary(env.MANIFEST_KV),
   ]);
 
-  return jsonResponse({
-    runs: runs.map(withRunSignals),
-    latest: latest ? withRunSignals(latest) : null,
-    count: runs.length,
-    canonical_version: OBSERVABILITY_CANONICAL_VERSION,
-    migration: {
-      note: 'Legacy fields remain at the top level. Canonical signals are available under canonical_v2.signals.',
+  const enrichedRuns = runs.map(withRunSignals);
+  const enrichedLatest = latest ? withRunSignals(latest) : null;
+  const anyAttention = enrichedRuns.some(r => r.attention_required);
+
+  return contractSuccessResponse({
+    resource: 'observability.runs.list',
+    summary: enrichedLatest
+      ? `Latest run: ${enrichedLatest.status}. ${runs.length} run(s) recorded.`
+      : `${runs.length} run(s) recorded.`,
+    data: { runs: enrichedRuns, latest: enrichedLatest, count: runs.length },
+    meta: {
+      interpretation: {
+        attention_required: anyAttention,
+        failure_reason_summary: enrichedLatest?.failure_reason_summary ?? null,
+        locality: enrichedLatest?.locality ?? null,
+        capability: enrichedLatest?.capability ?? null,
+      },
     },
   });
 }
@@ -93,20 +117,45 @@ export async function handleObservabilityRunGet(
   env: Env,
 ): Promise<Response> {
   if (!env.ARTEFACTS_R2) {
-    return jsonResponse({ error: 'Observability storage not configured' }, 503);
+    return contractErrorResponse({
+      resource: 'observability.runs.get',
+      summary: 'Observability storage not configured',
+      data: null,
+      error: { code: 'storage_unavailable', message: 'ARTEFACTS_R2 not bound', hint: 'Check Worker storage binding configuration' },
+    }, 503);
   }
 
   const run = await getBootstrapRun(runId, env.ARTEFACTS_R2);
   if (!run) {
-    return notFound(`Run '${runId}' not found`);
+    return contractErrorResponse({
+      resource: 'observability.runs.get',
+      summary: `Run '${runId}' not found`,
+      data: null,
+      error: { code: 'not_found', message: `No run with id '${runId}'`, hint: 'Check the run ID and retry' },
+    }, 404);
   }
 
-  return jsonResponse({
-    run: withRunSignals(run),
-    canonical_version: OBSERVABILITY_CANONICAL_VERSION,
-    migration: {
-      note: 'Legacy run fields are retained. Canonical signals are mirrored under canonical_v2.signals.',
+  const enriched = withRunSignals(run);
+  const signals = deriveRunSignals(run);
+
+  return contractSuccessResponse({
+    resource: 'observability.runs.get',
+    summary: `Run ${runId}: ${enriched.status}`,
+    data: { run: enriched },
+    meta: {
+      interpretation: {
+        attention_required: signals.attention_required,
+        failure_reason_summary: signals.failure_reason_summary,
+        locality: signals.locality,
+        capability: signals.capability,
+      },
     },
+    suggestedActions: signals.next_actions.map((action, i) => ({
+      id: `action_${i}`,
+      label: action,
+      reason: signals.failure_reason_summary,
+      runnable_target: null,
+    })),
   });
 }
 
@@ -114,7 +163,17 @@ export async function handleObservabilityRunGet(
 
 export async function handleObservabilitySettingsGet(env: Env): Promise<Response> {
   const settings = await readObservabilitySettings(env.MANIFEST_KV);
-  return jsonResponse(settingsEnvelope(settings));
+  return contractSuccessResponse({
+    resource: 'observability.settings.get',
+    summary: 'Observability retention settings',
+    data: { settings },
+    meta: {
+      interpretation: {
+        locality: 'worker/kv',
+        capability: 'observability.settings.retention',
+      },
+    },
+  });
 }
 
 // ── PUT /v1/observability/settings ────────────────────────────────────────────
@@ -128,13 +187,33 @@ export async function handleObservabilitySettingsPut(
 
   const validation = validateObservabilitySettings(bodyResult.value);
   if (!validation.ok) {
-    return jsonResponse({ error: 'Validation failed', details: validation.errors }, 400);
+    return contractErrorResponse({
+      resource: 'observability.settings.put',
+      summary: 'Settings validation failed',
+      data: null,
+      error: { code: 'validation_failed', message: 'Settings did not pass validation', hint: validation.errors?.join('; ') ?? 'Check the settings values' },
+    }, 400);
   }
 
   if (!env.MANIFEST_KV) {
-    return jsonResponse({ error: 'Settings storage not configured' }, 503);
+    return contractErrorResponse({
+      resource: 'observability.settings.put',
+      summary: 'Settings storage not configured',
+      data: null,
+      error: { code: 'storage_unavailable', message: 'MANIFEST_KV not bound', hint: 'Check Worker KV binding configuration' },
+    }, 503);
   }
 
   await writeObservabilitySettings(env.MANIFEST_KV, validation.value);
-  return jsonResponse({ ok: true, ...settingsEnvelope(validation.value) });
+  return contractSuccessResponse({
+    resource: 'observability.settings.put',
+    summary: 'Observability settings saved',
+    data: { settings: validation.value },
+    meta: {
+      interpretation: {
+        locality: 'worker/kv',
+        capability: 'observability.settings.retention',
+      },
+    },
+  });
 }

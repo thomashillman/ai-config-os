@@ -31,23 +31,23 @@ const WORKER_TOKEN = typeof window !== "undefined"
 function TabPanel({ activeTab }) {
   switch (activeTab) {
     case "hub":
-      return <HubTab api={API} />
+      return <HubTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
     case "tools":
-      return <ToolsTab api={API} />
+      return <ToolsTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
     case "skills":
-      return <SkillsTab api={API} />
+      return <SkillsTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
     case "context":
-      return <ContextCostTab api={API} />
+      return <ContextCostTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
     case "config":
-      return <ConfigTab api={API} />
+      return <ConfigTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
     case "audit":
-      return <AuditTab api={API} />
+      return <AuditTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
     case "analytics":
-      return <AnalyticsTab api={API} />
+      return <AnalyticsTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
     case "observability":
       return <ObservabilityTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
     default:
-      return <HubTab api={API} />
+      return <HubTab workerUrl={WORKER_URL} token={WORKER_TOKEN} />
   }
 }
 
