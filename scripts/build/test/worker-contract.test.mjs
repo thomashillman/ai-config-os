@@ -672,4 +672,36 @@ describe('worker endpoint contract', () => {
     }), env);
     assert.equal(replayConflict.status, 403);
   });
+
+  test('runtime.capabilities returns canonical contract envelope describing surface', async () => {
+    const registry = loadJson(REGISTRY_PATH);
+    const plugin = loadJson(PLUGIN_PATH);
+    const worker = await loadWorkerWithFixtures(registry, plugin);
+
+    const res = await worker.fetch(makeAuthorizedRequest('/v1/runtime/capabilities'), env);
+    assert.equal(res.status, 200);
+
+    const body = await res.json();
+    assert.equal(body.contract_version, '1.0.0');
+    assert.equal(body.resource, 'runtime.capabilities');
+    assert.equal(typeof body.summary, 'string');
+    assert.ok(body.summary.length > 0);
+
+    assert.equal(body.data.surface, 'worker');
+    assert.equal(body.data.worker_backed, true);
+    assert.equal(body.data.local_only, false);
+    assert.equal(body.data.remote_safe, true);
+    assert.equal(body.data.tunnel_required, false);
+    assert.ok(Array.isArray(body.data.available_resources));
+    assert.ok(body.data.available_resources.includes('tasks.list'));
+    assert.ok(body.data.available_resources.includes('runtime.capabilities'));
+
+    assert.equal(body.capability.worker_backed, true);
+    assert.equal(body.capability.remote_safe, true);
+    assert.equal(body.capability.local_only, false);
+
+    assert.ok(Array.isArray(body.suggested_actions));
+    assert.ok(body.suggested_actions.length > 0);
+    assert.equal(body.suggested_actions[0].id, 'list_tasks');
+  });
 });

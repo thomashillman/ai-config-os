@@ -17,6 +17,7 @@ import {
   type RegistryWithPlatforms,
 } from './handlers/capabilities';
 import { handleExecute } from './handlers/executor';
+import { handleRuntimeCapabilities } from './handlers/runtime';
 import {
   handleObservabilityRunCreate,
   handleObservabilityRunGet,
@@ -95,6 +96,9 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
     // ── Capability discovery (web/mobile-safe, CORS-enabled) ────────────
     { method: 'GET',   pattern: /^\/v1\/capabilities\/platform\/([^/]+)$/,           handler: ({ params }) => handleCapabilitiesForPlatform(params[0], rp) },
     { method: 'GET',   pattern: '/v1/skills/compatible',                             handler: ({ url }) => handleSkillsCompatible(rp, url.searchParams.get('caps')) },
+
+    // ── Runtime ─────────────────────────────────────────────────────────
+    { method: 'GET',   pattern: '/v1/runtime/capabilities',                            handler: ({ env }) => handleRuntimeCapabilities(env) },
 
     // ── Observability reads ─────────────────────────────────────────────
     { method: 'GET',   pattern: '/v1/observability/runs',                            handler: ({ request, env }) => handleObservabilityRunList(request, env) },
