@@ -98,6 +98,8 @@ test('dashboard API registers task and outcome contract routes', () => {
 
   assert.ok(getPaths.includes('/api/outcome-contract'));
   assert.ok(getPaths.includes('/api/contracts/skills.list'));
+  assert.ok(getPaths.includes('/api/contracts/tooling.status'));
+  assert.ok(getPaths.includes('/api/contracts/config.summary'));
   assert.ok(getPaths.includes('/api/contracts/analytics.tool_usage'));
   assert.ok(getPaths.includes('/api/tasks/:taskId/readiness'));
   assert.ok(postPaths.includes('/api/tasks/review/start'));
@@ -474,4 +476,89 @@ test('dashboard API CORS uses tunnel policy origin allowlisting for local and co
   assert.equal(await isOriginAllowed('https://dashboard.example.com'), true);
   assert.equal(await isOriginAllowed('https://evil.example.com'), false);
   assert.equal(await isOriginAllowed('http://localhost:5173'), true);
+});
+
+test('/api/contracts/skills.list uses canonical resource name and puts effectiveOutcomeContract in meta', () => {
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: '/repo',
+    port: 4242,
+  });
+
+  const route = app._gets.find((r) => r.path === '/api/contracts/skills.list');
+  let payload = null;
+  route.handler({}, { json(value) { payload = value; } });
+
+  assert.equal(payload.resource, 'skills.list');
+  assert.ok(payload.meta, 'meta should be present');
+  assert.ok('effective_outcome_contract' in payload.meta, 'effectiveOutcomeContract should be in meta');
+  assert.equal('effectiveOutcomeContract' in (payload.data ?? {}), false, 'effectiveOutcomeContract must not leak into data');
+  assert.equal(payload.data.contract, 'skills.list');
+  assert.ok(Array.isArray(payload.data.skills));
+});
+
+test('/api/contracts/tooling.status returns canonical tooling.status resource', () => {
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: '/repo',
+    port: 4242,
+  });
+
+  const route = app._gets.find((r) => r.path === '/api/contracts/tooling.status');
+  let payload = null;
+  route.handler({}, { json(value) { payload = value; } });
+
+  assert.equal(payload.resource, 'tooling.status');
+  assert.ok(payload.meta, 'meta should be present');
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.list_tools');
+  assert.equal(payload.capability.local_only, true);
+  assert.equal(payload.capability.worker_backed, false);
+});
+
+test('/api/contracts/config.summary returns canonical config.summary resource', () => {
+  const app = createFakeApp();
+  createDashboardApi({
+    app,
+    corsMiddleware: () => () => {},
+    jsonMiddleware: () => {},
+    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelGuardFactory: () => () => {},
+    runScript: () => ({ success: true, output: '' }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    validateNumber: (_value, fallback) => fallback,
+    capabilityProfileResolver: { getCachedProfile: () => null },
+    taskService: null,
+    repoRoot: '/repo',
+    port: 4242,
+  });
+
+  const route = app._gets.find((r) => r.path === '/api/contracts/config.summary');
+  let payload = null;
+  route.handler({}, { json(value) { payload = value; } });
+
+  assert.equal(payload.resource, 'config.summary');
+  assert.ok(payload.meta, 'meta should be present');
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.get_config');
+  assert.equal(payload.capability.local_only, true);
+  assert.equal(payload.capability.worker_backed, false);
 });

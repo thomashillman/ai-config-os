@@ -7,7 +7,7 @@ export default function ToolsTab({ api }) {
   const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
-    fetch(`${api}/manifest`)
+    fetch(`${api}/contracts/tooling.status`)
       .then(r => r.json())
       .then(setData)
       .catch(() => setData(buildFetchError()))
@@ -46,8 +46,11 @@ export default function ToolsTab({ api }) {
         </div>
       </div>
       <ResponseContractPanel data={getOutcomeContract(data)} />
+      {data?.summary && (
+        <p className="text-gray-500 text-sm mb-3">{data.summary}</p>
+      )}
       <pre className="bg-gray-900 rounded p-4 text-xs text-gray-300 whitespace-pre-wrap overflow-auto max-h-96">
-        {data ? data.output : "Loading..."}
+        {data?.data ? JSON.stringify(data.data, null, 2) : data ? "No tool data available." : "Loading..."}
       </pre>
     </div>
   )

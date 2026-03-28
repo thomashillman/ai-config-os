@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, wr
 import { tmpdir } from 'node:os';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import Ajv2020 from 'ajv/dist/2020.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '../../..');
@@ -17,6 +18,23 @@ const PLUGIN_PATH = resolve(REPO_ROOT, 'dist/clients/claude-code/.claude-plugin/
 
 function loadJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+// --- Schema validation helpers -----------------------------------------------
+
+const capabilitySchema = loadJson(resolve(REPO_ROOT, 'shared/contracts/capability.schema.json'));
+const envelopeSchema = loadJson(resolve(REPO_ROOT, 'shared/contracts/response-envelope.schema.json'));
+
+const ajv = new Ajv2020({ strict: false });
+ajv.addSchema(capabilitySchema, capabilitySchema['$id']);
+const validateEnvelope = ajv.compile(envelopeSchema);
+
+function assertCanonicalEnvelope(body, label = '') {
+  const valid = validateEnvelope(body);
+  assert.ok(
+    valid,
+    `${label ? label + ' — ' : ''}envelope schema invalid: ${JSON.stringify(validateEnvelope.errors)}`
+  );
 }
 
 async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
@@ -361,7 +379,7 @@ describe('worker endpoint contract', () => {
     const createRes = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks', task), env);
     assert.equal(createRes.status, 201);
     const createBody = await createRes.json();
-    assert.equal(createBody.task.task_id, task.task_id);
+    assert.equal(createBody.data.task.task_id, task.task_id);
 
     const getRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}`), env);
     assert.equal(getRes.status, 200);
@@ -401,8 +419,8 @@ describe('worker endpoint contract', () => {
     const routesRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/available-routes`), env);
     assert.equal(routesRes.status, 200);
     const routesBody = await routesRes.json();
-    assert.equal(routesBody.best_next_route, 'local_repo');
-    assert.equal(Array.isArray(routesBody.available_routes), true);
+    assert.equal(routesBody.data.best_next_route, 'local_repo');
+    assert.equal(Array.isArray(routesBody.data.available_routes), true);
 
     const effectiveExecutionContract = {
       schema_version: '1.0.0',
@@ -439,39 +457,39 @@ describe('worker endpoint contract', () => {
     const continuationRes1 = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, continuationReqBody), env);
     assert.equal(continuationRes1.status, 201);
     const continuationBody1 = await continuationRes1.json();
-    assert.equal(continuationBody1.continuation_package.handoff_token_id, 'handoff_001');
-    assert.equal(continuationBody1.continuation_package.created_at, '2026-03-12T12:04:00.000Z');
+    assert.equal(continuationBody1.data.continuation_package.handoff_token_id, 'handoff_001');
+    assert.equal(continuationBody1.data.continuation_package.created_at, '2026-03-12T12:04:00.000Z');
 
     const continuationRes2 = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, continuationReqBody), env);
     assert.equal(continuationRes2.status, 200);
     const continuationBody2 = await continuationRes2.json();
     assert.equal(
-      continuationBody2.continuation_package.created_at,
-      continuationBody1.continuation_package.created_at,
+      continuationBody2.data.continuation_package.created_at,
+      continuationBody1.data.continuation_package.created_at,
       'retry must be idempotent and keep canonical created_at',
     );
 
     const progressEventsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/progress-events`), env);
     assert.equal(progressEventsRes.status, 200);
     const progressEventsBody = await progressEventsRes.json();
-    assert.ok(progressEventsBody.events.length >= 3);
+    assert.ok(progressEventsBody.data.events.length >= 3);
 
     const readinessRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/readiness`), env);
     assert.equal(readinessRes.status, 200);
     const readinessBody = await readinessRes.json();
-    assert.equal(readinessBody.readiness.task_id, task.task_id);
-    assert.equal(readinessBody.readiness.current_route, 'local_repo');
-    assert.equal(readinessBody.readiness.progress_event_count >= 3, true);
+    assert.equal(readinessBody.data.readiness.task_id, task.task_id);
+    assert.equal(readinessBody.data.readiness.current_route, 'local_repo');
+    assert.equal(readinessBody.data.readiness.progress_event_count >= 3, true);
 
     const snapshotsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots`), env);
     assert.equal(snapshotsRes.status, 200);
     const snapshotsBody = await snapshotsRes.json();
-    assert.equal(snapshotsBody.snapshots.length, 5);
+    assert.equal(snapshotsBody.data.snapshots.length, 5);
 
     const snapshotVersion2Res = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots/2`), env);
     assert.equal(snapshotVersion2Res.status, 200);
     const snapshotVersion2Body = await snapshotVersion2Res.json();
-    assert.equal(snapshotVersion2Body.snapshot.snapshot_version, 2);
+    assert.equal(snapshotVersion2Body.data.snapshot.snapshot_version, 2);
   });
 
 
@@ -509,13 +527,13 @@ describe('worker endpoint contract', () => {
       const response = await worker.fetch(makeAuthorizedRequest(path), envWithKv);
       assert.equal(response.status, 400, `expected ${path} to be rejected`);
       const body = await response.json();
-      assert.equal(body.error.code, 'bad_request');
+      assert.equal(body.error.code, 'validation_error');
     }
 
     const cappedResponse = await worker.fetch(makeAuthorizedRequest('/v1/tasks?limit=500'), envWithKv);
     assert.equal(cappedResponse.status, 200);
     const cappedBody = await cappedResponse.json();
-    assert.equal(cappedBody.tasks.length, 100);
+    assert.equal(cappedBody.data.tasks.length, 100);
   });
 
   test('task endpoint failures: malformed payloads, auth, not found, conflict and token errors', async () => {
@@ -671,5 +689,150 @@ describe('worker endpoint contract', () => {
       created_at: '2026-03-12T12:05:00.000Z',
     }), env);
     assert.equal(replayConflict.status, 403);
+  });
+
+  test('runtime.capabilities returns canonical contract envelope describing surface', async () => {
+    const registry = loadJson(REGISTRY_PATH);
+    const plugin = loadJson(PLUGIN_PATH);
+    const worker = await loadWorkerWithFixtures(registry, plugin);
+
+    const res = await worker.fetch(makeAuthorizedRequest('/v1/runtime/capabilities'), env);
+    assert.equal(res.status, 200);
+
+    const body = await res.json();
+    assert.equal(body.contract_version, '1.0.0');
+    assert.equal(body.resource, 'runtime.capabilities');
+    assert.equal(typeof body.summary, 'string');
+    assert.ok(body.summary.length > 0);
+
+    assert.equal(body.data.surface, 'worker');
+    assert.equal(body.data.worker_backed, true);
+    assert.equal(body.data.local_only, false);
+    assert.equal(body.data.remote_safe, true);
+    assert.equal(body.data.tunnel_required, false);
+    assert.ok(Array.isArray(body.data.available_resources));
+    assert.ok(body.data.available_resources.includes('tasks.list'));
+    assert.ok(body.data.available_resources.includes('runtime.capabilities'));
+
+    assert.equal(body.capability.worker_backed, true);
+    assert.equal(body.capability.remote_safe, true);
+    assert.equal(body.capability.local_only, false);
+
+    assert.ok(Array.isArray(body.suggested_actions));
+    assert.ok(body.suggested_actions.length > 0);
+    assert.equal(body.suggested_actions[0].id, 'list_tasks');
+
+    assertCanonicalEnvelope(body, 'runtime.capabilities');
+  });
+
+  test('contract schema validation: tasks.list, tasks.get, tasks.events, tasks.available_routes all pass envelope schema', async () => {
+    const registry = loadJson(REGISTRY_PATH);
+    const plugin = loadJson(PLUGIN_PATH);
+    const worker = await loadWorkerWithFixtures(registry, plugin);
+
+    const task = {
+      task_id: 'schema-validation-task',
+      task_type: 'review_repository',
+      goal: 'Schema validation test',
+      initial_route: 'local_repo',
+      route_inputs: { local_repo: { repo_path: '/repo' } },
+      created_at: '2026-03-28T00:00:00.000Z',
+    };
+
+    const createRes = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks', task), env);
+    assert.equal(createRes.status, 201);
+    const createBody = await createRes.json();
+    assertCanonicalEnvelope(createBody, 'tasks.create');
+
+    const taskId = createBody.data.task.task_id;
+
+    const getRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${taskId}`), env);
+    assert.equal(getRes.status, 200);
+    assertCanonicalEnvelope(await getRes.json(), 'tasks.get');
+
+    const eventsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${taskId}/progress-events`), env);
+    assert.equal(eventsRes.status, 200);
+    assertCanonicalEnvelope(await eventsRes.json(), 'tasks.events');
+
+    const routesRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${taskId}/available-routes`), env);
+    assert.equal(routesRes.status, 200);
+    assertCanonicalEnvelope(await routesRes.json(), 'tasks.available_routes');
+
+    const listRes = await worker.fetch(makeAuthorizedRequest('/v1/tasks'), env);
+    assert.equal(listRes.status, 200);
+    assertCanonicalEnvelope(await listRes.json(), 'tasks.list');
+
+    const capRes = await worker.fetch(makeAuthorizedRequest('/v1/runtime/capabilities'), env);
+    assert.equal(capRes.status, 200);
+    assertCanonicalEnvelope(await capRes.json(), 'runtime.capabilities');
+  });
+
+  // Step 18 — Golden path: "same truth, many surfaces"
+  //
+  // Proves the architecture: an agent can discover the surface, list tasks, drill
+  // into a task, and get route advice — all through the same canonical envelope.
+  // A dashboard card reading the same task.get response uses the identical fields.
+  test('golden path: agent discovers surface, lists tasks, drills into detail, gets route advice', async () => {
+    const registry = loadJson(REGISTRY_PATH);
+    const plugin = loadJson(PLUGIN_PATH);
+    const worker = await loadWorkerWithFixtures(registry, plugin);
+
+    // 1. Agent asks "what can this surface do?" — discovers it is Worker-backed.
+    const capRes = await worker.fetch(makeAuthorizedRequest('/v1/runtime/capabilities'), env);
+    const capBody = await capRes.json();
+    assert.equal(capBody.capability.worker_backed, true);
+    assert.ok(capBody.data.available_resources.includes('tasks.list'),
+      'surface must advertise tasks.list so the agent knows to call it next');
+
+    // 2. Agent calls tasks.list using the runnable_target from suggested_actions.
+    const listRes = await worker.fetch(makeAuthorizedRequest('/v1/tasks'), env);
+    const listBody = await listRes.json();
+    assert.equal(listBody.resource, 'tasks.list');
+    assert.ok(Array.isArray(listBody.data.tasks));
+
+    // Create a task so we have something to drill into.
+    const newTask = {
+      task_id: 'golden-path-task',
+      task_type: 'review_repository',
+      goal: 'Review the authentication module',
+      initial_route: 'local_repo',
+      route_inputs: { local_repo: { repo_path: '/repo' } },
+      created_at: '2026-03-28T06:00:00.000Z',
+    };
+    const createRes = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks', newTask), env);
+    const createBody = await createRes.json();
+    const taskId = createBody.data.task.task_id;
+
+    // 3. Agent drills into the task — same task shape the dashboard card renders.
+    const getRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${taskId}`), env);
+    const getBody = await getRes.json();
+    assert.equal(getBody.resource, 'tasks.get');
+    assert.equal(getBody.data.task.task_id, taskId);
+    assert.equal(getBody.data.task.goal, 'Review the authentication module');
+
+    // The meta urgency/route fields let the agent decide the next step without parsing findings.
+    assert.ok('urgency' in getBody.meta, 'meta.urgency must be present for agent decision-making');
+    assert.ok('best_next_route' in getBody.meta, 'meta.best_next_route must be present for agent decision-making');
+
+    // 4. Agent asks for available routes — same route advice the ResumeSheet renders.
+    const routesRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${taskId}/available-routes`), env);
+    const routesBody = await routesRes.json();
+    assert.equal(routesBody.resource, 'tasks.available_routes');
+    assert.ok(typeof routesBody.data.best_next_route === 'string' || routesBody.data.best_next_route === null);
+    assert.ok(Array.isArray(routesBody.data.available_routes));
+
+    // 5. The meta.best_next_route from tasks.get matches what tasks.available_routes says.
+    //    Same truth on both surfaces.
+    assert.equal(
+      getBody.meta.best_next_route,
+      routesBody.data.best_next_route,
+      'tasks.get meta and tasks.available_routes must report the same best route'
+    );
+
+    // 6. All responses pass the canonical envelope schema — dashboard and agent see identical shape.
+    assertCanonicalEnvelope(capBody, 'golden-path runtime.capabilities');
+    assertCanonicalEnvelope(listBody, 'golden-path tasks.list');
+    assertCanonicalEnvelope(getBody, 'golden-path tasks.get');
+    assertCanonicalEnvelope(routesBody, 'golden-path tasks.available_routes');
   });
 });
