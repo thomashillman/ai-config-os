@@ -43,11 +43,17 @@ describe("dashboard findings", () => {
   it("renders unicode checkmarks for supported variants", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(() =>
       jsonResponse({
-        output: [
-          "SKILL                  TYPE         STATUS       OPUS     SONNET   HAIKU    TESTS",
-          "-----                  ----         ------       ----     ------   -----    -----",
-          "code-review            core         stable       ✓        ✓        -        4",
-        ].join("\n"),
+        skills: [
+          {
+            name: "code-review",
+            type: "core",
+            status: "stable",
+            opus: true,
+            sonnet: true,
+            haiku: false,
+            tests: 4,
+          },
+        ],
         success: true,
         effectiveOutcomeContract: { status: "Full" },
       }),

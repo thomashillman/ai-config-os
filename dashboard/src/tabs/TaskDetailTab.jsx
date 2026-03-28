@@ -1,40 +1,8 @@
 import { useState, useEffect, useMemo } from "react"
 import ResumeSheet from "../components/ResumeSheet"
 import { WORKER_URL } from "../lib/workerClient"
-import { routeLabel, stateLabel, readErrorMessage } from "../lib/taskFormatters"
-import { formatDate } from "../lib/dateFormatters"
-import { summarizeTaskFindings } from "../lib/taskFindingSummary"
-
-function sessionLabel(route) {
-  return routeLabel(route) + " session"
-}
-
-// Human-readable event narrative
-function eventNarrative(e, index, allEvents) {
-  switch (e.type) {
-    case "state_change":
-      if (index === 0 || !allEvents.slice(0, index).some(x => x.type === "state_change")) {
-        return "Started this review"
-      }
-      if (e.metadata?.next_state === "complete") return "Marked complete"
-      if (e.metadata?.next_state === "paused") return "Paused"
-      return "Resumed"
-    case "finding_recorded":
-      return "Finding recorded"
-    case "route_selected":
-      if (e.metadata?.route_id === "local_repo") return "Switched to Full mode — full codebase access"
-      if (e.metadata?.route_id === "github_pr") return "Switched to Cloud mode (PR)"
-      return "Switched to Cloud mode"
-    case "continuation_created":
-      return "Handoff saved"
-    case "finding_transitioned": {
-      const n = e.metadata?.reclassified_count || 0
-      return `${n} finding${n !== 1 ? "s" : ""} re-evaluated for ${e.metadata?.route_id === "local_repo" ? "Full mode" : "new route"}`
-    }
-    default:
-      return null
-  }
-}
+import { readErrorMessage } from "../lib/taskFormatters"
+import { mapTaskToDetailModel } from "../lib/contracts/taskViewModels"
 
 function ProvenanceSection({ groups }) {
   if (!groups.length) {
@@ -50,18 +18,18 @@ function ProvenanceSection({ groups }) {
     <div>
       <h3 className="text-gray-500 text-xs uppercase tracking-wide mb-3">What I found</h3>
       <div className="space-y-4">
-        {groups.map(g => (
-          <div key={g.status}>
-            <div className={`flex items-center gap-2 text-xs mb-1.5 ${g.cls}`}>
-              <span>{g.icon}</span>
-              <span>{g.label} ({g.items.length})</span>
+        {groups.map(group => (
+          <div key={group.status}>
+            <div className={`flex items-center gap-2 text-xs mb-1.5 ${group.cls}`}>
+              <span>{group.icon}</span>
+              <span>{group.label} ({group.items.length})</span>
             </div>
             <div className="space-y-1 ml-4">
-              {g.items.map((f, i) => (
-                <div key={i} className="border-l border-gray-800 pl-3">
-                  <p className="text-sm text-gray-300">{f.summary || f.description || f.finding_id}</p>
-                  {f.location && (
-                    <p className="text-xs text-gray-600 font-mono mt-0.5">{f.location}</p>
+              {group.items.map((finding, index) => (
+                <div key={index} className="border-l border-gray-800 pl-3">
+                  <p className="text-sm text-gray-300">{finding.summary || finding.description || finding.finding_id}</p>
+                  {finding.location && (
+                    <p className="text-xs text-gray-600 font-mono mt-0.5">{finding.location}</p>
                   )}
                 </div>
               ))}
@@ -82,23 +50,23 @@ function OpenQuestions({ questions, onAnswer, onDismiss, dismissErrors, dismissi
         Open question{questions.length !== 1 ? "s" : ""}
       </h3>
       <div className="space-y-3">
-        {questions.map((q, i) => {
-          const questionId = q.finding_id || String(i)
+        {questions.map((question, i) => {
+          const questionId = question.finding_id || String(i)
           const dismissError = dismissErrors[questionId]
           const isDismissing = dismissingQuestionId === questionId
 
           return (
             <div key={questionId} className="border border-gray-800 rounded-lg p-3 space-y-2">
-              <p className="text-sm text-gray-200">{q.summary || q.description}</p>
+              <p className="text-sm text-gray-200">{question.summary || question.description}</p>
               <div className="flex gap-2">
                 <button
-                  onClick={() => onAnswer(q)}
+                  onClick={() => onAnswer(question)}
                   className="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded px-3 py-1.5 transition-colors"
                 >
                   Answer
                 </button>
                 <button
-                  onClick={() => onDismiss(q)}
+                  onClick={() => onDismiss(question)}
                   disabled={isDismissing}
                   className="text-xs text-gray-500 hover:text-gray-300 disabled:opacity-40 px-3 py-1.5 transition-colors"
                 >
@@ -116,16 +84,8 @@ function OpenQuestions({ questions, onAnswer, onDismiss, dismissErrors, dismissi
   )
 }
 
-function EventStory({ events, task, openFindingsCount }) {
-  const significant = events
-    .map((e, i) => ({ ...e, _label: eventNarrative(e, i, events) }))
-    .filter(e => e._label !== null)
-
-  const isWaiting = task?.state === "active" &&
-    task?.current_route !== "local_repo" &&
-    openFindingsCount > 0
-
-  if (!significant.length && !isWaiting) return null
+function EventStory({ significantEvents, waitingForFullAccess }) {
+  if (!significantEvents.length && !waitingForFullAccess) return null
 
   return (
     <div>
@@ -133,17 +93,17 @@ function EventStory({ events, task, openFindingsCount }) {
       <div className="relative">
         <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-800" />
         <div className="space-y-3 pl-6">
-          {significant.map((e, i) => (
-            <div key={i} className="relative">
+          {significantEvents.map((event, index) => (
+            <div key={index} className="relative">
               <div className="absolute -left-[18px] top-[5px] w-[9px] h-[9px] rounded-full bg-gray-700 border border-gray-600" />
               <div className="flex items-baseline gap-3 flex-wrap">
-                <span className="text-sm text-gray-300">{e._label}</span>
-                <span className="text-xs text-gray-600">{formatDate(e.created_at)}</span>
+                <span className="text-sm text-gray-300">{event.label}</span>
+                <span className="text-xs text-gray-600">{event.createdAtLabel}</span>
               </div>
             </div>
           ))}
 
-          {isWaiting && (
+          {waitingForFullAccess && (
             <div className="relative">
               <div className="absolute -left-[18px] top-[5px] w-[9px] h-[9px] rounded-full border border-gray-700" />
               <p className="text-sm text-gray-600 italic">— Waiting for a full-access session</p>
@@ -175,8 +135,8 @@ function AnswerModal({ question, taskId, token, onClose, onSaved }) {
         throw new Error(await readErrorMessage(taskResponse, `Could not load task version (HTTP ${taskResponse.status})`))
       }
 
-      const task = await taskResponse.json()
-      const version = task.task?.version
+      const taskResponsePayload = await taskResponse.json()
+      const version = taskResponsePayload.task?.version
       if (!version) throw new Error("Could not load task version")
 
       const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/findings`, {
@@ -341,22 +301,13 @@ export default function TaskDetailTab({ taskId, onBack }) {
 
   useEffect(() => { fetchTask() }, [taskId])
 
-  const findings = task?.findings || []
-  const findingSummary = useMemo(
-    () => summarizeTaskFindings(findings),
-    [findings]
-  )
-  const { openQuestions, openFindings, provenanceGroups } = findingSummary
-  const origin = sessionLabel(task?.initial_route || task?.current_route)
-  const state = stateLabel(task?.state)
+  const detailModel = useMemo(() => mapTaskToDetailModel(task, events), [task, events])
+  const waitingForFullAccess = task?.state === "active" && task?.current_route !== "local_repo" && detailModel.openFindings.length > 0
 
   return (
     <div className="max-w-2xl space-y-6">
-      {/* Back nav */}
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-sm">
-          ← Tasks
-        </button>
+        <button onClick={onBack} className="text-gray-500 hover:text-gray-300 text-sm">← Tasks</button>
         {task?.short_code && (
           <span className="text-gray-700 font-mono text-xs">{task.short_code}</span>
         )}
@@ -367,28 +318,25 @@ export default function TaskDetailTab({ taskId, onBack }) {
 
       {task && (
         <>
-          {/* Title row */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-white font-semibold text-base truncate">
-                  {task.goal || task.name || task.task_type}
-                </h2>
+                <h2 className="text-white font-semibold text-base truncate">{detailModel.title}</h2>
                 <span className="text-gray-600">·</span>
-                <span className="text-gray-400 text-sm whitespace-nowrap">{origin}</span>
+                <span className="text-gray-400 text-sm whitespace-nowrap">{detailModel.originLabel}</span>
               </div>
               <div className="flex items-center gap-3 text-xs mt-1">
-                <span className={state.cls}>{state.text}</span>
-                {openFindings.length > 0 && (
+                <span className={detailModel.stateBadge.cls}>{detailModel.stateBadge.text}</span>
+                {detailModel.openFindings.length > 0 && (
                   <>
                     <span className="text-gray-700">·</span>
-                    <span className="text-yellow-400">{openFindings.length} to verify</span>
+                    <span className="text-yellow-400">{detailModel.openFindings.length} to verify</span>
                   </>
                 )}
               </div>
             </div>
 
-            {task.state === "active" && (
+            {detailModel.nextActions.some(action => action.id === "continue") && (
               <button
                 onClick={() => setShowResume(true)}
                 className="text-xs bg-gray-700 hover:bg-gray-600 text-white rounded px-3 py-1.5 transition-colors whitespace-nowrap flex-shrink-0"
@@ -398,21 +346,18 @@ export default function TaskDetailTab({ taskId, onBack }) {
             )}
           </div>
 
-          {/* Goal label if different from name */}
           {task.goal && task.name && task.goal !== task.name && (
             <p className="text-gray-500 text-sm">Goal: {task.goal}</p>
           )}
 
-          {/* What I found */}
           <div className="border-t border-gray-800 pt-5">
-            <ProvenanceSection groups={provenanceGroups} />
+            <ProvenanceSection groups={detailModel.provenanceGroups} />
           </div>
 
-          {/* Open questions */}
-          {openQuestions.length > 0 && (
+          {detailModel.openQuestions.length > 0 && (
             <div className="border-t border-gray-800 pt-5">
               <OpenQuestions
-                questions={openQuestions}
+                questions={detailModel.openQuestions}
                 onAnswer={setAnswerQuestion}
                 onDismiss={handleDismiss}
                 dismissErrors={dismissErrors}
@@ -421,20 +366,16 @@ export default function TaskDetailTab({ taskId, onBack }) {
             </div>
           )}
 
-          {/* Story */}
-          {events.length > 0 && (
+          {(events.length > 0 || waitingForFullAccess) && (
             <div className="border-t border-gray-800 pt-5">
-              <EventStory events={events} task={task} openFindingsCount={openFindings.length} />
+              <EventStory significantEvents={detailModel.significantEvents} waitingForFullAccess={waitingForFullAccess} />
             </div>
           )}
 
-          {/* Footer */}
           <div className="border-t border-gray-800 pt-4 flex items-center gap-4">
             <span className="text-xs text-gray-700">v{task.version}</span>
-            <span className="text-xs text-gray-700">{findings.length} findings</span>
-            <button onClick={fetchTask} className="text-xs text-gray-500 hover:text-gray-300">
-              ↻ Refresh
-            </button>
+            <span className="text-xs text-gray-700">{detailModel.findings.length} findings</span>
+            <button onClick={fetchTask} className="text-xs text-gray-500 hover:text-gray-300">↻ Refresh</button>
           </div>
         </>
       )}

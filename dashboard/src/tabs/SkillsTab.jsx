@@ -1,34 +1,12 @@
 import { useState, useEffect } from "react"
 import ResponseContractPanel from "../components/ResponseContractPanel"
 import { buildFetchError, getOutcomeContract } from "../lib/dashboardApi"
+import { mapSkillsContract } from "../lib/contracts/skillsViewModels"
 
 const CHECKMARK = "\u2713"
-const HEAVY_CHECKMARK = "\u2714"
 
-function hasVariant(value) {
-  const normalised = String(value || "").trim().toLowerCase()
-  return normalised === CHECKMARK || normalised === HEAVY_CHECKMARK || normalised === "true" || normalised === "yes"
-}
-
-function parseSkillStats(output) {
-  const lines = output.split("\n").filter(Boolean)
-  const dataLines = lines.slice(2)
-  return dataLines.map(line => {
-    const parts = line.trim().split(/\s{2,}/)
-    return {
-      name: parts[0] || "",
-      type: parts[1] || "",
-      status: parts[2] || "",
-      opus: hasVariant(parts[3]),
-      sonnet: hasVariant(parts[4]),
-      haiku: hasVariant(parts[5]),
-      tests: parts[6] || "0",
-    }
-  }).filter(r => r.name)
-}
-
-const statusColour = (s) =>
-  s === "stable" ? "text-green-400" : s === "experimental" ? "text-yellow-400" : "text-gray-500"
+const statusColour = (status) =>
+  status === "stable" ? "text-green-400" : status === "experimental" ? "text-yellow-400" : "text-gray-500"
 
 export default function SkillsTab({ api }) {
   const [skills, setSkills] = useState([])
@@ -40,7 +18,7 @@ export default function SkillsTab({ api }) {
       .then(r => r.json())
       .then(d => {
         setData(d)
-        setSkills(parseSkillStats(d.output || ""))
+        setSkills(mapSkillsContract(d))
         setLoading(false)
       })
       .catch(() => {
@@ -70,15 +48,15 @@ export default function SkillsTab({ api }) {
               </tr>
             </thead>
             <tbody>
-              {skills.map(s => (
-                <tr key={s.name} className="border-b border-gray-900 hover:bg-gray-900 transition-colors">
-                  <td className="py-2 pr-4 text-gray-200">{s.name}</td>
-                  <td className="py-2 pr-4 text-gray-400">{s.type}</td>
-                  <td className={`py-2 pr-4 ${statusColour(s.status)}`}>{s.status}</td>
-                  <td className="py-2 px-2 text-center">{s.opus ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
-                  <td className="py-2 px-2 text-center">{s.sonnet ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
-                  <td className="py-2 px-2 text-center">{s.haiku ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
-                  <td className="py-2 px-2 text-center text-gray-400">{s.tests}</td>
+              {skills.map(skill => (
+                <tr key={skill.name} className="border-b border-gray-900 hover:bg-gray-900 transition-colors">
+                  <td className="py-2 pr-4 text-gray-200">{skill.name}</td>
+                  <td className="py-2 pr-4 text-gray-400">{skill.type}</td>
+                  <td className={`py-2 pr-4 ${statusColour(skill.status)}`}>{skill.status}</td>
+                  <td className="py-2 px-2 text-center">{skill.opus ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
+                  <td className="py-2 px-2 text-center">{skill.sonnet ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
+                  <td className="py-2 px-2 text-center">{skill.haiku ? CHECKMARK : <span className="text-gray-700">-</span>}</td>
+                  <td className="py-2 px-2 text-center text-gray-400">{skill.tests}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from "react"
+import {
+  aggregateToolMetrics,
+  mapSkillEffectivenessModel,
+  mapAutoresearchRunsModel,
+  mapRetroSummaryModel,
+} from "../lib/contracts/analyticsViewModels"
 
-// -- Network helpers -----------------------------------------------------------
-
-// Returns a promise that resolves to parsed JSON or rejects on HTTP error / timeout.
 function fetchJson(url) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 10000)
@@ -12,16 +15,6 @@ function fetchJson(url) {
       return r.json()
     })
     .finally(() => clearTimeout(timer))
-}
-
-// -- Data helpers --------------------------------------------------------------
-
-function aggregateMetrics(metrics) {
-  const counts = {}
-  metrics.forEach(m => { counts[m.tool] = (counts[m.tool] || 0) + 1 })
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([tool, count]) => ({ tool, count }))
 }
 
 function useRateColor(rate) {
@@ -35,15 +28,6 @@ function useRateLabel(rate) {
   if (rate >= 40) return "text-yellow-400"
   return "text-red-400"
 }
-
-function scoreDeltaLabel(improved_by) {
-  if (improved_by === null) return null
-  if (improved_by > 0) return `+${improved_by}pp`
-  if (improved_by === 0) return "flat"
-  return `${improved_by}pp`
-}
-
-// -- Shared primitives --------------------------------------------------------─
 
 function SectionHeader({ title, subtitle, count }) {
   return (
@@ -83,9 +67,7 @@ function SectionSkeleton({ rows = 4 }) {
 function RefreshBar({ lastFetched, onRefresh }) {
   return (
     <div className="flex items-center justify-between mb-6">
-      <span className="text-gray-700 text-xs">
-        {lastFetched ? `Updated ${lastFetched}` : ""}
-      </span>
+      <span className="text-gray-700 text-xs">{lastFetched ? `Updated ${lastFetched}` : ""}</span>
       <button
         onClick={onRefresh}
         className="text-gray-600 hover:text-gray-400 text-xs transition-colors"
@@ -97,10 +79,8 @@ function RefreshBar({ lastFetched, onRefresh }) {
   )
 }
 
-// -- Tool usage section --------------------------------------------------------
-
 function ToolUsageSection({ metrics, loading }) {
-  const aggregated = aggregateMetrics(metrics)
+  const aggregated = aggregateToolMetrics(metrics)
   const maxCount = aggregated[0]?.count || 1
 
   return (
@@ -137,52 +117,40 @@ function ToolUsageSection({ metrics, loading }) {
   )
 }
 
-// -- Skill effectiveness section ----------------------------------------------─
-
 function SkillEffectivenessSection({ skillData, loading }) {
-  const skills = skillData?.skills || []
+  const model = mapSkillEffectivenessModel(skillData)
 
   return (
     <div>
       <SectionHeader
         title="Skill Effectiveness"
-        count={skillData?.total_events > 0 ? `${skillData.total_events} events` : null}
+        count={model.totalEvents > 0 ? `${model.totalEvents} events` : null}
         subtitle="Output-used rate: how often a skill's output led to an Edit/Write vs being replaced."
       />
       {loading ? (
         <SectionSkeleton rows={4} />
-      ) : skills.length === 0 ? (
+      ) : model.rows.length === 0 ? (
         <EmptyState
           message="No skill outcome data yet."
           hint="Run /autoresearch to start optimising skills once data accumulates."
         />
       ) : (
         <div className="space-y-2">
-          {skills.map(({ skill, used, replaced, total, use_rate }) => (
-            <div key={skill} className="flex items-center gap-3 group">
-              <span
-                className="text-gray-400 w-36 truncate text-xs"
-                title={skill}
-              >
-                {skill}
-              </span>
+          {model.rows.map((row) => (
+            <div key={row.skill} className="flex items-center gap-3 group">
+              <span className="text-gray-400 w-36 truncate text-xs" title={row.skill}>{row.skill}</span>
               <div className="flex-1 bg-gray-900 rounded overflow-hidden h-3">
                 <div
-                  className={`${useRateColor(use_rate)} h-full rounded transition-all duration-300`}
-                  style={{ width: `${use_rate}%` }}
+                  className={`${useRateColor(row.useRate)} h-full rounded transition-all duration-300`}
+                  style={{ width: `${row.useRate}%` }}
                 />
               </div>
-              <span className={`text-xs w-20 text-right ${useRateLabel(use_rate)}`}>
-                {use_rate}%
-                <span className="text-gray-700 ml-1">({used}/{total})</span>
+              <span className={`text-xs w-20 text-right ${useRateLabel(row.useRate)}`}>
+                {row.useRate}%
+                <span className="text-gray-700 ml-1">({row.used}/{row.total})</span>
               </span>
-              {use_rate < 50 && (
-                <span
-                  className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
-                  title={`Run /autoresearch on ${skill} to improve its output-used rate`}
-                >
-                  {"-> /autoresearch"}
-                </span>
+              {row.attentionFlags.length > 0 && (
+                <span className="text-gray-700 text-xs opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">{"-> /autoresearch"}</span>
               )}
             </div>
           ))}
@@ -192,114 +160,93 @@ function SkillEffectivenessSection({ skillData, loading }) {
   )
 }
 
-// -- Autoresearch runs section ------------------------------------------------─
-
 function StatusBadge({ status }) {
   const cls = status === "complete"
     ? "bg-green-900/50 text-green-400 border-green-800"
     : status === "running"
-    ? "bg-blue-900/50 text-blue-400 border-blue-800"
-    : "bg-gray-800 text-gray-500 border-gray-700"
-  return (
-    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${cls}`}>
-      {status}
-    </span>
-  )
+      ? "bg-blue-900/50 text-blue-400 border-blue-800"
+      : "bg-gray-800 text-gray-500 border-gray-700"
+  return <span className={`text-[10px] px-1.5 py-0.5 rounded border ${cls}`}>{status}</span>
 }
 
-// 3-segment when control is available: control/no-skill (amber) | skill baseline gain (grey) | experiment gain (green).
-// Edge cases: if control >= baseline the grey segment is 0 (skill didn't help over no-skill).
-//             if control >= best  all three gains are 0 (skill strictly worse than no-skill).
-// 2-segment fallback when control is absent: baseline (grey) | gain (green).
 function ScoreBar({ control, baseline, best }) {
   if (baseline == null || best == null) return <div className="flex-1 bg-gray-900 rounded h-3" />
 
   if (control != null) {
-    const controlWidth    = Math.min(100, control)
-    const baselineWidth   = Math.max(0, Math.min(100 - controlWidth, baseline - control))
-    const gainWidth       = Math.max(0, Math.min(100 - controlWidth - baselineWidth, best - baseline))
+    const controlWidth = Math.min(100, control)
+    const baselineWidth = Math.max(0, Math.min(100 - controlWidth, baseline - control))
+    const gainWidth = Math.max(0, Math.min(100 - controlWidth - baselineWidth, best - baseline))
     return (
       <div className="flex-1 bg-gray-900 rounded overflow-hidden h-3 flex">
-        <div className="bg-amber-600 h-full" style={{ width: `${controlWidth}%` }}  title={`No-skill control: ${control}%`} />
+        <div className="bg-amber-600 h-full" style={{ width: `${controlWidth}%` }} title={`No-skill control: ${control}%`} />
         <div className="bg-gray-500 h-full" style={{ width: `${baselineWidth}%` }} title={`Skill baseline gain: +${Math.round(baseline - control)}pp`} />
-        <div className="bg-green-600 h-full" style={{ width: `${gainWidth}%` }}    title={`Experiment gain: +${Math.round(best - baseline)}pp`} />
+        <div className="bg-green-600 h-full" style={{ width: `${gainWidth}%` }} title={`Experiment gain: +${Math.round(best - baseline)}pp`} />
       </div>
     )
   }
 
   const baselineWidth = Math.min(100, baseline)
-  const gainWidth     = Math.max(0, Math.min(100 - baselineWidth, best - baseline))
+  const gainWidth = Math.max(0, Math.min(100 - baselineWidth, best - baseline))
   return (
     <div className="flex-1 bg-gray-900 rounded overflow-hidden h-3 flex">
       <div className="bg-gray-700 h-full" style={{ width: `${baselineWidth}%` }} title={`Baseline: ${baseline}%`} />
-      <div className="bg-green-600 h-full" style={{ width: `${gainWidth}%` }}    title={`Gain: +${Math.round(best - baseline)}pp`} />
+      <div className="bg-green-600 h-full" style={{ width: `${gainWidth}%` }} title={`Gain: +${Math.round(best - baseline)}pp`} />
     </div>
   )
 }
 
 function AutoresearchSection({ runs, loading }) {
+  const model = mapAutoresearchRunsModel(runs)
+
   return (
     <div>
       <SectionHeader
         title="Autoresearch Runs"
-        count={runs.length > 0 ? runs.length : null}
+        count={model.length > 0 ? model.length : null}
         subtitle="Autonomous skill optimisation — control (amber) + skill gain (grey) + experiment gain (green)."
       />
       {loading ? (
         <SectionSkeleton rows={3} />
-      ) : runs.length === 0 ? (
+      ) : model.length === 0 ? (
         <EmptyState
           message="No autoresearch runs found."
           hint="Run /autoresearch on a skill to start an optimisation loop."
         />
       ) : (
         <div className="space-y-2">
-          {runs.map(run => {
-            const delta = scoreDeltaLabel(run.improved_by)
-            return (
-              <div key={`${run.skill}-${run.run_dir}`} className="flex items-center gap-3">
-                <span className="text-gray-400 w-36 truncate text-xs" title={run.skill}>
-                  {run.skill}
-                </span>
-                <ScoreBar control={run.control_score} baseline={run.baseline_score} best={run.best_score} />
-                <div className="flex items-center gap-1.5 w-28 justify-end">
-                  {delta && (
-                    <span className={`text-xs ${run.improved_by > 0 ? "text-green-400" : "text-gray-500"}`}>
-                      {delta}
-                    </span>
-                  )}
-                  <StatusBadge status={run.status} />
-                  <span className="text-gray-700 text-xs">{run.experiment_count}x</span>
-                </div>
+          {model.map(run => (
+            <div key={`${run.skill}-${run.run_dir}`} className="flex items-center gap-3">
+              <span className="text-gray-400 w-36 truncate text-xs" title={run.skill}>{run.skill}</span>
+              <ScoreBar control={run.control_score} baseline={run.baseline_score} best={run.best_score} />
+              <div className="flex items-center gap-1.5 w-28 justify-end">
+                {run.deltaLabel && (
+                  <span className={`text-xs ${run.improved_by > 0 ? "text-green-400" : "text-gray-500"}`}>{run.deltaLabel}</span>
+                )}
+                <StatusBadge status={run.status} />
+                <span className="text-gray-700 text-xs">{run.experiment_count}x</span>
               </div>
-            )
-          })}
+            </div>
+          ))}
         </div>
       )}
     </div>
   )
 }
 
-// -- Friction signals section -------------------------------------------------
-
 function FrictionSignalsSection({ retroSummary, loading }) {
-  const artifactCount = retroSummary?.artifact_count || 0
-  const signalBreakdown = retroSummary?.signal_breakdown || {}
-  const topRecommendations = retroSummary?.top_recommendations || []
-
-  const signalEntries = Object.entries(signalBreakdown).sort((a, b) => b[1] - a[1])
-  const maxCount = signalEntries[0]?.[1] || 1
+  const model = mapRetroSummaryModel(retroSummary)
+  const maxCount = model.signalEntries[0]?.[1] || 1
 
   return (
     <div>
       <SectionHeader
         title="Friction Signals"
-        count={artifactCount > 0 ? `${artifactCount} retros` : null}
+        count={model.artifactCount > 0 ? `${model.artifactCount} retros` : null}
         subtitle="Signal types observed across merged PRs. Populated by /post-merge-retrospective."
       />
       {loading ? (
         <SectionSkeleton rows={3} />
-      ) : artifactCount === 0 ? (
+      ) : model.artifactCount === 0 ? (
         <EmptyState
           message="No retrospective data yet."
           hint="Run /post-merge-retrospective after merging a PR to start populating."
@@ -307,24 +254,21 @@ function FrictionSignalsSection({ retroSummary, loading }) {
       ) : (
         <div className="space-y-4">
           <div className="space-y-2">
-            {signalEntries.map(([type, count]) => (
+            {model.signalEntries.map(([type, count]) => (
               <div key={type} className="flex items-center gap-3">
                 <span className="text-gray-400 w-36 truncate text-xs" title={type}>{type}</span>
                 <div className="flex-1 bg-gray-900 rounded overflow-hidden h-3">
-                  <div
-                    className="bg-orange-700 h-full rounded transition-all duration-300"
-                    style={{ width: `${(count / maxCount) * 100}%` }}
-                  />
+                  <div className="bg-orange-700 h-full rounded transition-all duration-300" style={{ width: `${(count / maxCount) * 100}%` }} />
                 </div>
                 <span className="text-gray-600 text-xs w-6 text-right">{count}</span>
               </div>
             ))}
           </div>
-          {topRecommendations.length > 0 && (
+          {model.topRecommendations.length > 0 && (
             <div>
               <p className="text-gray-600 text-xs mb-2">Top skill recommendations</p>
               <div className="space-y-1">
-                {topRecommendations.slice(0, 5).map(rec => (
+                {model.topRecommendations.slice(0, 5).map(rec => (
                   <div key={rec.name} className="flex items-center gap-2">
                     <span className="text-gray-400 text-xs w-36 truncate" title={rec.name}>{rec.name}</span>
                     <span className="text-gray-700 text-[10px] px-1 py-0.5 bg-gray-900 rounded">{rec.category}</span>
@@ -340,8 +284,6 @@ function FrictionSignalsSection({ retroSummary, loading }) {
   )
 }
 
-// -- Root tab ------------------------------------------------------------------
-
 export default function AnalyticsTab({ api }) {
   const [metrics, setMetrics] = useState([])
   const [skillData, setSkillData] = useState(null)
@@ -353,15 +295,13 @@ export default function AnalyticsTab({ api }) {
   const fetchAll = useCallback(() => {
     setLoading({ tools: true, skills: true, autoresearch: true, retro: true })
 
-    // Each chain returns true on success and undefined on failure; .finally() passes
-    // through that value so allSettled results carry it — no mutable closure needed.
     const p1 = fetchJson(`${api}/analytics`)
       .then(d => { if (Array.isArray(d.metrics)) { setMetrics(d.metrics); return true } })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, tools: false })))
 
     const p2 = fetchJson(`${api}/skill-analytics`)
-      .then(d => { if (d && typeof d === 'object') { setSkillData(d); return true } })
+      .then(d => { if (d && typeof d === "object") { setSkillData(d); return true } })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, skills: false })))
 
@@ -371,14 +311,13 @@ export default function AnalyticsTab({ api }) {
       .finally(() => setLoading(prev => ({ ...prev, autoresearch: false })))
 
     const p4 = fetchJson(`${api}/retrospectives-summary`)
-      .then(d => { if (d && typeof d === 'object') { setRetroSummary(d); return true } })
+      .then(d => { if (d && typeof d === "object") { setRetroSummary(d); return true } })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, retro: false })))
 
-    Promise.allSettled([p1, p2, p3, p4])
-      .then(results => {
-        if (results.some(r => r.value === true)) setLastFetched(new Date().toLocaleTimeString())
-      })
+    Promise.allSettled([p1, p2, p3, p4]).then(results => {
+      if (results.some(r => r.value === true)) setLastFetched(new Date().toLocaleTimeString())
+    })
   }, [api])
 
   useEffect(() => { fetchAll() }, [fetchAll])

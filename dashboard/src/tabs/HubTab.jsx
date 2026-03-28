@@ -2,36 +2,11 @@ import { useState, useEffect } from "react"
 import ResumeSheet from "../components/ResumeSheet"
 import TaskDetailTab from "./TaskDetailTab"
 import { WORKER_URL } from "../lib/workerClient"
-import { routeLabel } from "../lib/taskFormatters"
-import { timeAgo } from "../lib/dateFormatters"
-import { summarizeTaskFindings } from "../lib/taskFindingSummary"
+import { mapTaskToHubCardModel } from "../lib/contracts/taskViewModels"
 
-// The most meaningful status summary for the right side of the card
-function taskStatusSummary(task) {
-  const { openCount, questionCount, verifiedCount } = summarizeTaskFindings(task.findings)
-
-  if (task.state === "complete") {
-    return { text: `${verifiedCount} verified · done`, cls: "text-gray-500" }
-  }
-  if (openCount > 0 && questionCount > 0) {
-    return { text: `${openCount} to check · ${questionCount} question${questionCount !== 1 ? "s" : ""}`, cls: "text-yellow-400" }
-  }
-  if (openCount > 0) {
-    return { text: `${openCount} thing${openCount !== 1 ? "s" : ""} to check`, cls: "text-yellow-400" }
-  }
-  if (questionCount > 0) {
-    return { text: `${questionCount} open question${questionCount !== 1 ? "s" : ""}`, cls: "text-gray-400" }
-  }
-  if (task.state === "active") {
-    return { text: "In progress", cls: "text-green-400" }
-  }
-  return { text: task.state, cls: "text-gray-500" }
-}
-
-function TaskCard({ task, onResume, onView }) {
-  const route = routeLabel(task.current_route)
-  const summary = taskStatusSummary(task)
-  const isDone = task.state === "complete"
+function TaskCard({ model, onResume, onView }) {
+  const { task, title, isDone, conciseSummaryLine, metaLine, nextActions } = model
+  const continueAction = nextActions.find(action => action.id === "continue")
 
   return (
     <div
@@ -39,35 +14,31 @@ function TaskCard({ task, onResume, onView }) {
       onClick={() => onView(task.task_id)}
     >
       <div className="flex items-start justify-between gap-4">
-        {/* Left: state dot + title + meta */}
         <div className="flex items-start gap-3 flex-1 min-w-0">
           <span className={`mt-1 text-[10px] flex-shrink-0 ${isDone ? "text-gray-600" : "text-green-400"}`}>
             {isDone ? "✓" : "●"}
           </span>
           <div className="min-w-0">
-            <h3 className="text-white text-sm font-medium truncate leading-snug">
-              {task.goal || task.name || task.task_type || task.task_id}
-            </h3>
+            <h3 className="text-white text-sm font-medium truncate leading-snug">{title}</h3>
             <div className="flex items-center gap-2 text-xs text-gray-600 mt-0.5 flex-wrap">
-              <span>{route}</span>
-              {task.short_code && <span className="font-mono">{task.short_code}</span>}
-              <span>{timeAgo(task.updated_at)}</span>
+              <span>{metaLine.route}</span>
+              {metaLine.shortCode && <span className="font-mono">{metaLine.shortCode}</span>}
+              <span>{metaLine.updatedAgo}</span>
             </div>
           </div>
         </div>
 
-        {/* Right: summary + action */}
         <div className="flex flex-col items-end gap-1.5 flex-shrink-0 text-right">
-          <span className={`text-xs ${summary.cls}`}>{summary.text}</span>
-          {task.state === "active" && (
+          <span className={`text-xs ${conciseSummaryLine.cls}`}>{conciseSummaryLine.text}</span>
+          {continueAction && (
             <button
               onClick={e => { e.stopPropagation(); onResume(task) }}
               className="text-xs bg-gray-700 hover:bg-gray-600 text-white rounded px-2.5 py-1 transition-colors whitespace-nowrap opacity-0 group-hover:opacity-100"
             >
-              Continue here →
+              {continueAction.label}
             </button>
           )}
-          {(task.state === "complete" || task.state === "paused") && (
+          {!continueAction && (
             <span className="text-xs text-gray-600 opacity-0 group-hover:opacity-100">View →</span>
           )}
         </div>
@@ -119,8 +90,6 @@ export default function HubTab({ api }) {
 
   return (
     <div className="max-w-2xl space-y-4">
-
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h2 className="text-white font-semibold">Tasks</h2>
@@ -154,7 +123,6 @@ export default function HubTab({ api }) {
         </div>
       </div>
 
-      {/* States */}
       {loading && <p className="text-gray-600 text-sm">Loading tasks...</p>}
 
       {error && (
@@ -182,7 +150,7 @@ export default function HubTab({ api }) {
           {tasks.map(task => (
             <TaskCard
               key={task.task_id}
-              task={task}
+              model={mapTaskToHubCardModel(task)}
               onResume={setResumeTask}
               onView={setDetailTaskId}
             />
