@@ -1,4 +1,5 @@
-import { badRequest, jsonResponse, readJsonBody } from '../http';
+import { jsonResponse, readJsonBody } from '../http';
+import { contractErrorResponse, WORKER_CAPABILITY } from '../contracts';
 import { getContinuationFingerprint, getTaskService, setContinuationFingerprint, taskErrorResponse } from '../task-runtime';
 import type { Env } from '../types';
 import {
@@ -16,11 +17,31 @@ const TASK_AVAILABLE_ROUTES: Record<string, string[]> = {
   review_repository: ['local_repo', 'github_pr', 'uploaded_bundle', 'pasted_diff'],
 };
 
+function validationError(message: string): Response {
+  return contractErrorResponse({
+    resource: 'tasks.error',
+    data: null,
+    summary: message,
+    capability: WORKER_CAPABILITY,
+    error: { code: 'validation_error', message, hint: 'Fix the request body and retry.' },
+  });
+}
+
+function internalError(message: string): Response {
+  return contractErrorResponse({
+    resource: 'tasks.error',
+    data: null,
+    summary: message,
+    capability: WORKER_CAPABILITY,
+    error: { code: 'internal_error', message, hint: 'Retry the request or inspect server logs.' },
+  }, 500);
+}
+
 export async function handleTaskGet(env: Env, taskId: string): Promise<Response> {
   try {
     return jsonResponse({ task: await getTaskService(env).getTask(taskId) });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task load error' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected task load error');
   }
 }
 
@@ -29,7 +50,7 @@ export async function handleTaskTransitionState(request: Request, env: Env, task
   if (!body.ok) return body.response;
 
   const validation = validateTaskStatePayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
+  if (!validation.ok) return validationError(validation.error);
 
   try {
     const updated = await getTaskService(env).transitionState(taskId, validation.value);
@@ -37,7 +58,7 @@ export async function handleTaskTransitionState(request: Request, env: Env, task
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to transition task state');
+    return validationError(error instanceof Error ? error.message : 'Failed to transition task state');
   }
 }
 
@@ -46,7 +67,7 @@ export async function handleTaskRouteSelection(request: Request, env: Env, taskI
   if (!body.ok) return body.response;
 
   const validation = validateRouteSelectionPayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
+  if (!validation.ok) return validationError(validation.error);
 
   try {
     const updated = await getTaskService(env).selectRoute(taskId, validation.value);
@@ -54,7 +75,7 @@ export async function handleTaskRouteSelection(request: Request, env: Env, taskI
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to select task route');
+    return validationError(error instanceof Error ? error.message : 'Failed to select task route');
   }
 }
 
@@ -63,10 +84,20 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
   if (!body.ok) return body.response;
 
   const validation = validateContinuationPayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
+  if (!validation.ok) return validationError(validation.error);
 
   if (!env.HANDOFF_TOKEN_SIGNING_KEY) {
-    return jsonResponse({ error: { code: 'handoff_signing_key_missing', message: 'Handoff token signing key is not configured' } }, 500);
+    return contractErrorResponse({
+      resource: 'tasks.error',
+      data: null,
+      summary: 'Handoff token signing key is not configured.',
+      capability: WORKER_CAPABILITY,
+      error: {
+        code: 'handoff_signing_key_missing',
+        message: 'Handoff token signing key is not configured',
+        hint: 'Set the HANDOFF_TOKEN_SIGNING_KEY environment variable on the Worker.',
+      },
+    }, 500);
   }
 
   const handoffToken = validation.value.handoff_token as { token_id?: unknown };
@@ -80,11 +111,13 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
   if (tokenId) {
     const existingFingerprint = getContinuationFingerprint(tokenId);
     if (existingFingerprint && existingFingerprint !== fingerprint) {
-      return jsonResponse({
-        error: {
-          code: 'handoff_token_forbidden',
-          message: `Continuation replay fingerprint mismatch for token ${tokenId}`,
-        },
+      const msg = `Continuation replay fingerprint mismatch for token ${tokenId}`;
+      return contractErrorResponse({
+        resource: 'tasks.error',
+        data: null,
+        summary: msg,
+        capability: WORKER_CAPABILITY,
+        error: { code: 'handoff_token_forbidden', message: msg, hint: 'Request a new handoff token.' },
       }, 403);
     }
   }
@@ -102,7 +135,7 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to create continuation package');
+    return validationError(error instanceof Error ? error.message : 'Failed to create continuation package');
   }
 }
 
@@ -110,7 +143,7 @@ export async function handleTaskProgressEvents(env: Env, taskId: string): Promis
   try {
     return jsonResponse({ events: await getTaskService(env).listProgressEvents(taskId) });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task progress event error' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected task progress event error');
   }
 }
 
@@ -118,7 +151,7 @@ export async function handleTaskReadiness(env: Env, taskId: string): Promise<Res
   try {
     return jsonResponse({ readiness: await getTaskService(env).getReadiness(taskId) });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task readiness error' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected task readiness error');
   }
 }
 
@@ -130,11 +163,11 @@ export async function handleTaskSnapshots(env: Env, taskId: string, version: str
 
     const snapshotVersion = Number(version);
     if (!Number.isInteger(snapshotVersion) || snapshotVersion <= 0) {
-      return badRequest("Path parameter 'version' must be a positive integer");
+      return validationError("Path parameter 'version' must be a positive integer");
     }
     return jsonResponse({ snapshot: await getTaskService(env).getSnapshot(taskId, snapshotVersion) });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task snapshot error' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected task snapshot error');
   }
 }
 
@@ -145,7 +178,7 @@ function parseTaskListLimit(value: string | null): { ok: true; value: number } |
 
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    return { ok: false, response: badRequest("Query parameter 'limit' must be a positive integer") };
+    return { ok: false, response: validationError("Query parameter 'limit' must be a positive integer") };
   }
 
   return { ok: true, value: Math.min(parsed, 100) };
@@ -158,7 +191,7 @@ function parseUpdatedWithinSeconds(value: string | null): { ok: true; value: num
 
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    return { ok: false, response: badRequest("Query parameter 'updated_within' must be a positive number") };
+    return { ok: false, response: validationError("Query parameter 'updated_within' must be a positive number") };
   }
 
   return { ok: true, value: parsed };
@@ -176,7 +209,7 @@ export async function handleTaskList(env: Env, url: URL): Promise<Response> {
     const tasks = await getTaskService(env).listRecentTasks({ status, limit: limit.value, updatedWithinSeconds: updatedWithinSeconds.value });
     return jsonResponse({ tasks });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task list error' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected task list error');
   }
 }
 
@@ -185,7 +218,7 @@ export async function handleTaskByCode(env: Env, shortCode: string): Promise<Res
     const task = await getTaskService(env).getTaskByCode(shortCode);
     return jsonResponse({ task });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error looking up task by code' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected error looking up task by code');
   }
 }
 
@@ -194,7 +227,7 @@ export async function handleTaskByName(env: Env, nameOrSlug: string): Promise<Re
     const task = await getTaskService(env).getTaskByName(nameOrSlug);
     return jsonResponse({ task });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error looking up task by name' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected error looking up task by name');
   }
 }
 
@@ -206,7 +239,7 @@ export async function handleHubLatest(env: Env): Promise<Response> {
     }
     return jsonResponse({ task });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected error fetching latest task' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected error fetching latest task');
   }
 }
 
@@ -215,7 +248,7 @@ export async function handleTaskAppendFinding(request: Request, env: Env, taskId
   if (!body.ok) return body.response;
 
   const validation = validateAppendFindingPayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
+  if (!validation.ok) return validationError(validation.error);
 
   try {
     const updated = await getTaskService(env).appendFinding(taskId, validation.value);
@@ -223,7 +256,7 @@ export async function handleTaskAppendFinding(request: Request, env: Env, taskId
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to append finding');
+    return validationError(error instanceof Error ? error.message : 'Failed to append finding');
   }
 }
 
@@ -232,7 +265,7 @@ export async function handleTaskTransitionFindings(request: Request, env: Env, t
   if (!body.ok) return body.response;
 
   const validation = validateTransitionFindingsPayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
+  if (!validation.ok) return validationError(validation.error);
 
   try {
     const updated = await getTaskService(env).transitionFindingsForRouteUpgrade(taskId, validation.value);
@@ -240,7 +273,7 @@ export async function handleTaskTransitionFindings(request: Request, env: Env, t
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to transition findings');
+    return validationError(error instanceof Error ? error.message : 'Failed to transition findings');
   }
 }
 
@@ -253,7 +286,7 @@ export async function handleTaskAnswerQuestion(request: Request, env: Env, taskI
   if (!body.ok) return body.response;
 
   const validation = validateAnswerQuestionPayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
+  if (!validation.ok) return validationError(validation.error);
 
   const answeredAt = validation.value.answered_at || new Date().toISOString();
   const questionFindingId = toQuestionFindingId(questionId);
@@ -275,7 +308,7 @@ export async function handleTaskAnswerQuestion(request: Request, env: Env, taskI
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to answer question');
+    return validationError(error instanceof Error ? error.message : 'Failed to answer question');
   }
 }
 
@@ -284,7 +317,7 @@ export async function handleTaskDismissQuestion(request: Request, env: Env, task
   if (!body.ok) return body.response;
 
   const validation = validateDismissQuestionPayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
+  if (!validation.ok) return validationError(validation.error);
 
   const dismissedAt = validation.value.dismissed_at || new Date().toISOString();
   const questionFindingId = toQuestionFindingId(questionId);
@@ -307,7 +340,7 @@ export async function handleTaskDismissQuestion(request: Request, env: Env, task
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to dismiss question');
+    return validationError(error instanceof Error ? error.message : 'Failed to dismiss question');
   }
 }
 
@@ -326,7 +359,7 @@ export async function handleTaskAvailableRoutes(env: Env, taskId: string): Promi
       available_routes: availableRoutes.map((route_id) => ({ route_id })),
     });
   } catch (error) {
-    return taskErrorResponse(error) ?? jsonResponse({ error: { code: 'internal_error', message: 'Unexpected task route availability error' } }, 500);
+    return taskErrorResponse(error) ?? internalError('Unexpected task route availability error');
   }
 }
 
@@ -335,7 +368,7 @@ export async function handleTaskCreate(request: Request, env: Env): Promise<Resp
   if (!body.ok) return body.response;
 
   const validation = validateTaskCreatePayload(body.value);
-  if (!validation.ok) return badRequest(validation.error);
+  if (!validation.ok) return validationError(validation.error);
 
   try {
     const created = await getTaskService(env).createTask(validation.value);
@@ -343,6 +376,6 @@ export async function handleTaskCreate(request: Request, env: Env): Promise<Resp
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
-    return badRequest(error instanceof Error ? error.message : 'Failed to create task');
+    return validationError(error instanceof Error ? error.message : 'Failed to create task');
   }
 }

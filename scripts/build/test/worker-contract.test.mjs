@@ -509,7 +509,7 @@ describe('worker endpoint contract', () => {
       const response = await worker.fetch(makeAuthorizedRequest(path), envWithKv);
       assert.equal(response.status, 400, `expected ${path} to be rejected`);
       const body = await response.json();
-      assert.equal(body.error.code, 'bad_request');
+      assert.equal(body.error.code, 'validation_error');
     }
 
     const cappedResponse = await worker.fetch(makeAuthorizedRequest('/v1/tasks?limit=500'), envWithKv);
