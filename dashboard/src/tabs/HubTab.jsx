@@ -107,7 +107,7 @@ export default function HubTab({ api }) {
       }
 
       const data = await res.json()
-      setTasks(data.tasks || [])
+      setTasks(data.data?.tasks || data.tasks || [])
     } catch (err) {
       setError(err.message)
     } finally {

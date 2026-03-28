@@ -71,3 +71,42 @@ describe("buildFetchError", () => {
     expect(c.selectedRoute).toBe("manual-input-correction")
   })
 })
+
+describe("getOutcomeContract — canonical envelope support", () => {
+  it("returns null for a canonical success envelope (no degraded panel needed)", () => {
+    const envelope = {
+      contract_version: "1.0.0",
+      resource: "skills.list",
+      data: { skills: [] },
+      summary: "Loaded.",
+      capability: { local_only: true, worker_backed: false, remote_safe: false, tunnel_required: true, unavailable_on_surface: false },
+      suggested_actions: [],
+    }
+    expect(getOutcomeContract(envelope)).toBeNull()
+  })
+
+  it("normalises a canonical error envelope into degraded shape for ResponseContractPanel", () => {
+    const envelope = {
+      contract_version: "1.0.0",
+      resource: "skills.list",
+      data: null,
+      summary: "Dashboard API request failed.",
+      capability: { local_only: true, worker_backed: false, remote_safe: false, tunnel_required: true, unavailable_on_surface: false },
+      suggested_actions: [],
+      error: { code: "internal_error", message: "Script failed", hint: "Check dashboard logs." },
+    }
+    const result = getOutcomeContract(envelope)
+    expect(result).not.toBeNull()
+    expect(result.status).toBe("Degraded")
+    expect(result.selectedRoute).toBe("manual-input-correction")
+    expect(result.missingCapabilities).toContain("internal_error")
+    expect(result.requiredUserInput[0]).toMatch(/Check dashboard logs/)
+    expect(result.guidanceEquivalentRoute).toBe("Script failed")
+  })
+
+  it("still extracts legacy effectiveOutcomeContract when contract_version is absent", () => {
+    const contract = { status: "Full", selectedRoute: "local" }
+    const payload = { effectiveOutcomeContract: contract, output: "raw" }
+    expect(getOutcomeContract(payload)).toBe(contract)
+  })
+})

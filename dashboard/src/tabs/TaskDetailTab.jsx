@@ -258,12 +258,12 @@ export default function TaskDetailTab({ taskId, onBack }) {
       }
 
       const taskData = await taskRes.json()
-      setTask(taskData.task)
+      setTask(taskData.data?.task ?? taskData.task)
       setDismissErrors({})
 
       if (eventsRes.ok) {
         const eventsData = await eventsRes.json()
-        setEvents(eventsData.events || [])
+        setEvents(eventsData.data?.events ?? eventsData.events ?? [])
       }
     } catch (err) {
       setError(err.message)

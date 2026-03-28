@@ -15,10 +15,9 @@ export default function SkillsTab({ api }) {
   useEffect(() => {
     fetch(`${api}/contracts/skills.list`)
       .then(r => r.json())
-      .then(payload => payload?.data ?? payload)
-      .then(d => {
-        setData(d)
-        setSkills(Array.isArray(d.skills) ? d.skills : [])
+      .then(payload => {
+        setData(payload)
+        setSkills(Array.isArray(payload.data?.skills) ? payload.data.skills : [])
         setLoading(false)
       })
       .catch(() => {
@@ -30,7 +29,7 @@ export default function SkillsTab({ api }) {
   return (
     <div>
       <h2 className="text-gray-300 font-semibold mb-1">Skill Library ({skills.length} skills)</h2>
-      <p className="text-gray-600 text-xs mb-4">{data?.interpretation?.why_it_matters_now || "Current skill inventory and readiness."}</p>
+      <p className="text-gray-600 text-xs mb-4">{data?.data?.interpretation?.why_it_matters_now || data?.summary || "Current skill inventory and readiness."}</p>
       <ResponseContractPanel data={getOutcomeContract(data)} />
       {loading ? (
         <p className="text-gray-500">Loading...</p>
