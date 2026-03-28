@@ -127,14 +127,38 @@ export function createDashboardApi({
         const skills = parseSkillStatsOutput(
           payload?.data?.diagnostics?.raw_output || payload?.output || ''
         );
-        res.json(ok('contracts.skills.list', {
-          ...buildSkillsListContract(skills),
-          effectiveOutcomeContract: payload?.meta?.effective_outcome_contract || payload?.effectiveOutcomeContract || null,
-        }, 'Loaded skills.list contract.'));
+        const effectiveOutcomeContract = payload?.meta?.effective_outcome_contract || null;
+        res.json(ok('skills.list', buildSkillsListContract(skills), 'Loaded skills.list contract.', {
+          effective_outcome_contract: effectiveOutcomeContract,
+        }));
       },
       status(code) {
         return res.status(code);
       },
+    });
+  });
+
+  app.get('/api/contracts/tooling.status', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'list_tools', executionChannel: 'dashboard' });
+    executeRuntimeAction('list_tools', {}, {
+      json(payload) {
+        res.json(ok('tooling.status', payload?.data?.data ?? {}, 'Loaded tooling.status contract.', {
+          effective_outcome_contract: effectiveOutcomeContract,
+        }));
+      },
+      status(code) { return res.status(code); },
+    });
+  });
+
+  app.get('/api/contracts/config.summary', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'get_config', executionChannel: 'dashboard' });
+    executeRuntimeAction('get_config', {}, {
+      json(payload) {
+        res.json(ok('config.summary', payload?.data?.data ?? {}, 'Loaded config.summary contract.', {
+          effective_outcome_contract: effectiveOutcomeContract,
+        }));
+      },
+      status(code) { return res.status(code); },
     });
   });
 

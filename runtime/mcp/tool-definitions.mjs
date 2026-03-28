@@ -146,6 +146,46 @@ export const MCP_TOOL_DEFINITIONS = [
     fallbackPolicy: { mode: 'manual', notes: 'Use worker GET /v1/tasks/:id/available-routes directly.' }
   },
   {
+    name: 'runtime.capabilities',
+    description: 'Discover what resources are available on the active surface (Worker or local dashboard)',
+    executionClass: 'edge',
+    requiredCapabilities: ['network_http'],
+    inputSchema: { type: 'object', properties: {} },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 100000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker GET /v1/runtime/capabilities directly.' }
+  },
+  {
+    name: 'skills.list',
+    description: 'List all skills with type, status, variants, and test count from the local runtime',
+    executionClass: 'local',
+    requiredCapabilities: ['fs.read', 'shell.exec'],
+    inputSchema: { type: 'object', properties: {} },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use dashboard GET /api/contracts/skills.list directly.' }
+  },
+  {
+    name: 'tooling.status',
+    description: 'Get installed tool status and manifest from the local runtime',
+    executionClass: 'local',
+    requiredCapabilities: ['fs.read', 'shell.exec'],
+    inputSchema: { type: 'object', properties: {} },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use dashboard GET /api/contracts/tooling.status directly.' }
+  },
+  {
+    name: 'config.summary',
+    description: 'Get the merged runtime config summary (global + machine + project)',
+    executionClass: 'local',
+    requiredCapabilities: ['fs.read', 'shell.exec'],
+    inputSchema: { type: 'object', properties: {} },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use dashboard GET /api/contracts/config.summary directly.' }
+  },
+  {
     name: 'sync_tools',
     description: 'Sync desired tool config to live Claude Code environment',
     executionClass: 'local',
