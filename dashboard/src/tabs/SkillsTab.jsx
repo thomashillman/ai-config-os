@@ -3,29 +3,6 @@ import ResponseContractPanel from "../components/ResponseContractPanel"
 import { buildFetchError, getOutcomeContract } from "../lib/dashboardApi"
 
 const CHECKMARK = "\u2713"
-const HEAVY_CHECKMARK = "\u2714"
-
-function hasVariant(value) {
-  const normalised = String(value || "").trim().toLowerCase()
-  return normalised === CHECKMARK || normalised === HEAVY_CHECKMARK || normalised === "true" || normalised === "yes"
-}
-
-function parseSkillStats(output) {
-  const lines = output.split("\n").filter(Boolean)
-  const dataLines = lines.slice(2)
-  return dataLines.map(line => {
-    const parts = line.trim().split(/\s{2,}/)
-    return {
-      name: parts[0] || "",
-      type: parts[1] || "",
-      status: parts[2] || "",
-      opus: hasVariant(parts[3]),
-      sonnet: hasVariant(parts[4]),
-      haiku: hasVariant(parts[5]),
-      tests: parts[6] || "0",
-    }
-  }).filter(r => r.name)
-}
 
 const statusColour = (s) =>
   s === "stable" ? "text-green-400" : s === "experimental" ? "text-yellow-400" : "text-gray-500"
@@ -36,11 +13,12 @@ export default function SkillsTab({ api }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${api}/skill-stats`)
+    fetch(`${api}/contracts/skills.list`)
       .then(r => r.json())
+      .then(payload => payload?.data ?? payload)
       .then(d => {
         setData(d)
-        setSkills(parseSkillStats(d.output || ""))
+        setSkills(Array.isArray(d.skills) ? d.skills : [])
         setLoading(false)
       })
       .catch(() => {
@@ -51,7 +29,8 @@ export default function SkillsTab({ api }) {
 
   return (
     <div>
-      <h2 className="text-gray-300 font-semibold mb-4">Skill Library ({skills.length} skills)</h2>
+      <h2 className="text-gray-300 font-semibold mb-1">Skill Library ({skills.length} skills)</h2>
+      <p className="text-gray-600 text-xs mb-4">{data?.interpretation?.why_it_matters_now || "Current skill inventory and readiness."}</p>
       <ResponseContractPanel data={getOutcomeContract(data)} />
       {loading ? (
         <p className="text-gray-500">Loading...</p>
