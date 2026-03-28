@@ -204,16 +204,19 @@ Each entry shows:
 
 ---
 
-## Local-only resources (tunnel required)
+## Pending Worker migration (currently local, moving to Worker-backed)
 
-These resources are backed by the local runtime process. They require a tunnel (e.g. Cloudflare Tunnel) to reach from a remote agent. `capability.local_only` is `true` and `capability.tunnel_required` is `true` on all responses.
+These resources are currently served by the local runtime process but are being migrated to
+Worker-backed snapshots. See `docs/DASHBOARD_TO_WORKER_PLAN.md` for the full migration spec.
+During migration, `capability.local_only` remains `true`; it flips to `false` once the
+Worker publish/read route is live and the dashboard tab is updated.
 
 ---
 
 ### `skills.list`
 
-**Path:** `GET /api/contracts/skills.list`  |  **MCP tool:** `skills.list`
-**Locality:** local — `local_only: true`, `tunnel_required: true`
+**Path:** `GET /v1/skills` (Worker, target)  |  `GET /api/contracts/skills.list` (local, current)  |  **MCP tool:** `skills.list`
+**Locality:** local → Worker (pending migration) — `local_only: true`, `tunnel_required: true` until migrated
 
 **Five-second answer:** All skills installed in this repository with type, status, and variant coverage.
 
@@ -243,8 +246,8 @@ These resources are backed by the local runtime process. They require a tunnel (
 
 ### `tooling.status`
 
-**Path:** `GET /api/contracts/tooling.status`  |  **MCP tool:** `tooling.status`
-**Locality:** local — `local_only: true`, `tunnel_required: true`
+**Path:** `GET /v1/tooling/status` (Worker, target)  |  `GET /api/contracts/tooling.status` (local, current)  |  **MCP tool:** `tooling.status`
+**Locality:** local → Worker (pending migration) — `local_only: true`, `tunnel_required: true` until migrated
 
 **Five-second answer:** Which tools are installed, missing, or degraded in the local environment.
 
@@ -259,8 +262,8 @@ These resources are backed by the local runtime process. They require a tunnel (
 
 ### `config.summary`
 
-**Path:** `GET /api/contracts/config.summary`  |  **MCP tool:** `config.summary`
-**Locality:** local — `local_only: true`, `tunnel_required: true`
+**Path:** `GET /v1/config/summary` (Worker, target)  |  `GET /api/contracts/config.summary` (local, current)  |  **MCP tool:** `config.summary`
+**Locality:** local → Worker (pending migration) — `local_only: true`, `tunnel_required: true` until migrated
 
 **Five-second answer:** The merged runtime configuration (global + machine + project layers) in effect right now.
 
@@ -270,6 +273,101 @@ These resources are backed by the local runtime process. They require a tunnel (
 - **LLM answer:** Use `summary` + top-level config sections for a quick answer.
 - **Compact card:** Active profile + warning count
 - **Richer UI:** ConfigTab — section headers with source badge, expandable raw view
+
+---
+
+### `runtime.context_cost`
+
+**Path:** `GET /v1/runtime/context-cost` (Worker, target)  |  `GET /api/context-cost` (local, current)
+**Locality:** local → Worker (pending migration)
+
+**Five-second answer:** How much context window has been consumed across active sessions.
+
+**Render hints:**
+- **Compact card:** Tokens used + % of budget + cost estimate
+- **Richer UI:** ContextCostTab — bar chart of usage over time, refresh button
+
+---
+
+### `audit.validate_all`
+
+**Path:** `GET /v1/audit/validate-all` (Worker, target)  |  `GET /api/validate-all` (local, current, on-demand)
+**Locality:** local → Worker (pending migration)
+
+**Five-second answer:** Whether the repository passes all validation gates right now.
+
+**Render hints:**
+- **Compact card:** Pass/fail badge + failure count
+- **Richer UI:** AuditTab — per-check result list with hint text, Validate button
+
+---
+
+### `analytics.tool_usage`
+
+**Path:** `GET /v1/analytics/tool-usage` (Worker, target)  |  `GET /api/contracts/analytics.tool_usage` (local, current)
+**Locality:** local → Worker (pending migration)
+
+**Five-second answer:** Which tools are used most and how their usage trends over time.
+
+---
+
+### `analytics.skill_effectiveness`
+
+**Path:** `GET /v1/analytics/skill-effectiveness` (Worker, target)  |  `GET /api/contracts/analytics.skill_effectiveness` (local, current)
+**Locality:** local → Worker (pending migration)
+
+**Five-second answer:** Which skills are producing accepted outputs and which are being discarded.
+
+---
+
+### `analytics.autoresearch_runs`
+
+**Path:** `GET /v1/analytics/autoresearch-runs` (Worker, target)  |  `GET /api/contracts/analytics.autoresearch_runs` (local, current)
+**Locality:** local → Worker (pending migration)
+
+**Five-second answer:** Recent autoresearch sessions — what was researched, outcome, and any friction.
+
+---
+
+### `analytics.friction_signals`
+
+**Path:** `GET /v1/analytics/friction-signals` (Worker, target)  |  `GET /api/contracts/analytics.friction_signals` (local, current)
+**Locality:** local → Worker (pending migration)
+
+**Five-second answer:** Patterns of repeated failures or inefficiencies detected from retrospectives.
+
+---
+
+### `observability.runs.list` / `observability.runs.get`
+
+**Path:** `GET /v1/observability/runs`  |  `GET /v1/observability/runs/:runId`
+**Locality:** worker — `worker_backed: true`, `remote_safe: true` (migrating from `canonical_v2` to main envelope)
+
+**Five-second answer:** Bootstrap run history with per-run signal interpretation.
+
+**meta.interpretation shape (target):**
+```json
+{
+  "attention_required": false,
+  "failure_reason_summary": "...",
+  "locality": "bootstrap/worker",
+  "capability": "artifact.fetch"
+}
+```
+
+**Render hints:**
+- **LLM answer:** Use `summary` + `meta.interpretation.failure_reason_summary` if `attention_required` is true.
+- **Compact card:** Status dot + phase count + last run time
+- **Richer UI:** ObservabilityTab — run list, per-run drill-down, settings panel
+
+---
+
+### `observability.settings.get` / `observability.settings.put`
+
+**Path:** `GET /v1/observability/settings`  |  `PUT /v1/observability/settings`
+**Locality:** worker — `worker_backed: true`, `remote_safe: true`
+
+**Five-second answer:** Retention and filtering settings for observability runs.
 
 ---
 

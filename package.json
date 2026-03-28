@@ -1,6 +1,6 @@
 {
   "name": "ai-config-os",
-  "version": "0.6.1",
+  "version": "0.6.3",
   "description": "Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents",
   "type": "module",
   "scripts": {

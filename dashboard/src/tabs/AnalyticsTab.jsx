@@ -1,19 +1,11 @@
 import { useState, useEffect, useCallback } from "react"
-
-// -- Network helpers -----------------------------------------------------------
-
-// Returns a promise that resolves to parsed JSON or rejects on HTTP error / timeout.
-function fetchJson(url) {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 10000)
-  return fetch(url, { signal: controller.signal })
-    .then(r => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      return r.json()
-    })
-    .then(payload => payload?.data ?? payload)
-    .finally(() => clearTimeout(timer))
-}
+import {
+  fetchAnalyticsToolUsage,
+  fetchAnalyticsSkillEffectiveness,
+  fetchAnalyticsAutoresearchRuns,
+  fetchAnalyticsFrictionSignals,
+  isStale,
+} from "../lib/workerContractsClient"
 
 // -- Data helpers --------------------------------------------------------------
 
@@ -73,11 +65,12 @@ function SectionSkeleton({ rows = 4 }) {
   )
 }
 
-function RefreshBar({ lastFetched, onRefresh }) {
+function RefreshBar({ lastFetched, onRefresh, stale }) {
   return (
     <div className="flex items-center justify-between mb-6">
-      <span className="text-gray-700 text-xs">
+      <span className="text-gray-700 text-xs flex items-center gap-2">
         {lastFetched ? `Updated ${lastFetched}` : ""}
+        {stale && <span className="px-2 py-0.5 text-xs bg-yellow-900 text-yellow-400 rounded">stale</span>}
       </span>
       <button
         onClick={onRefresh}
@@ -340,50 +333,59 @@ function FrictionSignalsSection({ contract, loading }) {
 
 // -- Root tab ------------------------------------------------------------------
 
-export default function AnalyticsTab({ api }) {
+export default function AnalyticsTab({ workerUrl, token }) {
   const [toolUsage, setToolUsage] = useState(null)
   const [skillEffectiveness, setSkillEffectiveness] = useState(null)
   const [autoresearchRuns, setAutoresearchRuns] = useState(null)
   const [frictionSignals, setFrictionSignals] = useState(null)
   const [loading, setLoading] = useState({ tools: true, skills: true, autoresearch: true, retro: true })
   const [lastFetched, setLastFetched] = useState(null)
+  const [anyStale, setAnyStale] = useState(false)
 
   const fetchAll = useCallback(() => {
     setLoading({ tools: true, skills: true, autoresearch: true, retro: true })
 
-    // Each chain returns true on success and undefined on failure; .finally() passes
-    // through that value so allSettled results carry it — no mutable closure needed.
-    const p1 = fetchJson(`${api}/contracts/analytics.tool_usage`)
-      .then(d => { if (d && typeof d === 'object') { setToolUsage(d); return true } })
+    const p1 = fetchAnalyticsToolUsage(workerUrl, token)
+      .then(envelope => {
+        if (envelope?.data && typeof envelope.data === 'object') { setToolUsage(envelope.data); return envelope }
+      })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, tools: false })))
 
-    const p2 = fetchJson(`${api}/contracts/analytics.skill_effectiveness`)
-      .then(d => { if (d && typeof d === 'object') { setSkillEffectiveness(d); return true } })
+    const p2 = fetchAnalyticsSkillEffectiveness(workerUrl, token)
+      .then(envelope => {
+        if (envelope?.data && typeof envelope.data === 'object') { setSkillEffectiveness(envelope.data); return envelope }
+      })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, skills: false })))
 
-    const p3 = fetchJson(`${api}/contracts/analytics.autoresearch_runs`)
-      .then(d => { if (d && typeof d === 'object') { setAutoresearchRuns(d); return true } })
+    const p3 = fetchAnalyticsAutoresearchRuns(workerUrl, token)
+      .then(envelope => {
+        if (envelope?.data && typeof envelope.data === 'object') { setAutoresearchRuns(envelope.data); return envelope }
+      })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, autoresearch: false })))
 
-    const p4 = fetchJson(`${api}/contracts/analytics.friction_signals`)
-      .then(d => { if (d && typeof d === 'object') { setFrictionSignals(d); return true } })
+    const p4 = fetchAnalyticsFrictionSignals(workerUrl, token)
+      .then(envelope => {
+        if (envelope?.data && typeof envelope.data === 'object') { setFrictionSignals(envelope.data); return envelope }
+      })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, retro: false })))
 
     Promise.allSettled([p1, p2, p3, p4])
       .then(results => {
-        if (results.some(r => r.value === true)) setLastFetched(new Date().toLocaleTimeString())
+        const envelopes = results.map(r => r.value).filter(Boolean)
+        if (envelopes.length > 0) setLastFetched(new Date().toLocaleTimeString())
+        setAnyStale(envelopes.some(e => isStale(e)))
       })
-  }, [api])
+  }, [workerUrl, token])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
   return (
     <div className="max-w-2xl space-y-8">
-      <RefreshBar lastFetched={lastFetched} onRefresh={fetchAll} />
+      <RefreshBar lastFetched={lastFetched} onRefresh={fetchAll} stale={anyStale} />
       <ToolUsageSection contract={toolUsage} loading={loading.tools} />
       <SkillEffectivenessSection contract={skillEffectiveness} loading={loading.skills} />
       <AutoresearchSection contract={autoresearchRuns} loading={loading.autoresearch} />

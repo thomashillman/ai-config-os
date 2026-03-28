@@ -19,6 +19,29 @@ import {
 import { handleExecute } from './handlers/executor';
 import { handleRuntimeCapabilities } from './handlers/runtime';
 import {
+  handleAnalyticsAutoresearchRunsPublish,
+  handleAnalyticsAutoresearchRunsRead,
+  handleAnalyticsFrictionSignalsPublish,
+  handleAnalyticsFrictionSignalsRead,
+  handleAnalyticsSkillEffectivenessPublish,
+  handleAnalyticsSkillEffectivenessRead,
+  handleAnalyticsToolUsagePublish,
+  handleAnalyticsToolUsageRead,
+  handleAuditPublish,
+  handleAuditRead,
+  handleAuditRequest,
+  handleConfigSummaryPublish,
+  handleConfigSummaryRead,
+  handleContextCostPublish,
+  handleContextCostRead,
+  handleContextCostRequest,
+  handleSkillsPublish,
+  handleSkillsRead,
+  handleToolingStatusPublish,
+  handleToolingStatusRead,
+  handleToolingSyncRequest,
+} from './handlers/dashboard';
+import {
   handleObservabilityRunCreate,
   handleObservabilityRunGet,
   handleObservabilityRunList,
@@ -99,6 +122,33 @@ export function createWorkerHandler(registry: RegistryLike, pluginJson: unknown)
 
     // ── Runtime ─────────────────────────────────────────────────────────
     { method: 'GET',   pattern: '/v1/runtime/capabilities',                            handler: ({ env }) => handleRuntimeCapabilities(env) },
+
+    // ── Dashboard resource reads (Worker-backed snapshots) ───────────────
+    { method: 'GET',  pattern: '/v1/skills',                                          handler: ({ url, env }) => handleSkillsRead(url, env) },
+    { method: 'GET',  pattern: '/v1/tooling/status',                                  handler: ({ url, env }) => handleToolingStatusRead(url, env) },
+    { method: 'GET',  pattern: '/v1/config/summary',                                  handler: ({ url, env }) => handleConfigSummaryRead(url, env) },
+    { method: 'GET',  pattern: '/v1/runtime/context-cost',                            handler: ({ url, env }) => handleContextCostRead(url, env) },
+    { method: 'GET',  pattern: '/v1/audit/validate-all',                              handler: ({ url, env }) => handleAuditRead(url, env) },
+    { method: 'GET',  pattern: '/v1/analytics/tool-usage',                            handler: ({ url, env }) => handleAnalyticsToolUsageRead(url, env) },
+    { method: 'GET',  pattern: '/v1/analytics/skill-effectiveness',                   handler: ({ url, env }) => handleAnalyticsSkillEffectivenessRead(url, env) },
+    { method: 'GET',  pattern: '/v1/analytics/autoresearch-runs',                     handler: ({ url, env }) => handleAnalyticsAutoresearchRunsRead(url, env) },
+    { method: 'GET',  pattern: '/v1/analytics/friction-signals',                      handler: ({ url, env }) => handleAnalyticsFrictionSignalsRead(url, env) },
+
+    // ── Dashboard publish routes (local runtime → Worker) ─────────────────
+    { method: 'POST', pattern: '/v1/skills/publish',                                  handler: ({ request, env }) => handleSkillsPublish(request, env) },
+    { method: 'POST', pattern: '/v1/tooling/status/publish',                          handler: ({ request, env }) => handleToolingStatusPublish(request, env) },
+    { method: 'POST', pattern: '/v1/config/summary/publish',                          handler: ({ request, env }) => handleConfigSummaryPublish(request, env) },
+    { method: 'POST', pattern: '/v1/runtime/context-cost/publish',                    handler: ({ request, env }) => handleContextCostPublish(request, env) },
+    { method: 'POST', pattern: '/v1/audit/validate-all/publish',                      handler: ({ request, env }) => handleAuditPublish(request, env) },
+    { method: 'POST', pattern: '/v1/analytics/tool-usage/publish',                    handler: ({ request, env }) => handleAnalyticsToolUsagePublish(request, env) },
+    { method: 'POST', pattern: '/v1/analytics/skill-effectiveness/publish',           handler: ({ request, env }) => handleAnalyticsSkillEffectivenessPublish(request, env) },
+    { method: 'POST', pattern: '/v1/analytics/autoresearch-runs/publish',             handler: ({ request, env }) => handleAnalyticsAutoresearchRunsPublish(request, env) },
+    { method: 'POST', pattern: '/v1/analytics/friction-signals/publish',              handler: ({ request, env }) => handleAnalyticsFrictionSignalsPublish(request, env) },
+
+    // ── Dashboard action routes (dashboard → Worker → local runtime) ──────
+    { method: 'POST', pattern: '/v1/tooling/sync-request',                            handler: () => handleToolingSyncRequest() },
+    { method: 'POST', pattern: '/v1/audit/validate-all/request',                      handler: () => handleAuditRequest() },
+    { method: 'POST', pattern: '/v1/runtime/context-cost/request',                    handler: () => handleContextCostRequest() },
 
     // ── Observability reads ─────────────────────────────────────────────
     { method: 'GET',   pattern: '/v1/observability/runs',                            handler: ({ request, env }) => handleObservabilityRunList(request, env) },

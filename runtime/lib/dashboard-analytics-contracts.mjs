@@ -31,6 +31,7 @@ function hasVariant(value) {
 
 export function buildSkillsListContract(skills) {
   const experimental = skills.filter((s) => s.status === 'experimental').length;
+  const needingImprovement = skills.filter((s) => s.status !== 'stable');
   return {
     contract: 'skills.list',
     generated_at: toIsoNow(),
@@ -38,8 +39,12 @@ export function buildSkillsListContract(skills) {
     total_skills: skills.length,
     interpretation: {
       why_it_matters_now: `Skill inventory currently exposes ${skills.length} skills; ${experimental} are experimental and may need hardening before broad use.`,
-      skills_needing_improvement: skills.filter((s) => s.status !== 'stable').map((s) => s.name).slice(0, 5),
+      attention_required: experimental > 0,
       top_opportunity: experimental > 0 ? 'Stabilize the highest-used experimental skills.' : 'Expand tests on stable skills with low coverage.',
+      empty_state_reason: skills.length === 0 ? 'No skills found in shared/skills/. Run node scripts/build/compile.mjs.' : null,
+      best_next_action: needingImprovement.length > 0 ? `Stabilize ${needingImprovement[0].name}` : 'Expand test coverage on stable skills',
+      severity: experimental > 0 ? 'warning' : 'ok',
+      skills_needing_improvement: needingImprovement.map((s) => s.name).slice(0, 5),
       changed_since_last_period: 'Prior-period baseline not yet available in this contract.',
     },
     sources: {
@@ -69,8 +74,12 @@ export function buildToolUsageContract(metrics) {
     tools,
     interpretation: {
       why_it_matters_now: tools.length > 0 ? `Top tool is ${tools[0].tool} (${tools[0].count} events), indicating where automation leverage is concentrated.` : 'No tool usage events yet; telemetry needs runtime activity.',
-      skills_needing_improvement: [],
+      attention_required: false,
       top_opportunity: tools.length > 0 ? `Improve workflow around ${tools[0].tool} where current demand is highest.` : 'Collect baseline tool-usage events.',
+      empty_state_reason: tools.length === 0 ? 'No tool usage events collected yet. Runtime activity produces telemetry.' : null,
+      best_next_action: tools.length > 0 ? `Review usage patterns for ${tools[0].tool}` : 'Run the runtime to collect tool usage telemetry',
+      severity: 'info',
+      skills_needing_improvement: [],
       changed_since_last_period: 'Prior-period baseline not yet available in this contract.',
     },
     sources: {
@@ -84,6 +93,7 @@ export function buildToolUsageContract(metrics) {
 
 export function buildSkillEffectivenessContract(skills, totalEvents) {
   const needingImprovement = skills.filter((s) => s.use_rate < 50).map((s) => s.skill).slice(0, 5);
+  const attentionRequired = needingImprovement.length > 0 && totalEvents > 0;
   return {
     contract: 'analytics.skill_effectiveness',
     generated_at: toIsoNow(),
@@ -91,8 +101,12 @@ export function buildSkillEffectivenessContract(skills, totalEvents) {
     skills,
     interpretation: {
       why_it_matters_now: totalEvents > 0 ? 'Output-used rate indicates where skill guidance is helping versus being replaced during execution.' : 'No skill outcome events captured yet.',
-      skills_needing_improvement: needingImprovement,
+      attention_required: attentionRequired,
       top_opportunity: needingImprovement[0] ? `Run /autoresearch on ${needingImprovement[0]} to improve output-used rate.` : 'Expand measurement coverage for more skills.',
+      empty_state_reason: totalEvents === 0 ? 'No skill outcome events captured yet. Use skills in sessions to collect data.' : null,
+      best_next_action: needingImprovement[0] ? `Run /autoresearch on ${needingImprovement[0]}` : 'Continue collecting skill outcome data',
+      severity: attentionRequired ? 'warning' : 'ok',
+      skills_needing_improvement: needingImprovement,
       changed_since_last_period: 'Prior-period baseline not yet available in this contract.',
     },
     sources: {
@@ -150,14 +164,19 @@ export function readAutoresearchRuns(repoRoot) {
 
 export function buildAutoresearchRunsContract(runs) {
   const best = runs[0];
+  const notImproved = runs.filter((r) => (r.improved_by ?? 0) <= 0).map((r) => r.skill).slice(0, 5);
   return {
     contract: 'analytics.autoresearch_runs',
     generated_at: toIsoNow(),
     runs,
     interpretation: {
       why_it_matters_now: best ? `Best run is ${best.skill}/${best.run_dir} at ${best.best_score ?? 0}%.` : 'No autoresearch runs available yet.',
-      skills_needing_improvement: runs.filter((r) => (r.improved_by ?? 0) <= 0).map((r) => r.skill).slice(0, 5),
+      attention_required: false,
       top_opportunity: best ? `Replicate high-scoring patterns from ${best.skill}/${best.run_dir}.` : 'Start autoresearch on low-performing skills.',
+      empty_state_reason: runs.length === 0 ? 'No autoresearch runs found in shared/skills/. Run /autoresearch on a skill to generate data.' : null,
+      best_next_action: best ? `Replicate patterns from ${best.skill}/${best.run_dir}` : 'Run /autoresearch on a low-performing skill',
+      severity: 'info',
+      skills_needing_improvement: notImproved,
       changed_since_last_period: 'Prior-period baseline not yet available in this contract.',
     },
     sources: {
@@ -193,23 +212,29 @@ export function buildAutoresearchRunGetContract(runs, skill, runDir) {
 export function buildFrictionSignalsContract(retroSummary) {
   const signalBreakdown = retroSummary?.signal_breakdown || {};
   const topSignal = Object.entries(signalBreakdown).sort((a, b) => b[1] - a[1])[0] || null;
+  const artifactCount = retroSummary?.artifact_count || 0;
+  const attentionRequired = topSignal !== null && topSignal[1] > 3;
   return {
     contract: 'analytics.friction_signals',
     generated_at: toIsoNow(),
-    artifact_count: retroSummary?.artifact_count || 0,
+    artifact_count: artifactCount,
     signal_breakdown: signalBreakdown,
     top_recommendations: Array.isArray(retroSummary?.top_recommendations) ? retroSummary.top_recommendations : [],
     interpretation: {
       why_it_matters_now: topSignal ? `Most frequent friction is ${topSignal[0]} (${topSignal[1]} occurrences).` : 'No retrospective friction signals collected yet.',
+      attention_required: attentionRequired,
+      top_opportunity: topSignal ? `Address recurring ${topSignal[0]} signals in high-frequency workflows.` : 'Collect retrospectives after merged changes.',
+      empty_state_reason: artifactCount === 0 ? 'No retrospective artifacts found. Run /post-merge-retrospective after merges.' : null,
+      best_next_action: topSignal ? `Address ${topSignal[0]} friction pattern` : 'Run /post-merge-retrospective after the next merge',
+      severity: attentionRequired ? 'warning' : artifactCount === 0 ? 'info' : 'ok',
       skills_needing_improvement: Array.isArray(retroSummary?.top_recommendations)
         ? retroSummary.top_recommendations.map((r) => r.name).slice(0, 5)
         : [],
-      top_opportunity: topSignal ? `Address recurring ${topSignal[0]} signals in high-frequency workflows.` : 'Collect retrospectives after merged changes.',
       changed_since_last_period: 'Prior-period baseline not yet available in this contract.',
     },
     sources: {
       observation_snapshot: null,
-      retrospectives_aggregate: { artifact_count: retroSummary?.artifact_count || 0 },
+      retrospectives_aggregate: { artifact_count: artifactCount },
       autoresearch_results: null,
     },
     success: true,

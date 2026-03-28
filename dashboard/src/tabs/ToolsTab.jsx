@@ -1,26 +1,21 @@
 import { useState, useEffect } from "react"
 import ResponseContractPanel from "../components/ResponseContractPanel"
-import { buildFetchError, getOutcomeContract } from "../lib/dashboardApi"
+import { getOutcomeContract } from "../lib/dashboardApi"
+import { fetchToolingStatus, requestToolingSync, isStale } from "../lib/workerContractsClient"
 
-export default function ToolsTab({ api }) {
+export default function ToolsTab({ workerUrl, token }) {
   const [data, setData] = useState(null)
   const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
-    fetch(`${api}/contracts/tooling.status`)
-      .then(r => r.json())
-      .then(setData)
-      .catch(() => setData(buildFetchError()))
-  }, [api])
+    fetchToolingStatus(workerUrl, token).then(setData)
+  }, [workerUrl, token])
 
-  const handleSync = async (dryRun) => {
+  const handleSync = async () => {
     setSyncing(true)
-    const result = await fetch(`${api}/sync`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ dry_run: dryRun })
-    }).then(r => r.json()).catch(() => buildFetchError("Sync request failed"))
-    setData(result)
+    await requestToolingSync(workerUrl, token)
+    const fresh = await fetchToolingStatus(workerUrl, token)
+    setData(fresh)
     setSyncing(false)
   }
 
@@ -29,15 +24,11 @@ export default function ToolsTab({ api }) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-gray-300 font-semibold">Tool Status</h2>
         <div className="flex gap-2">
+          {isStale(data) && (
+            <span className="px-2 py-0.5 text-xs bg-yellow-900 text-yellow-400 rounded">stale</span>
+          )}
           <button
-            onClick={() => handleSync(true)}
-            disabled={syncing}
-            className="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded disabled:opacity-50"
-          >
-            Dry Run
-          </button>
-          <button
-            onClick={() => handleSync(false)}
+            onClick={handleSync}
             disabled={syncing}
             className="px-3 py-1 text-xs bg-blue-700 hover:bg-blue-600 rounded disabled:opacity-50"
           >

@@ -28,13 +28,12 @@ function fmtMs(started, finished) {
 
 function getSignals(run) {
   if (!run) return null
-  const canonicalSignals = run.canonical_v2?.signals
   return {
-    attention_required: run.attention_required ?? canonicalSignals?.attention_required ?? false,
-    failure_reason_summary: run.failure_reason_summary ?? canonicalSignals?.failure_reason_summary ?? "—",
-    next_actions: run.next_actions ?? canonicalSignals?.next_actions ?? [],
-    locality: run.locality ?? canonicalSignals?.locality ?? "—",
-    capability: run.capability ?? canonicalSignals?.capability ?? "—",
+    attention_required: run.attention_required ?? false,
+    failure_reason_summary: run.failure_reason_summary ?? "—",
+    next_actions: Array.isArray(run.next_actions) ? run.next_actions : [],
+    locality: run.locality ?? "—",
+    capability: run.capability ?? "—",
   }
 }
 
@@ -221,8 +220,8 @@ function SettingsPanel({ workerUrl, token }) {
     setLoadError(null)
     fetch(`${workerUrl}/v1/observability/settings`, { headers })
       .then(r => r.json())
-      .then(d => {
-        const s = d.settings ?? {}
+      .then(envelope => {
+        const s = envelope?.data?.settings ?? envelope?.settings ?? {}
         setSettings(s)
         setDraft({ ...s })
         setLoading(false)
@@ -252,12 +251,16 @@ function SettingsPanel({ workerUrl, token }) {
         headers,
         body: JSON.stringify(draft),
       })
-      const data = await resp.json()
+      const envelope = await resp.json()
       if (!resp.ok) {
-        setSaveError(data.details ? data.details.join("; ") : (data.error ?? "Save failed"))
+        const errDetail = envelope?.error?.hint ?? envelope?.error?.message ?? envelope?.details?.join?.("; ") ?? "Save failed"
+        setSaveError(errDetail)
       } else {
-        setSettings(data.settings)
-        setDraft({ ...data.settings })
+        const saved = envelope?.data?.settings ?? envelope?.settings
+        if (saved) {
+          setSettings(saved)
+          setDraft({ ...saved })
+        }
         setSaveOk(true)
       }
     } catch (err) {
@@ -321,7 +324,7 @@ export default function ObservabilityTab({ workerUrl, token }) {
     setRunsLoading(true)
     fetch(`${workerUrl}/v1/observability/runs`, { headers })
       .then(r => r.json())
-      .then(d => { setRunsData(d); setRunsLoading(false) })
+      .then(envelope => { setRunsData(envelope?.data ?? envelope); setRunsLoading(false) })
       .catch(() => setRunsLoading(false))
   }, [workerUrl, token])
 
@@ -332,8 +335,8 @@ export default function ObservabilityTab({ workerUrl, token }) {
     setDetailLoading(true)
     try {
       const resp = await fetch(`${workerUrl}/v1/observability/runs/${runId}`, { headers })
-      const data = await resp.json()
-      setSelectedRun(data.run ?? null)
+      const envelope = await resp.json()
+      setSelectedRun(envelope?.data?.run ?? null)
     } catch {
       setSelectedRun(null)
     } finally {
