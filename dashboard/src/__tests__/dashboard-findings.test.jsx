@@ -1,7 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import ToolsTab from "../tabs/ToolsTab"
 import SkillsTab from "../tabs/SkillsTab"
@@ -12,6 +12,16 @@ function jsonResponse(payload) {
   return Promise.resolve({
     ok: true,
     json: () => Promise.resolve(payload),
+  })
+}
+
+function contractResponse(data) {
+  return jsonResponse({
+    data,
+    success: true,
+    summary: "ok",
+    capability: {},
+    meta: {},
   })
 }
 
@@ -40,22 +50,36 @@ describe("dashboard findings", () => {
     expect(screen.getByText("manual-input-correction")).toBeInTheDocument()
   })
 
-  it("renders unicode checkmarks for supported variants", async () => {
+  it("renders supported variants from the skills.list contract", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(() =>
-      jsonResponse({
-        output: [
-          "SKILL                  TYPE         STATUS       OPUS     SONNET   HAIKU    TESTS",
-          "-----                  ----         ------       ----     ------   -----    -----",
-          "code-review            core         stable       ✓        ✓        -        4",
-        ].join("\n"),
-        success: true,
+      contractResponse({
+        contract: "skills.list",
+        skills: [
+          {
+            name: "code-review",
+            type: "core",
+            status: "stable",
+            opus: true,
+            sonnet: true,
+            haiku: false,
+            tests: 4,
+          },
+        ],
+        interpretation: {
+          why_it_matters_now: "Current skill inventory and readiness.",
+        },
         effectiveOutcomeContract: { status: "Full" },
+        success: true,
       }),
     )
 
     render(<SkillsTab api="http://localhost:4242/api" />)
 
-    expect(await screen.findAllByText("✓")).toHaveLength(2)
+    const row = await screen.findByTestId("skill-row-code-review")
+
+    expect(within(row).getByText("stable")).toBeInTheDocument()
+    expect(within(row).getByText("4")).toBeInTheDocument()
+    expect(within(row).getAllByText("✓")).toHaveLength(2)
   })
 
   it("does not keep mojibake checkmark sentinels in SkillsTab source", () => {

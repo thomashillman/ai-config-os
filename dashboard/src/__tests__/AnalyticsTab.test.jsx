@@ -12,39 +12,39 @@ afterEach(() => {
 // Default mock responses for all four endpoints
 function makeDefaultMock({ retroSummary = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true } } = {}) {
   return vi.fn((url) => {
-    if (url.includes("/retrospectives-summary")) {
+    if (url.includes("/contracts/analytics.friction_signals")) {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve(retroSummary),
+        json: () => Promise.resolve({ ...retroSummary, interpretation: { why_it_matters_now: "" } }),
       })
     }
-    if (url.includes("/skill-analytics")) {
+    if (url.includes("/contracts/analytics.skill_effectiveness")) {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ skills: [], total_events: 0, success: true }),
+        json: () => Promise.resolve({ skills: [], total_events: 0, interpretation: {}, success: true }),
       })
     }
-    if (url.includes("/autoresearch-runs")) {
+    if (url.includes("/contracts/analytics.autoresearch_runs")) {
       return Promise.resolve({
         ok: true,
         status: 200,
-        json: () => Promise.resolve({ runs: [], success: true }),
+        json: () => Promise.resolve({ runs: [], interpretation: {}, success: true }),
       })
     }
-    if (url.includes("/analytics")) {
+    if (url.includes("/contracts/analytics.tool_usage")) {
       return Promise.resolve({
         ok: true,
         status: 200,
         json: () => Promise.resolve({
-          metrics: [
-            { tool: "Read", timestamp: "2026-03-23T10:00:00Z" },
-            { tool: "Read", timestamp: "2026-03-23T10:01:00Z" },
-            { tool: "Bash", timestamp: "2026-03-23T10:02:00Z" },
-            { tool: "Edit", timestamp: "2026-03-23T10:03:00Z" },
-            { tool: "Edit", timestamp: "2026-03-23T10:04:00Z" },
+          tools: [
+            { tool: "Read", count: 2 },
+            { tool: "Edit", count: 2 },
+            { tool: "Bash", count: 1 },
           ],
+          total_events: 5,
+          interpretation: {},
           success: true,
           effectiveOutcomeContract: {},
         }),
@@ -54,12 +54,12 @@ function makeDefaultMock({ retroSummary = { artifact_count: 0, signal_breakdown:
   })
 }
 
-describe("AnalyticsTab — unified /api/analytics shape (Atom 9)", () => {
+describe("AnalyticsTab — unified /api/contracts/analytics.tool_usage shape (Atom 9)", () => {
   beforeEach(() => {
     global.fetch = makeDefaultMock()
   })
 
-  it("renders Tool Usage section and reads from unified /api/analytics", async () => {
+  it("renders Tool Usage section and reads from unified /api/contracts/analytics.tool_usage", async () => {
     render(<AnalyticsTab api={API} />)
 
     // Wait for metrics to be loaded and displayed (not empty state)
@@ -78,28 +78,28 @@ describe("AnalyticsTab — unified /api/analytics shape (Atom 9)", () => {
 
   it("shows empty state when no metrics present in unified response", async () => {
     global.fetch = vi.fn((url) => {
-      if (url.includes("/retrospectives-summary")) {
+      if (url.includes("/contracts/analytics.friction_signals")) {
         return Promise.resolve({
           ok: true, status: 200,
           json: () => Promise.resolve({ artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true }),
         })
       }
-      if (url.includes("/skill-analytics")) {
+      if (url.includes("/contracts/analytics.skill_effectiveness")) {
         return Promise.resolve({
           ok: true, status: 200,
-          json: () => Promise.resolve({ skills: [], total_events: 0, success: true }),
+          json: () => Promise.resolve({ skills: [], total_events: 0, interpretation: {}, success: true }),
         })
       }
-      if (url.includes("/autoresearch-runs")) {
+      if (url.includes("/contracts/analytics.autoresearch_runs")) {
         return Promise.resolve({
           ok: true, status: 200,
-          json: () => Promise.resolve({ runs: [], success: true }),
+          json: () => Promise.resolve({ runs: [], interpretation: {}, success: true }),
         })
       }
-      if (url.includes("/analytics")) {
+      if (url.includes("/contracts/analytics.tool_usage")) {
         return Promise.resolve({
           ok: true, status: 200,
-          json: () => Promise.resolve({ metrics: [], success: true }),
+          json: () => Promise.resolve({ tools: [], total_events: 0, interpretation: {}, success: true }),
         })
       }
       return Promise.reject(new Error(`unexpected fetch: ${url}`))
@@ -168,17 +168,17 @@ describe("AnalyticsTab — Friction Signals section", () => {
 
   it("shows empty state when retrospectives-summary endpoint fails", async () => {
     global.fetch = vi.fn((url) => {
-      if (url.includes("/retrospectives-summary")) {
+      if (url.includes("/contracts/analytics.friction_signals")) {
         return Promise.reject(new Error("network error"))
       }
-      if (url.includes("/skill-analytics")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ skills: [], total_events: 0, success: true }) })
+      if (url.includes("/contracts/analytics.skill_effectiveness")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ skills: [], total_events: 0, interpretation: {}, success: true }) })
       }
-      if (url.includes("/autoresearch-runs")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ runs: [], success: true }) })
+      if (url.includes("/contracts/analytics.autoresearch_runs")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ runs: [], interpretation: {}, success: true }) })
       }
-      if (url.includes("/analytics")) {
-        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ metrics: [], success: true }) })
+      if (url.includes("/contracts/analytics.tool_usage")) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ tools: [], total_events: 0, interpretation: {}, success: true }) })
       }
       return Promise.reject(new Error(`unexpected fetch: ${url}`))
     })
