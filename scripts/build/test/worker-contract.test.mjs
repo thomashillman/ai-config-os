@@ -361,7 +361,7 @@ describe('worker endpoint contract', () => {
     const createRes = await worker.fetch(makeAuthorizedJsonRequest('POST', '/v1/tasks', task), env);
     assert.equal(createRes.status, 201);
     const createBody = await createRes.json();
-    assert.equal(createBody.task.task_id, task.task_id);
+    assert.equal(createBody.data.task.task_id, task.task_id);
 
     const getRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}`), env);
     assert.equal(getRes.status, 200);
@@ -401,8 +401,8 @@ describe('worker endpoint contract', () => {
     const routesRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/available-routes`), env);
     assert.equal(routesRes.status, 200);
     const routesBody = await routesRes.json();
-    assert.equal(routesBody.best_next_route, 'local_repo');
-    assert.equal(Array.isArray(routesBody.available_routes), true);
+    assert.equal(routesBody.data.best_next_route, 'local_repo');
+    assert.equal(Array.isArray(routesBody.data.available_routes), true);
 
     const effectiveExecutionContract = {
       schema_version: '1.0.0',
@@ -439,39 +439,39 @@ describe('worker endpoint contract', () => {
     const continuationRes1 = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, continuationReqBody), env);
     assert.equal(continuationRes1.status, 201);
     const continuationBody1 = await continuationRes1.json();
-    assert.equal(continuationBody1.continuation_package.handoff_token_id, 'handoff_001');
-    assert.equal(continuationBody1.continuation_package.created_at, '2026-03-12T12:04:00.000Z');
+    assert.equal(continuationBody1.data.continuation_package.handoff_token_id, 'handoff_001');
+    assert.equal(continuationBody1.data.continuation_package.created_at, '2026-03-12T12:04:00.000Z');
 
     const continuationRes2 = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/continuation`, continuationReqBody), env);
     assert.equal(continuationRes2.status, 200);
     const continuationBody2 = await continuationRes2.json();
     assert.equal(
-      continuationBody2.continuation_package.created_at,
-      continuationBody1.continuation_package.created_at,
+      continuationBody2.data.continuation_package.created_at,
+      continuationBody1.data.continuation_package.created_at,
       'retry must be idempotent and keep canonical created_at',
     );
 
     const progressEventsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/progress-events`), env);
     assert.equal(progressEventsRes.status, 200);
     const progressEventsBody = await progressEventsRes.json();
-    assert.ok(progressEventsBody.events.length >= 3);
+    assert.ok(progressEventsBody.data.events.length >= 3);
 
     const readinessRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/readiness`), env);
     assert.equal(readinessRes.status, 200);
     const readinessBody = await readinessRes.json();
-    assert.equal(readinessBody.readiness.task_id, task.task_id);
-    assert.equal(readinessBody.readiness.current_route, 'local_repo');
-    assert.equal(readinessBody.readiness.progress_event_count >= 3, true);
+    assert.equal(readinessBody.data.readiness.task_id, task.task_id);
+    assert.equal(readinessBody.data.readiness.current_route, 'local_repo');
+    assert.equal(readinessBody.data.readiness.progress_event_count >= 3, true);
 
     const snapshotsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots`), env);
     assert.equal(snapshotsRes.status, 200);
     const snapshotsBody = await snapshotsRes.json();
-    assert.equal(snapshotsBody.snapshots.length, 5);
+    assert.equal(snapshotsBody.data.snapshots.length, 5);
 
     const snapshotVersion2Res = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots/2`), env);
     assert.equal(snapshotVersion2Res.status, 200);
     const snapshotVersion2Body = await snapshotVersion2Res.json();
-    assert.equal(snapshotVersion2Body.snapshot.snapshot_version, 2);
+    assert.equal(snapshotVersion2Body.data.snapshot.snapshot_version, 2);
   });
 
 
@@ -515,7 +515,7 @@ describe('worker endpoint contract', () => {
     const cappedResponse = await worker.fetch(makeAuthorizedRequest('/v1/tasks?limit=500'), envWithKv);
     assert.equal(cappedResponse.status, 200);
     const cappedBody = await cappedResponse.json();
-    assert.equal(cappedBody.tasks.length, 100);
+    assert.equal(cappedBody.data.tasks.length, 100);
   });
 
   test('task endpoint failures: malformed payloads, auth, not found, conflict and token errors', async () => {

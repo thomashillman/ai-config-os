@@ -1,5 +1,5 @@
 import { jsonResponse, readJsonBody } from '../http';
-import { contractErrorResponse, WORKER_CAPABILITY } from '../contracts';
+import { contractErrorResponse, contractSuccessResponse, WORKER_CAPABILITY } from '../contracts';
 import { getContinuationFingerprint, getTaskService, setContinuationFingerprint, taskErrorResponse } from '../task-runtime';
 import type { Env } from '../types';
 import {
@@ -16,6 +16,25 @@ import {
 const TASK_AVAILABLE_ROUTES: Record<string, string[]> = {
   review_repository: ['local_repo', 'github_pr', 'uploaded_bundle', 'pasted_diff'],
 };
+
+function taskSummary(task: Record<string, unknown>): string {
+  const state = String(task.state ?? 'unknown');
+  const name = String(task.name ?? task.task_id ?? 'task');
+  return `Task "${name}" is ${state}.`;
+}
+
+function taskMeta(task: Record<string, unknown>): Record<string, unknown> {
+  const findings = Array.isArray(task.findings) ? task.findings : [];
+  const questions = findings.filter((f: unknown) => (f as Record<string, unknown>)?.status === 'open_question');
+  const blockers = findings.filter((f: unknown) => (f as Record<string, unknown>)?.status === 'blocked');
+  return {
+    urgency: blockers.length > 0 ? 'blocked' : questions.length > 0 ? 'needs_input' : 'normal',
+    open_questions: questions.length,
+    blocker_count: blockers.length,
+    best_next_route: task.current_route ?? task.initial_route ?? null,
+    verification_count: findings.filter((f: unknown) => (f as Record<string, unknown>)?.status === 'verified').length,
+  };
+}
 
 function validationError(message: string): Response {
   return contractErrorResponse({
@@ -39,7 +58,14 @@ function internalError(message: string): Response {
 
 export async function handleTaskGet(env: Env, taskId: string): Promise<Response> {
   try {
-    return jsonResponse({ task: await getTaskService(env).getTask(taskId) });
+    const task = await getTaskService(env).getTask(taskId) as Record<string, unknown>;
+    return contractSuccessResponse({
+      resource: 'tasks.get',
+      data: { task },
+      summary: taskSummary(task),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(task),
+    });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected task load error');
   }
@@ -53,8 +79,14 @@ export async function handleTaskTransitionState(request: Request, env: Env, task
   if (!validation.ok) return validationError(validation.error);
 
   try {
-    const updated = await getTaskService(env).transitionState(taskId, validation.value);
-    return jsonResponse({ task: updated });
+    const updated = await getTaskService(env).transitionState(taskId, validation.value) as Record<string, unknown>;
+    return contractSuccessResponse({
+      resource: 'tasks.state',
+      data: { task: updated },
+      summary: taskSummary(updated),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(updated),
+    });
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
@@ -70,8 +102,14 @@ export async function handleTaskRouteSelection(request: Request, env: Env, taskI
   if (!validation.ok) return validationError(validation.error);
 
   try {
-    const updated = await getTaskService(env).selectRoute(taskId, validation.value);
-    return jsonResponse({ task: updated });
+    const updated = await getTaskService(env).selectRoute(taskId, validation.value) as Record<string, unknown>;
+    return contractSuccessResponse({
+      resource: 'tasks.route_selection',
+      data: { task: updated },
+      summary: taskSummary(updated),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(updated),
+    });
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
@@ -131,7 +169,12 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
       setContinuationFingerprint(tokenId, fingerprint);
     }
 
-    return jsonResponse({ continuation_package }, replayed ? 200 : 201);
+    return contractSuccessResponse({
+      resource: 'tasks.continue',
+      data: { continuation_package },
+      summary: replayed ? 'Continuation package replayed.' : 'Continuation package created.',
+      capability: WORKER_CAPABILITY,
+    }, replayed ? 200 : 201);
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
@@ -141,7 +184,13 @@ export async function handleTaskContinuation(request: Request, env: Env, taskId:
 
 export async function handleTaskProgressEvents(env: Env, taskId: string): Promise<Response> {
   try {
-    return jsonResponse({ events: await getTaskService(env).listProgressEvents(taskId) });
+    const events = await getTaskService(env).listProgressEvents(taskId) as unknown[];
+    return contractSuccessResponse({
+      resource: 'tasks.events',
+      data: { events },
+      summary: `${events.length} progress event(s).`,
+      capability: WORKER_CAPABILITY,
+    });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected task progress event error');
   }
@@ -149,7 +198,14 @@ export async function handleTaskProgressEvents(env: Env, taskId: string): Promis
 
 export async function handleTaskReadiness(env: Env, taskId: string): Promise<Response> {
   try {
-    return jsonResponse({ readiness: await getTaskService(env).getReadiness(taskId) });
+    const readiness = await getTaskService(env).getReadiness(taskId) as Record<string, unknown>;
+    const ready = readiness?.ready === true;
+    return contractSuccessResponse({
+      resource: 'tasks.readiness',
+      data: { readiness },
+      summary: ready ? 'Task is ready to continue.' : 'Task is not yet ready.',
+      capability: WORKER_CAPABILITY,
+    });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected task readiness error');
   }
@@ -158,14 +214,26 @@ export async function handleTaskReadiness(env: Env, taskId: string): Promise<Res
 export async function handleTaskSnapshots(env: Env, taskId: string, version: string | null): Promise<Response> {
   try {
     if (!version) {
-      return jsonResponse({ snapshots: await getTaskService(env).listSnapshots(taskId) });
+      const snapshots = await getTaskService(env).listSnapshots(taskId) as unknown[];
+      return contractSuccessResponse({
+        resource: 'tasks.snapshots',
+        data: { snapshots },
+        summary: `${snapshots.length} snapshot(s) available.`,
+        capability: WORKER_CAPABILITY,
+      });
     }
 
     const snapshotVersion = Number(version);
     if (!Number.isInteger(snapshotVersion) || snapshotVersion <= 0) {
       return validationError("Path parameter 'version' must be a positive integer");
     }
-    return jsonResponse({ snapshot: await getTaskService(env).getSnapshot(taskId, snapshotVersion) });
+    const snapshot = await getTaskService(env).getSnapshot(taskId, snapshotVersion);
+    return contractSuccessResponse({
+      resource: 'tasks.snapshots',
+      data: { snapshot },
+      summary: `Snapshot at version ${snapshotVersion}.`,
+      capability: WORKER_CAPABILITY,
+    });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected task snapshot error');
   }
@@ -206,8 +274,13 @@ export async function handleTaskList(env: Env, url: URL): Promise<Response> {
   if (!updatedWithinSeconds.ok) return updatedWithinSeconds.response;
 
   try {
-    const tasks = await getTaskService(env).listRecentTasks({ status, limit: limit.value, updatedWithinSeconds: updatedWithinSeconds.value });
-    return jsonResponse({ tasks });
+    const tasks = await getTaskService(env).listRecentTasks({ status, limit: limit.value, updatedWithinSeconds: updatedWithinSeconds.value }) as unknown[];
+    return contractSuccessResponse({
+      resource: 'tasks.list',
+      data: { tasks },
+      summary: `${tasks.length} task(s).`,
+      capability: WORKER_CAPABILITY,
+    });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected task list error');
   }
@@ -215,8 +288,14 @@ export async function handleTaskList(env: Env, url: URL): Promise<Response> {
 
 export async function handleTaskByCode(env: Env, shortCode: string): Promise<Response> {
   try {
-    const task = await getTaskService(env).getTaskByCode(shortCode);
-    return jsonResponse({ task });
+    const task = await getTaskService(env).getTaskByCode(shortCode) as Record<string, unknown>;
+    return contractSuccessResponse({
+      resource: 'tasks.get',
+      data: { task },
+      summary: taskSummary(task),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(task),
+    });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected error looking up task by code');
   }
@@ -224,8 +303,14 @@ export async function handleTaskByCode(env: Env, shortCode: string): Promise<Res
 
 export async function handleTaskByName(env: Env, nameOrSlug: string): Promise<Response> {
   try {
-    const task = await getTaskService(env).getTaskByName(nameOrSlug);
-    return jsonResponse({ task });
+    const task = await getTaskService(env).getTaskByName(nameOrSlug) as Record<string, unknown>;
+    return contractSuccessResponse({
+      resource: 'tasks.get',
+      data: { task },
+      summary: taskSummary(task),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(task),
+    });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected error looking up task by name');
   }
@@ -233,11 +318,22 @@ export async function handleTaskByName(env: Env, nameOrSlug: string): Promise<Re
 
 export async function handleHubLatest(env: Env): Promise<Response> {
   try {
-    const task = await getTaskService(env).getLatestActiveTask();
+    const task = await getTaskService(env).getLatestActiveTask() as Record<string, unknown> | null;
     if (!task) {
-      return jsonResponse({ task: null, message: 'No active tasks found' });
+      return contractSuccessResponse({
+        resource: 'tasks.hub_latest',
+        data: { task: null },
+        summary: 'No active tasks found.',
+        capability: WORKER_CAPABILITY,
+      });
     }
-    return jsonResponse({ task });
+    return contractSuccessResponse({
+      resource: 'tasks.hub_latest',
+      data: { task },
+      summary: taskSummary(task),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(task),
+    });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected error fetching latest task');
   }
@@ -251,8 +347,14 @@ export async function handleTaskAppendFinding(request: Request, env: Env, taskId
   if (!validation.ok) return validationError(validation.error);
 
   try {
-    const updated = await getTaskService(env).appendFinding(taskId, validation.value);
-    return jsonResponse({ task: updated }, 201);
+    const updated = await getTaskService(env).appendFinding(taskId, validation.value) as Record<string, unknown>;
+    return contractSuccessResponse({
+      resource: 'tasks.finding_recorded',
+      data: { task: updated },
+      summary: taskSummary(updated),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(updated),
+    }, 201);
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
@@ -268,8 +370,14 @@ export async function handleTaskTransitionFindings(request: Request, env: Env, t
   if (!validation.ok) return validationError(validation.error);
 
   try {
-    const updated = await getTaskService(env).transitionFindingsForRouteUpgrade(taskId, validation.value);
-    return jsonResponse({ task: updated });
+    const updated = await getTaskService(env).transitionFindingsForRouteUpgrade(taskId, validation.value) as Record<string, unknown>;
+    return contractSuccessResponse({
+      resource: 'tasks.findings_transitioned',
+      data: { task: updated },
+      summary: taskSummary(updated),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(updated),
+    });
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
@@ -304,7 +412,13 @@ export async function handleTaskAnswerQuestion(request: Request, env: Env, taskI
       },
       updated_at: answeredAt,
     });
-    return jsonResponse({ task: updated }, 201);
+    return contractSuccessResponse({
+      resource: 'tasks.answer_question',
+      data: { task: updated },
+      summary: taskSummary(updated),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(updated),
+    }, 201);
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
@@ -336,7 +450,13 @@ export async function handleTaskDismissQuestion(request: Request, env: Env, task
       },
       updated_at: dismissedAt,
     });
-    return jsonResponse({ task: updated }, 201);
+    return contractSuccessResponse({
+      resource: 'tasks.dismiss_question',
+      data: { task: updated },
+      summary: taskSummary(updated),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(updated),
+    }, 201);
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
@@ -346,17 +466,25 @@ export async function handleTaskDismissQuestion(request: Request, env: Env, task
 
 export async function handleTaskAvailableRoutes(env: Env, taskId: string): Promise<Response> {
   try {
-    const task = await getTaskService(env).getTask(taskId);
-    const availableRoutes = TASK_AVAILABLE_ROUTES[task.task_type] || [task.current_route];
-    const bestNextRoute = task.task_type === 'review_repository' && task.current_route !== 'local_repo'
+    const task = await getTaskService(env).getTask(taskId) as Record<string, unknown>;
+    const taskType = String(task.task_type ?? '');
+    const currentRoute = String(task.current_route ?? '');
+    const availableRoutes = TASK_AVAILABLE_ROUTES[taskType] ?? [currentRoute];
+    const bestNextRoute = taskType === 'review_repository' && currentRoute !== 'local_repo'
       ? 'local_repo'
-      : task.current_route;
-    return jsonResponse({
+      : currentRoute;
+    const routeData = {
       task_id: taskId,
-      task_type: task.task_type,
-      current_route: task.current_route,
+      task_type: taskType,
+      current_route: currentRoute,
       best_next_route: bestNextRoute,
       available_routes: availableRoutes.map((route_id) => ({ route_id })),
+    };
+    return contractSuccessResponse({
+      resource: 'tasks.available_routes',
+      data: routeData,
+      summary: `${availableRoutes.length} route(s) available. Best next: ${bestNextRoute}.`,
+      capability: WORKER_CAPABILITY,
     });
   } catch (error) {
     return taskErrorResponse(error) ?? internalError('Unexpected task route availability error');
@@ -371,8 +499,14 @@ export async function handleTaskCreate(request: Request, env: Env): Promise<Resp
   if (!validation.ok) return validationError(validation.error);
 
   try {
-    const created = await getTaskService(env).createTask(validation.value);
-    return jsonResponse({ task: created }, 201);
+    const created = await getTaskService(env).createTask(validation.value) as Record<string, unknown>;
+    return contractSuccessResponse({
+      resource: 'tasks.create',
+      data: { task: created },
+      summary: taskSummary(created),
+      capability: WORKER_CAPABILITY,
+      meta: taskMeta(created),
+    }, 201);
   } catch (error) {
     const mapped = taskErrorResponse(error);
     if (mapped) return mapped;
