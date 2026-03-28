@@ -104,20 +104,20 @@ describe("dashboard findings", () => {
   it("shows an actionable error when context-cost fetch fails", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"))
 
-    render(<ContextCostTab api="http://localhost:4242/api" />)
+    render(<ContextCostTab workerUrl="http://localhost:4242" token="test-token" />)
 
     await waitFor(() =>
-      expect(screen.getByText("Could not connect to dashboard API")).toBeInTheDocument(),
+      expect(screen.getByText("worker_unreachable")).toBeInTheDocument(),
     )
   })
 
   it("shows an actionable error when config fetch fails", async () => {
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"))
 
-    render(<ConfigTab api="http://localhost:4242/api" />)
+    render(<ConfigTab workerUrl="http://localhost:4242" token="test-token" />)
 
     await waitFor(() =>
-      expect(screen.getByText("Could not connect to dashboard API")).toBeInTheDocument(),
+      expect(screen.getByText("worker_unreachable")).toBeInTheDocument(),
     )
   })
 })
