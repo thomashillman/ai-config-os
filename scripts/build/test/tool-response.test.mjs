@@ -13,7 +13,7 @@ describe('toToolResponse envelope', () => {
     assert.equal(env.contract_version, '1.0.0');
     assert.equal(env.resource, 'sync_tools');
     assert.equal(env.data.success, true);
-    assert.equal(env.data.output, 'Done.');
+    assert.equal(env.data.diagnostics.raw_output, 'Done.');
     assert.equal(typeof env.summary, 'string');
     assert.equal(Array.isArray(env.suggested_actions), true);
     assert.equal(env.capability.local_only, true);
@@ -27,8 +27,8 @@ describe('toToolResponse envelope', () => {
     const env = parseEnvelope(res);
     assert.equal(res.isError, true);
     assert.equal(env.data.success, false);
-    assert.match(env.data.output, /err/);
-    assert.match(env.data.output, /out/);
+    assert.match(env.data.diagnostics.raw_output, /err/);
+    assert.match(env.data.diagnostics.raw_output, /out/);
     assert.equal(env.error.code, 'tool_execution_failed');
     assert.equal(typeof env.error.message, 'string');
     assert.equal(typeof env.error.hint, 'string');

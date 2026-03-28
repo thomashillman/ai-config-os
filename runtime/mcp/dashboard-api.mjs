@@ -66,7 +66,14 @@ export function createDashboardApi({
 
     try {
       const result = runtimeActionDispatcher.dispatch(toolName, actionArgs);
-      res.json(ok(toolName, { output: result.output, success: result.success }, 'Runtime action completed.', {
+      res.json(ok(toolName, {
+        success: result.success,
+        data: result.parsed?.data ?? {},
+        schema_ids: result.parsed?.schemaIds ?? [],
+        capability: result.parsed?.capability ?? { local_only: true, worker_backed: false },
+        capability_by_schema: result.parsed?.capabilityBySchema ?? {},
+        diagnostics: result.output ? { raw_output: result.output } : undefined,
+      }, result.parsed?.summary || 'Runtime action completed.', {
         effective_outcome_contract: effectiveOutcomeContract,
       }));
     } catch (error) {
