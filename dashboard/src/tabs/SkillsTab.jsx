@@ -15,6 +15,7 @@ export default function SkillsTab({ api }) {
   useEffect(() => {
     fetch(`${api}/contracts/skills.list`)
       .then(r => r.json())
+      .then(payload => payload?.data ?? payload)
       .then(d => {
         setData(d)
         setSkills(Array.isArray(d.skills) ? d.skills : [])

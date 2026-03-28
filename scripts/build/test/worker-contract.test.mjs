@@ -382,6 +382,28 @@ describe('worker endpoint contract', () => {
     }), env);
     assert.equal(routeSelectionRes.status, 200);
 
+    const answerRes = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/questions/q-1/answer`, {
+      expected_version: 3,
+      answer: 'Use the local route for verification.',
+      answered_by_route: 'hub',
+      answered_at: '2026-03-12T12:02:30.000Z',
+    }), env);
+    assert.equal(answerRes.status, 201);
+
+    const dismissRes = await worker.fetch(makeAuthorizedJsonRequest('POST', `/v1/tasks/${task.task_id}/questions/q-2/dismiss`, {
+      expected_version: 4,
+      reason: 'Already covered elsewhere.',
+      dismissed_by_route: 'hub',
+      dismissed_at: '2026-03-12T12:02:45.000Z',
+    }), env);
+    assert.equal(dismissRes.status, 201);
+
+    const routesRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/available-routes`), env);
+    assert.equal(routesRes.status, 200);
+    const routesBody = await routesRes.json();
+    assert.equal(routesBody.best_next_route, 'local_repo');
+    assert.equal(Array.isArray(routesBody.available_routes), true);
+
     const effectiveExecutionContract = {
       schema_version: '1.0.0',
       task_id: task.task_id,
@@ -444,7 +466,7 @@ describe('worker endpoint contract', () => {
     const snapshotsRes = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots`), env);
     assert.equal(snapshotsRes.status, 200);
     const snapshotsBody = await snapshotsRes.json();
-    assert.equal(snapshotsBody.snapshots.length, 3);
+    assert.equal(snapshotsBody.snapshots.length, 5);
 
     const snapshotVersion2Res = await worker.fetch(makeAuthorizedRequest(`/v1/tasks/${task.task_id}/snapshots/2`), env);
     assert.equal(snapshotVersion2Res.status, 200);

@@ -137,8 +137,8 @@ test('dashboard task endpoints fail gracefully when task service is unavailable'
 
   startRoute.handler({ body: {} }, res);
   assert.equal(statusCode, 503);
-  assert.equal(jsonPayload.success, false);
-  assert.match(jsonPayload.error, /task service unavailable/);
+  assert.equal(jsonPayload.error.code, 'task_service_unavailable');
+  assert.match(jsonPayload.error.message, /task service unavailable/);
 });
 
 test('dashboard script-wrapper routes use shared dispatcher mapping', () => {
@@ -166,7 +166,8 @@ test('dashboard script-wrapper routes use shared dispatcher mapping', () => {
   let payload = null;
   contextCostRoute.handler({ query: { threshold: 3001 } }, { json(value) { payload = value; } });
 
-  assert.equal(payload.success, true);
+  assert.equal(payload.data.success, true);
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.context_cost');
   assert.deepEqual(calls, [{ command: 'ops/context-cost.sh', args: ['--threshold', '3001'] }]);
 });
 
@@ -207,8 +208,9 @@ test('dashboard context-cost returns 400 for invalid threshold', () => {
   );
 
   assert.equal(statusCode, 400);
-  assert.equal(payload.success, false);
-  assert.match(payload.error, /threshold must be numeric/);
+  assert.equal(payload.error.code, 'invalid_arguments');
+  assert.match(payload.error.message, /threshold must be numeric/);
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.context_cost');
 });
 
 test('/api/analytics returns tool_usage events from observation snapshot', async () => {
@@ -245,10 +247,11 @@ test('/api/analytics returns tool_usage events from observation snapshot', async
 
   rmSync(repoRoot, { recursive: true, force: true });
 
-  assert.equal(payload.success, true);
-  assert.ok(Array.isArray(payload.metrics));
-  assert.ok(payload.metrics.every((m) => m.type === 'tool_usage'));
-  assert.equal(payload.metrics.length, 2);
+  assert.equal(payload.data.success, true);
+  assert.ok(Array.isArray(payload.data.metrics));
+  assert.ok(payload.data.metrics.every((m) => m.type === 'tool_usage'));
+  assert.equal(payload.data.metrics.length, 2);
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.skill_stats');
 });
 
 test('/api/skill-analytics aggregates skill_outcome events via observation snapshot', async () => {
@@ -291,17 +294,18 @@ test('/api/skill-analytics aggregates skill_outcome events via observation snaps
   process.env.HOME = origHome;
   rmSync(tempHome, { recursive: true, force: true });
 
-  assert.equal(payload.success, true);
-  assert.ok(Array.isArray(payload.skills));
-  const cc = payload.skills.find((s) => s.skill === 'commit-conventions');
+  assert.equal(payload.data.success, true);
+  assert.ok(Array.isArray(payload.data.skills));
+  const cc = payload.data.skills.find((s) => s.skill === 'commit-conventions');
   assert.ok(cc, 'commit-conventions skill should be present');
   assert.equal(cc.used, 2);
   assert.equal(cc.replaced, 1);
   assert.equal(cc.total, 3);
   assert.equal(cc.use_rate, 67);
-  const dbg = payload.skills.find((s) => s.skill === 'debug');
+  const dbg = payload.data.skills.find((s) => s.skill === 'debug');
   assert.ok(dbg);
   assert.equal(dbg.use_rate, 100);
+  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.skill_stats');
 });
 
 test('/api/retrospectives-summary returns parsed cache when file exists', async () => {
@@ -341,10 +345,10 @@ test('/api/retrospectives-summary returns parsed cache when file exists', async 
   process.env.HOME = origHome;
   rmSync(tempHome, { recursive: true, force: true });
 
-  assert.equal(payload.success, true);
-  assert.equal(payload.artifact_count, 3);
-  assert.deepEqual(payload.signal_breakdown, { loop: 4, error: 2 });
-  assert.equal(payload.top_recommendations[0].name, 'git-ops');
+  assert.equal(payload.data.success, true);
+  assert.equal(payload.data.artifact_count, 3);
+  assert.deepEqual(payload.data.signal_breakdown, { loop: 4, error: 2 });
+  assert.equal(payload.data.top_recommendations[0].name, 'git-ops');
 });
 
 test('/api/retrospectives-summary returns empty fallback when cache file is absent', () => {
@@ -377,10 +381,10 @@ test('/api/retrospectives-summary returns empty fallback when cache file is abse
   process.env.HOME = origHome;
   rmSync(tempHome, { recursive: true, force: true });
 
-  assert.equal(payload.success, true);
-  assert.equal(payload.artifact_count, 0);
-  assert.deepEqual(payload.signal_breakdown, {});
-  assert.deepEqual(payload.top_recommendations, []);
+  assert.equal(payload.data.success, true);
+  assert.equal(payload.data.artifact_count, 0);
+  assert.deepEqual(payload.data.signal_breakdown, {});
+  assert.deepEqual(payload.data.top_recommendations, []);
 });
 
 
@@ -419,13 +423,13 @@ test('/api/contracts/analytics.tool_usage returns normalized tool usage contract
 
   rmSync(repoRoot, { recursive: true, force: true });
 
-  assert.equal(payload.success, true);
-  assert.equal(payload.contract, 'analytics.tool_usage');
-  assert.equal(payload.total_events, 3);
-  const readEntry = payload.tools.find((entry) => entry.tool === 'Read');
+  assert.equal(payload.data.success, true);
+  assert.equal(payload.data.contract, 'analytics.tool_usage');
+  assert.equal(payload.data.total_events, 3);
+  const readEntry = payload.data.tools.find((entry) => entry.tool === 'Read');
   assert.ok(readEntry);
   assert.equal(readEntry.count, 2);
-  assert.equal(typeof payload.interpretation.why_it_matters_now, 'string');
+  assert.equal(typeof payload.data.interpretation.why_it_matters_now, 'string');
 });
 
 test('dashboard API CORS uses tunnel policy origin allowlisting for local and configured tunnel origins', async () => {

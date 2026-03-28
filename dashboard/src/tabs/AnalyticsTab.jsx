@@ -11,6 +11,7 @@ function fetchJson(url) {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       return r.json()
     })
+    .then(payload => payload?.data ?? payload)
     .finally(() => clearTimeout(timer))
 }
 

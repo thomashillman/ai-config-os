@@ -20,6 +20,132 @@ export const MCP_TOOL_DEFINITIONS = [
     fallbackPolicy: { mode: 'manual', notes: 'Inspect the runtime route resolver directly.' }
   },
   {
+    name: 'tasks.list',
+    description: 'List tasks from the Worker task control plane',
+    executionClass: 'edge',
+    requiredCapabilities: ['network_http'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string' },
+        limit: { type: 'integer', minimum: 1, maximum: 100 },
+        updated_within: { type: 'number', minimum: 1 },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 500000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker GET /v1/tasks directly.' }
+  },
+  {
+    name: 'tasks.get',
+    description: 'Get a task by id from the Worker task control plane',
+    executionClass: 'edge',
+    requiredCapabilities: ['network_http'],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id'],
+      properties: {
+        task_id: { type: 'string' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 500000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker GET /v1/tasks/:id directly.' }
+  },
+  {
+    name: 'tasks.events',
+    description: 'Load task progress events from Worker',
+    executionClass: 'edge',
+    requiredCapabilities: ['network_http'],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id'],
+      properties: {
+        task_id: { type: 'string' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 500000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker GET /v1/tasks/:id/progress-events directly.' }
+  },
+  {
+    name: 'tasks.answer_question',
+    description: 'Record an explicit answer for a blocking task question',
+    executionClass: 'edge',
+    requiredCapabilities: ['network_http'],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id', 'question_id', 'expected_version', 'answer'],
+      properties: {
+        task_id: { type: 'string' },
+        question_id: { type: 'string' },
+        expected_version: { type: 'integer' },
+        answer: { type: 'string' },
+        answered_by_route: { type: 'string' },
+        answered_at: { type: 'string' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 500000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker POST /v1/tasks/:id/questions/:questionId/answer directly.' }
+  },
+  {
+    name: 'tasks.dismiss_question',
+    description: 'Dismiss a blocking task question with explicit reason',
+    executionClass: 'edge',
+    requiredCapabilities: ['network_http'],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id', 'question_id', 'expected_version'],
+      properties: {
+        task_id: { type: 'string' },
+        question_id: { type: 'string' },
+        expected_version: { type: 'integer' },
+        reason: { type: 'string' },
+        dismissed_by_route: { type: 'string' },
+        dismissed_at: { type: 'string' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 500000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker POST /v1/tasks/:id/questions/:questionId/dismiss directly.' }
+  },
+  {
+    name: 'tasks.continue',
+    description: 'Create continuation package for a task from Worker',
+    executionClass: 'edge',
+    requiredCapabilities: ['network_http'],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id', 'handoff_token', 'effective_execution_contract'],
+      properties: {
+        task_id: { type: 'string' },
+        handoff_token: { type: 'object' },
+        effective_execution_contract: { type: 'object' },
+        created_at: { type: 'string' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 1000000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker POST /v1/tasks/:id/continuation directly.' }
+  },
+  {
+    name: 'tasks.available_routes',
+    description: 'Get available routes and best next route for a task from Worker',
+    executionClass: 'edge',
+    requiredCapabilities: ['network_http'],
+    inputSchema: {
+      type: 'object',
+      required: ['task_id'],
+      properties: {
+        task_id: { type: 'string' },
+      }
+    },
+    outputSchema: { type: 'object' },
+    limits: { timeoutMs: 10000, maxOutputBytes: 500000 },
+    fallbackPolicy: { mode: 'manual', notes: 'Use worker GET /v1/tasks/:id/available-routes directly.' }
+  },
+  {
     name: 'sync_tools',
     description: 'Sync desired tool config to live Claude Code environment',
     executionClass: 'local',
@@ -30,7 +156,29 @@ export const MCP_TOOL_DEFINITIONS = [
         dry_run: { type: 'boolean', description: 'Preview changes without applying', default: false }
       }
     },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['tooling.sync'] } },
+        data: {
+          type: 'object',
+          properties: {
+            'tooling.sync': {
+              type: 'object',
+              properties: {
+                dry_run: { type: 'boolean' },
+                steps: { type: 'object' },
+                warning_count: { type: 'number' },
+                error_count: { type: 'number' }
+              }
+            }
+          }
+        },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run runtime/sync.sh directly and inspect output.' }
   },
@@ -40,7 +188,16 @@ export const MCP_TOOL_DEFINITIONS = [
     executionClass: 'local',
     requiredCapabilities: ['fs.read', 'shell.exec'],
     inputSchema: { type: 'object', properties: {} },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['runtime.capabilities', 'tooling.manifest', 'tooling.status'] } },
+        data: { type: 'object' },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run runtime/manifest.sh status directly.' }
   },
@@ -50,7 +207,16 @@ export const MCP_TOOL_DEFINITIONS = [
     executionClass: 'local',
     requiredCapabilities: ['fs.read', 'shell.exec'],
     inputSchema: { type: 'object', properties: {} },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['config.summary'] } },
+        data: { type: 'object' },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run shared/lib/config-merger.sh directly.' }
   },
@@ -75,7 +241,16 @@ export const MCP_TOOL_DEFINITIONS = [
         threshold: { type: 'number', description: 'Token threshold for warnings', default: 2000 }
       }
     },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['runtime.context_cost'] } },
+        data: { type: 'object' },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run ops/context-cost.sh with --threshold.' }
   },
@@ -85,7 +260,16 @@ export const MCP_TOOL_DEFINITIONS = [
     executionClass: 'local',
     requiredCapabilities: ['fs.read', 'shell.exec'],
     inputSchema: { type: 'object', properties: {} },
-    outputSchema: { type: 'object' },
+    outputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['Full', 'Degraded'] },
+        capability: { type: 'object', properties: { local_only: { type: 'boolean' }, worker_backed: { type: 'boolean' } } },
+        schema_ids: { type: 'array', items: { type: 'string', enum: ['audit.validate_all'] } },
+        data: { type: 'object' },
+        diagnostics: { type: 'object', properties: { raw_output: { type: 'string' } } }
+      }
+    },
     limits: { timeoutMs: 30000, maxOutputBytes: 1000000 },
     fallbackPolicy: { mode: 'manual', notes: 'Run ops/validate-all.sh directly.' }
   },
