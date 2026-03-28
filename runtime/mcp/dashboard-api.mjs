@@ -3,6 +3,16 @@ import path from 'node:path';
 import { ActionValidationError, createRuntimeActionDispatcher } from '../lib/runtime-action-dispatcher.mjs';
 import { loadObservationSnapshot } from '../lib/observation-read-model.mjs';
 import { createCapability, createErrorEnvelope, createSuccessEnvelope } from '../lib/contracts/envelope.mjs';
+import {
+  buildAutoresearchRunGetContract,
+  buildAutoresearchRunsContract,
+  buildFrictionSignalsContract,
+  buildSkillEffectivenessContract,
+  buildSkillsListContract,
+  buildToolUsageContract,
+  parseSkillStatsOutput,
+  readAutoresearchRuns,
+} from '../lib/dashboard-analytics-contracts.mjs';
 
 export function createDashboardApi({
   app,
@@ -109,6 +119,224 @@ export function createDashboardApi({
 
   app.get('/api/config', (req, res) => {
     executeRuntimeAction('get_config', {}, res);
+  });
+
+  app.get('/api/contracts/skills.list', (req, res) => {
+    executeRuntimeAction('skill_stats', {}, {
+      json(payload) {
+        const skills = parseSkillStatsOutput(
+          payload?.data?.diagnostics?.raw_output || payload?.output || ''
+        );
+        res.json(ok('contracts.skills.list', {
+          ...buildSkillsListContract(skills),
+          effectiveOutcomeContract: payload?.meta?.effective_outcome_contract || payload?.effectiveOutcomeContract || null,
+        }, 'Loaded skills.list contract.'));
+      },
+      status(code) {
+        return res.status(code);
+      },
+    });
+  });
+
+  app.get('/api/contracts/skills.stats', async (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    try {
+      const { events } = await loadObservationSnapshot({ home: process.env.HOME, projectDir: repoRoot });
+      const outcomeEvents = events.filter((e) => e.type === 'skill_outcome');
+      const totals = {};
+      for (const e of outcomeEvents) {
+        if (typeof e.skill !== 'string') continue;
+        if (!totals[e.skill]) totals[e.skill] = { used: 0, replaced: 0 };
+        if (e.outcome === 'output_used') totals[e.skill].used++;
+        else if (e.outcome === 'output_replaced') totals[e.skill].replaced++;
+      }
+      const skills = Object.entries(totals)
+        .map(([skill, c]) => ({
+          skill,
+          used: c.used,
+          replaced: c.replaced,
+          total: c.used + c.replaced,
+          use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
+        }))
+        .sort((a, b) => b.total - a.total);
+
+      res.json(ok('contracts.skills.stats', {
+        ...buildSkillEffectivenessContract(skills, outcomeEvents.length),
+        contract: 'skills.stats',
+        effectiveOutcomeContract,
+      }, 'Loaded skills.stats contract.', { effective_outcome_contract: effectiveOutcomeContract }));
+    } catch (err) {
+      const failure = fail('contracts.skills.stats', 500, {
+        code: 'skills_stats_failed',
+        message: err instanceof Error ? err.message : 'unexpected error',
+        hint: 'Retry the request or inspect dashboard logs.',
+      }, { effective_outcome_contract: effectiveOutcomeContract });
+      res.status(failure.status).json(failure.body);
+    }
+  });
+
+  app.get('/api/contracts/analytics.tool_usage', async (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    try {
+      const { events } = await loadObservationSnapshot({ projectDir: repoRoot });
+      const metrics = events.filter((e) => e.type === 'tool_usage');
+      res.json(ok('contracts.analytics.tool_usage', {
+        ...buildToolUsageContract(metrics),
+        effectiveOutcomeContract,
+      }, 'Loaded analytics.tool_usage contract.', { effective_outcome_contract: effectiveOutcomeContract }));
+    } catch {
+      res.json(ok('contracts.analytics.tool_usage', {
+        ...buildToolUsageContract([]),
+        note: 'No metrics collected yet',
+        effectiveOutcomeContract,
+      }, 'No analytics metrics available yet.', { effective_outcome_contract: effectiveOutcomeContract }));
+    }
+  });
+
+  app.get('/api/contracts/analytics.skill_effectiveness', async (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+
+    if (!process.env.HOME) {
+      const failure = fail('contracts.analytics.skill_effectiveness', 503, {
+        code: 'home_missing',
+        message: '$HOME is not set',
+        hint: 'Set HOME in the dashboard process environment.',
+      }, { effective_outcome_contract: effectiveOutcomeContract });
+      res.status(failure.status).json(failure.body);
+      return;
+    }
+
+    try {
+      const { events } = await loadObservationSnapshot({ home: process.env.HOME, projectDir: repoRoot });
+      const outcomeEvents = events.filter((e) => e.type === 'skill_outcome');
+      const totals = {};
+      for (const e of outcomeEvents) {
+        if (typeof e.skill !== 'string') continue;
+        if (!totals[e.skill]) totals[e.skill] = { used: 0, replaced: 0 };
+        if (e.outcome === 'output_used') totals[e.skill].used++;
+        else if (e.outcome === 'output_replaced') totals[e.skill].replaced++;
+      }
+      const skills = Object.entries(totals).map(([skill, c]) => ({
+        skill,
+        used: c.used,
+        replaced: c.replaced,
+        total: c.used + c.replaced,
+        use_rate: c.used + c.replaced > 0 ? Math.round((c.used / (c.used + c.replaced)) * 100) : 0,
+      })).sort((a, b) => b.total - a.total);
+
+      res.json(ok('contracts.analytics.skill_effectiveness', {
+        ...buildSkillEffectivenessContract(skills, outcomeEvents.length),
+        effectiveOutcomeContract,
+      }, 'Loaded analytics.skill_effectiveness contract.', { effective_outcome_contract: effectiveOutcomeContract }));
+    } catch (err) {
+      const failure = fail('contracts.analytics.skill_effectiveness', 500, {
+        code: 'skill_effectiveness_failed',
+        message: err instanceof Error ? err.message : 'unexpected error',
+        hint: 'Retry the request or inspect dashboard logs.',
+      }, { effective_outcome_contract: effectiveOutcomeContract });
+      res.status(failure.status).json(failure.body);
+    }
+  });
+
+  app.get('/api/contracts/analytics.friction_signals', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    const emptyRetro = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [] };
+
+    if (!process.env.HOME) {
+      res.json(ok('contracts.analytics.friction_signals', {
+        ...buildFrictionSignalsContract(emptyRetro),
+        effectiveOutcomeContract,
+      }, 'Loaded analytics.friction_signals contract.', { effective_outcome_contract: effectiveOutcomeContract }));
+      return;
+    }
+
+    const cacheFile = path.join(process.env.HOME, '.ai-config-os', 'cache', 'claude-code', 'retrospectives-aggregate.json');
+    try {
+      const data = JSON.parse(fs.readFileSync(cacheFile, 'utf8'));
+      const normalized = {
+        artifact_count: typeof data.artifact_count === 'number' ? data.artifact_count : 0,
+        signal_breakdown: data.signal_breakdown && typeof data.signal_breakdown === 'object' && !Array.isArray(data.signal_breakdown) ? data.signal_breakdown : {},
+        top_recommendations: Array.isArray(data.top_recommendations) ? data.top_recommendations : [],
+      };
+      res.json(ok('contracts.analytics.friction_signals', {
+        ...buildFrictionSignalsContract(normalized),
+        effectiveOutcomeContract,
+      }, 'Loaded analytics.friction_signals contract.', { effective_outcome_contract: effectiveOutcomeContract }));
+    } catch {
+      res.json(ok('contracts.analytics.friction_signals', {
+        ...buildFrictionSignalsContract(emptyRetro),
+        effectiveOutcomeContract,
+      }, 'Loaded analytics.friction_signals contract.', { effective_outcome_contract: effectiveOutcomeContract }));
+    }
+  });
+
+  app.get('/api/contracts/analytics.autoresearch_runs', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+
+    if (!repoRoot) {
+      const failure = fail('contracts.analytics.autoresearch_runs', 503, {
+        code: 'repo_root_missing',
+        message: 'repoRoot not configured',
+        hint: 'Set repoRoot for the dashboard API process.',
+      }, { effective_outcome_contract: effectiveOutcomeContract });
+      res.status(failure.status).json(failure.body);
+      return;
+    }
+
+    try {
+      const runs = readAutoresearchRuns(repoRoot);
+      res.json(ok('contracts.analytics.autoresearch_runs', {
+        ...buildAutoresearchRunsContract(runs),
+        effectiveOutcomeContract,
+      }, 'Loaded analytics.autoresearch_runs contract.', { effective_outcome_contract: effectiveOutcomeContract }));
+    } catch (err) {
+      const failure = fail('contracts.analytics.autoresearch_runs', 500, {
+        code: 'autoresearch_failed',
+        message: err instanceof Error ? err.message : 'unexpected error',
+        hint: 'Retry the request or inspect dashboard logs.',
+      }, { effective_outcome_contract: effectiveOutcomeContract });
+      res.status(failure.status).json(failure.body);
+    }
+  });
+
+  app.get('/api/contracts/analytics.autoresearch_run_get', (req, res) => {
+    const effectiveOutcomeContract = resolveEffectiveOutcomeContract({ toolName: 'skill_stats', executionChannel: 'dashboard' });
+    const skill = typeof req.query.skill === 'string' ? req.query.skill : '';
+    const runDir = typeof req.query.run_dir === 'string' ? req.query.run_dir : '';
+
+    if (!repoRoot) {
+      const failure = fail('contracts.analytics.autoresearch_run_get', 503, {
+        code: 'repo_root_missing',
+        message: 'repoRoot not configured',
+        hint: 'Set repoRoot for the dashboard API process.',
+      }, { effective_outcome_contract: effectiveOutcomeContract });
+      res.status(failure.status).json(failure.body);
+      return;
+    }
+
+    try {
+      const payload = buildAutoresearchRunGetContract(readAutoresearchRuns(repoRoot), skill, runDir);
+      if (!payload.run) {
+        const failure = fail('contracts.analytics.autoresearch_run_get', 404, {
+          code: 'run_not_found',
+          message: 'run not found',
+          hint: 'Verify skill and run_dir query values.',
+        }, { effective_outcome_contract: effectiveOutcomeContract });
+        res.status(failure.status).json(failure.body);
+        return;
+      }
+      res.json(ok('contracts.analytics.autoresearch_run_get', {
+        ...payload,
+        effectiveOutcomeContract,
+      }, 'Loaded analytics.autoresearch_run_get contract.', { effective_outcome_contract: effectiveOutcomeContract }));
+    } catch (err) {
+      const failure = fail('contracts.analytics.autoresearch_run_get', 500, {
+        code: 'autoresearch_run_get_failed',
+        message: err instanceof Error ? err.message : 'unexpected error',
+        hint: 'Retry the request or inspect dashboard logs.',
+      }, { effective_outcome_contract: effectiveOutcomeContract });
+      res.status(failure.status).json(failure.body);
+    }
   });
 
   app.get('/api/analytics', async (req, res) => {

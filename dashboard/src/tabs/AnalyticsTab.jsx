@@ -11,18 +11,11 @@ function fetchJson(url) {
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       return r.json()
     })
+    .then(payload => payload?.data ?? payload)
     .finally(() => clearTimeout(timer))
 }
 
 // -- Data helpers --------------------------------------------------------------
-
-function aggregateMetrics(metrics) {
-  const counts = {}
-  metrics.forEach(m => { counts[m.tool] = (counts[m.tool] || 0) + 1 })
-  return Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])
-    .map(([tool, count]) => ({ tool, count }))
-}
 
 function useRateColor(rate) {
   if (rate >= 70) return "bg-green-600"
@@ -99,27 +92,28 @@ function RefreshBar({ lastFetched, onRefresh }) {
 
 // -- Tool usage section --------------------------------------------------------
 
-function ToolUsageSection({ metrics, loading }) {
-  const aggregated = aggregateMetrics(metrics)
-  const maxCount = aggregated[0]?.count || 1
+function ToolUsageSection({ contract, loading }) {
+  const tools = contract?.tools || []
+  const interpretation = contract?.interpretation || {}
+  const maxCount = tools[0]?.count || 1
 
   return (
     <div>
       <SectionHeader
         title="Tool Usage"
-        count={metrics.length > 0 ? `${metrics.length} events` : null}
-        subtitle="Invocations per tool this session"
+        count={contract?.total_events > 0 ? `${contract.total_events} events` : null}
+        subtitle={interpretation.why_it_matters_now || "Invocations per tool this session"}
       />
       {loading ? (
         <SectionSkeleton rows={5} />
-      ) : aggregated.length === 0 ? (
+) : tools.length === 0 ? (
         <EmptyState
           message="No tool usage data yet."
           hint="Collected via .claude/hooks/post-tool-use-metrics.sh"
         />
       ) : (
         <div className="space-y-2">
-          {aggregated.map(({ tool, count }) => (
+          {tools.map(({ tool, count }) => (
             <div key={tool} className="flex items-center gap-3">
               <span className="text-gray-400 w-36 truncate text-xs" title={tool}>{tool}</span>
               <div className="flex-1 bg-gray-900 rounded overflow-hidden h-3">
@@ -139,15 +133,16 @@ function ToolUsageSection({ metrics, loading }) {
 
 // -- Skill effectiveness section ----------------------------------------------─
 
-function SkillEffectivenessSection({ skillData, loading }) {
-  const skills = skillData?.skills || []
+function SkillEffectivenessSection({ contract, loading }) {
+  const skills = contract?.skills || []
+  const interpretation = contract?.interpretation || {}
 
   return (
     <div>
       <SectionHeader
         title="Skill Effectiveness"
-        count={skillData?.total_events > 0 ? `${skillData.total_events} events` : null}
-        subtitle="Output-used rate: how often a skill's output led to an Edit/Write vs being replaced."
+        count={contract?.total_events > 0 ? `${contract.total_events} events` : null}
+        subtitle={interpretation.why_it_matters_now || "Output-used rate: how often a skill's output led to an Edit/Write vs being replaced."}
       />
       {loading ? (
         <SectionSkeleton rows={4} />
@@ -237,13 +232,15 @@ function ScoreBar({ control, baseline, best }) {
   )
 }
 
-function AutoresearchSection({ runs, loading }) {
+function AutoresearchSection({ contract, loading }) {
+  const runs = contract?.runs || []
+  const interpretation = contract?.interpretation || {}
   return (
     <div>
       <SectionHeader
         title="Autoresearch Runs"
         count={runs.length > 0 ? runs.length : null}
-        subtitle="Autonomous skill optimisation — control (amber) + skill gain (grey) + experiment gain (green)."
+        subtitle={interpretation.why_it_matters_now || "Autonomous skill optimisation — control (amber) + skill gain (grey) + experiment gain (green)."}
       />
       {loading ? (
         <SectionSkeleton rows={3} />
@@ -282,10 +279,11 @@ function AutoresearchSection({ runs, loading }) {
 
 // -- Friction signals section -------------------------------------------------
 
-function FrictionSignalsSection({ retroSummary, loading }) {
-  const artifactCount = retroSummary?.artifact_count || 0
-  const signalBreakdown = retroSummary?.signal_breakdown || {}
-  const topRecommendations = retroSummary?.top_recommendations || []
+function FrictionSignalsSection({ contract, loading }) {
+  const artifactCount = contract?.artifact_count || 0
+  const signalBreakdown = contract?.signal_breakdown || {}
+  const topRecommendations = contract?.top_recommendations || []
+  const interpretation = contract?.interpretation || {}
 
   const signalEntries = Object.entries(signalBreakdown).sort((a, b) => b[1] - a[1])
   const maxCount = signalEntries[0]?.[1] || 1
@@ -295,7 +293,7 @@ function FrictionSignalsSection({ retroSummary, loading }) {
       <SectionHeader
         title="Friction Signals"
         count={artifactCount > 0 ? `${artifactCount} retros` : null}
-        subtitle="Signal types observed across merged PRs. Populated by /post-merge-retrospective."
+        subtitle={interpretation.why_it_matters_now || "Signal types observed across merged PRs. Populated by /post-merge-retrospective."}
       />
       {loading ? (
         <SectionSkeleton rows={3} />
@@ -343,10 +341,10 @@ function FrictionSignalsSection({ retroSummary, loading }) {
 // -- Root tab ------------------------------------------------------------------
 
 export default function AnalyticsTab({ api }) {
-  const [metrics, setMetrics] = useState([])
-  const [skillData, setSkillData] = useState(null)
-  const [arRuns, setArRuns] = useState([])
-  const [retroSummary, setRetroSummary] = useState(null)
+  const [toolUsage, setToolUsage] = useState(null)
+  const [skillEffectiveness, setSkillEffectiveness] = useState(null)
+  const [autoresearchRuns, setAutoresearchRuns] = useState(null)
+  const [frictionSignals, setFrictionSignals] = useState(null)
   const [loading, setLoading] = useState({ tools: true, skills: true, autoresearch: true, retro: true })
   const [lastFetched, setLastFetched] = useState(null)
 
@@ -355,23 +353,23 @@ export default function AnalyticsTab({ api }) {
 
     // Each chain returns true on success and undefined on failure; .finally() passes
     // through that value so allSettled results carry it — no mutable closure needed.
-    const p1 = fetchJson(`${api}/analytics`)
-      .then(d => { if (Array.isArray(d.metrics)) { setMetrics(d.metrics); return true } })
+    const p1 = fetchJson(`${api}/contracts/analytics.tool_usage`)
+      .then(d => { if (d && typeof d === 'object') { setToolUsage(d); return true } })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, tools: false })))
 
-    const p2 = fetchJson(`${api}/skill-analytics`)
-      .then(d => { if (d && typeof d === 'object') { setSkillData(d); return true } })
+    const p2 = fetchJson(`${api}/contracts/analytics.skill_effectiveness`)
+      .then(d => { if (d && typeof d === 'object') { setSkillEffectiveness(d); return true } })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, skills: false })))
 
-    const p3 = fetchJson(`${api}/autoresearch-runs`)
-      .then(d => { if (Array.isArray(d.runs)) { setArRuns(d.runs); return true } })
+    const p3 = fetchJson(`${api}/contracts/analytics.autoresearch_runs`)
+      .then(d => { if (d && typeof d === 'object') { setAutoresearchRuns(d); return true } })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, autoresearch: false })))
 
-    const p4 = fetchJson(`${api}/retrospectives-summary`)
-      .then(d => { if (d && typeof d === 'object') { setRetroSummary(d); return true } })
+    const p4 = fetchJson(`${api}/contracts/analytics.friction_signals`)
+      .then(d => { if (d && typeof d === 'object') { setFrictionSignals(d); return true } })
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, retro: false })))
 
@@ -386,10 +384,10 @@ export default function AnalyticsTab({ api }) {
   return (
     <div className="max-w-2xl space-y-8">
       <RefreshBar lastFetched={lastFetched} onRefresh={fetchAll} />
-      <ToolUsageSection metrics={metrics} loading={loading.tools} />
-      <SkillEffectivenessSection skillData={skillData} loading={loading.skills} />
-      <AutoresearchSection runs={arRuns} loading={loading.autoresearch} />
-      <FrictionSignalsSection retroSummary={retroSummary} loading={loading.retro} />
+      <ToolUsageSection contract={toolUsage} loading={loading.tools} />
+      <SkillEffectivenessSection contract={skillEffectiveness} loading={loading.skills} />
+      <AutoresearchSection contract={autoresearchRuns} loading={loading.autoresearch} />
+      <FrictionSignalsSection contract={frictionSignals} loading={loading.retro} />
     </div>
   )
 }
