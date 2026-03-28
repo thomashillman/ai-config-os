@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/response-envelope.schema.json",
+  "title": "ContractEnvelope",
+  "description": "Canonical success response envelope. Every contract surface response must conform to this shape.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["contract_version", "resource", "data", "summary", "capability", "suggested_actions"],
+  "properties": {
+    "contract_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Envelope format version. Fixed at 1.0.0 until a breaking shape change."
+    },
+    "resource": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)*$",
+      "description": "Dot-separated resource name, e.g. tasks.list or runtime.capabilities."
+    },
+    "data": {
+      "description": "Primary payload. May be any JSON value. null on error responses."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One human-readable sentence suitable for LLM answers and card renders."
+    },
+    "capability": {
+      "$ref": "capability.schema.json"
+    },
+    "suggested_actions": {
+      "type": "array",
+      "description": "Ordered list of next actions. May be empty.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "reason", "runnable_target"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "reason": { "type": "string" },
+          "runnable_target": { "type": "string" }
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "description": "Structured interpretation for agents and card UIs. Omit when empty."
+    }
+  }
+}

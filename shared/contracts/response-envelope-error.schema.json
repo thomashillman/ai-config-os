@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/response-envelope-error.schema.json",
+  "title": "ContractEnvelopeError",
+  "description": "Canonical error response envelope. Extends the success envelope with a required error object.",
+  "allOf": [
+    { "$ref": "response-envelope.schema.json" }
+  ],
+  "required": ["error"],
+  "properties": {
+    "data": {
+      "type": "null",
+      "description": "Always null on error responses."
+    },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "hint"],
+      "description": "Structured error detail.",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Stable snake_case error code, e.g. not_found or version_conflict."
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Human-readable description of what went wrong."
+        },
+        "hint": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Concrete recovery guidance for the caller."
+        }
+      }
+    }
+  }
+}

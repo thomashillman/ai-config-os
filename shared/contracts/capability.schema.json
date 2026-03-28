@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/capability.schema.json",
+  "title": "ContractCapability",
+  "description": "Locality and safety flags that describe where and how a contract resource can be served.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["worker_backed", "local_only", "remote_safe", "tunnel_required", "unavailable_on_surface"],
+  "properties": {
+    "worker_backed": {
+      "type": "boolean",
+      "description": "True when the response is served by the Cloudflare Worker (durable, remotely accessible)."
+    },
+    "local_only": {
+      "type": "boolean",
+      "description": "True when the resource can only be produced in a local runtime environment."
+    },
+    "remote_safe": {
+      "type": "boolean",
+      "description": "True when the resource is safe to call over the public internet without a tunnel."
+    },
+    "tunnel_required": {
+      "type": "boolean",
+      "description": "True when a tunnel (e.g. Cloudflare Tunnel) is required to reach the backing service."
+    },
+    "unavailable_on_surface": {
+      "type": "boolean",
+      "description": "True when this resource cannot be served on the current surface at all."
+    }
+  }
+}
