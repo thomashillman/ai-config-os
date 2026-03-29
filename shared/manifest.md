@@ -42,6 +42,9 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | `autoresearch` | Autonomously optimise any skill by running it repeatedly, scoring outputs against binary evals, mutating the prompt, and keeping improvements (Karpathy autoresearch methodology) | `shared/skills/autoresearch/SKILL.md` |
 | `post-merge-retrospective` | Analyzes the session conversation after a PR merge to surface friction signals, recommend new skills, and emit a machine-readable JSON artifact | `shared/skills/post-merge-retrospective/SKILL.md` |
 | `claude-md-creator` | Create, audit, and improve CLAUDE.md files and their referenced documentation | `shared/skills/claude-md-creator/SKILL.md` |
+| `fetch-abstraction-drift-detector` | Detects contract drift when a fetch/API client abstraction changes — cross-references component call sites, prop names, URL patterns, and response envelope shapes against test mock fixtures | `shared/skills/fetch-abstraction-drift-detector/SKILL.md` |
+| `rtl-query-patterns` | Authoritative reference for React Testing Library query semantics — resolves which matcher to use and why an assertion isn't finding its element, without a test run | `shared/skills/rtl-query-patterns/SKILL.md` |
+| `pr-diff-targeted-reader` | Reads a targeted subset of PR-changed files without hitting token limits — identifies relevant files from a focus hint and fetches only those via get_file_contents | `shared/skills/pr-diff-targeted-reader/SKILL.md` |
 
 ## Workflows
 
