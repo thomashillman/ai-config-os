@@ -42,6 +42,17 @@ ENVIRONMENT = "production"
 # Only set this if you need Phase 0 backward compatibility or a future Phase 2 VPS executor.
 EXECUTOR_PROXY_URL = "https://remote-executor.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
+# Dual-write to Durable Object task state (PR1: off by default, enable after validation)
+TASK_DO_DUAL_WRITE = "false"
+
+[durable_objects]
+bindings = [
+  { name = "TASK_OBJECT", class_name = "TaskObject" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["TaskObject"]
 
 [[kv_namespaces]]
 binding = "MANIFEST_KV"
@@ -62,6 +73,17 @@ ENVIRONMENT = "staging"
 # Only set this if you need Phase 0 backward compatibility or a future Phase 2 VPS executor.
 EXECUTOR_PROXY_URL = "https://executor-staging.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
+# Dual-write to Durable Object task state (enabled in staging for validation)
+TASK_DO_DUAL_WRITE = "true"
+
+[env.staging.durable_objects]
+bindings = [
+  { name = "TASK_OBJECT", class_name = "TaskObject" }
+]
+
+[[env.staging.migrations]]
+tag = "v1"
+new_classes = ["TaskObject"]
 
 # PHASE 1: Service binding to staging executor Worker (primary path)
 [[env.staging.services]]

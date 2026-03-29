@@ -6,28 +6,44 @@ import { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';
 import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service-worker.mjs';
 // @ts-ignore - runtime JS module
 import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service-worker.mjs';
+import { DualWriteTaskStore } from './dual-write-task-store';
 import { contractErrorResponse, WORKER_CAPABILITY } from './contracts';
 import type { Env } from './types';
 
-let taskStore: TaskStore | KvTaskStore | null = null;
+let taskStore: TaskStore | KvTaskStore | DualWriteTaskStore | null = null;
 let taskStoreSecret: string | null = null;
 let taskStoreKvRef: unknown | null = null;
+let taskStoreDualWriteEnabled = false;
 
 const MAX_CONTINUATION_FINGERPRINTS = 5000;
 const continuationFingerprints = new Map<string, string>();
 
-function ensureTaskStore(env: Env): TaskStore | KvTaskStore {
+function ensureTaskStore(env: Env): TaskStore | KvTaskStore | DualWriteTaskStore {
   const secret = env.HANDOFF_TOKEN_SIGNING_KEY ?? null;
   const kv = env.MANIFEST_KV ?? null;
+  const dualWriteRequested = env.TASK_DO_DUAL_WRITE === 'true';
 
   // Use KV-backed store when available (durable, survives Worker instance recycling)
   if (kv) {
-    if (!taskStore || kv !== taskStoreKvRef) {
-      taskStore = new KvTaskStore(kv, secret ? createHandoffTokenService({ secret }) : null);
+    const needsRebuild = !taskStore || kv !== taskStoreKvRef || dualWriteRequested !== taskStoreDualWriteEnabled;
+    if (needsRebuild) {
+      const kvStore = new KvTaskStore(kv, secret ? createHandoffTokenService({ secret }) : null);
+
+      if (dualWriteRequested && env.TASK_OBJECT) {
+        taskStore = new DualWriteTaskStore(kvStore, env.TASK_OBJECT);
+        taskStoreDualWriteEnabled = true;
+      } else {
+        if (dualWriteRequested && !env.TASK_OBJECT) {
+          console.warn('[TaskRuntime] TASK_DO_DUAL_WRITE is "true" but TASK_OBJECT binding is missing. Falling back to KV-only.');
+        }
+        taskStore = kvStore;
+        taskStoreDualWriteEnabled = false;
+      }
+
       taskStoreSecret = secret;
       taskStoreKvRef = kv;
     }
-    return taskStore;
+    return taskStore!;
   }
 
   // Fallback: in-memory store for local dev (ephemeral)
@@ -37,6 +53,7 @@ function ensureTaskStore(env: Env): TaskStore | KvTaskStore {
       : new TaskStore();
     taskStoreSecret = secret;
     taskStoreKvRef = null;
+    taskStoreDualWriteEnabled = false;
   }
 
   return taskStore;
