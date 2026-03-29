@@ -505,6 +505,53 @@ export AI_CONFIG_WORKER_TOKEN="your-production-token"
 npm run smoke:test
 ```
 
+## Durable Object Migrations
+
+Cloudflare Workers Builds uses `wrangler versions upload`, which cannot apply
+DO migrations or create bindings for unmigrated classes. This creates a
+two-phase rollout requirement:
+
+1. **Phase A (manual):** Apply the migration via `wrangler deploy`
+2. **Phase B (automated):** Uncomment the binding in `wrangler.toml` and push
+
+Until Phase A is complete, the DO binding must stay commented out in
+`wrangler.toml` -- otherwise Workers Builds will reject the deploy because
+the class is not yet registered as a Durable Object.
+
+### Applying a DO Migration
+
+```bash
+# 1. Build artifacts first
+npm run build
+
+# 2. Apply migration (staging first, then production)
+bash scripts/deploy/apply-do-migration.sh staging
+bash scripts/deploy/apply-do-migration.sh production
+```
+
+The script temporarily injects both `[durable_objects]` binding and
+`[[migrations]]` block into `wrangler.toml`, runs `wrangler deploy` to apply
+the migration, then restores the original file.
+
+### After Migration is Applied
+
+1. Uncomment the `[durable_objects]` binding in `worker/wrangler.toml`
+   (both production and staging sections)
+2. Set `TASK_DO_DUAL_WRITE = "true"` in the target environment
+3. Commit and push -- Workers Builds handles it from here
+
+### When is a migration needed?
+
+A migration is required when `wrangler.toml` adds a new DO class, renames an
+existing class, or deletes a class. Ordinary code changes to an existing DO
+class do **not** require a migration -- Workers Builds handles those normally.
+
+### Current migrations
+
+| Tag | Change | Applied |
+|-----|--------|---------|
+| v1 | `new_classes = ["TaskObject"]` | Pending |
+
 ### Local Development (Phase 1)
 
 ```bash

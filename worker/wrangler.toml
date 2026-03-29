@@ -42,6 +42,21 @@ ENVIRONMENT = "production"
 # Only set this if you need Phase 0 backward compatibility or a future Phase 2 VPS executor.
 EXECUTOR_PROXY_URL = "https://remote-executor.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
+# Dual-write to Durable Object task state (PR1: off by default, enable after migration)
+TASK_DO_DUAL_WRITE = "false"
+
+# DURABLE OBJECTS
+# TaskObject (per-task hot state) is defined in src/task-object.ts and exported
+# from src/index.ts. The binding and migration must be applied via manual
+# `wrangler deploy` before Workers Builds can include the binding.
+# See docs/DEPLOYMENT.md "Durable Object Migrations" and
+# scripts/deploy/apply-do-migration.sh for the procedure.
+#
+# After migration is applied, uncomment the binding below:
+# [durable_objects]
+# bindings = [
+#   { name = "TASK_OBJECT", class_name = "TaskObject" }
+# ]
 
 [[kv_namespaces]]
 binding = "MANIFEST_KV"
@@ -62,6 +77,14 @@ ENVIRONMENT = "staging"
 # Only set this if you need Phase 0 backward compatibility or a future Phase 2 VPS executor.
 EXECUTOR_PROXY_URL = "https://executor-staging.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
+# Dual-write to Durable Object task state (enable after migration)
+TASK_DO_DUAL_WRITE = "false"
+
+# After DO migration is applied, uncomment:
+# [env.staging.durable_objects]
+# bindings = [
+#   { name = "TASK_OBJECT", class_name = "TaskObject" }
+# ]
 
 # PHASE 1: Service binding to staging executor Worker (primary path)
 [[env.staging.services]]

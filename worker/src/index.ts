@@ -18,6 +18,7 @@ import { cleanupExpiredRetrospectives } from './retrospectives/cleanup';
 import type { Env } from './types';
 
 export type { Env };
+export { TaskObject } from './task-object';
 
 const _handler = createWorkerHandler(REGISTRY_JSON as { version: string; built_at?: string; skills: unknown[] }, CLAUDE_CODE_PLUGIN_JSON);
 

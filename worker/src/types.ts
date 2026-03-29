@@ -6,6 +6,11 @@ export interface Env {
   EXECUTOR_TIMEOUT_MS?: string;
   HANDOFF_TOKEN_SIGNING_KEY?: string;
 
+  // Durable Object binding for per-task hot state (PR1: dual-write target)
+  TASK_OBJECT?: DurableObjectNamespace;
+  // Feature flag: set to "true" to enable dual-write to Durable Object
+  TASK_DO_DUAL_WRITE?: string;
+
   // PHASE 1 PRIMARY PATH: Service binding to executor Worker
   // Cloudflare-first execution. Main Worker invokes executor Worker via
   // service binding (no HTTP overhead, no external URL needed).

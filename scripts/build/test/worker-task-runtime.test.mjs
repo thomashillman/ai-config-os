@@ -23,6 +23,7 @@ const WORKER_CAPABILITY = { worker_backed: true, local_only: false, remote_safe:
 function contractErrorResponse({ resource, data, summary, capability, error }, status = 500) {
   return new Response(JSON.stringify({ contract_version: '1.0.0', resource: resource ?? 'tasks.error', data: data ?? null, summary: summary ?? '', capability, suggested_actions: [], error }), { status, headers: { 'Content-Type': 'application/json' } });
 }`)
+    .replace("import { DualWriteTaskStore } from './dual-write-task-store';\n", 'class DualWriteTaskStore { constructor(kv, ns) { this.kv = kv; this.ns = ns; } }\n')
     .replace("import type { Env } from './types';\n", '');
 
   const out = ts.transpileModule(src, {
