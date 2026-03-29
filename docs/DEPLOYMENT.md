@@ -505,6 +505,41 @@ export AI_CONFIG_WORKER_TOKEN="your-production-token"
 npm run smoke:test
 ```
 
+## Durable Object Migrations
+
+Cloudflare Workers Builds uses `wrangler versions upload`, which cannot apply
+Durable Object migrations. When a release introduces or changes DO classes,
+the migration must be applied manually via `wrangler deploy` before Workers
+Builds can deploy the DO-enabled version.
+
+### Applying a DO Migration
+
+Run the one-time migration script:
+
+```bash
+# Staging first
+bash scripts/deploy/apply-do-migration.sh staging
+
+# Then production
+bash scripts/deploy/apply-do-migration.sh production
+```
+
+The script temporarily injects the `[[migrations]]` block into `wrangler.toml`,
+runs `wrangler deploy` to apply it, then restores the original file. After the
+migration is applied, Workers Builds resumes normal operation.
+
+### When is a migration needed?
+
+A migration is required when `wrangler.toml` adds a new DO class, renames an
+existing class, or deletes a class. Ordinary code changes to an existing DO
+class do **not** require a migration -- Workers Builds handles those normally.
+
+### Current migrations
+
+| Tag | Change | Applied |
+|-----|--------|---------|
+| v1 | `new_classes = ["TaskObject"]` | Pending |
+
 ### Local Development (Phase 1)
 
 ```bash

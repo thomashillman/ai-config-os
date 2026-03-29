@@ -45,14 +45,14 @@ EXECUTOR_TIMEOUT_MS = "10000"
 # Dual-write to Durable Object task state (PR1: off by default, enable after validation)
 TASK_DO_DUAL_WRITE = "false"
 
+# Durable Object: per-task hot state (PR1 dual-write target).
+# Migration tag "v1" must be applied once via `wrangler deploy` before
+# Workers Builds (which uses `wrangler versions upload`) can process this.
+# See docs/DEPLOYMENT.md "Durable Object Migrations" for the procedure.
 [durable_objects]
 bindings = [
   { name = "TASK_OBJECT", class_name = "TaskObject" }
 ]
-
-[[migrations]]
-tag = "v1"
-new_classes = ["TaskObject"]
 
 [[kv_namespaces]]
 binding = "MANIFEST_KV"
@@ -80,10 +80,6 @@ TASK_DO_DUAL_WRITE = "true"
 bindings = [
   { name = "TASK_OBJECT", class_name = "TaskObject" }
 ]
-
-[[env.staging.migrations]]
-tag = "v1"
-new_classes = ["TaskObject"]
 
 # PHASE 1: Service binding to staging executor Worker (primary path)
 [[env.staging.services]]
