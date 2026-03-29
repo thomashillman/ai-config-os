@@ -96,6 +96,7 @@ describe('capability-probe platform registry parity', () => {
         .map(file => file.replace(/\.yaml$/, ''))
     );
 
+    const failures = [];
     for (const { env, platform } of RUNTIME_PLATFORM_CASES) {
       const raw = execFileSync('bash', [PROBE_SCRIPT, '--quiet'], {
         cwd: REPO_ROOT,
@@ -105,20 +106,23 @@ describe('capability-probe platform registry parity', () => {
       });
       const result = JSON.parse(raw);
 
-      assert.equal(result.platform_hint, platform, `expected ${platform} for ${JSON.stringify(env)}`);
-      assert.ok(
-        registryPlatforms.has(result.platform_hint) ||
-          NON_REGISTRY_RUNTIME_PLATFORM_HINTS.has(result.platform_hint),
-        `${result.platform_hint} must be defined in shared/targets/platforms/ or documented as intentional`
-      );
+      if (result.platform_hint !== platform) {
+        failures.push(`  env ${JSON.stringify(env)}: expected platform_hint '${platform}', got '${result.platform_hint}'`);
+      }
+      if (
+        !registryPlatforms.has(result.platform_hint) &&
+        !NON_REGISTRY_RUNTIME_PLATFORM_HINTS.has(result.platform_hint)
+      ) {
+        failures.push(`  ${result.platform_hint}: not defined in shared/targets/platforms/ and not documented as intentional`);
+      }
     }
 
     for (const platformId of COMPILE_TIME_ONLY_PLATFORM_IDS) {
-      assert.ok(
-        registryPlatforms.has(platformId),
-        `${platformId} must remain available for compile-time package selection`
-      );
+      if (!registryPlatforms.has(platformId)) {
+        failures.push(`  ${platformId}: must remain available for compile-time package selection`);
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} platform probe issue(s):\n${failures.join('\n')}`);
   });
 });
 
@@ -324,44 +328,41 @@ describe('delivery contract — distributed SKILL.md files', () => {
     const skillFiles = getAllFilesRecursive(CLIENTS_DIR).filter(f => f.endsWith('SKILL.md'));
     assert.ok(skillFiles.length > 0, 'Should have at least one distributed SKILL.md');
 
+    const failures = [];
     for (const skillPath of skillFiles) {
       try {
         const { frontmatter, body } = parseSkill(skillPath);
-
-        // Required frontmatter fields
-        assert.ok(frontmatter.skill, `${skillPath}: missing 'skill' field`);
-        assert.ok(frontmatter.description, `${skillPath}: missing 'description' field`);
-        assert.ok(frontmatter.type, `${skillPath}: missing 'type' field`);
-        assert.ok(frontmatter.status, `${skillPath}: missing 'status' field`);
-        assert.ok(frontmatter.version, `${skillPath}: missing 'version' field`);
-
-        // Body should not be empty
-        assert.ok(body && body.length > 0, `${skillPath}: body should not be empty`);
-
-        // Version should be semver
-        assert.match(
-          frontmatter.version,
-          /^\d+\.\d+\.\d+$/,
-          `${skillPath}: version should be semver (X.Y.Z)`
-        );
+        const label = relative(CLIENTS_DIR, skillPath);
+        if (!frontmatter.skill)       failures.push(`  ${label}: missing 'skill' field`);
+        if (!frontmatter.description) failures.push(`  ${label}: missing 'description' field`);
+        if (!frontmatter.type)        failures.push(`  ${label}: missing 'type' field`);
+        if (!frontmatter.status)      failures.push(`  ${label}: missing 'status' field`);
+        if (!frontmatter.version)     failures.push(`  ${label}: missing 'version' field`);
+        if (!body || body.length === 0) failures.push(`  ${label}: body should not be empty`);
+        if (frontmatter.version && !/^\d+\.\d+\.\d+$/.test(frontmatter.version)) {
+          failures.push(`  ${label}: version '${frontmatter.version}' is not semver (expected X.Y.Z)`);
+        }
       } catch (err) {
-        assert.fail(`${skillPath}: ${err.message}`);
+        failures.push(`  ${relative(CLIENTS_DIR, skillPath)}: parse error — ${err.message}`);
       }
     }
+    assert.equal(failures.length, 0, `${failures.length} SKILL.md structure issue(s):\n${failures.join('\n')}`);
   });
 
   test('distributed SKILL.md files are readable (UTF-8)', () => {
     const skillFiles = getAllFilesRecursive(CLIENTS_DIR).filter(f => f.endsWith('SKILL.md'));
 
+    const failures = [];
     for (const skillPath of skillFiles) {
+      const label = relative(CLIENTS_DIR, skillPath);
       try {
         const content = readFileSync(skillPath, 'utf8');
-        assert.ok(typeof content === 'string', `${skillPath}: should be valid UTF-8`);
-        assert.ok(content.length > 0, `${skillPath}: should not be empty`);
+        if (content.length === 0) failures.push(`  ${label}: file is empty`);
       } catch (err) {
-        assert.fail(`${skillPath}: ${err.message}`);
+        failures.push(`  ${label}: read error — ${err.message}`);
       }
     }
+    assert.equal(failures.length, 0, `${failures.length} unreadable SKILL.md file(s):\n${failures.join('\n')}`);
   });
 });
 
@@ -377,17 +378,17 @@ describe('delivery contract — claude-code skill discovery', () => {
     const skillFiles = getAllFilesRecursive(claudeCodeSkillsDir).filter(f => f.endsWith('SKILL.md'));
     assert.ok(skillFiles.length > 0, 'Should have at least one claude-code SKILL.md');
 
+    const failures = [];
     for (const skillPath of skillFiles) {
       const { frontmatter } = parseSkill(skillPath);
-      assert.ok(
-        frontmatter.name,
-        `${relative(DIST_DIR, skillPath)}: must have 'name' field for Claude Code discovery`
-      );
-      assert.ok(
-        /^[a-z][a-z0-9-]*$/.test(frontmatter.name),
-        `${relative(DIST_DIR, skillPath)}: name '${frontmatter.name}' must be kebab-case`
-      );
+      const label = relative(DIST_DIR, skillPath);
+      if (!frontmatter.name) {
+        failures.push(`  ${label}: missing 'name' field (required for Claude Code slash-command discovery)`);
+      } else if (!/^[a-z][a-z0-9-]*$/.test(frontmatter.name)) {
+        failures.push(`  ${label}: name '${frontmatter.name}' must be kebab-case (lowercase, hyphens only)`);
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} name field issue(s):\n${failures.join('\n')}`);
   });
 
   test('name: field matches skill: field in all claude-code SKILL.md files', () => {
@@ -396,14 +397,16 @@ describe('delivery contract — claude-code skill discovery', () => {
 
     const skillFiles = getAllFilesRecursive(claudeCodeSkillsDir).filter(f => f.endsWith('SKILL.md'));
 
+    const failures = [];
     for (const skillPath of skillFiles) {
       const { frontmatter } = parseSkill(skillPath);
-      assert.equal(
-        frontmatter.name,
-        frontmatter.skill,
-        `${relative(DIST_DIR, skillPath)}: name '${frontmatter.name}' should match skill '${frontmatter.skill}'`
-      );
+      if (frontmatter.name !== frontmatter.skill) {
+        failures.push(
+          `  ${relative(DIST_DIR, skillPath)}: name '${frontmatter.name}' does not match skill '${frontmatter.skill}'`
+        );
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} name/skill mismatch(es):\n${failures.join('\n')}`);
   });
 });
 
@@ -434,27 +437,31 @@ describe('delivery contract — plugin.json validity', () => {
     const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
     const plugin = readJsonCached(pluginPath);
 
+    const failures = [];
     for (const skill of plugin.skills) {
-      assert.ok(skill.name, `Skill should have name: ${JSON.stringify(skill)}`);
-      assert.ok(skill.version, `Skill ${skill.name} should have version`);
-      assert.ok(skill.path, `Skill ${skill.name} should have path`);
-
-      // Version should be semver
-      assert.match(skill.version, /^\d+\.\d+\.\d+$/, `Skill ${skill.name} version should be semver`);
+      const id = skill.name || `(unnamed — ${JSON.stringify(skill)})`;
+      if (!skill.name)    failures.push(`  ${id}: missing 'name' field`);
+      if (!skill.version) failures.push(`  ${id}: missing 'version' field`);
+      if (!skill.path)    failures.push(`  ${id}: missing 'path' field`);
+      if (skill.version && !/^\d+\.\d+\.\d+$/.test(skill.version)) {
+        failures.push(`  ${id}: version '${skill.version}' is not semver (expected X.Y.Z)`);
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} plugin.json field issue(s):\n${failures.join('\n')}`);
   });
 
   test('all skill paths in plugin.json exist on disk', () => {
     const pluginPath = join(CLIENTS_DIR, 'claude-code', '.claude-plugin', 'plugin.json');
     const plugin = readJsonCached(pluginPath);
 
+    const failures = [];
     for (const skill of plugin.skills) {
       const skillPath = join(CLIENTS_DIR, 'claude-code', skill.path);
-      assert.ok(
-        existsSync(skillPath),
-        `Skill path should exist: ${skill.path} (resolved to ${skillPath})`
-      );
+      if (!existsSync(skillPath)) {
+        failures.push(`  ${skill.name}: path not found — ${skill.path}`);
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} missing skill path(s):\n${failures.join('\n')}`);
   });
 });
 
@@ -508,17 +515,20 @@ describe('delivery contract — registry index.json', () => {
     const indexPath = join(REGISTRY_DIR, 'index.json');
     const registry = readJsonCached(indexPath);
 
+    const failures = [];
     for (const skill of registry.skills) {
-      assert.ok(skill.id, `Skill should have id: ${JSON.stringify(skill)}`);
-      assert.ok(
-        skill.compatibility && typeof skill.compatibility === 'object',
-        `Skill ${skill.id} should have compatibility object`
-      );
-      assert.ok(
-        Object.keys(skill.compatibility).length > 0,
-        `Skill ${skill.id} should have at least one platform in compatibility`
-      );
+      const id = skill.id || `(no id — ${JSON.stringify(skill)})`;
+      if (!skill.id) {
+        failures.push(`  ${id}: missing 'id' field`);
+      } else {
+        if (!skill.compatibility || typeof skill.compatibility !== 'object') {
+          failures.push(`  ${id}: missing or invalid 'compatibility' object`);
+        } else if (Object.keys(skill.compatibility).length === 0) {
+          failures.push(`  ${id}: compatibility object has no platform entries`);
+        }
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} registry skill issue(s):\n${failures.join('\n')}`);
   });
 
   test('registry platforms list is non-empty', () => {
@@ -550,13 +560,15 @@ describe('delivery contract — registry index.json', () => {
     const registry = readJsonCached(indexPath);
 
     assert.ok(Array.isArray(registry.skills), 'registry.skills must be an array');
+    const failures = [];
     for (const skill of registry.skills) {
-      assert.ok(skill.capabilities, `skill ${skill.id} must have capabilities`);
-      assert.ok(
-        Array.isArray(skill.capabilities.required),
-        `skill ${skill.id} capabilities.required must be an array`
-      );
+      if (!skill.capabilities) {
+        failures.push(`  ${skill.id}: missing 'capabilities' field`);
+      } else if (!Array.isArray(skill.capabilities.required)) {
+        failures.push(`  ${skill.id}: capabilities.required must be an array (got ${typeof skill.capabilities.required})`);
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} capabilities issue(s):\n${failures.join('\n')}`);
   });
 });
 
@@ -582,24 +594,31 @@ describe('delivery contract — registry summary.json', () => {
 
   test('summary.json omits forbidden fields and contains required per-skill fields', () => {
     const summary = readJsonCached(join(REGISTRY_DIR, 'summary.json'));
+    // Top-level forbidden fields are scalar checks — fail-fast is fine here
     assert.ok(!('platform_definitions' in summary), 'summary must not contain platform_definitions');
     assert.ok(!('built_at'      in summary), 'summary must not contain built_at');
     assert.ok(!('build_id'      in summary), 'summary must not contain build_id');
     assert.ok(!('source_commit' in summary), 'summary must not contain source_commit');
+
+    const failures = [];
     for (const skill of summary.skills) {
-      assert.ok(skill.id,                                   `skill must have id`);
-      assert.ok(typeof skill.description === 'string',      `skill ${skill.id} must have description`);
-      assert.ok(skill.type,                                 `skill ${skill.id} must have type`);
-      assert.ok(skill.status,                               `skill ${skill.id} must have status`);
-      assert.ok(skill.capabilities,                         `skill ${skill.id} must have capabilities`);
-      assert.ok(Array.isArray(skill.capabilities.required), `skill ${skill.id} capabilities.required must be array`);
-      assert.ok(!('invocation'               in skill), `skill ${skill.id} must not have invocation`);
-      assert.ok(!('disable-model-invocation' in skill), `skill ${skill.id} must not have disable-model-invocation`);
-      assert.ok(!('user-invocable'           in skill), `skill ${skill.id} must not have user-invocable`);
-      assert.ok(!('tags'                     in skill), `skill ${skill.id} must not have tags`);
-      assert.ok(!('compatibility'            in skill), `skill ${skill.id} must not have compatibility`);
-      assert.ok(!('dependencies'             in skill), `skill ${skill.id} must not have dependencies`);
+      const id = skill.id || `(no id — index ${summary.skills.indexOf(skill)})`;
+      if (!skill.id)                                   failures.push(`  ${id}: missing 'id' field`);
+      if (typeof skill.description !== 'string')       failures.push(`  ${id}: missing or non-string 'description' field`);
+      if (!skill.type)                                 failures.push(`  ${id}: missing 'type' field`);
+      if (!skill.status)                               failures.push(`  ${id}: missing 'status' field`);
+      if (!skill.capabilities)                         failures.push(`  ${id}: missing 'capabilities' field`);
+      if (skill.capabilities && !Array.isArray(skill.capabilities.required)) {
+        failures.push(`  ${id}: capabilities.required must be an array`);
+      }
+      if ('invocation'               in skill) failures.push(`  ${id}: must not contain 'invocation'`);
+      if ('disable-model-invocation' in skill) failures.push(`  ${id}: must not contain 'disable-model-invocation'`);
+      if ('user-invocable'           in skill) failures.push(`  ${id}: must not contain 'user-invocable'`);
+      if ('tags'                     in skill) failures.push(`  ${id}: must not contain 'tags'`);
+      if ('compatibility'            in skill) failures.push(`  ${id}: must not contain 'compatibility'`);
+      if ('dependencies'             in skill) failures.push(`  ${id}: must not contain 'dependencies'`);
     }
+    assert.equal(failures.length, 0, `${failures.length} summary.json skill issue(s):\n${failures.join('\n')}`);
   });
 
   test('summary.json version and counts match index.json', () => {
@@ -712,12 +731,13 @@ describe('delivery contract — reference integrity', () => {
     const registrySkillIds = new Set(registry.skills.map(s => s.id));
 
     // Every registry skill should be in plugin
+    const failures = [];
     for (const skillId of registrySkillIds) {
-      assert.ok(
-        pluginSkillNames.has(skillId),
-        `Registry skill ${skillId} not found in plugin.json`
-      );
+      if (!pluginSkillNames.has(skillId)) {
+        failures.push(`  ${skillId}: in registry but not found in plugin.json`);
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} missing skill(s) in plugin.json:\n${failures.join('\n')}`);
   });
 
   test('all plugin.json skills are in registry', () => {
@@ -729,12 +749,13 @@ describe('delivery contract — reference integrity', () => {
 
     const registrySkillIds = new Set(registry.skills.map(s => s.id));
 
+    const failures = [];
     for (const skill of plugin.skills) {
-      assert.ok(
-        registrySkillIds.has(skill.name),
-        `Plugin skill ${skill.name} not found in registry`
-      );
+      if (!registrySkillIds.has(skill.name)) {
+        failures.push(`  ${skill.name}: in plugin.json but not found in registry`);
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} missing skill(s) in registry:\n${failures.join('\n')}`);
   });
 });
 
@@ -746,36 +767,39 @@ describe('delivery contract — prompt file existence', () => {
   test('all referenced prompt files exist', () => {
     const skillFiles = getAllFilesRecursive(CLIENTS_DIR).filter(f => f.endsWith('SKILL.md'));
 
+    const failures = [];
     for (const skillPath of skillFiles) {
       const { frontmatter } = parseSkill(skillPath);
       const skillDir = dirname(skillPath);
 
-      // Check variants for prompt files
       if (frontmatter.variants) {
         for (const [variantName, variantDef] of Object.entries(frontmatter.variants)) {
           if (variantDef.prompt_file) {
             const promptPath = join(skillDir, variantDef.prompt_file);
-            assert.ok(
-              existsSync(promptPath),
-              `Prompt file not found: ${variantDef.prompt_file} (skill: ${frontmatter.skill}, variant: ${variantName})`
-            );
+            if (!existsSync(promptPath)) {
+              failures.push(`  ${frontmatter.skill} (variant: ${variantName}): prompt_file '${variantDef.prompt_file}' not found`);
+            }
           }
         }
       }
     }
+    assert.equal(failures.length, 0, `${failures.length} missing prompt file(s):\n${failures.join('\n')}`);
   });
 
   test('all prompt files are non-empty and readable', () => {
     const promptFiles = getAllFilesRecursive(CLIENTS_DIR).filter(f => f.endsWith('.md'));
 
+    const failures = [];
     for (const promptPath of promptFiles) {
+      const label = relative(CLIENTS_DIR, promptPath);
       try {
         const content = readFileSync(promptPath, 'utf8');
-        assert.ok(content.length > 0, `Prompt file should not be empty: ${promptPath}`);
+        if (content.length === 0) failures.push(`  ${label}: file is empty`);
       } catch (err) {
-        assert.fail(`Failed to read prompt file ${promptPath}: ${err.message}`);
+        failures.push(`  ${label}: read error — ${err.message}`);
       }
     }
+    assert.equal(failures.length, 0, `${failures.length} unreadable/empty prompt file(s):\n${failures.join('\n')}`);
   });
 });
 
@@ -789,20 +813,19 @@ describe('delivery contract — build truthfulness (Slice 4)', () => {
     const registry = readJsonCached(registryPath);
 
     // All platforms in registry.platforms should have a dist/clients/<platform> directory
+    const failures = [];
     for (const platformId of registry.platforms) {
       const platformDir = join(CLIENTS_DIR, platformId);
-      assert.ok(
-        existsSync(platformDir),
-        `Registry claims platform "${platformId}" but no dist/clients/${platformId} directory exists`
-      );
-
-      // Verify the platform directory is not empty
-      const files = getAllFilesRecursive(platformDir);
-      assert.ok(
-        files.length > 0,
-        `Registry claims platform "${platformId}" but dist/clients/${platformId} is empty`
-      );
+      if (!existsSync(platformDir)) {
+        failures.push(`  ${platformId}: registered but dist/clients/${platformId}/ does not exist`);
+      } else {
+        const files = getAllFilesRecursive(platformDir);
+        if (files.length === 0) {
+          failures.push(`  ${platformId}: registered but dist/clients/${platformId}/ is empty`);
+        }
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} platform artefact issue(s):\n${failures.join('\n')}`);
   });
 
   test('all dist/clients/<platform> directories are listed in registry', () => {
@@ -815,12 +838,13 @@ describe('delivery contract — build truthfulness (Slice 4)', () => {
 
     const registryPlatforms = new Set(registry.platforms);
 
+    const failures = [];
     for (const platformId of emittedPlatforms) {
-      assert.ok(
-        registryPlatforms.has(platformId),
-        `dist/clients/${platformId} exists but is not listed in registry.platforms`
-      );
+      if (!registryPlatforms.has(platformId)) {
+        failures.push(`  ${platformId}: dist/clients/${platformId}/ exists but not listed in registry.platforms`);
+      }
     }
+    assert.equal(failures.length, 0, `${failures.length} unregistered platform(s):\n${failures.join('\n')}`);
   });
 
   test('stale artefacts are removed on rebuild', () => {

@@ -31,10 +31,14 @@ test('Canonical Source Contract', async (t) => {
       .filter(f => !f.startsWith('.'))
       .sort();
 
-    sharedSkills.forEach(skillName => {
+    const failures = [];
+    for (const skillName of sharedSkills) {
       const skillPath = join(SKILLS_DIR, skillName, 'SKILL.md');
-      assert(existsSync(skillPath), `${skillName}/SKILL.md must exist in shared/skills/`);
-    });
+      if (!existsSync(skillPath)) {
+        failures.push(`  ${skillName}: missing SKILL.md in shared/skills/${skillName}/`);
+      }
+    }
+    assert(failures.length === 0, `${failures.length} skill(s) missing SKILL.md:\n${failures.join('\n')}`);
   });
 
   await t.test('should not enumerate skills from plugins/core-skills/skills/', () => {
@@ -54,10 +58,15 @@ test('Canonical Source Contract', async (t) => {
     // Verify no naming conflicts (case sensitivity on case-insensitive filesystems)
     const skills = readdirSync(SKILLS_DIR).filter(f => !f.startsWith('.'));
     const skillsByName = {};
-    skills.forEach(skill => {
+    const failures = [];
+    for (const skill of skills) {
       const lower = skill.toLowerCase();
-      assert(!skillsByName[lower], `Duplicate skill name (case-insensitive): ${skill}`);
-      skillsByName[lower] = skill;
-    });
+      if (skillsByName[lower]) {
+        failures.push(`  '${skill}' conflicts with '${skillsByName[lower]}' (case-insensitive duplicate)`);
+      } else {
+        skillsByName[lower] = skill;
+      }
+    }
+    assert(failures.length === 0, `${failures.length} duplicate skill name(s):\n${failures.join('\n')}`);
   });
 });

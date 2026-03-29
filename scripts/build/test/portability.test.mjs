@@ -117,10 +117,14 @@ test('portability: extract file extension reliably', () => {
     'no_extension',
   ];
 
+  const failures = [];
   for (const filename of filenames) {
     const ext = getFileExtension(filename);
-    assert.ok(typeof ext === 'string', `Extension for ${filename} should be string`);
+    if (typeof ext !== 'string') {
+      failures.push(`  '${filename}': expected string extension, got ${typeof ext}`);
+    }
   }
+  assert.equal(failures.length, 0, `${failures.length} extension type issue(s):\n${failures.join('\n')}`);
 });
 
 // ─── Test 9: Executable permission handling ───
