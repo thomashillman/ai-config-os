@@ -2,8 +2,14 @@
 # One-time Durable Object migration for the main Worker.
 #
 # Cloudflare Workers Builds uses `wrangler versions upload`, which cannot
-# apply DO migrations. This script temporarily injects the [[migrations]]
-# block, runs `wrangler deploy` to apply it, then removes the block.
+# apply DO migrations or create bindings for unmigrated classes. This script:
+#   1. Injects the [durable_objects] binding AND [[migrations]] block
+#   2. Runs `wrangler deploy` to apply the migration
+#   3. Restores wrangler.toml to its original state
+#
+# After the migration is applied, uncomment the [durable_objects] binding
+# in wrangler.toml and commit. Workers Builds will then handle subsequent
+# deploys normally (the class is already migrated).
 #
 # Usage:
 #   bash scripts/deploy/apply-do-migration.sh [staging|production]
@@ -30,25 +36,36 @@ echo "    Worker dir: $WORKER_DIR"
 # Back up the original wrangler.toml
 cp "$TOML" "$BACKUP"
 
-# Inject the migration block into wrangler.toml (before the first [[kv_namespaces]])
 if [[ "$ENV" == "production" ]]; then
-  # Inject into the default (production) environment
+  # Inject binding + migration into the default (production) environment
+  # Place them before the first [[kv_namespaces]] block
   sed -i.sed-bak '/^\[\[kv_namespaces\]\]$/i\
-\[\[migrations\]\]\
+[durable_objects]\
+bindings = [\
+  { name = "TASK_OBJECT", class_name = "TaskObject" }\
+]\
+\
+[[migrations]]\
 tag = "v1"\
 new_classes = ["TaskObject"]\
 ' "$TOML"
 else
-  # Inject into the staging environment (before [[env.staging.kv_namespaces]])
-  sed -i.sed-bak '/^\[\[env\.staging\.kv_namespaces\]\]$/i\
-\[\[env.staging.migrations\]\]\
+  # Inject binding + migration into the staging environment
+  # Place them before [[env.staging.services]]
+  sed -i.sed-bak '/^# PHASE 1: Service binding to staging executor Worker/i\
+[env.staging.durable_objects]\
+bindings = [\
+  { name = "TASK_OBJECT", class_name = "TaskObject" }\
+]\
+\
+[[env.staging.migrations]]\
 tag = "v1"\
 new_classes = ["TaskObject"]\
 ' "$TOML"
 fi
 rm -f "$TOML.sed-bak"
 
-echo "==> Injected [[migrations]] block into wrangler.toml"
+echo "==> Injected [durable_objects] binding and [[migrations]] block"
 
 # Deploy with migration
 cd "$WORKER_DIR"
@@ -62,17 +79,22 @@ fi
 
 DEPLOY_EXIT=$?
 
-# Restore original wrangler.toml (without migrations)
+# Restore original wrangler.toml (without binding or migration)
 cp "$BACKUP" "$TOML"
 rm -f "$BACKUP"
 
-echo "==> Restored wrangler.toml (migrations block removed)"
+echo "==> Restored wrangler.toml to pre-migration state"
 
 if [[ $DEPLOY_EXIT -eq 0 ]]; then
+  echo ""
   echo "==> Migration applied successfully (env: $ENV)"
   echo ""
   echo "    The TaskObject Durable Object class is now registered."
-  echo "    Subsequent Workers Builds deploys will work normally."
+  echo ""
+  echo "    Next steps:"
+  echo "    1. Uncomment the [durable_objects] binding in worker/wrangler.toml"
+  echo "    2. Set TASK_DO_DUAL_WRITE = \"true\" in the target environment"
+  echo "    3. Commit and push -- Workers Builds will handle it from here"
 else
   echo "==> Migration FAILED (exit $DEPLOY_EXIT)"
   exit $DEPLOY_EXIT

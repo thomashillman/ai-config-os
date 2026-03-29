@@ -508,25 +508,37 @@ npm run smoke:test
 ## Durable Object Migrations
 
 Cloudflare Workers Builds uses `wrangler versions upload`, which cannot apply
-Durable Object migrations. When a release introduces or changes DO classes,
-the migration must be applied manually via `wrangler deploy` before Workers
-Builds can deploy the DO-enabled version.
+DO migrations or create bindings for unmigrated classes. This creates a
+two-phase rollout requirement:
+
+1. **Phase A (manual):** Apply the migration via `wrangler deploy`
+2. **Phase B (automated):** Uncomment the binding in `wrangler.toml` and push
+
+Until Phase A is complete, the DO binding must stay commented out in
+`wrangler.toml` -- otherwise Workers Builds will reject the deploy because
+the class is not yet registered as a Durable Object.
 
 ### Applying a DO Migration
 
-Run the one-time migration script:
-
 ```bash
-# Staging first
-bash scripts/deploy/apply-do-migration.sh staging
+# 1. Build artifacts first
+npm run build
 
-# Then production
+# 2. Apply migration (staging first, then production)
+bash scripts/deploy/apply-do-migration.sh staging
 bash scripts/deploy/apply-do-migration.sh production
 ```
 
-The script temporarily injects the `[[migrations]]` block into `wrangler.toml`,
-runs `wrangler deploy` to apply it, then restores the original file. After the
-migration is applied, Workers Builds resumes normal operation.
+The script temporarily injects both `[durable_objects]` binding and
+`[[migrations]]` block into `wrangler.toml`, runs `wrangler deploy` to apply
+the migration, then restores the original file.
+
+### After Migration is Applied
+
+1. Uncomment the `[durable_objects]` binding in `worker/wrangler.toml`
+   (both production and staging sections)
+2. Set `TASK_DO_DUAL_WRITE = "true"` in the target environment
+3. Commit and push -- Workers Builds handles it from here
 
 ### When is a migration needed?
 
