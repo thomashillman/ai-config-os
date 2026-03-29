@@ -8,16 +8,13 @@
  *  2. build.yml — setup-node must use npm cache (avoid cold npm install every run)
  *  3. build.yml — redundant --validate-only step must not exist (pretest + full
  *     build already cover it; removing it saves one full compiler invocation per leg)
- *  4. pr-mergeability-gate.yml — checkout fetch-depth must not be 0 (full history
- *     unnecessary for merge simulation)
- *  5. pr-mergeability-gate.yml — setup-node must use npm cache
- *  6. pr-mergeability-gate.yml — dashboard install must be conditional (skip when
- *     dashboard/ unchanged, which is the common case)
- *  7. validate.yml — must have path filters (avoid running on unrelated changes)
- *  8. validate.yml — checkout fetch-depth must not be 0
- *  9. validate.yml — setup-node must use npm cache
- * 10. All workflows — no step may run compile.mjs --validate-only followed immediately
+ *  4. validate.yml — must have path filters (avoid running on unrelated changes)
+ *  5. validate.yml — checkout fetch-depth must not be 0
+ *  6. validate.yml — setup-node must use npm cache
+ *  7. All workflows — no step may run compile.mjs --validate-only followed immediately
  *     by a separate compile.mjs (triple-compile anti-pattern)
+ *
+ * pr-mergeability-gate.yml contracts live in cicd-mergeability-gate-contracts.test.mjs.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -50,13 +47,19 @@ function findActionStep(steps, actionPrefix) {
   return steps.find(s => typeof s.uses === 'string' && s.uses.startsWith(actionPrefix));
 }
 
+// Parse each workflow once at module level — avoids redundant YAML reads per test.
+const buildWf = loadWorkflow('build.yml');
+const buildSteps = allSteps(buildWf);
+
+const validateWf = loadWorkflow('validate.yml');
+const validateSteps = allSteps(validateWf);
+
 // ─────────────────────────────────────────────
 // build.yml
 // ─────────────────────────────────────────────
 
 test('build.yml: matrix strategy has fail-fast: true', () => {
-  const wf = loadWorkflow('build.yml');
-  const buildJob = wf.jobs?.build;
+  const buildJob = buildWf.jobs?.build;
   assert.ok(buildJob, 'build job must exist');
   assert.equal(
     buildJob.strategy?.['fail-fast'],
@@ -66,9 +69,7 @@ test('build.yml: matrix strategy has fail-fast: true', () => {
 });
 
 test('build.yml: setup-node action configures npm cache', () => {
-  const wf = loadWorkflow('build.yml');
-  const steps = allSteps(wf);
-  const setupNode = findActionStep(steps, 'actions/setup-node');
+  const setupNode = findActionStep(buildSteps, 'actions/setup-node');
   assert.ok(setupNode, 'actions/setup-node step must exist');
   assert.equal(
     setupNode.with?.cache,
@@ -78,9 +79,7 @@ test('build.yml: setup-node action configures npm cache', () => {
 });
 
 test('build.yml: no redundant --validate-only compile step', () => {
-  const wf = loadWorkflow('build.yml');
-  const steps = allSteps(wf);
-  const validateOnlyStep = steps.find(
+  const validateOnlyStep = buildSteps.find(
     s => typeof s.run === 'string' && s.run.includes('--validate-only')
   );
   assert.equal(
@@ -99,9 +98,7 @@ test('build.yml: compile.mjs is not invoked more than twice in a single matrix l
   // Acceptable: pretest (via npm test) + full build. Release mode on Linux adds a third
   // but is guarded by `if: runner.os == 'Linux'` so it only runs on one leg.
   // What we must NOT have: validate-only + full build + release = 3 unconditional calls.
-  const wf = loadWorkflow('build.yml');
-  const steps = allSteps(wf);
-  const unconditionalCompileCalls = steps.filter(
+  const unconditionalCompileCalls = buildSteps.filter(
     s =>
       typeof s.run === 'string' &&
       s.run.includes('compile.mjs') &&
@@ -115,77 +112,11 @@ test('build.yml: compile.mjs is not invoked more than twice in a single matrix l
 });
 
 // ─────────────────────────────────────────────
-// pr-mergeability-gate.yml
-// ─────────────────────────────────────────────
-
-test('pr-mergeability-gate.yml: checkout fetch-depth is not 0 (full history)', () => {
-  const wf = loadWorkflow('pr-mergeability-gate.yml');
-  const steps = allSteps(wf);
-  const checkout = findActionStep(steps, 'actions/checkout');
-  assert.ok(checkout, 'actions/checkout step must exist');
-  const depth = checkout.with?.['fetch-depth'];
-  assert.notEqual(
-    depth,
-    0,
-    'fetch-depth: 0 fetches the full repo history which is unnecessary for merge simulation. ' +
-    'Use a bounded depth (e.g. 50).'
-  );
-});
-
-test('pr-mergeability-gate.yml: setup-node action configures npm cache', () => {
-  const wf = loadWorkflow('pr-mergeability-gate.yml');
-  const steps = allSteps(wf);
-  const setupNode = findActionStep(steps, 'actions/setup-node');
-  assert.ok(setupNode, 'actions/setup-node step must exist');
-  assert.equal(
-    setupNode.with?.cache,
-    'npm',
-    'setup-node must set cache: npm'
-  );
-});
-
-test('pr-mergeability-gate.yml: dashboard install step is conditional', () => {
-  const wf = loadWorkflow('pr-mergeability-gate.yml');
-  const steps = allSteps(wf);
-  const dashboardInstall = steps.find(
-    s => typeof s.run === 'string' && s.run.includes('dashboard') && s.run.includes('install')
-  );
-  assert.ok(
-    dashboardInstall,
-    'A dashboard install step must exist (it should just be conditional)'
-  );
-  assert.ok(
-    dashboardInstall.if,
-    'Dashboard install step must have an `if:` condition — it should only run when dashboard/ changes. ' +
-    'Installing dashboard deps on every PR (even unrelated ones) wastes ~30-60s.'
-  );
-});
-
-test('pr-mergeability-gate.yml: git fetch uses bounded depth, not full history', () => {
-  const wf = loadWorkflow('pr-mergeability-gate.yml');
-  const steps = allSteps(wf);
-  const fetchStep = steps.find(
-    s => typeof s.run === 'string' && s.run.includes('git fetch') && s.run.includes('base_ref')
-  );
-  assert.ok(fetchStep, 'git fetch step for base branch must exist');
-  assert.ok(
-    fetchStep.run.includes('--depth'),
-    'git fetch must use --depth to bound history fetched for base branch'
-  );
-  // Must not use --depth=0 or --unshallow (which defeats the point)
-  assert.ok(
-    !fetchStep.run.includes('--unshallow'),
-    'git fetch must not use --unshallow — that fetches full history'
-  );
-});
-
-// ─────────────────────────────────────────────
 // validate.yml
 // ─────────────────────────────────────────────
 
 test('validate.yml: push trigger has path filters', () => {
-  const wf = loadWorkflow('validate.yml');
-  const pushPaths = wf.on?.push?.paths;
+  const pushPaths = validateWf.on?.push?.paths;
   assert.ok(
     Array.isArray(pushPaths) && pushPaths.length > 0,
     'validate.yml push trigger must have path filters — without them the workflow runs on every ' +
@@ -194,8 +125,7 @@ test('validate.yml: push trigger has path filters', () => {
 });
 
 test('validate.yml: pull_request trigger has path filters', () => {
-  const wf = loadWorkflow('validate.yml');
-  const prPaths = wf.on?.pull_request?.paths;
+  const prPaths = validateWf.on?.pull_request?.paths;
   assert.ok(
     Array.isArray(prPaths) && prPaths.length > 0,
     'validate.yml pull_request trigger must have path filters'
@@ -203,8 +133,7 @@ test('validate.yml: pull_request trigger has path filters', () => {
 });
 
 test('validate.yml: path filters cover skill and runtime directories', () => {
-  const wf = loadWorkflow('validate.yml');
-  const paths = wf.on?.push?.paths ?? [];
+  const paths = validateWf.on?.push?.paths ?? [];
   const hasSkills = paths.some(p => p.includes('shared/skills'));
   const hasRuntime = paths.some(p => p.includes('runtime'));
   const hasPlugins = paths.some(p => p.includes('plugins'));
@@ -214,9 +143,7 @@ test('validate.yml: path filters cover skill and runtime directories', () => {
 });
 
 test('validate.yml: checkout fetch-depth is not 0 (full history)', () => {
-  const wf = loadWorkflow('validate.yml');
-  const steps = allSteps(wf);
-  const checkout = findActionStep(steps, 'actions/checkout');
+  const checkout = findActionStep(validateSteps, 'actions/checkout');
   assert.ok(checkout, 'actions/checkout step must exist');
   const depth = checkout.with?.['fetch-depth'];
   assert.notEqual(
@@ -227,9 +154,7 @@ test('validate.yml: checkout fetch-depth is not 0 (full history)', () => {
 });
 
 test('validate.yml: setup-node action configures npm cache', () => {
-  const wf = loadWorkflow('validate.yml');
-  const steps = allSteps(wf);
-  const setupNode = findActionStep(steps, 'actions/setup-node');
+  const setupNode = findActionStep(validateSteps, 'actions/setup-node');
   assert.ok(setupNode, 'actions/setup-node step must exist');
   assert.equal(
     setupNode.with?.cache,

@@ -206,12 +206,17 @@ test('claude-code plugin.json has correct version and structure', () => {
   assert.ok(Array.isArray(claudeCodePlugin.skills), 'Plugin skills should be array');
 
   // Each skill should have required fields
+  const failures = [];
   for (const skill of claudeCodePlugin.skills) {
-    assert.ok(skill.name, 'Each skill should have name');
-    assert.ok(skill.version, 'Each skill should have version');
-    assert.ok(skill.path, 'Each skill should have path');
-    assert.ok(skill.path.includes(skill.name), 'Skill path should include skill name');
+    const id = skill.name || JSON.stringify(skill);
+    if (!skill.name) failures.push(`  ${id}: missing 'name' field`);
+    if (!skill.version) failures.push(`  ${id}: missing 'version' field`);
+    if (!skill.path) failures.push(`  ${id}: missing 'path' field`);
+    if (skill.name && skill.path && !skill.path.includes(skill.name)) {
+      failures.push(`  ${skill.name}: path '${skill.path}' should include skill name`);
+    }
   }
+  assert.equal(failures.length, 0, `${failures.length} plugin skill field issue(s):\n${failures.join('\n')}`);
 });
 
 
