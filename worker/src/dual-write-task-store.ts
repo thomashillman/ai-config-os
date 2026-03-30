@@ -4,12 +4,38 @@
  *
  * PR1: Reads are KV-only. DO writes are non-blocking and failure-tolerant.
  * KV failure is fatal (propagates). DO failure is logged and swallowed.
+ *
+ * DO write failures are emitted as structured JSON logs with metrics for alerting.
  */
 
 // @ts-ignore - runtime JS module
 import type { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';
 
 const DO_BASE_URL = 'https://task-object';
+
+interface DoWriteError {
+  timestamp: string;
+  level: 'warn';
+  component: 'DualWrite';
+  event: 'do_replication_failed' | 'do_stub_creation_failed';
+  task_id: string;
+  error_message: string;
+  error_code: string;
+  operation?: string;
+}
+
+function categorizeError(err: unknown): string {
+  if (err instanceof TypeError) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes('timeout')) return 'DO_TIMEOUT';
+    if (msg.includes('network')) return 'DO_NETWORK_ERROR';
+    if (msg.includes('fetch')) return 'DO_FETCH_ERROR';
+  }
+  if (err instanceof Error && err.message.includes('TASK_OBJECT')) {
+    return 'DO_BINDING_MISSING';
+  }
+  return 'DO_UNKNOWN_ERROR';
+}
 
 export class DualWriteTaskStore {
   private kvStore: KvTaskStore;
@@ -135,6 +161,20 @@ export class DualWriteTaskStore {
 
   // ---- DO replication (fire-and-forget) ----
 
+  private _emitStructuredLog(error: DoWriteError): void {
+    console.warn(JSON.stringify(error));
+  }
+
+  private _emitMetric(taskId: string, event: 'do_replication_failed' | 'do_stub_creation_failed', errorCode: string): void {
+    const metric = {
+      event,
+      task_id: taskId,
+      error_code: errorCode,
+      timestamp: new Date().toISOString(),
+    };
+    console.warn(`[DualWrite:metric] ${JSON.stringify(metric)}`);
+  }
+
   private _replicateToDo(taskId: string, taskState: Record<string, unknown>): void {
     try {
       const id = this.doNamespace.idFromName(taskId);
@@ -144,12 +184,41 @@ export class DualWriteTaskStore {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ task: taskState }),
       }).catch((err: unknown) => {
+        const errorCode = categorizeError(err);
         const message = err instanceof Error ? err.message : String(err);
-        console.warn(`[DualWrite] DO replication failed for ${taskId}: ${message}`);
+        const timestamp = new Date().toISOString();
+
+        const errorLog: DoWriteError = {
+          timestamp,
+          level: 'warn',
+          component: 'DualWrite',
+          event: 'do_replication_failed',
+          task_id: taskId,
+          error_message: message,
+          error_code: errorCode,
+          operation: 'put-state',
+        };
+
+        this._emitStructuredLog(errorLog);
+        this._emitMetric(taskId, 'do_replication_failed', errorCode);
       });
     } catch (err) {
+      const errorCode = categorizeError(err);
       const message = err instanceof Error ? err.message : String(err);
-      console.warn(`[DualWrite] DO stub creation failed for ${taskId}: ${message}`);
+      const timestamp = new Date().toISOString();
+
+      const errorLog: DoWriteError = {
+        timestamp,
+        level: 'warn',
+        component: 'DualWrite',
+        event: 'do_stub_creation_failed',
+        task_id: taskId,
+        error_message: message,
+        error_code: errorCode,
+      };
+
+      this._emitStructuredLog(errorLog);
+      this._emitMetric(taskId, 'do_stub_creation_failed', errorCode);
     }
   }
 }
