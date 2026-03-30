@@ -58,6 +58,7 @@ RESTORE_NEEDED=1
 if [[ "$ENV" == "production" ]]; then
   # Inject binding + migration into the default (production) environment
   # Place them before the first [[kv_namespaces]] block
+  # Use new_sqlite_classes for free plan compatibility
   sed -i.sed-bak '/^\[\[kv_namespaces\]\]$/i\
 [durable_objects]\
 bindings = [\
@@ -66,11 +67,12 @@ bindings = [\
 \
 [[migrations]]\
 tag = "v1"\
-new_classes = ["TaskObject"]\
+new_sqlite_classes = ["TaskObject"]\
 ' "$TOML"
 else
   # Inject binding + migration into the staging environment
   # Place them before [[env.staging.services]]
+  # Use new_sqlite_classes for free plan compatibility
   sed -i.sed-bak '/^# PHASE 1: Service binding to staging executor Worker/i\
 [env.staging.durable_objects]\
 bindings = [\
@@ -79,7 +81,7 @@ bindings = [\
 \
 [[env.staging.migrations]]\
 tag = "v1"\
-new_classes = ["TaskObject"]\
+new_sqlite_classes = ["TaskObject"]\
 ' "$TOML"
 fi
 rm -f "$TOML.sed-bak"

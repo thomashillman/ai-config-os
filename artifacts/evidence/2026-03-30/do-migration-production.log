@@ -1,0 +1,263 @@
+[preflight] Starting Durable Object migration (env: production)
+[preflight] Worker dir: /home/user/ai-config-os/worker
+[inject] Added [durable_objects] binding and [[migrations]] block
+[deploy] Running: npx wrangler deploy
+Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+ ⛅️ wrangler 4.78.0
+───────────────────
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mMultiple environments are defined in the Wrangler configuration file, but no target environment was specified for the deploy command.[0m
+
+  To avoid unintentional changes to the wrong environment, it is recommended to explicitly specify the target environment using the `-e|--env` flag.
+  If your intention is to use the top-level environment of your configuration simply pass an empty string to the flag to target such environment. For example `--env=""`.
+
+
+[custom build] Running: cd .. && npm install && node scripts/build/compile.mjs
+[custom build] 
+[custom build] up to date, audited 10 packages in 379ms
+[custom build] 
+[custom build] 
+[custom build] 3 packages are looking for funding
+[custom build]   run `npm fund` for details
+[custom build] 
+[custom build] found 0 vulnerabilities
+[custom build] 
+[custom build] 
+[custom build] ai-config-os compiler
+[custom build] 
+[custom build]   version: 0.6.4
+[custom build]   mode:    full build
+[custom build] 
+[custom build] 
+[custom build] Found 38 skill(s)
+[custom build] 
+[custom build] 
+[custom build] [platforms]
+[custom build] 
+[custom build]   [ok]   ci-generic
+[custom build] 
+[custom build]   [ok]   claude-code-remote
+[custom build]   [ok]   claude-code
+[custom build] 
+[custom build]   [ok]   claude-desktop
+[custom build] 
+[custom build]   [ok]   claude-ios
+[custom build] 
+[custom build]   [ok]   claude-jetbrains
+[custom build] 
+[custom build]   [ok]   claude-ssh
+[custom build]   [ok]   claude-vscode
+[custom build]   [ok]   claude-web
+[custom build]   [ok]   codex-desktop
+[custom build]   [ok]   codex
+[custom build]   [ok]   cursor
+[custom build]   [ok]   github-actions
+[custom build]   [ok]   gitlab-ci
+[custom build] 
+[custom build] [routes/outcomes]
+[custom build] 
+[custom build]   [ok]   route full-automation
+[custom build]   [ok]   route manual-fallback
+[custom build] 
+[custom build]   [ok]   outcome repository-audit
+[custom build] 
+[custom build] 
+[custom build] [skills]
+[custom build] 
+[custom build]   [ok]   autoresearch v1.0.0
+[custom build] 
+[custom build]   [ok]   changelog v1.0.0
+[custom build] 
+[custom build]   [ok]   ci-conditional-audit v1.0.0
+[custom build] 
+[custom build]   [ok]   claude-md-creator v1.0.0
+[custom build] 
+[custom build]   [ok]   code-review v1.0.0
+[custom build] 
+[custom build]   [ok]   commit-conventions v1.0.0
+[custom build] 
+[custom build]   [ok]   context-budget v1.0.0
+[custom build] 
+[custom build]   [ok]   debug v1.0.0
+[custom build] 
+[custom build]   [ok]   explain-code v1.0.0
+[custom build] 
+[custom build]   [ok]   failed-build-analysis v1.0.0
+[custom build] 
+[custom build]   [ok]   fetch-abstraction-drift-detector v1.0.0
+[custom build] 
+[custom build]   [ok]   git-ops v1.0.0
+[custom build] 
+[custom build]   [ok]   issue-triage v1.0.0
+[custom build]   [ok]   list-available-skills v1.1.0
+[custom build] 
+[custom build]   [ok]   lockfile-audit v1.0.0
+[custom build] 
+[custom build]   [ok]   memory v1.0.0
+[custom build]   [ok]   momentum-reflect v1.0.0
+[custom build]   [ok]   plugin-setup v1.0.0
+[custom build] 
+[custom build]   [ok]   post-merge-retrospective v1.0.0
+[custom build] 
+[custom build]   [ok]   pr-description v1.0.0
+[custom build] 
+[custom build]   [ok]   pr-diff-targeted-reader v1.0.0
+[custom build] 
+[custom build]   [ok]   principles v1.0.0
+[custom build] 
+[custom build]   [ok]   refactor v1.0.0
+[custom build] 
+[custom build]   [ok]   release-checklist v1.0.0
+[custom build] 
+[custom build]   [ok]   review-pr v1.0.0
+[custom build]   [ok]   rtl-query-patterns v1.0.0
+[custom build] 
+[custom build]   [ok]   security-review v1.0.0
+[custom build]   [ok]   session-start-hook v1.0.0
+[custom build]   [ok]   simplify v1.0.0
+[custom build]   [ok]   skill-audit v1.0.0
+[custom build] 
+[custom build]   [ok]   skill-effectiveness v1.0.0
+[custom build] 
+[custom build]   [ok]   surface-probe v1.0.0
+[custom build] 
+[custom build]   [ok]   task-decompose v1.0.0
+[custom build]   [ok]   task-resume v1.0.0
+[custom build] 
+[custom build]   [ok]   task-save v1.0.0
+[custom build] 
+[custom build]   [ok]   task-start v1.0.0
+[custom build] 
+[custom build]   [ok]   test-writer v1.0.0
+[custom build]   [ok]   web-search v1.0.0
+[custom build] 
+[custom build] Validated: 38 skill(s), 0 error(s)
+[custom build] 
+[custom build] Loaded 14 platform(s): ci-generic, claude-code-remote, claude-code, claude-desktop, claude-ios, claude-jetbrains, claude-ssh, claude-vscode, claude-web, codex-desktop, codex, cursor, github-actions, gitlab-ci
+[custom build] 
+[custom build] 
+[custom build] [compatibility]
+[custom build] 
+[custom build]   autoresearch: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   changelog: ci-generic:unverified, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build] 
+[custom build]   ci-conditional-audit: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   claude-md-creator: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   code-review: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   commit-conventions: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   context-budget: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   debug: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   explain-code: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   failed-build-analysis: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   fetch-abstraction-drift-detector: ci-generic:unverified, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   git-ops: ci-generic:unverified, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:excluded, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:excluded, codex-desktop:supported, codex:excluded, cursor:excluded, github-actions:supported, gitlab-ci:supported
+[custom build]   issue-triage: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   list-available-skills: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   lockfile-audit: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   memory: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:excluded, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   momentum-reflect: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   plugin-setup: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   post-merge-retrospective: ci-generic:unverified, claude-code-remote:unverified, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:unverified, claude-ssh:unverified, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   pr-description: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   pr-diff-targeted-reader: ci-generic:excluded, claude-code-remote:unverified, claude-code:supported, claude-desktop:supported, claude-ios:excluded, claude-jetbrains:unverified, claude-ssh:unverified, claude-vscode:supported, claude-web:unverified, codex-desktop:excluded, codex:excluded, cursor:supported, github-actions:excluded, gitlab-ci:excluded
+[custom build]   principles: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   refactor: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   release-checklist: ci-generic:unverified, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:excluded, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   review-pr: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   rtl-query-patterns: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   security-review: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   session-start-hook: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:excluded, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:excluded, codex-desktop:supported, codex:excluded, cursor:excluded, github-actions:supported, gitlab-ci:supported
+[custom build]   simplify: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   skill-audit: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   skill-effectiveness: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:unverified, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   surface-probe: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   task-decompose: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   task-resume: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   task-save: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   task-start: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   test-writer: ci-generic:supported, claude-code-remote:supported, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:supported, claude-ssh:supported, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build]   web-search: ci-generic:unverified, claude-code-remote:unverified, claude-code:supported, claude-desktop:supported, claude-ios:supported, claude-jetbrains:unverified, claude-ssh:unverified, claude-vscode:supported, claude-web:supported, codex-desktop:supported, codex:supported, cursor:supported, github-actions:supported, gitlab-ci:supported
+[custom build] 
+[custom build] Emitting for platforms: ci-generic, claude-code-remote, claude-code, claude-desktop, claude-ios, claude-jetbrains, claude-ssh, claude-vscode, codex-desktop, codex, cursor, github-actions, gitlab-ci, claude-web
+[custom build] 
+[custom build] 
+[custom build] [platform: ci-generic]
+[custom build]   [ci-generic] emitter not yet implemented — skipping (31 skill(s))
+[custom build] 
+[custom build] [platform: claude-code-remote]
+[custom build]   [claude-code-remote] emitter not yet implemented — skipping (35 skill(s))
+[custom build] 
+[custom build] 
+[custom build] [platform: claude-code]
+[custom build] 
+[custom build]   [claude-code] emitted 38 skill(s) to /home/user/ai-config-os/dist/clients/claude-code/skills/
+[custom build] 
+[custom build]   [claude-code] plugin.json → /home/user/ai-config-os/dist/clients/claude-code/.claude-plugin/plugin.json
+[custom build] 
+[custom build] [platform: claude-desktop]
+[custom build]   [claude-desktop] emitter not yet implemented — skipping (38 skill(s))
+[custom build] 
+[custom build] [platform: claude-ios]
+[custom build]   [claude-ios] emitter not yet implemented — skipping (33 skill(s))
+[custom build] 
+[custom build] [platform: claude-jetbrains]
+[custom build]   [claude-jetbrains] emitter not yet implemented — skipping (35 skill(s))
+[custom build] 
+[custom build] [platform: claude-ssh]
+[custom build]   [claude-ssh] emitter not yet implemented — skipping (35 skill(s))
+[custom build] 
+[custom build] [platform: claude-vscode]
+[custom build]   [claude-vscode] emitter not yet implemented — skipping (38 skill(s))
+[custom build] 
+[custom build] [platform: codex-desktop]
+[custom build]   [codex-desktop] emitter not yet implemented — skipping (37 skill(s))
+[custom build] 
+[custom build] [platform: codex]
+[custom build] 
+[custom build]   [codex] AGENTS.md → /home/user/ai-config-os/dist/clients/codex/AGENTS.md (35 skill(s))
+[custom build] 
+[custom build] 
+[custom build] [platform: cursor]
+[custom build] 
+[custom build]   [cursor] .cursorrules → /home/user/ai-config-os/dist/clients/cursor/.cursorrules (36 skill(s))
+[custom build] 
+[custom build] 
+[custom build] [platform: github-actions]
+[custom build]   [github-actions] emitter not yet implemented — skipping (37 skill(s))
+[custom build] 
+[custom build] [platform: gitlab-ci]
+[custom build]   [gitlab-ci] emitter not yet implemented — skipping (37 skill(s))
+[custom build] 
+[custom build] 
+[custom build] [platform: claude-web]
+[custom build]   [claude-web] emitter not yet implemented — skipping (25 skill(s))
+[custom build] 
+[custom build] [registry]
+[custom build] 
+[custom build]   [registry] index.json → /home/user/ai-config-os/dist/registry/index.json (38 skills, 3 platforms)
+[custom build] 
+[custom build]   [registry] summary.json → /home/user/ai-config-os/dist/registry/summary.json (38 skills)
+[custom build] 
+[custom build] [runtime]
+[custom build] 
+[custom build]   [runtime] manifest.json → /home/user/ai-config-os/dist/runtime/manifest.json
+[custom build] 
+[custom build]   [runtime] outcomes.json → /home/user/ai-config-os/dist/runtime/outcomes.json
+[custom build]   [runtime] routes.json → /home/user/ai-config-os/dist/runtime/routes.json
+[custom build]   [runtime] tool-registry.json → /home/user/ai-config-os/dist/runtime/tool-registry.json
+[custom build]   [runtime] task-route-definitions.json → /home/user/ai-config-os/dist/runtime/task-route-definitions.json
+[custom build]   [runtime] task-route-input-definitions.json → /home/user/ai-config-os/dist/runtime/task-route-input-definitions.json
+[custom build] 
+[custom build] Build complete.
+[custom build] 
+[custom build] 
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mA request to the Cloudflare API (/accounts/95dc8f30c22a369ffa8d28be0162ef7b/workers/services/ai-config-os-main) failed.[0m
+
+  Authentication failed (status: 400) [code: 9106]
+  
+  If you think this is a bug, please open an issue at: [4mhttps://github.com/cloudflare/workers-sdk/issues/new/choose[0m
+
+
+🪵  Logs were written to "/root/.config/.wrangler/logs/wrangler-2026-03-30_07-53-38_945.log"
+[restore] Restoring wrangler.toml
