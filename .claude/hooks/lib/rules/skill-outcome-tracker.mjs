@@ -19,15 +19,28 @@ export const rule = {
   triggers: ['PreToolUse', 'PostToolUse'],
 
   async execute(event) {
+    // Route to phase-specific handlers for clarity
+    if (event.type === 'PreToolUse') {
+      return this.handlePreToolUse(event);
+    } else if (event.type === 'PostToolUse') {
+      return this.handlePostToolUse(event);
+    }
+    return { decision: 'allow' };
+  },
+
+  /**
+   * Handle PreToolUse events: track new skill invocations and replacements.
+   * Only processes Skill tool events.
+   */
+  async handlePreToolUse(event) {
     const { tool_name, tool_input, session_id, timestamp } = event;
 
-    // Only track Skill, Edit, Write tools
-    if (!['Skill', 'Edit', 'Write'].includes(tool_name)) {
+    // Only care about Skill invocations on PreToolUse
+    if (tool_name !== 'Skill') {
       return { decision: 'allow' };
     }
 
     try {
-      // Ensure directories exist
       const analyticsDir = join(process.env.HOME || '/tmp', '.claude', 'skill-analytics');
       mkdirSync(analyticsDir, { recursive: true });
 
@@ -35,44 +48,69 @@ export const rule = {
       mkdirSync(counterDir, { recursive: true });
       const pendingFile = join(counterDir, `${session_id}-skill-pending.json`);
 
-      if (tool_name === 'Skill') {
-        // New skill invocation
-        const skillName = tool_input?.skill || tool_input?.name || 'unknown';
+      // Extract skill name from tool input
+      const skillName = tool_input?.skill || tool_input?.name || 'unknown';
 
-        // If there's a pending skill, mark it as replaced
-        if (existsSync(pendingFile)) {
-          const pending = readJSON(pendingFile);
-          if (pending && pending.skill_name) {
-            recordOutcome(pending.skill_name, 'output_replaced', session_id, timestamp, analyticsDir);
-          }
+      // If there's a pending skill from a previous invocation, mark it as replaced
+      if (existsSync(pendingFile)) {
+        const pending = readJSON(pendingFile);
+        if (pending && pending.skill_name) {
+          recordOutcome(pending.skill_name, 'output_replaced', session_id, timestamp, analyticsDir);
         }
+      }
 
-        // Record new pending skill
-        writeJSON(pendingFile, {
-          skill_name: skillName,
-          invoked_at: timestamp
-        });
-      } else if (tool_name === 'Edit' || tool_name === 'Write') {
-        // Edit or Write tool invoked
-        if (existsSync(pendingFile)) {
-          const pending = readJSON(pendingFile);
-          if (pending && pending.skill_name && pending.invoked_at) {
-            const invokedTime = new Date(pending.invoked_at);
-            const currentTime = new Date(timestamp);
-            const elapsedSeconds = (currentTime - invokedTime) / 1000;
+      // Record new pending skill for potential outcome tracking
+      writeJSON(pendingFile, {
+        skill_name: skillName,
+        invoked_at: timestamp
+      });
+    } catch (err) {
+      console.error(`[skill-outcome-tracker] PreToolUse handler failed: ${err.message}`);
+    }
 
-            // Check if within 10 minutes
-            if (elapsedSeconds <= 600) {
-              recordOutcome(pending.skill_name, 'output_used', session_id, timestamp, analyticsDir);
-            }
+    return { decision: 'allow' };
+  },
 
-            // Clear pending (whether used or expired)
-            rmSync(pendingFile, { force: true });
+  /**
+   * Handle PostToolUse events: track whether pending skill output was used.
+   * Only processes Edit and Write tool events.
+   */
+  async handlePostToolUse(event) {
+    const { tool_name, session_id, timestamp } = event;
+
+    // Only care about Edit/Write on PostToolUse (indicating code was modified)
+    if (tool_name !== 'Edit' && tool_name !== 'Write') {
+      return { decision: 'allow' };
+    }
+
+    try {
+      const analyticsDir = join(process.env.HOME || '/tmp', '.claude', 'skill-analytics');
+      mkdirSync(analyticsDir, { recursive: true });
+
+      const counterDir = '/tmp/claude-sessions';
+      mkdirSync(counterDir, { recursive: true });
+      const pendingFile = join(counterDir, `${session_id}-skill-pending.json`);
+
+      // Check if there's a pending skill from a previous invocation
+      if (existsSync(pendingFile)) {
+        const pending = readJSON(pendingFile);
+        if (pending && pending.skill_name && pending.invoked_at) {
+          const invokedTime = new Date(pending.invoked_at);
+          const currentTime = new Date(timestamp);
+          const elapsedSeconds = (currentTime - invokedTime) / 1000;
+
+          // Record outcome based on timing (10 minute threshold)
+          if (elapsedSeconds <= 600) {
+            recordOutcome(pending.skill_name, 'output_used', session_id, timestamp, analyticsDir);
           }
+          // If expired (>10 minutes), no outcome recorded; treat as unused
+
+          // Always clear pending after first Edit/Write following Skill
+          rmSync(pendingFile, { force: true });
         }
       }
     } catch (err) {
-      console.error(`Failed to track skill outcome: ${err.message}`);
+      console.error(`[skill-outcome-tracker] PostToolUse handler failed: ${err.message}`);
     }
 
     return { decision: 'allow' };
