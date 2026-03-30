@@ -4,6 +4,8 @@
  * Runtime-safe validation and types for Claude Code hook events.
  */
 
+import path from 'path';
+
 export function validateHookEvent(event) {
   if (!event || typeof event !== 'object') {
     throw new TypeError('Event must be a non-null object');
@@ -56,16 +58,29 @@ function isValidISO8601(timestamp) {
 }
 
 /**
- * Normalizes file paths: converts relative paths to absolute.
+ * Normalizes file paths: converts relative paths to absolute, with boundary checks.
+ *
+ * Prevents directory traversal attacks (e.g., ../../etc/passwd).
+ * Returns the original path if traversal is detected.
  *
  * @param {string} filePath - The file path (absolute or relative)
  * @param {string} projectDir - Project root directory (used for relative paths)
- * @returns {string} Absolute file path
+ * @returns {string} Absolute file path (or original if traversal detected)
  */
 export function normalizeFilePath(filePath, projectDir) {
-  if (!filePath || filePath.startsWith('/')) {
+  if (!filePath) return filePath;
+  if (path.isAbsolute(filePath)) {
     return filePath;
   }
-  // Relative path: resolve relative to project directory
-  return `${projectDir}/${filePath}`;
+
+  // Resolve relative path safely
+  const resolved = path.resolve(projectDir, filePath);
+  const normalized = path.normalize(projectDir);
+
+  // Ensure result is within project dir (prevent ../ escape)
+  if (!resolved.startsWith(normalized)) {
+    return filePath; // Return original if escape detected
+  }
+
+  return resolved;
 }
