@@ -258,3 +258,70 @@ This repository may use a local proxy remote (`http://local_proxy@127.0.0.1:4159
 - Expected to work: `git add`, `git commit`, `git push -u origin <branch>`.
 - Expected not to work in this environment: `gh pr create`, direct push to protected `main`, proxy REST API calls.
 - Do not repoint the remote unless explicitly instructed.
+
+## Hook System Architecture
+
+Claude Code hooks are organized in three layers to separate policy (config) from enforcement (dispatcher) from implementation (rules):
+
+### Architecture Overview
+
+```
+.claude/settings.json          ← Thin router: event type → hook command
+    ↓
+.claude/hooks/*.sh             ← Shell wrappers: pipe stdin to Node dispatcher
+    ↓
+.claude/hooks/dispatch.mjs      ← Typed dispatcher: parse JSON, validate, route to rules
+    ↓
+.claude/hooks/lib/rules/*.mjs   ← Rule modules: policy, analytics, state tracking
+```
+
+### Key Design Principles
+
+1. **Single JSON parser** — `dispatch.mjs` parses all events; rules don't parse JSON
+2. **Typed contracts** — Event shapes defined in TypeScript; validation before dispatch
+3. **Isolated rules** — Each rule is stateless, testable, and independently versionable
+4. **Graceful degradation** — Rule failures don't crash Claude Code sessions
+5. **Backward compatible** — JSONL outputs unchanged; observation readers work as-is
+
+### Adding a New Hook Rule
+
+1. Create `.claude/hooks/lib/rules/my-rule.mjs`:
+```javascript
+export const rule = {
+  name: 'my-rule',
+  triggers: ['PreToolUse'],  // or ['PostToolUse'], ['SessionStart']
+  async execute(event) {
+    // Your logic here
+    return { decision: 'allow' | 'block', reason?: string };
+  }
+};
+```
+
+2. Register in `.claude/hooks/lib/rules/index.mjs`:
+```javascript
+import { rule as myRule } from './my-rule.mjs';
+export const rules = { myRule, ...otherRules };
+```
+
+3. The dispatcher auto-discovers the rule.
+
+### Hook Testing
+
+Run hook-related tests:
+```bash
+npm test -- --grep "hook"
+```
+
+Tests cover:
+- Event parsing and validation (hook-event.test.mjs)
+- Rule registry and dispatch (rule-executor.test.mjs)
+- JSONL format compatibility with observation readers
+
+See `.claude/hooks/lib/__tests__/` for test fixtures and patterns.
+
+### Known Patterns
+
+- **Guard rules** (pre-tool-use) block tool execution; return `{decision: 'block', reason: '...'}`
+- **Reminder rules** (post-tool-use) print to stdout; return `{decision: 'allow'}`
+- **Analytics rules** append to JSONL files in `~/.claude/skill-analytics/`
+- **State rules** track session state in `/tmp/claude-sessions/` (ephemeral)
