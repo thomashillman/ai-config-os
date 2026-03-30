@@ -42,8 +42,8 @@ ENVIRONMENT = "production"
 # Only set this if you need Phase 0 backward compatibility or a future Phase 2 VPS executor.
 EXECUTOR_PROXY_URL = "https://remote-executor.example.com"
 EXECUTOR_TIMEOUT_MS = "10000"
-# Dual-write to Durable Object task state (PR1: off by default, enable after migration)
-TASK_DO_DUAL_WRITE = "false"
+# Dual-write to Durable Object task state (enabled after migration)
+TASK_DO_DUAL_WRITE = "true"
 
 # DURABLE OBJECTS
 # TaskObject (per-task hot state) is defined in src/task-object.ts and exported
@@ -52,11 +52,11 @@ TASK_DO_DUAL_WRITE = "false"
 # See docs/DEPLOYMENT.md "Durable Object Migrations" and
 # scripts/deploy/apply-do-migration.sh for the procedure.
 #
-# After migration is applied, uncomment the binding below:
-# [durable_objects]
-# bindings = [
-#   { name = "TASK_OBJECT", class_name = "TaskObject" }
-# ]
+# Migration applied - binding is now active:
+[durable_objects]
+bindings = [
+  { name = "TASK_OBJECT", class_name = "TaskObject" }
+]
 
 [[kv_namespaces]]
 binding = "MANIFEST_KV"
