@@ -1,18 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-# PostToolUse hook: Living docs reminder
-# Reminds user to run ops/check-docs.sh when skills or ops scripts are modified
+# PostToolUse Hook Dispatcher
+#
+# Thin wrapper that pipes stdin to the Node dispatcher.
+# The dispatcher handles JSON parsing, validation, and rule dispatch.
 
-INPUT=$(cat)
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-# Extract file_path from JSON input
-FILE_PATH=$(echo "$INPUT" | grep -o '"file_path":"[^"]*"' | sed 's/"file_path":"//;s/"//' | head -1)
-
-# Remind about living docs after writes to shared/skills/ or ops/
-if [[ "${FILE_PATH:-}" == */shared/skills/* ]] || [[ "${FILE_PATH:-}" == */ops/* ]]; then
-  echo ""
-  echo "📝 Living docs reminder: Run 'ops/check-docs.sh' to verify manifest.md, README.md, CLAUDE.md are in sync."
-fi
-
-exit 0
+# Pipe stdin to the Node dispatcher
+exec node "${SCRIPT_DIR}/dispatch.mjs" 2>/dev/null
