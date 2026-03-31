@@ -14,7 +14,7 @@ Agent compatibility review reported: missing root `npm install` in README, Contr
 
 - Cold contributors and agents can bootstrap from **README** with explicit **root** `npm ci` / `npm install` before Node build/test commands.
 - **Dashboard** instructions include `npm install` (or `npm ci`) in `dashboard/` before `npm run dev`.
-- **Contributing** lists the same **tiered** verification ladder as agent entrypoints (validate/build, test, cursor-rules when relevant), with **AGENTS.md** as the canonical full matrix and **Claude** paths (`adapters/claude/dev-test.sh`, etc.) as the plugin-specific tier.
+- **Contributing** lists the same **tiered** verification ladder as agent entrypoints (validate/build, test, `check:cursor-rules` when `.cursor/rules/**` changes, **`doctrine:check`** when `shared/agent-doctrine/**` changes), with **AGENTS.md** as the canonical full matrix and **Claude** paths (`adapters/claude/dev-test.sh`, etc.) as the plugin-specific tier.
 - **Generated entrypoints** behavior is documented so agents understand `npm test` contract failures on dirty tracked generator output.
 - **`run-tests.mjs`** supports optional file arguments for **narrow** test runs without forking runner internals.
 - **Root entrypoint contract** assertion messages name changed files and remediation (compile / doctrine emit, commit, or revert).
@@ -40,7 +40,7 @@ Agent compatibility review reported: missing root `npm install` in README, Contr
 
 Replace single-step “only dev-test.sh” with:
 
-1. Minimal repo loop: `npm run validate` or `npm run build`, `npm test`, and `npm run check:cursor-rules` when `.cursor/rules/**` changes.
+1. Minimal repo loop: `npm run validate` or `npm run build`, `npm test`, `npm run check:cursor-rules` when `.cursor/rules/**` changes, and `npm run doctrine:check` when `shared/agent-doctrine/**` changes.
 2. Link to **AGENTS.md** for the complete verification list.
 3. Claude/plugin packaging: `bash adapters/claude/dev-test.sh` and related commands when those surfaces change.
 
@@ -99,7 +99,8 @@ Regenerate entrypoints per repo workflow (`npm run doctrine:build` for doctrine,
 ### 7.3 CI
 
 - In [`.github/workflows/pr-mergeability-gate.yml`](../../../.github/workflows/pr-mergeability-gate.yml), after `npm ci`, add a step `npm run format:check`. This workflow has **no** `paths:` filter on `pull_request` (it already runs for non-draft PRs to `main`), so Prettier-only PRs still hit `format:check` once the step exists.
-- **Path-filter gap (other workflows):** [`.github/workflows/validate.yml`](../../../.github/workflows/validate.yml) and [`.github/workflows/build.yml`](../../../.github/workflows/build.yml) use explicit `paths:` lists. Extend them to include **`.prettierrc`**, **`.prettierignore`**, and **`.github/workflows/pr-mergeability-gate.yml`** (and any related workflow path) so edits that touch only formatter config or the gate file still trigger the appropriate workflows where desired—mirror existing glob style in those files.
+- **Path-filter gap (other workflows):** [`.github/workflows/validate.yml`](../../../.github/workflows/validate.yml) and [`.github/workflows/build.yml`](../../../.github/workflows/build.yml) use explicit `paths:` lists. Extend them to include **`.prettierrc`**, **`.prettierignore`**, and **`.github/workflows/pr-mergeability-gate.yml`** (and any related workflow path) so edits that touch only formatter config or the gate file still trigger **those workflows’ existing jobs** (validate/build/test as today)—**not** a duplicate Prettier check unless you deliberately add `format:check` there too.
+- **Enforcement split (intentional for v1):** **`format:check` runs only in the PR mergeability gate** unless the project later adds the same step to `validate.yml` / `build.yml`. Path extensions above avoid “silent skips” when Prettier config changes; they do not by themselves add formatting enforcement to those workflows.
 
 ## 8. Verification
 
