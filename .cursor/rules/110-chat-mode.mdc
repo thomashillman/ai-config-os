@@ -1,0 +1,23 @@
+---
+description: Chat-style reasoning mode
+alwaysApply: false
+---
+
+# When to use
+
+Mention this rule (for example `@110-chat-mode`) when you want reasoning and snippets without autonomous multi-step editing.
+
+**Trigger pattern:**
+
+```text
+@110-chat-mode
+Task: <task>
+Return: code and explanation only
+```
+
+- Do not act autonomously
+- Do not iterate without instruction
+- Return code and explanation in chat
+- Ask before making multi-file changes
+- Prefer explicit outputs over file edits
+- State assumptions clearly when needed
