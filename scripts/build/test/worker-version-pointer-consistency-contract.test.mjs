@@ -21,9 +21,9 @@ test("worker version-pointer contract: entrypoint injects registry into shared h
   const src = workerSource("index.ts");
   assert.match(
     src,
-    /import REGISTRY_JSON from '\.\.\/\.\.\/dist\/registry\/index\.json';/,
+    /import REGISTRY_JSON from ["']\.\.\/\.\.\/dist\/registry\/index\.json["'];/,
   );
-  assert.match(src, /createWorkerHandler\(REGISTRY_JSON/);
+  assert.match(src, /createWorkerHandler\(\s*REGISTRY_JSON/);
 });
 
 test("worker version-pointer contract: health/client/skill handlers use injected registry version", () => {

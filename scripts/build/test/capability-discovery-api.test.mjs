@@ -61,11 +61,11 @@ async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
 
   const patchedIndex = source
     .replace(
-      /import REGISTRY_JSON from '..\/..\/dist\/registry\/index.json';/,
+      /import REGISTRY_JSON from ["']\.\.\/\.\.\/dist\/registry\/index\.json["'];/,
       `const REGISTRY_JSON = ${JSON.stringify(registryFixture)} as const;`,
     )
     .replace(
-      /import CLAUDE_CODE_PLUGIN_JSON from '..\/..\/dist\/clients\/claude-code\/\.claude-plugin\/plugin.json';/,
+      /import CLAUDE_CODE_PLUGIN_JSON from ["']\.\.\/\.\.\/dist\/clients\/claude-code\/\.claude-plugin\/plugin\.json["'];/,
       `const CLAUDE_CODE_PLUGIN_JSON = ${JSON.stringify(pluginFixture)} as const;`,
     )
     .replace(
@@ -101,19 +101,19 @@ async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
       if (relative === "task-runtime.ts") {
         tsSource = tsSource
           .replace(
-            "import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/lib/task-store-worker.mjs';",
+            /import\s*\{\s*TaskConflictError,\s*TaskNotFoundError,\s*TaskStore,\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-store-worker\.mjs["'];/,
             `import { TaskStore, TaskConflictError, TaskNotFoundError } from '${TASK_STORE_FILE_URL}';`,
           )
           .replace(
-            "import { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';",
+            /import\s*\{\s*KvTaskStore\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-store-kv\.mjs["'];/,
             `import { KvTaskStore } from '${KV_TASK_STORE_FILE_URL}';`,
           )
           .replace(
-            "import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service-worker.mjs';",
+            /import\s*\{\s*createTaskControlPlaneService\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-control-plane-service-worker\.mjs["'];/,
             `import { createTaskControlPlaneService } from '${TASK_CONTROL_PLANE_SERVICE_FILE_URL}';`,
           )
           .replace(
-            "import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service-worker.mjs';",
+            /import\s*\{\s*createHandoffTokenService\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/handoff-token-service-worker\.mjs["'];/,
             `import { createHandoffTokenService } from '${HANDOFF_SERVICE_FILE_URL}';`,
           );
       }
