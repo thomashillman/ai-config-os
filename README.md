@@ -81,7 +81,7 @@ The **Momentum Engine** (Phase 10 milestone) is now complete — it adds the exp
 
 Task state is now persisted cross-session via **Cloudflare KV** (`runtime/lib/task-store-kv.mjs`). The session-start hook queries the Worker for active tasks and surfaces resume prompts automatically.
 
-### Operational validation snapshot (2026-03-24)
+### Operational validation snapshot (2026-03-31)
 
 Current operational verification status is aligned with `PLAN.md` acceptance criteria:
 - **Marketplace add + Claude Code install:** partially validated (local package build/extract complete; interactive Claude Code marketplace flow blocked in this runner due missing `claude` binary/UI).
@@ -667,10 +667,10 @@ Other checked-in workflow names you can run immediately:
 
 | Phase | Status | What it adds |
 |-------|--------|-------------|
-| Phase 1–7 | ✅ Complete | 22 skills, skill metadata, testing, composition, multi-device sync |
+| Phase 1–7 | ✅ Complete | Progressive skill library through metadata, testing, composition, and multi-device sync — full list in [`shared/manifest.md`](shared/manifest.md) |
 | Phase 8 | ✅ Complete | Runtime config layer, MCP server, React dashboard, desired-state sync |
 | Phase 9.1–9.7 | ✅ Complete | Build compiler, distribution pipeline, capability contracts, delivery contract (28 tests), portability contract (76 tests), manifest feature flags |
-| Phase 10 milestone | ✅ Complete | KV-backed task persistence, Codex emitter, Tasks tab + nested Task Detail view, Momentum Engine (narrator, observer, shelf, lexicon, reflector), 4 new skills |
+| Phase 10 milestone | ✅ Complete | KV-backed task persistence, Codex emitter, Tasks hub + nested Task Detail, Momentum Engine (narrator, observer, shelf, lexicon, reflector), portable task skills (`task-start`, `task-save`, `task-resume`), runtime/CI analytics skills — see [`shared/manifest.md`](shared/manifest.md) |
 
 > Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels are internal roadmap checkpoints.
 
