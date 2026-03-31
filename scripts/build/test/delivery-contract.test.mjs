@@ -15,7 +15,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -333,7 +333,7 @@ describe('delivery contract — distributed SKILL.md files', () => {
       try {
         const { frontmatter, body } = parseSkill(skillPath);
         const label = relative(CLIENTS_DIR, skillPath);
-        const labelPosix = label.split(join.sep).join('/');
+        const labelPosix = label.split(sep).join('/');
         const isCursorAgentSkills = labelPosix.startsWith('cursor/skills/');
         if (isCursorAgentSkills) {
           if (!frontmatter.name) failures.push(`  ${label}: missing 'name' field`);
