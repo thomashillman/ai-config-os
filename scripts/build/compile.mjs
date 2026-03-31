@@ -51,6 +51,7 @@ const TOOL_REGISTRY_PATH = join(ROOT, 'runtime', 'tool-registry.yaml');
 // Release version from VERSION file; provenance only in release mode
 const releaseVersion = validateReleaseVersion(readReleaseVersion(ROOT));
 const releaseMode = process.argv.includes('--release') || process.env.AI_CONFIG_RELEASE === '1';
+const emitLegacyCursorrules = process.env.AI_CONFIG_OS_EMIT_CURSORRULES === '1';
 // Note: provenance is calculated in main() to ensure current env is used
 
 async function loadValidators() {
@@ -324,7 +325,13 @@ async function main() {
     if (platformId === 'claude-code') {
       emitClaudeCode(skills, { distDir: platformDist, releaseVersion, provenance });
     } else if (platformId === 'cursor') {
-      emitCursor(skills, { distDir: platformDist, releaseVersion, provenance, compatMatrix });
+      emitCursor(skills, {
+        distDir: platformDist,
+        releaseVersion,
+        provenance,
+        compatMatrix,
+        emitLegacyCursorrules,
+      });
     } else if (platformId === 'codex') {
       emitCodex(skills, { distDir: platformDist, releaseVersion, provenance, compatMatrix });
     } else {

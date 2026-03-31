@@ -1358,7 +1358,7 @@ Multiple Codex-contributed branches merged to main:
 | Platform | Compiler | Worker | Runtime sync | Status |
 |----------|----------|--------|-------------|--------|
 | Claude Code | Full emitter | Serves latest bundle | Full desired-state sync | **Production** |
-| Cursor | Emits rules | Not served | No runtime adapter | **Partial** |
+| Cursor | Agent Skills tree (`skills/`) + `.emit-meta.json`; legacy `.cursorrules` opt-in | Not served | No runtime adapter | **Partial** |
 | Codex | Emits Codex package | Not served | `adapters/codex/materialise.sh` | **Partial** |
 | claude-web, claude-ios | Capability model loaded | Not served | No adapter | **Model only** |
 

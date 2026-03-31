@@ -21,7 +21,21 @@ function createSkill(rootDir, skillName, fallbackNotes = 'Use fallback prompts f
   const skillDir = join(rootDir, 'skills-src', skillName);
   mkdirSync(skillDir, { recursive: true });
   const skillPath = join(skillDir, 'SKILL.md');
-  writeFileSync(skillPath, '# Skill body\n\nDo the thing.\n');
+  const fm = `---
+skill: ${skillName}
+description: Test fixture for ${skillName}
+version: 1.0.0
+capabilities:
+  required:
+    - shell.exec
+  fallback_mode: prompt_only
+  fallback_notes: ${JSON.stringify(fallbackNotes)}
+---
+# Skill body
+
+Do the thing.
+`;
+  writeFileSync(skillPath, fm);
 
   return {
     skillName,
@@ -97,18 +111,19 @@ test('non-native/non-supported compatibility emits clear limitation messaging in
         compatMatrix,
       });
 
-      const cursorContent = readFileSync(join(cursorDir, '.cursorrules'), 'utf8');
+      const skillMdPath = join(cursorDir, 'skills', skill.skillName, 'SKILL.md');
+      const cursorContent = readFileSync(skillMdPath, 'utf8');
       assert.match(
         cursorContent,
-        /# ⚠ LIMITATION \((supported|unverified|excluded)\/(degraded|native|excluded)\):/,
-        `${fixture.name}: cursor should include limitation banner`
+        /LIMITATION \((supported|unverified|excluded)\/(degraded|native|excluded)\):/,
+        `${fixture.name}: cursor SKILL.md should include limitation banner`
       );
       assert.ok(
         cursorContent.includes(fixture.expectedReason),
         `${fixture.name}: cursor should include reason source text`
       );
       assert.ok(
-        cursorContent.includes('# Fallback: Use fallback prompts for limited clients.'),
+        cursorContent.includes('**Fallback:** Use fallback prompts for limited clients.'),
         `${fixture.name}: cursor should include fallback guidance`
       );
 
@@ -160,9 +175,9 @@ test('fully native/supported compatibility does not emit false warning banners',
       compatMatrix,
     });
 
-    const cursorContent = readFileSync(join(cursorDir, '.cursorrules'), 'utf8');
+    const cursorContent = readFileSync(join(cursorDir, 'skills', skill.skillName, 'SKILL.md'), 'utf8');
     assert.equal(
-      cursorContent.includes('# ⚠ LIMITATION ('),
+      cursorContent.includes('LIMITATION ('),
       false,
       'Native/supported cursor output must not include limitation banner'
     );

@@ -6,7 +6,7 @@
  * 2. All distributed SKILL.md files have required structure
  * 3. Plugin.json files for all platforms are valid and consistent
  * 4. Registry index is complete with all expected metadata
- * 5. Cursor .cursorrules is present (if skills are compatible)
+ * 5. Cursor Agent Skills package is present (if skills are compatible)
  * 6. Cross-file references are valid (no dangling links or missing skills)
  * 7. Version consistency across all artefacts
  * 8. Path integrity: all referenced skill paths exist on disk
@@ -15,7 +15,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -333,15 +333,22 @@ describe('delivery contract — distributed SKILL.md files', () => {
       try {
         const { frontmatter, body } = parseSkill(skillPath);
         const label = relative(CLIENTS_DIR, skillPath);
-        if (!frontmatter.skill)       failures.push(`  ${label}: missing 'skill' field`);
-        if (!frontmatter.description) failures.push(`  ${label}: missing 'description' field`);
-        if (!frontmatter.type)        failures.push(`  ${label}: missing 'type' field`);
-        if (!frontmatter.status)      failures.push(`  ${label}: missing 'status' field`);
-        if (!frontmatter.version)     failures.push(`  ${label}: missing 'version' field`);
-        if (!body || body.length === 0) failures.push(`  ${label}: body should not be empty`);
-        if (frontmatter.version && !/^\d+\.\d+\.\d+$/.test(frontmatter.version)) {
-          failures.push(`  ${label}: version '${frontmatter.version}' is not semver (expected X.Y.Z)`);
+        const labelPosix = label.split(sep).join('/');
+        const isCursorAgentSkills = labelPosix.startsWith('cursor/skills/');
+        if (isCursorAgentSkills) {
+          if (!frontmatter.name) failures.push(`  ${label}: missing 'name' field`);
+          if (!frontmatter.description) failures.push(`  ${label}: missing 'description' field`);
+        } else {
+          if (!frontmatter.skill) failures.push(`  ${label}: missing 'skill' field`);
+          if (!frontmatter.description) failures.push(`  ${label}: missing 'description' field`);
+          if (!frontmatter.type) failures.push(`  ${label}: missing 'type' field`);
+          if (!frontmatter.status) failures.push(`  ${label}: missing 'status' field`);
+          if (!frontmatter.version) failures.push(`  ${label}: missing 'version' field`);
+          if (frontmatter.version && !/^\d+\.\d+\.\d+$/.test(frontmatter.version)) {
+            failures.push(`  ${label}: version '${frontmatter.version}' is not semver (expected X.Y.Z)`);
+          }
         }
+        if (!body || body.length === 0) failures.push(`  ${label}: body should not be empty`);
       } catch (err) {
         failures.push(`  ${relative(CLIENTS_DIR, skillPath)}: parse error — ${err.message}`);
       }
@@ -631,44 +638,35 @@ describe('delivery contract — registry summary.json', () => {
 });
 
 // ───────────────────────────────────────────────────────────────────────────
-// Test Group 5: Cursor .cursorrules validity (if cursor platform exists)
+// Test Group 5: Cursor Agent Skills package (if cursor platform exists)
 // ───────────────────────────────────────────────────────────────────────────
 
-describe('delivery contract — cursor .cursorrules', () => {
-  test('cursor .cursorrules exists if cursor skills are compatible', () => {
-    const cursorPath = join(CLIENTS_DIR, 'cursor', '.cursorrules');
+describe('delivery contract — cursor agent skills', () => {
+  test('cursor skills tree and meta exist when cursor client is emitted', () => {
     const cursorDir = join(CLIENTS_DIR, 'cursor');
+    const skillsDir = join(cursorDir, 'skills');
+    const metaPath = join(cursorDir, '.emit-meta.json');
 
     if (existsSync(cursorDir)) {
-      // If cursor directory exists, .cursorrules should exist
-      assert.ok(
-        existsSync(cursorPath),
-        'cursor/.cursorrules should exist if cursor platform directory exists'
-      );
-
-      const content = readFileSync(cursorPath, 'utf8');
-      assert.ok(content.length > 0, 'cursor/.cursorrules should not be empty');
+      assert.ok(existsSync(skillsDir), 'cursor/skills should exist');
+      assert.ok(existsSync(metaPath), 'cursor/.emit-meta.json should exist');
+      const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
+      assert.ok(/^\d+\.\d+\.\d+$/.test(meta.version), 'meta.version semver');
+      assert.equal(meta.emit_kind, 'cursor-agent-skills');
+      assert.ok(meta.skills_count > 0, 'meta.skills_count positive');
     }
   });
 
-  test('cursor .cursorrules has required headers', () => {
-    const cursorPath = join(CLIENTS_DIR, 'cursor', '.cursorrules');
+  test('cursor emitted SKILL.md files are non-empty', () => {
+    const skillsDir = join(CLIENTS_DIR, 'cursor', 'skills');
+    if (!existsSync(skillsDir)) return;
 
-    if (existsSync(cursorPath)) {
-      const content = readFileSync(cursorPath, 'utf8');
-
-      // Should have version header
-      assert.ok(
-        /# Version: \d+\.\d+\.\d+/.test(content),
-        'cursor/.cursorrules should have version header (# Version: X.Y.Z)'
-      );
-
-      // Should have AI Config OS header
-      assert.ok(
-        content.includes('# AI Config OS'),
-        'cursor/.cursorrules should have AI Config OS header'
-      );
-    }
+    const first = readdirSync(skillsDir, { withFileTypes: true }).find(d => d.isDirectory());
+    assert.ok(first, 'cursor/skills should contain at least one skill directory');
+    const md = join(skillsDir, first.name, 'SKILL.md');
+    assert.ok(existsSync(md), 'SKILL.md should exist');
+    const content = readFileSync(md, 'utf8');
+    assert.ok(content.length > 10, 'SKILL.md should have body content');
   });
 });
 

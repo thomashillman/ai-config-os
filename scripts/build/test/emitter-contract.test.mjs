@@ -3,12 +3,12 @@
  *
  * Tests that emitted artefacts match the compatibility contract:
  * 1. Claude Code plugin.json skill list matches compatibility resolution
- * 2. Cursor .cursorrules exists with expected structure (header, version, skill count)
+ * 2. Cursor Agent Skills tree + .emit-meta.json (version, skill count)
  * 3. Registry output lists expected platforms and includes compatibility matrix
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -51,14 +51,17 @@ function getArtefacts() {
   const registryPath = join(REPO_ROOT, 'dist', 'registry', 'index.json');
   const registry = JSON.parse(readFileSync(registryPath, 'utf8'));
 
-  const cursorPath = join(REPO_ROOT, 'dist', 'clients', 'cursor', '.cursorrules');
-  const cursorContent = existsSync(cursorPath) ? readFileSync(cursorPath, 'utf8') : null;
+  const cursorMetaPath = join(REPO_ROOT, 'dist', 'clients', 'cursor', '.emit-meta.json');
+  const cursorSkillsDir = join(REPO_ROOT, 'dist', 'clients', 'cursor', 'skills');
+  const cursorMeta = existsSync(cursorMetaPath)
+    ? JSON.parse(readFileSync(cursorMetaPath, 'utf8'))
+    : null;
 
-  return { claudeCodePlugin, registry, cursorContent, cursorPath };
+  return { claudeCodePlugin, registry, cursorMeta, cursorMetaPath, cursorSkillsDir };
 }
 
 // Eagerly read artefacts once; individual tests destructure what they need.
-const { claudeCodePlugin, registry, cursorContent, cursorPath } = getArtefacts();
+const { claudeCodePlugin, registry, cursorMeta, cursorMetaPath, cursorSkillsDir } = getArtefacts();
 
 // ─── Test 1: Claude Code plugin.json contains expected skill list ───
 
@@ -83,58 +86,39 @@ test('claude-code plugin.json skill list matches registry', () => {
   );
 });
 
-// ─── Test 2: Cursor .cursorrules exists with expected structure ───
+// ─── Test 2: Cursor skills tree + emit meta ───
 
-test('cursor .cursorrules exists with correct header and structure', () => {
-  // cursorPath and cursorContent are module-level
-
-  assert.ok(existsSync(cursorPath), 'Cursor .cursorrules file must exist');
-  assert.ok(cursorContent && cursorContent.length > 0, 'Cursor content should not be empty');
-
-  // Check for expected header lines
-  assert.ok(
-    cursorContent.includes('# AI Config OS — Cursor Rules'),
-    'Cursor should have AI Config OS header'
+test('cursor skills directory and .emit-meta.json exist with expected shape', () => {
+  assert.ok(existsSync(cursorSkillsDir), 'Cursor skills/ directory must exist');
+  assert.ok(existsSync(cursorMetaPath), 'Cursor .emit-meta.json must exist');
+  assert.ok(cursorMeta, 'Cursor meta must parse');
+  assert.equal(cursorMeta.emit_kind, 'cursor-agent-skills');
+  assert.ok(/^\d+\.\d+\.\d+$/.test(cursorMeta.version), 'meta.version should be semver');
+  assert.ok(cursorMeta.skills_count > 0, 'skills_count should be positive');
+  const dirs = readdirSync(cursorSkillsDir, { withFileTypes: true }).filter(d => d.isDirectory());
+  assert.equal(
+    dirs.length,
+    cursorMeta.skills_count,
+    'skills_count should match directory count'
   );
-
-  // Check for version header (line format: "# Version: X.Y.Z")
-  assert.ok(
-    /# Version: \d+\.\d+\.\d+/.test(cursorContent),
-    'Cursor should have version header'
-  );
-
-  // Check for skill count header (line format: "# Skills: N")
-  assert.ok(
-    /# Skills: \d+/.test(cursorContent),
-    'Cursor should have skill count header'
-  );
-
-  // Extract skill count from header and verify it's a positive number
-  const skillCountMatch = cursorContent.match(/# Skills: (\d+)/);
-  assert.ok(skillCountMatch, 'Should find skill count in header');
-  const skillCount = parseInt(skillCountMatch[1], 10);
-  assert.ok(skillCount > 0, 'Cursor should emit at least one skill');
 });
 
-// ─── Test 3: Cursor .cursorrules contains at least one known skill ───
+// ─── Test 3: Cursor emitted SKILL.md references known skills ───
 
-test('cursor .cursorrules contains at least one skill section', () => {
-  // cursorContent and registry are module-level
-
-  // Should have skill section headers formatted as "# ─── <skill-name> ───"
-  const skillHeaderRegex = /# ─── .+ ───/;
-  assert.ok(
-    skillHeaderRegex.test(cursorContent),
-    'Cursor should have at least one skill section with proper header format'
-  );
-
-  // Verify that at least one registry skill is referenced in Cursor
+test('cursor skills contain at least one registry skill with valid frontmatter', () => {
   const registrySkillIds = registry.skills.map(s => s.id);
-  const hasAtLeastOneSkill = registrySkillIds.some(skillId => {
-    // Check for skill header format or skill name in content
-    return cursorContent.includes(skillId);
-  });
-  assert.ok(hasAtLeastOneSkill, 'Cursor should reference at least one known skill');
+  const dirs = readdirSync(cursorSkillsDir, { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => d.name);
+  const overlap = registrySkillIds.filter(id => dirs.includes(id));
+  assert.ok(overlap.length > 0, 'At least one registry skill should be emitted under cursor/skills');
+
+  const sampleId = overlap[0];
+  const mdPath = join(cursorSkillsDir, sampleId, 'SKILL.md');
+  assert.ok(existsSync(mdPath), `SKILL.md should exist for ${sampleId}`);
+  const md = readFileSync(mdPath, 'utf8');
+  assert.ok(md.startsWith('---\n'), 'Emitted SKILL.md should start with frontmatter');
+  assert.ok(md.includes(`name: ${sampleId}`), 'Frontmatter should include name matching folder');
 });
 
 // ─── Test 4: Registry output has platforms list ───

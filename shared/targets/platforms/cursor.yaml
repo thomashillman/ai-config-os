@@ -1,7 +1,7 @@
 id: cursor
 name: Cursor
 surface: desktop-ide
-default_package: rules
+default_package: skill
 
 capabilities:
   fs.read:
@@ -62,4 +62,8 @@ capabilities:
     confidence: high
     source: vendor-doc
 
-notes: IDE-integrated agent. Skills packaged as .cursorrules files. Static context injection, no dynamic invocation.
+notes: >
+  Cursor IDE Agent. Compiler emits an Agent Skills-compatible tree under
+  dist/clients/cursor/skills/ (install to ~/.cursor/skills or .cursor/skills).
+  Optional legacy monolithic .cursorrules when AI_CONFIG_OS_EMIT_CURSORRULES=1.
+  Skills are discovered by Cursor and applied in Agent (chat) per vendor docs.
