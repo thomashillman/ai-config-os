@@ -104,27 +104,26 @@ jobs:
       - name: Validate self-sufficiency (Cursor output)
         if: runner.os == 'Linux'
         run: |
-          if [ ! -f dist/clients/cursor/.cursorrules ]; then
-            echo "ERROR: dist/clients/cursor/.cursorrules not found (Cursor artefact MUST be emitted)"
+          if [ ! -d dist/clients/cursor/skills ]; then
+            echo "ERROR: dist/clients/cursor/skills not found (Cursor Agent Skills MUST be emitted)"
             exit 1
           fi
-          if [ ! -s dist/clients/cursor/.cursorrules ]; then
-            echo "ERROR: dist/clients/cursor/.cursorrules is empty"
+          if [ ! -f dist/clients/cursor/.emit-meta.json ]; then
+            echo "ERROR: dist/clients/cursor/.emit-meta.json not found"
             exit 1
           fi
-          # Verify expected header structure
-          if ! grep -q "# AI Config OS — Cursor Rules" dist/clients/cursor/.cursorrules; then
-            echo "ERROR: Missing AI Config OS header in Cursor output"
-            exit 1
-          fi
-          if ! grep -qE "# Version: [0-9]+\.[0-9]+\.[0-9]+" dist/clients/cursor/.cursorrules; then
-            echo "ERROR: Missing version header in Cursor output"
-            exit 1
-          fi
-          if ! grep -qE "# Skills: [0-9]+" dist/clients/cursor/.cursorrules; then
-            echo "ERROR: Missing skill count header in Cursor output"
-            exit 1
-          fi
+          python3 -c "
+          import json, os, sys
+          with open('dist/clients/cursor/.emit-meta.json') as f:
+            m = json.load(f)
+          assert m.get('emit_kind') == 'cursor-agent-skills', m
+          v = m.get('version', '')
+          parts = v.split('.')
+          assert len(parts) == 3 and all(p.isdigit() for p in parts), v
+          assert m.get('skills_count', 0) > 0
+          n = len([d for d in os.listdir('dist/clients/cursor/skills') if os.path.isdir(os.path.join('dist/clients/cursor/skills', d))])
+          assert n == m['skills_count'], (n, m['skills_count'])
+          "
           echo "Cursor output validation passed ✓"
 
       - name: Validate self-sufficiency (Registry)

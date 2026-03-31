@@ -75,5 +75,5 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 | Tool ID | Adapter | Description |
 |---|---|---|
 | `claude-code` | cli | Primary AI coding assistant |
-| `cursor` | file | AI code editor (.cursorrules injection) |
+| `cursor` | file | AI code editor (Agent Skills tree under dist/clients/cursor/skills; optional legacy .cursorrules) |
 | `codex` | shell | OpenAI coding assistant |

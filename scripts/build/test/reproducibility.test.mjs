@@ -63,7 +63,12 @@ function captureDistOutput() {
 
 // Helper: Compare two dist/ snapshots
 function compareDistSnapshots(snap1, snap2) {
-  const paths = ['registry/index.json', 'clients/claude-code/.claude-plugin/plugin.json', 'clients/cursor/.cursorrules'];
+  const paths = [
+    'registry/index.json',
+    'clients/claude-code/.claude-plugin/plugin.json',
+    'clients/cursor/.emit-meta.json',
+    'clients/cursor/skills/autoresearch/SKILL.md',
+  ];
   const hashes1 = {};
   const hashes2 = {};
 

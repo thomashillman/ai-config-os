@@ -14,8 +14,27 @@
  *     skills/<skill-name>/SKILL.md
  *     skills/<skill-name>/prompts/   (if present in source)
  */
-import { mkdirSync, writeFileSync, cpSync, readFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
+import { emitSkillTree } from './emit-skill-tree.mjs';
+
+/**
+ * Normalize SKILL.md for Claude Code: inject `name:` from `skill:` when missing.
+ *
+ * @param {string} raw
+ * @param {object} skill
+ * @returns {string}
+ */
+export function transformSkillMdForClaude(raw, skill) {
+  const normalized = raw.replace(/\r\n/g, '\n');
+  const skillName = skill.frontmatter?.skill || skill.skillName;
+
+  if (skill.frontmatter?.name) {
+    return normalized;
+  }
+
+  return normalized.replace(/^---\n/, `---\nname: ${skillName}\n`);
+}
 
 /**
  * @param {object[]} skills - Pre-filtered skills for claude-code (from compatibility resolution)
@@ -28,7 +47,9 @@ import { join, dirname } from 'path';
  * @param {string} [opts.provenance.sourceCommit]
  */
 export function emitClaudeCode(skills, { distDir, releaseVersion, provenance }) {
-  emitSkills(skills, distDir);
+  const distSkillsDir = join(distDir, 'skills');
+  emitSkillTree(skills, distSkillsDir, transformSkillMdForClaude);
+  console.log(`  [claude-code] emitted ${skills.length} skill(s) to ${distDir}/skills/`);
 
   const pluginJsonPath = join(distDir, '.claude-plugin', 'plugin.json');
   mkdirSync(dirname(pluginJsonPath), { recursive: true });
@@ -52,49 +73,4 @@ export function emitClaudeCode(skills, { distDir, releaseVersion, provenance }) 
 
   writeFileSync(pluginJsonPath, JSON.stringify(pluginJson, null, 2) + '\n');
   console.log(`  [claude-code] plugin.json → ${pluginJsonPath}`);
-}
-
-function emitSkills(skills, distDir) {
-  for (const skill of skills) {
-    const skillOutDir = join(distDir, 'skills', skill.skillName);
-    mkdirSync(skillOutDir, { recursive: true });
-
-    // Copy SKILL.md
-    const destSkillMd = join(skillOutDir, 'SKILL.md');
-    writeFileSync(destSkillMd, readSkillMd(skill));
-
-    // Copy prompts/ dir if present (use try/catch to avoid double stat)
-    const promptsSrc = join(skill.skillDir, 'prompts');
-    const promptsDest = join(skillOutDir, 'prompts');
-    try {
-      cpSync(promptsSrc, promptsDest, { recursive: true });
-    } catch (err) {
-      if (err.code !== 'ENOENT') throw err;
-    }
-  }
-  console.log(`  [claude-code] emitted ${skills.length} skill(s) to ${distDir}/skills/`);
-}
-
-/**
- * Read SKILL.md and inject `name:` field for Claude Code skill discovery.
- *
- * Claude Code uses `name:` in YAML frontmatter to register a skill as a
- * user-invocable slash command. Source skills use `skill:` as the canonical
- * identifier, so we inject `name:` from `skill:` during emission.
- *
- * We normalize to LF before injection so emitted files are byte-identical
- * across all build platforms (Windows git checkout may produce CRLF).
- */
-function readSkillMd(skill) {
-  // Normalize to LF for deterministic cross-platform emission
-  const raw = readFileSync(skill.filePath, 'utf8').replace(/\r\n/g, '\n');
-  const skillName = skill.frontmatter?.skill || skill.skillName;
-
-  // If the source already declares `name:`, emit as-is (normalized)
-  if (skill.frontmatter?.name) {
-    return raw;
-  }
-
-  // Insert `name:` after the opening frontmatter delimiter
-  return raw.replace(/^---\n/, `---\nname: ${skillName}\n`);
 }

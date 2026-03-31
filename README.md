@@ -364,16 +364,21 @@ If you need cloud-based agent access, use **Claude Code CLI in a remote environm
 **Best for:** Full-featured IDE development, multi-file edits.
 
 ```bash
-# 1. Build Cursor-specific skill packages
+# 1. Build the Cursor client package (Agent Skills tree)
 npm run build
 
-# 2. Cursor loads from dist/clients/cursor/
-# Add the path to Cursor settings:
-# - Open Cursor settings (Cmd/Ctrl + ,)
-# - Search "plugins"
-# - Add: /path/to/ai-config/dist/clients/cursor
+# 2. Install skills where Cursor discovers them (see Cursor docs: Agent Skills)
+#    Typical global install:
+mkdir -p ~/.cursor/skills
+cp -R /path/to/ai-config-os/dist/clients/cursor/skills/* ~/.cursor/skills/
 
-# 3. Restart Cursor
+#    Or copy into a project: <repo>/.cursor/skills/
+
+# 3. Restart Cursor — skills appear under Settings → Rules (Agent)
+
+# Optional: legacy monolithic .cursorrules (same machine, migration only)
+# AI_CONFIG_OS_EMIT_CURSORRULES=1 npm run build
+# then use the emitted dist/clients/cursor/.cursorrules if you still rely on it.
 
 # Troubleshooting:
 bash adapters/claude/dev-test.sh   # Validate dist/ structure

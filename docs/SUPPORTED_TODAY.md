@@ -11,7 +11,7 @@ This file is the primary documentation reference for **what is supported today**
 | Surface | Status today | Evidence |
 |---|---|---|
 | `claude-code` | Supported | `runtime/tool-registry.yaml` includes `claude-code` in runtime tool inventory. (`runtime/sync.sh` consumes this registry through adapters.) | `runtime/tool-registry.yaml`, `runtime/sync.sh`, `runtime/adapters/cli-adapter.sh` |
-| `cursor` | Supported | `runtime/tool-registry.yaml` includes `cursor`; registry path points to `.cursorrules` for local status checks. | `runtime/tool-registry.yaml`, `runtime/adapters/file-adapter.sh` |
+| `cursor` | Supported | `runtime/tool-registry.yaml` includes `cursor`; compiler emits `dist/clients/cursor/skills/` (Agent Skills layout) and `.emit-meta.json`. Registry/status paths may still reference `.cursorrules` for file-adapter checks until sync is extended. | `runtime/tool-registry.yaml`, `runtime/adapters/file-adapter.sh`, `scripts/build/lib/emit-cursor.mjs` |
 | `codex` | Supported | `runtime/tool-registry.yaml` includes `codex`; runtime checks presence only (no installer in sync path). | `runtime/tool-registry.yaml`, `runtime/adapters/cli-adapter.sh` |
 
 ### Compile-known surfaces (compatibility modeled in compiler)
