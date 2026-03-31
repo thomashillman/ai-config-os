@@ -381,6 +381,13 @@ cp -R /path/to/ai-config-os/dist/clients/cursor/skills/* ~/.cursor/skills/
 # then use the emitted dist/clients/cursor/.cursorrules if you still rely on it.
 
 # Troubleshooting:
+# - Skills are not loaded from dist/clients/cursor/ alone. Cursor discovers
+#   per-skill folders under ~/.cursor/skills or <project>/.cursor/skills (see
+#   https://cursor.com/docs/context/skills ). Copy dist/clients/cursor/skills/*
+#   into one of those trees; do not point Settings only at the package root.
+# - emitted skills may include a prompts/ directory (Claude parity). Cursor’s
+#   public layout lists scripts/, references/, assets/; extra dirs on disk are fine.
+# - Open-standard frontmatter such as allowed-tools is preserved in emitted SKILL.md.
 bash adapters/claude/dev-test.sh   # Validate dist/ structure
 ```
 

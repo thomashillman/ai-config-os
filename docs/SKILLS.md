@@ -41,6 +41,14 @@ Keep `SKILL.md` under 500 lines. Move detailed reference material to separate fi
 
 Because the standard is tool-agnostic, skills authored here can work across any compatible agent. The compiler emits platform-specific packages (`dist/clients/<platform>/`), but the source skills in `shared/skills/` follow the open standard and can be consumed directly by any Agent Skills-compatible tool.
 
+### Cursor IDE (compiler output)
+
+When installing from this repo’s Cursor package (`dist/clients/cursor/` after `npm run build`):
+
+- **Discovery path:** Cursor loads Agent Skills from `~/.cursor/skills` or `<project>/.cursor/skills`, not from the build output root by itself. Copy `dist/clients/cursor/skills/<skill-id>/` into one of those directories. See [Cursor Agent Skills](https://cursor.com/docs/context/skills).
+- **Preserved frontmatter:** Standard keys such as `allowed-tools`, `license`, `compatibility`, and `metadata` are not stripped by the Cursor emitter (only Claude-only and repo-internal keys in the build strip list are removed).
+- **`prompts/` directory:** The compiler may emit `prompts/` next to `SKILL.md` for parity with the Claude Code package. Cursor’s documented optional layout includes `scripts/`, `references/`, and `assets/`; additional sibling directories are harmless on disk.
+
 ## Claude Code Skill Features
 
 Claude Code extends the Agent Skills standard with additional capabilities. These features are specific to Claude Code but do not break compatibility with other tools (unknown frontmatter fields are ignored).

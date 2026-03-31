@@ -74,8 +74,9 @@ Introduce a **shared helper** `scripts/build/lib/emit-skill-tree.mjs` (new file)
 **Claude-only / non-portable frontmatter:**
 
 - Maintain a **single authoritative strip list** in code (e.g. `scripts/build/lib/cursor-strip-frontmatter.mjs`) derived from Claude-specific keys documented in [`docs/SKILLS.md`](../../../docs/SKILLS.md) (hooks, `context`, subagent-related keys, etc.). The list is **enumerated in the implementation plan** and covered by a test that fails if a known Claude-only key appears in emitted Cursor frontmatter.
-- **Strip** those keys from emitted Cursor YAML; pass through keys that match the open standard plus Cursor-documented optional fields (`license`, `compatibility`, `metadata`, `disable-model-invocation`).
-- If stripping removes materially important behavior, prepend a short **markdown NOTE** in the body and/or append **compatibility matrix** strings (existing `emit-cursor` already receives `compatMatrix`).
+- **Strip** those keys from emitted Cursor YAML; pass through keys that match the open standard plus Cursor-documented optional fields (`license`, `compatibility`, `metadata`, `disable-model-invocation`, **`allowed-tools`** and other open-standard optional fields not on the strip list).
+- If stripping removes materially important behavior, prepend a short **markdown NOTE** in the body and/or append **compatibility matrix** strings (existing `emit-cursor` already receives `compatMatrix`). When source has `user-invocable: false` (Claude-only), emit a body NOTE explaining that Cursor has no identical flag and pointing authors to `disable-model-invocation` if they want slash-only invocation — **do not** map `user-invocable: false` to `disable-model-invocation: true` automatically.
+- **`prompts/`:** May be emitted beside `SKILL.md` for Claude parity; Cursor’s public skill layout lists `scripts/`, `references/`, `assets/` only — extra directories are acceptable on disk.
 
 **Implementation note:** Use the repo’s existing **`yaml` package** (`package.json`) to parse/update the frontmatter block deterministically (split `---` fences, parse YAML, mutate, stringify).
 
