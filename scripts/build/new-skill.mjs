@@ -23,7 +23,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // ─── Resolve repo root ───
 
 function findRepoRoot() {
-  // If we're in a git repo, use git rev-parse
+  const cwd = process.cwd();
+  const templateFromCwd = join(cwd, 'shared', 'skills', '_template', 'SKILL.md');
+  // Prefer cwd when it already looks like this repo (temp fixtures, explicit cd, CI without git)
+  if (existsSync(templateFromCwd)) {
+    return cwd;
+  }
   const result = spawnSync('git', ['rev-parse', '--show-toplevel'], {
     encoding: 'utf8',
     stdio: ['pipe', 'pipe', 'pipe'],

@@ -99,6 +99,39 @@ function createScaffoldFixture() {
   return tmp;
 }
 
+// Historical names that must never appear under canonical shared/skills/ (leaked from old tests
+// when new-skill resolved the wrong repo root). Temp fixtures use z-fixture-* names below instead.
+const LEAKED_SCAFFOLD_NAMES_FORBIDDEN_IN_CANONICAL_REPO = [
+  'test-scaffold-skill',
+  'test-portable-skill',
+  'test-link-skill',
+  'test-dup-skill',
+  'test-version-skill',
+];
+
+const FIXTURE_SCAFFOLD_A = 'z-fixture-scaffold-probe';
+const FIXTURE_SCAFFOLD_B = 'z-fixture-portable-probe';
+const FIXTURE_SCAFFOLD_C = 'z-fixture-link-probe';
+const FIXTURE_SCAFFOLD_D = 'z-fixture-dup-probe';
+const FIXTURE_SCAFFOLD_E = 'z-fixture-version-probe';
+
+test('canonical repo must not list or host leaked scaffold test skills', () => {
+  const manifestPath = join(REPO_ROOT, 'shared', 'manifest.md');
+  const manifest = readFileSync(manifestPath, 'utf8');
+  for (const name of LEAKED_SCAFFOLD_NAMES_FORBIDDEN_IN_CANONICAL_REPO) {
+    const dir = join(REPO_ROOT, 'shared', 'skills', name);
+    assert.ok(
+      !existsSync(dir),
+      `${name} must not exist under shared/skills (scaffold tests use isolated temp repos only)`
+    );
+    const manifestRowMarker = `| \`${name}\` |`;
+    assert.ok(
+      !manifest.includes(manifestRowMarker),
+      `shared/manifest.md must not list ${name} (scaffold fixture names are not installable skills)`
+    );
+  }
+});
+
 // ─── 1. Portable: scaffold does not mutate release-version mirrors ───
 
 test('new-skill.mjs does not change VERSION, package.json, or plugin.json', () => {
@@ -112,7 +145,7 @@ test('new-skill.mjs does not change VERSION, package.json, or plugin.json', () =
     );
 
     // Run new-skill.mjs with --no-link for portable test
-    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-scaffold-skill', '--no-link'], {
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, FIXTURE_SCAFFOLD_A, '--no-link'], {
       cwd: fixture,
       encoding: 'utf8',
     });
@@ -120,18 +153,18 @@ test('new-skill.mjs does not change VERSION, package.json, or plugin.json', () =
     assert.equal(result.status, 0, `new-skill.mjs failed:\n${result.stdout}\n${result.stderr}`);
 
     // Verify scaffold artefacts were created
-    const skillDir = join(fixture, 'shared', 'skills', 'test-scaffold-skill');
+    const skillDir = join(fixture, 'shared', 'skills', FIXTURE_SCAFFOLD_A);
     assert.ok(existsSync(skillDir), 'Skill directory should exist');
     assert.ok(existsSync(join(skillDir, 'SKILL.md')), 'SKILL.md should exist');
 
     // Verify template expansion worked
     const skillContent = readFileSync(join(skillDir, 'SKILL.md'), 'utf8');
-    assert.ok(skillContent.includes('skill: test-scaffold-skill'), 'SKILL.md should have skill name in frontmatter');
+    assert.ok(skillContent.includes(`skill: ${FIXTURE_SCAFFOLD_A}`), 'SKILL.md should have skill name in frontmatter');
     assert.ok(!skillContent.includes('{{SKILL_NAME}}'), 'Template placeholders should be replaced');
 
     // Assert manifest was updated
     const manifest = readFileSync(join(fixture, 'shared', 'manifest.md'), 'utf8');
-    assert.ok(manifest.includes('test-scaffold-skill'), 'Manifest should contain skill name');
+    assert.ok(manifest.includes(FIXTURE_SCAFFOLD_A), 'Manifest should contain skill name');
 
     // Assert version files are unchanged
     const versionAfter = readFileSync(join(fixture, 'VERSION'), 'utf8');
@@ -154,7 +187,7 @@ test('new-skill.mjs --no-link creates skill without symlinks (portable)', () => 
   const fixture = createScaffoldFixture();
 
   try {
-    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-portable-skill', '--no-link'], {
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, FIXTURE_SCAFFOLD_B, '--no-link'], {
       cwd: fixture,
       encoding: 'utf8',
     });
@@ -162,12 +195,12 @@ test('new-skill.mjs --no-link creates skill without symlinks (portable)', () => 
     assert.equal(result.status, 0, `new-skill.mjs failed:\n${result.stdout}\n${result.stderr}`);
 
     // Verify skill was created in shared/skills/
-    const skillDir = join(fixture, 'shared', 'skills', 'test-portable-skill');
+    const skillDir = join(fixture, 'shared', 'skills', FIXTURE_SCAFFOLD_B);
     assert.ok(existsSync(skillDir), 'Skill directory should exist in shared/skills/');
     assert.ok(existsSync(join(skillDir, 'SKILL.md')), 'SKILL.md should exist');
 
     // Verify NO symlink was created in plugins/ (portable mode)
-    const symlinkPath = join(fixture, 'plugins', 'core-skills', 'skills', 'test-portable-skill');
+    const symlinkPath = join(fixture, 'plugins', 'core-skills', 'skills', FIXTURE_SCAFFOLD_B);
     assert.ok(!existsSync(symlinkPath), 'Symlink must NOT exist when --no-link is used');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
@@ -180,7 +213,7 @@ test('new-skill.mjs creates symlink on Unix (optional)', { skip: process.platfor
   const fixture = createScaffoldFixture();
 
   try {
-    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-link-skill'], {
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, FIXTURE_SCAFFOLD_C], {
       cwd: fixture,
       encoding: 'utf8',
     });
@@ -188,12 +221,12 @@ test('new-skill.mjs creates symlink on Unix (optional)', { skip: process.platfor
     assert.equal(result.status, 0, `new-skill.mjs failed:\n${result.stdout}\n${result.stderr}`);
 
     // Verify symlink was created
-    const symlinkPath = join(fixture, 'plugins', 'core-skills', 'skills', 'test-link-skill');
+    const symlinkPath = join(fixture, 'plugins', 'core-skills', 'skills', FIXTURE_SCAFFOLD_C);
     assert.ok(existsSync(symlinkPath), 'Symlink should exist');
     assert.ok(lstatSync(symlinkPath).isSymbolicLink(), 'Should be a symlink');
 
     // Verify symlink target resolves to the canonical source
-    const skillDir = join(fixture, 'shared', 'skills', 'test-link-skill');
+    const skillDir = join(fixture, 'shared', 'skills', FIXTURE_SCAFFOLD_C);
     assert.ok(existsSync(join(symlinkPath, 'SKILL.md')), 'Symlink should resolve to skill with SKILL.md');
   } finally {
     rmSync(fixture, { recursive: true, force: true });
@@ -226,14 +259,14 @@ test('new-skill.mjs rejects duplicate skill name', () => {
 
   try {
     // First scaffold succeeds
-    const result1 = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-dup-skill', '--no-link'], {
+    const result1 = spawnSync(process.execPath, [NEW_SKILL_MJS, FIXTURE_SCAFFOLD_D, '--no-link'], {
       cwd: fixture,
       encoding: 'utf8',
     });
     assert.equal(result1.status, 0, 'First scaffold should succeed');
 
     // Second scaffold with same name fails
-    const result2 = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-dup-skill', '--no-link'], {
+    const result2 = spawnSync(process.execPath, [NEW_SKILL_MJS, FIXTURE_SCAFFOLD_D, '--no-link'], {
       cwd: fixture,
       encoding: 'utf8',
     });
@@ -251,7 +284,7 @@ test('new-skill.mjs does not change VERSION (version invariance)', () => {
   try {
     const versionBefore = readFileSync(join(fixture, 'VERSION'), 'utf8').trim();
 
-    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, 'test-version-skill', '--no-link'], {
+    const result = spawnSync(process.execPath, [NEW_SKILL_MJS, FIXTURE_SCAFFOLD_E, '--no-link'], {
       cwd: fixture,
       encoding: 'utf8',
     });

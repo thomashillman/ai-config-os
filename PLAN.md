@@ -16,21 +16,21 @@ Core principle: **own the task lifecycle — routing, continuation, verification
 
 ---
 
-## Current state — Phase 10 milestone, updated 2026-03-24
+## Current state — Phase 10 milestone, updated 2026-03-31
 
 Support status source of truth: **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)** (current, evidence-backed state only). This plan tracks roadmap/milestones and ambition.
 
 Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels in this plan track delivery checkpoints.
 
-Last reconciled: 2026-03-24 (skills/tests/tabs/platform inventory claims verified against repository source-of-truth).
+Last reconciled: 2026-03-31 (skills/tests/tabs/platform inventory claims verified against repository source-of-truth).
 
 ### Completed infrastructure
 
 | Area | Version | Notes |
 |---|---|---|
 | Repo scaffold, .gitignore, marketplace.json | v0.1.0 | Phase 1 |
-| core-skills plugin.json | v0.5.4 | Inventory source is `shared/skills/*/SKILL.md`; 34 installable skills currently materialized (excluding `_template`) |
-| shared/manifest.md (skill index) | — | Mirrors current `shared/skills/*/SKILL.md` inventory (34 installable skills, excluding `_template`) plus workflows/components |
+| core-skills plugin.json | v0.6.4 | Inventory source is `shared/skills/*/SKILL.md`; 38 installable skills currently materialized (excluding `_template`; matches `./VERSION`) |
+| shared/manifest.md (skill index) | — | Mirrors current `shared/skills/*/SKILL.md` inventory (38 installable skills, excluding `_template`) plus workflows/components |
 | shared/principles.md | — | Opinionated AI behaviour defaults |
 | adapters/claude/dev-test.sh | — | Non-interactive validation |
 | CLAUDE.md (dev context) | — | Extended with self-improvement, portability contract, delivery contract, CI pitfalls |
@@ -54,8 +54,11 @@ Canonical declaration format (validated in CI): `Installable skill count: <numbe
 | failed-build-analysis, ci-conditional-audit, lockfile-audit | prompt/agent | Phase 10 (CI/build reliability) |
 | post-merge-retrospective | prompt/agent | Phase 10 (Post-merge process improvement) |
 | skill-effectiveness, autoresearch | prompt/agent | Phase 10 (Skill Analytics) |
+| claude-md-creator | prompt/agent | Phase 10+ (CLAUDE.md authoring) |
+| fetch-abstraction-drift-detector, pr-diff-targeted-reader | prompt/agent | Phase 10+ (contract/drift + PR reading) |
+| rtl-query-patterns | prompt | Phase 10+ (RTL query reference) |
 
-All 34 installable skills in `shared/skills/*/SKILL.md` (excluding `_template`) have: YAML frontmatter, structured capability contracts, and tests defined in frontmatter.
+All 38 installable skills in `shared/skills/*/SKILL.md` (excluding `_template`) have: YAML frontmatter, structured capability contracts, and tests defined in frontmatter.
 skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 
 ### Workflows (5 total)
@@ -103,7 +106,7 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 | Modularity refactoring | 46 (4 files) | task-shared, kv-persistence, load-runtime-data, worker-task-validators |
 | Dashboard formatters | 17 (2 files) | taskFormatters, dateFormatters |
 | Worker retrospectives | 20 (1 file) | deriveRetrospectiveId, writeRetrospectiveArtifact, listRetrospectives, getRetrospectiveArtifact, aggregateRetrospectives |
-| **Total test files** | **134** | `scripts/build/test/` + `dashboard/src/__tests__/` + `worker/src/` |
+| **Total test files** | **163** | Counted: `scripts/build/test/`, `scripts/deploy/test/`, `dashboard/src/__tests__/`, `worker/src/`, `.claude/hooks/lib/__tests__/` (`*.test.mjs`/`.js`/`.ts`); run `npm test` / CI for authoritative coverage |
 
 ### Runtime layer (v0.5.0+)
 
@@ -147,25 +150,28 @@ skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 
 ---
 
-## Immediate next actions (before any new work proceeds)
+## What is next (as of 2026-03-31)
 
-### Research-grounded implementation tracks
+### Open operational / acceptance gaps
 
-The repository research in `specs/` clarifies where the next implementation effort should go. The current highest-leverage tracks are:
+See **Acceptance criteria** below for checkboxes. Highest-priority gaps that are still explicitly open:
 
-1. Finish the `review_repository` journey end-to-end on top of the new task-control-plane.
-2. Reduce control-plane duplication between script-driven runtime flows and contract-driven runtime flows.
-3. Break the Worker surface into smaller, testable modules before additional endpoint growth.
-4. Keep the build pipeline deterministic while expanding emitted runtime metadata for task-centric execution.
+- Interactive **Claude Code marketplace** add + `core-skills` install (blocked where no `claude` binary / UI).
+- **Cross-device B** full re-materialization after sync (fresh clone needs dependency bootstrap before `compile` succeeds).
+- **Codex** workflow: confirm reading `shared/manifest.md` and referencing skill files in a real Codex session (not yet tested).
 
-**Status (2026-03-23):** Internal modularity/cohesion refactoring complete — 5 SRP/DRY/DIP violations resolved (see runtime layer table above). Remaining highest-leverage track: staging the weak-start → strong-resume `review_repository` journey (Milestone 1).
+### Deferred and backlog (not blocked on MVA)
 
-These tracks are grounded in:
+Items called out in **Deferred work** (Codex hook parity with Claude skill-usage analytics, Windows support, optional registry/test-harness work, etc.) remain valid next investments. MVA and Phase 9.7 are complete; pick these by product priority, not by “waiting on MVA.”
+
+### Research references (still useful for sequencing)
 
 - `specs/repository-research.md`
 - `specs/runtime-lib-control-plane-research.md`
 - `specs/worker-endpoint-inventory.md`
 - `specs/build-pipeline-research.md`
+
+**Status (2026-03-23):** Internal modularity/cohesion refactoring complete — 5 SRP/DRY/DIP violations resolved (see runtime layer table). **MVA `review_repository` journey:** proven end-to-end (see acceptance checklist). Further work is polish, parity (e.g. Codex hooks), and operational validation—not finishing the core portable task loop.
 
 ### 1. Historical completion record — Phase 9.7 manifest-controlled runtime feature flags
 
@@ -202,9 +208,11 @@ Additional post-merge verification completed: alternative resolver permutation/s
 
 ---
 
-## MVA: Task Control Plane — Portable Repository Review (NEXT MAJOR)
+## MVA: Task Control Plane — Portable Repository Review (shipped)
 
-**Goal:** Prove one portable work journey end-to-end. Start `review_repository` in a weak environment, continue in a stronger one, preserve findings with provenance, finish without re-explaining.
+**Status:** Delivered. Weak-start → strong-resume `review_repository` flow, Worker task APIs, dashboard/API surfaces, and adversarial coverage landed (see sprint updates and acceptance criteria below).
+
+**Goal (original):** Prove one portable work journey end-to-end. Start `review_repository` in a weak environment, continue in a stronger one, preserve findings with provenance, finish without re-explaining.
 
 **Version:** v0.7.0
 **Autospec:** [github.com/thomashillman/autospec](https://github.com/thomashillman/autospec) — T001 completed (`docs/autospec/review-repository/{spec,plan,tasks,acceptance}.yaml`)
@@ -280,36 +288,15 @@ Additional post-merge verification completed: alternative resolver permutation/s
 
 **Week 3 follow-up hardening (2026-03-14):** Readiness projection is now centralized in `runtime/lib/task-store.mjs` (`getReadinessView`) so Worker and runtime callers share one canonical shape and avoid drift between adapter surfaces.
 
-### Implementation plan expansion from repository research
+### Implementation plan expansion from repository research (historical)
 
-The research pass changes the planning priority inside the MVA. The next work should be organized into four concrete tracks.
+Four tracks sequenced MVA and follow-on hardening. **Track A is complete** (T015–T020 shipped; see Week 3 completion update above). Tracks B–D include **completion updates (2026-03-14)** in their subsections. This section is retained as an audit trail, not as active “next work.”
 
-#### Track A - Finish the task-control-plane journey
+#### Track A - Task-control-plane journey (complete)
 
-Focus:
+**Status:** Done. Weak-start and strong-resume flows, dashboard/API readiness, telemetry, adversarial coverage, and staging gates were implemented (`runtime/lib/review-repository-journey.mjs`, Worker readiness, `docs/review-repository-week3-staging-checklist.md`).
 
-- complete T015-T020 on top of the now-established `runtime/lib/` control-plane modules
-
-Why now:
-
-- `runtime/lib/` is already the architectural center of gravity
-- T013 and T014 established the minimum viable task and continuation substrate
-- the product claim still depends on a real weak-start -> strong-resume journey
-
-Implementation steps:
-
-- T015: implement weak-environment task creation flows that produce canonical PortableTaskObjects using route-specific required inputs
-- T016: implement strong-environment resume and route-upgrade flow that re-evaluates capability profiles, upgrades to `local_repo`, and transitions findings provenance correctly
-- T017: surface task readiness, route history, progress events, findings provenance, and stronger-route availability in dashboard and API payloads
-- T018: emit telemetry and audit events from task transitions, route upgrades, and continuation-package creation
-- T019: expand adversarial coverage around capability spoofing, replayed continuation tokens, input mismatches, and task version conflicts
-- T020: document release gates and stage the full journey in a deployment-ready configuration
-
-Definition of done:
-
-- a repository review can begin in a degraded route and resume in `local_repo` without task restatement
-- findings survive route upgrade with explicit provenance transitions
-- dashboard and API expose enough task state to explain why the runtime is or is not ready
+Original scope (archival): T015–T020 on `runtime/lib/` — weak-environment task creation, strong-environment resume and route upgrade to `local_repo`, findings provenance, dashboard and API surfaces, telemetry/audit events, adversarial tests, release/staging documentation.
 
 #### Track B - Unify runtime execution paths
 
@@ -1156,8 +1143,8 @@ Additional implementation (2026-03-17):
 | Sync locking and conflict sentinels | Single-user repo; `git rebase --autostash` handles it |
 | Plugin splitting | One plugin is fine until context pressure is observable |
 | Windows support | Not needed now; watcher/service changes are isolatable |
-| Token-efficient registry (dist/registry/summary.json) | Nice-to-have; defer until Phase 9.7 and MVA complete |
-| Test harness for schema + policy + compiler integration | Defer until MVA stabilizes |
+| Token-efficient registry (dist/registry/summary.json) | Nice-to-have; Phase 9.7 and MVA are complete — remains backlog by priority |
+| Test harness for schema + policy + compiler integration | Nice-to-have; MVA shipped — remains backlog by priority |
 | Codex hook parallel implementation | `.claude/settings.json` hooks (skill-usage, tool-inefficiency logging) are Claude Code-only. `codex-desktop` declares hook support (vendor-verified) but no equivalent hook wiring exists yet; `codex` CLI excludes hooks in v0.5.2. Implement once Codex Desktop hook surface is documented: wire `log-skill-usage.sh` and `log-tool-inefficiencies.sh` equivalents via Codex's lifecycle mechanism (likely `AGENTS.md` instructions or a Codex-native hook config). Acceptance: skill-usage analytics parity between Claude Code and Codex Desktop surfaces. |
 
 ---
@@ -1179,7 +1166,7 @@ Evidence artifacts captured from command runs (UTC ISO date):
   - [ ] Real Claude Code marketplace add/install flow blocked in this run (no `claude` binary and no interactive Claude Code UI in runner).
   - Blocker owner: Platform/Ops (provide interactive Claude Code-capable device + auth token).
 - [x] Installed skill exposure verified on at least two real environments
-  - [x] Environment A (`claude-code` package): `extract` materialized 34 skills into local cache.
+  - [x] Environment A (`claude-code` package): `extract` materialized 38 skills into local cache (matches installable `shared/skills/*/SKILL.md` count at compile time).
   - [x] Environment B (`codex` package): `extract` + `install` wrote `~/.codex/AGENTS.md`; skill names verified in installed file (`list-available-skills`, `task-start`).
 - [ ] Cross-device sync: push from device A, restart on device B, verify sync
   - [x] Push/pull sync verified using distinct device A/B clones against a bare remote; marker committed on A appeared on B.
@@ -1193,7 +1180,7 @@ Evidence artifacts captured from command runs (UTC ISO date):
 - [x] No secrets in tracked files
 - [x] Delivery contract: 28 tests protecting dist/ artifacts
 - [x] Portability contract: 76 tests protecting materialisation
-- [x] All 26 skills have structured capability contracts
+- [x] All 38 installable skills have structured capability contracts
 - [x] Compiler resolves compatibility from platform capabilities (not hardcoded)
 - [x] Phase 9.7 runtime gating wired and tested (Steps 2-4)
 - [x] T004: outcome resolver moved from hardcoded mappings to loader-backed definitions with tests
