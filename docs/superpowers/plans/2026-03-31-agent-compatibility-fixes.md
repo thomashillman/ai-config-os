@@ -84,7 +84,7 @@
 
 - [ ] **Step 1:** Define `REPO_ROOT = resolve(__dirname, '..', '..', '..')`.
 
-- [ ] **Step 2:** Parse `process.argv.slice(2)`. If non-empty, treat each argument as a path: `resolve(REPO_ROOT, arg)` for non-absolute args; verify file exists; require basename ends with `.test.mjs`; exit 1 with clear stderr if any path is invalid or escapes outside `REPO_ROOT` (use `resolved.startsWith(REPO_ROOT)` after `realpathSync` or equivalent).
+- [ ] **Step 2:** Parse `process.argv.slice(2)`. If non-empty, treat each argument as a path: `resolve(REPO_ROOT, arg)` for non-absolute args; `realpathSync` on resolved path and on `REPO_ROOT`; **contain** the file inside the repo using `relative(REPO_ROOTReal, resolvedReal)` and reject if the result is empty, starts with `..`, or `isAbsolute(relative)` — do **not** use a naive `startsWith(REPO_ROOT)` string check (prefix attacks: e.g. `…/ai-config-os-evil`). Require basename ends with `.test.mjs`; exit 1 with clear stderr if any path is invalid.
 
 - [ ] **Step 3:** If argv mode: build `allTestFiles` from argv only (sorted); skip directory discovery. If argv empty: keep current discovery from `build/test` + `deploy/test`.
 
@@ -158,11 +158,13 @@
 
 - [ ] **Step 2:** `npm test` — exit 0 on clean tree (run `npm run build` first if needed).
 
-- [ ] **Step 3:** `npm run check:cursor-rules` if any `.mdc` touched.
+- [ ] **Step 3:** `npm run check:cursor-rules` if any `.cursor/rules/**` touched.
 
-- [ ] **Step 4:** Optional: `/check-agent-compatibility` or local agent-compatibility CLI.
+- [ ] **Step 4:** `npm run doctrine:check` if any `shared/agent-doctrine/**` or regenerated `AGENTS.md` / `CLAUDE.md` workflow was part of the change set.
 
-- [ ] **Step 5:** Final commit only if fixes needed; else done.
+- [ ] **Step 5:** Optional: `/check-agent-compatibility` or local agent-compatibility CLI.
+
+- [ ] **Step 6:** Final commit only if fixes needed; else done.
 
 ---
 
