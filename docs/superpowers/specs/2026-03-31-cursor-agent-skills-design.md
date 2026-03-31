@@ -13,7 +13,7 @@ The compiler’s Cursor client today emits a **single concatenated** `dist/clien
 - Emit a **self-contained** `dist/clients/cursor/` tree that matches Cursor’s Agent Skills **folder layout** (`skills/<skillName>/SKILL.md` + optional sibling dirs).
 - **Reuse** skill-folder copying logic with the Claude Code emitter where practical (**DRY**), with a **Cursor-specific** transform on `SKILL.md` (frontmatter normalization and Claude-only field handling).
 - Define **install semantics**: default target `~/.cursor/skills`; optional project `.cursor/skills`; **replace entire skill directory** on install for a given skill name (versioned bundle wins).
-- Optionally retain **legacy** monolithic `.cursorrules` generation behind an **explicit compiler flag or env** (default off or on for one release — implementation plan decides) for backward compatibility.
+- **Legacy `.cursorrules` (product decision, locked):** Primary output is always the **skills tree**. Monolithic `.cursorrules` is **opt-in only** via compile-time flag or env (e.g. `AI_CONFIG_OS_EMIT_CURSORRULES=1`) so existing README-based workflows can migrate without breaking; default is **do not emit** `.cursorrules`.
 
 ## 3. Non-goals (this spec)
 
@@ -54,7 +54,7 @@ dist/clients/cursor/
 
 ## 6. Shared module (approach B)
 
-Introduce a **shared helper** under `scripts/build/lib/` (name TBD, e.g. `emit-skill-tree.mjs`) that:
+Introduce a **shared helper** `scripts/build/lib/emit-skill-tree.mjs` (new file) that:
 
 - Accepts a skill record (same shape as compiler uses today), destination directory for **one** skill folder, and a **`transformSkillMd(raw: string, skill): string`** callback.
 - Creates `skills/<skillName>/`, writes transformed `SKILL.md`, then **best-effort `cpSync`** for optional dirs: `prompts`, `scripts`, `references`, `assets` from `skill.skillDir` (ignore `ENOENT`).
@@ -68,15 +68,16 @@ Introduce a **shared helper** under `scripts/build/lib/` (name TBD, e.g. `emit-s
 
 **Required normalization (Cursor / open standard):**
 
-- Ensure YAML frontmatter includes **`name:`** matching the directory name (reuse logic analogous to [`readSkillMd`](../../../scripts/build/lib/emit-claude-code.mjs) in claude emitter: inject after `---` if missing; if `name:` already present, keep).
-- Ensure **`description:`** exists and is non-empty for Cursor discovery; if only a `skill:` line exists, map description from existing `description:` or fail validation at compile time (compiler should already validate skills — align with existing skill linter).
+- **`name:`** — Must equal the skill directory name (`skill.skillName`). If the source frontmatter already has `name:`, emit it only if it matches; otherwise normalize to the directory name (implementation may warn or fail per existing linter rules).
+- **`description:`** — Source skills are already validated by the skill linter to carry a usable description for discovery. **Rule:** If after parsing, `description` is missing or empty, **fail the compile** for the Cursor platform (do not invent text from the body in v1). The implementation plan adds the exact assertion alongside existing compile validation.
 
-**Claude-only / non-portable frontmatter** (examples: `hooks`, `context: fork`-related keys, Claude Code–specific keys documented in [`docs/SKILLS.md`](../../../docs/SKILLS.md)):
+**Claude-only / non-portable frontmatter:**
 
-- **Strip** from emitted Cursor frontmatter so Cursor does not see invalid or misleading YAML.
-- If stripping removes materially important behavior, prepend a short **markdown NOTE** block at the top of the body (after frontmatter) summarizing the limitation, and/or reuse **compatibility matrix** strings already passed into `emit-cursor` today.
+- Maintain a **single authoritative strip list** in code (e.g. `scripts/build/lib/cursor-strip-frontmatter.mjs`) derived from Claude-specific keys documented in [`docs/SKILLS.md`](../../../docs/SKILLS.md) (hooks, `context`, subagent-related keys, etc.). The list is **enumerated in the implementation plan** and covered by a test that fails if a known Claude-only key appears in emitted Cursor frontmatter.
+- **Strip** those keys from emitted Cursor YAML; pass through keys that match the open standard plus Cursor-documented optional fields (`license`, `compatibility`, `metadata`, `disable-model-invocation`).
+- If stripping removes materially important behavior, prepend a short **markdown NOTE** in the body and/or append **compatibility matrix** strings (existing `emit-cursor` already receives `compatMatrix`).
 
-**Implementation note:** Prefer a **small, tested** frontmatter parser (or reuse an existing dependency in `scripts/build` if present) rather than fragile regex for multi-line YAML.
+**Implementation note:** Use the repo’s existing **`yaml` package** (`package.json`) to parse/update the frontmatter block deterministically (split `---` fences, parse YAML, mutate, stringify).
 
 ## 8. Install, sync, and bootstrap (behavioral contract)
 
@@ -93,7 +94,7 @@ Introduce a **shared helper** under `scripts/build/lib/` (name TBD, e.g. `emit-s
 
 - **Emitter contract tests:** After compile, assert for each compatible skill: `dist/clients/cursor/skills/<id>/SKILL.md` exists; frontmatter contains `name` and `description`; stripped keys absent (golden test on one skill with Claude-only keys if available).
 - **Regression:** If legacy `.cursorrules` remains optional, assert presence/absence per flag.
-- **Manual:** Skills appear under **Cursor Settings → Rules** (Agent Decides), per [Cursor docs](https://cursor.com/docs/context/skills).
+- **Manual:** After copying `dist/clients/cursor/skills/*` to `~/.cursor/skills`, confirm skills are listed for Agent (Cursor documents discovery under [Agent Skills](https://cursor.com/docs/context/skills); Settings UI labels such as “Agent Decides” may change between Cursor versions—verify against current product copy).
 
 ## 10. Documentation updates (when implemented)
 
