@@ -2,6 +2,7 @@
   "name": "ai-config-os",
   "version": "0.6.4",
   "description": "Personal AI behaviour layer — skills, hooks, and conventions for Claude Code and other AI agents",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "build": "node scripts/build/compile.mjs",
