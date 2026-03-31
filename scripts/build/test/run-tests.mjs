@@ -6,17 +6,67 @@
  *
  * Performance: pure logic tests (no dist/ interaction) run in parallel;
  * tests that compile or read from dist/ run sequentially to avoid race conditions.
+ *
+ * Optional CLI args: pass repo-root-relative or absolute paths to specific *.test.mjs files
+ * (also deploy tests under scripts/deploy/test/). Does not run pretest/compile — ensure
+ * dist/ is fresh when needed (`npm run build` or full `npm test`).
  */
-import { readdirSync } from 'fs';
+import { readdirSync, existsSync, realpathSync } from 'fs';
 import { readFile } from 'fs/promises';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'path';
 import { createRequire } from 'module';
 import { resolveTestConcurrency } from './lib/test-runner-config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = resolve(__dirname, '..', '..', '..');
 const require = createRequire(import.meta.url);
+
+/**
+ * Resolve explicit test paths; each must exist, end with .test.mjs, and lie inside REPO_ROOT
+ * (use path.relative containment — not a string prefix check).
+ */
+function resolveContainedTestPaths(argvArgs) {
+  let repoRootReal;
+  try {
+    repoRootReal = realpathSync(REPO_ROOT);
+  } catch {
+    console.error('Could not resolve repository root');
+    process.exit(1);
+  }
+  const files = [];
+  for (const arg of argvArgs) {
+    const trimmed = arg.trim();
+    if (!trimmed) {
+      console.error('Empty test path argument');
+      process.exit(1);
+    }
+    const candidate = isAbsolute(trimmed) ? resolve(trimmed) : resolve(REPO_ROOT, trimmed);
+    if (!existsSync(candidate)) {
+      console.error(`Test file not found: ${trimmed}`);
+      process.exit(1);
+    }
+    let real;
+    try {
+      real = realpathSync(candidate);
+    } catch {
+      console.error(`Could not resolve path: ${trimmed}`);
+      process.exit(1);
+    }
+    const rel = relative(repoRootReal, real);
+    if (!rel || rel.startsWith('..') || isAbsolute(rel)) {
+      console.error(`Path must be inside repository: ${trimmed}`);
+      process.exit(1);
+    }
+    if (!basename(real).endsWith('.test.mjs')) {
+      console.error(`Not a *.test.mjs file: ${trimmed}`);
+      process.exit(1);
+    }
+    files.push(real);
+  }
+  return [...new Set(files)].sort();
+}
 
 function assertTestDependencies() {
   const requiredPackages = ['ajv', 'yaml'];
@@ -39,28 +89,34 @@ function assertTestDependencies() {
 
 assertTestDependencies();
 
-// Find all .test.mjs files in build/test/ and scripts/deploy/test/
+const argvArgs = process.argv.slice(2).filter(a => a.trim());
 const buildTestDir = __dirname;
-const deployTestDir = `${dirname(__dirname)}/../deploy/test`;
+const deployTestDir = join(dirname(dirname(__dirname)), 'deploy', 'test');
 
-const buildFiles = readdirSync(buildTestDir)
-  .filter(f => f.endsWith('.test.mjs'))
-  .map(f => `${buildTestDir}/${f}`);
-
-let deployFiles = [];
-try {
-  deployFiles = readdirSync(deployTestDir)
+let allTestFiles;
+if (argvArgs.length > 0) {
+  allTestFiles = resolveContainedTestPaths(argvArgs);
+  console.log(`\n[run-tests] Explicit: ${allTestFiles.length} file(s)`);
+} else {
+  const buildFiles = readdirSync(buildTestDir)
     .filter(f => f.endsWith('.test.mjs'))
-    .map(f => `${deployTestDir}/${f}`);
-} catch {
-  // deploy/test directory may not exist, that's ok
-}
+    .map(f => join(buildTestDir, f));
 
-const allTestFiles = [...buildFiles, ...deployFiles].sort();
+  let deployFiles = [];
+  try {
+    deployFiles = readdirSync(deployTestDir)
+      .filter(f => f.endsWith('.test.mjs'))
+      .map(f => join(deployTestDir, f));
+  } catch {
+    // deploy/test directory may not exist, that's ok
+  }
 
-if (allTestFiles.length === 0) {
-  console.error('No test files found');
-  process.exit(1);
+  allTestFiles = [...buildFiles, ...deployFiles].sort();
+
+  if (allTestFiles.length === 0) {
+    console.error('No test files found');
+    process.exit(1);
+  }
 }
 
 // Narrow pattern: tests that INVOKE THE COMPILER (write to dist/).
