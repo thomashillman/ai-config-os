@@ -367,6 +367,9 @@ If you need cloud-based agent access, use **Claude Code CLI in a remote environm
 # 1. Build the Cursor client package (Agent Skills tree)
 npm run build
 
+# Validate checked-in Cursor project rules (.cursor/rules/*.mdc), if present
+npm run check:cursor-rules
+
 # 2. Install skills where Cursor discovers them (see Cursor docs: Agent Skills)
 #    Typical global install:
 mkdir -p ~/.cursor/skills

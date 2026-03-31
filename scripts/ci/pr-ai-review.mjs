@@ -108,7 +108,11 @@ export function filterDiffForReview(diffText) {
   };
 }
 
-function getMergePrDiff() {
+/**
+ * Fallback when base/head SHAs are not available locally (e.g. shallow checkout).
+ * GitHub Actions `pull_request` checkout is a merge commit: parents are base then head.
+ */
+function getMergeParentDiff() {
   const verify = spawnSync('git', ['rev-parse', '-q', '--verify', 'HEAD^2'], {
     encoding: 'utf8',
   });
@@ -123,6 +127,48 @@ function getMergePrDiff() {
     throw d.error;
   }
   return d.stdout || '';
+}
+
+/**
+ * Spec: git diff pull_request.base.sha..pull_request.head.sha after ensuring objects exist.
+ */
+function getPrDiffFromShas(baseSha, headSha) {
+  if (!baseSha || !headSha) {
+    return null;
+  }
+
+  const runDiff = () =>
+    spawnSync('git', ['diff', baseSha, headSha], {
+      encoding: 'utf8',
+      maxBuffer: 50 * 1024 * 1024,
+    });
+
+  let r = runDiff();
+  if (r.status !== 0) {
+    const fr = spawnSync(
+      'git',
+      ['fetch', '--no-tags', '--depth=2048', 'origin', baseSha, headSha],
+      { encoding: 'utf8' },
+    );
+    if (fr.status !== 0) {
+      console.log(
+        `pr-ai-review: git fetch origin shas failed (${fr.status}); trying merge-parent diff`,
+      );
+      return getMergeParentDiff();
+    }
+    r = runDiff();
+  }
+
+  if (r.error) {
+    throw r.error;
+  }
+  if (r.status !== 0) {
+    console.log(
+      `pr-ai-review: git diff ${baseSha.slice(0, 7)}..${headSha.slice(0, 7)} failed; trying merge-parent diff`,
+    );
+    return getMergeParentDiff();
+  }
+  return r.stdout || '';
 }
 
 async function callOpenAI(apiKey, model, userContent) {
@@ -266,9 +312,9 @@ async function main() {
     process.exit(1);
   }
 
-  const rawDiff = getMergePrDiff();
+  const rawDiff = getPrDiffFromShas(pr.base?.sha, pr.head?.sha);
   if (rawDiff === null) {
-    console.log('pr-ai-review: could not read merge diff; skip');
+    console.log('pr-ai-review: could not read PR diff; skip');
     return;
   }
 

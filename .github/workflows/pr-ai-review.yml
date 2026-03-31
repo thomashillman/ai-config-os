@@ -24,6 +24,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Ensure base and head SHAs for diff
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=2048 origin \
+            "${{ github.event.pull_request.base.sha }}" \
+            "${{ github.event.pull_request.head.sha }}"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
