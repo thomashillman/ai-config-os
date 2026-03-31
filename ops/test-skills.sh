@@ -114,11 +114,18 @@ for skill_dir in "$SHARED_SKILLS"/*; do
   fi
   ((total_tests++))
 
-  # Test 3: Check for variant prompt files (only for prompt-type skills)
-  skill_type=$(grep "^type:" "$skill_md" | sed 's/^type:[[:space:]]*//' | head -1)
+  # Test 3: prompts/ required only when frontmatter references prompts/ via variant prompt_file
+  # (YAML may quote type: "prompt" — strip quotes and trailing # comments so we match parse-skill / schema.)
+  skill_type_raw=$(grep "^type:" "$skill_md" | sed 's/^type:[[:space:]]*//' | head -1)
+  skill_type=$(printf '%s' "$skill_type_raw" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+    -e 's/^"\([^"]*\)"$/\1/' -e "s/^'\([^']*\)'$/\1/" -e 's/[[:space:]]*#.*$//' -e 's/[[:space:]]*$//')
 
-  if [ "$skill_type" = "prompt" ] || [ "$skill_type" = "workflow-blueprint" ]; then
-    # Prompt-type skills should have variant prompt files
+  needs_prompt_pack=false
+  if echo "$frontmatter" | grep -qE '[[:space:]]*prompt_file:[[:space:]]*.*prompts/'; then
+    needs_prompt_pack=true
+  fi
+
+  if { [ "$skill_type" = "prompt" ] || [ "$skill_type" = "workflow-blueprint" ]; } && [ "$needs_prompt_pack" = true ]; then
     if [ -d "${skill_dir}/prompts" ]; then
       prompt_count=$(find "${skill_dir}/prompts" -type f | wc -l)
       if [ "$prompt_count" -gt 0 ]; then
@@ -133,8 +140,12 @@ for skill_dir in "$SHARED_SKILLS"/*; do
       ((total_failed++))
     fi
   else
-    # Non-prompt skills (hooks, agents, etc.) don't need prompt files
-    echo "{\"skill\":\"${skill_name}\",\"test_id\":\"structure-variant-files\",\"status\":\"PASS\",\"message\":\"Skill type '$skill_type' does not require prompts/\"}" >> "$json_results_tmp"
+    # Inline SKILL.md body, or non-prompt skill types — no prompts/ pack required
+    msg="Skill type '${skill_type}' has no variant prompt_file under prompts/"
+    if [ "$needs_prompt_pack" != true ]; then
+      msg="Skill type '${skill_type}' does not require a prompts/ pack"
+    fi
+    echo "{\"skill\":\"${skill_name}\",\"test_id\":\"structure-variant-files\",\"status\":\"PASS\",\"message\":\"$msg\"}" >> "$json_results_tmp"
     ((total_passed++))
   fi
   ((total_tests++))
