@@ -1,0 +1,37 @@
+# Optional AI-assisted PR comment (same-repo PRs only). Requires AI_PR_REVIEW_API_KEY secret.
+# See docs/superpowers/specs/2026-03-31-cursor-rules-ci-pr-automation-design.md
+name: PR AI review comment
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  ai-review:
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository.full_name
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout merge ref
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run AI review bot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_PR_REVIEW_API_KEY: ${{ secrets.AI_PR_REVIEW_API_KEY }}
+          AI_PR_REVIEW_MODEL: ${{ vars.AI_PR_REVIEW_MODEL }}
+        run: node scripts/ci/pr-ai-review.mjs

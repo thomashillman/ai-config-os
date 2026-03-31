@@ -75,7 +75,11 @@ test('generation sync (root files stale check)', () => {
   assert.deepEqual(changed, [], 'generator run should not leave stale tracked entrypoints');
 
   const { claude, version, agents, plugin } = readArtifacts();
-  assert.match(claude, /^# AI Config OS/m);
+  assert.match(claude, /^> Generated file\. Edit doctrine fragments, not this file\./m);
+  assert.ok(
+    claude.includes('AI Config OS'),
+    'CLAUDE.md should retain repository identity from overlays',
+  );
   assert.match(agents, /^# AI Config OS — Codex Agent Instructions/m);
 
   const agentsVersion = agents.match(/^# Version: (.+)$/m)?.[1]?.trim();
@@ -114,7 +118,7 @@ test('composition (base doctrine appears in both surfaces where expected)', () =
 test('separation (ai-config-os local rules absent from base-only external materialisation)', () => {
   const { claude, agents } = readArtifacts();
 
-  const localOnlyMarker = '## Workflow - Local Proxy Environment';
+  const localOnlyMarker = '## Local proxy constraints';
   assert.ok(claude.includes(localOnlyMarker), 'CLAUDE.md should retain repo-local operational guidance');
   assert.equal(agents.includes(localOnlyMarker), false, 'AGENTS.md should not include repo-local operational guidance');
 });
@@ -133,7 +137,10 @@ test('materialisation fixture (writes valid CLAUDE.md and AGENTS.md into temp ta
     const writtenClaude = readFileSync(targetClaude, 'utf8');
     const writtenAgents = readFileSync(targetAgents, 'utf8');
 
-    assert.match(writtenClaude, /^# AI Config OS/m);
+    assert.ok(
+      writtenClaude.includes('AI Config OS'),
+      'materialised CLAUDE.md should retain repository identity',
+    );
     assert.match(writtenAgents, /^# AI Config OS — Codex Agent Instructions/m);
     assert.ok(writtenAgents.includes(`# Version: ${version}`), 'AGENTS.md should carry the expected version header');
     assert.match(writtenAgents, /^# Skills: \d+/m);

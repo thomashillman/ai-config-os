@@ -1,8 +1,8 @@
 > Generated file. Edit doctrine fragments, not this file.
 
-# AI Config OS
+# Project Doctrine
 
-**Purpose:** Personal AI behaviour layer - skills, hooks, and conventions for Claude Code and other AI agents. Skills are authored in `shared/skills/`, compiled into self-sufficient packages (`dist/`), and distributed without requiring source-tree access. See `docs/SKILLS.md` for the skills reference.
+This base fragment is intentionally repository-agnostic.
 
 ## Engineering Principles
 
@@ -19,131 +19,32 @@ process:  source-control-is-truth | done=production-value-not-QA | fix-systems-n
 - Bias to action: implement with reasonable assumptions; pause for clarification only when genuinely blocked.
 - Avoid looping: if re-reading or re-editing the same files without clear progress, stop and surface a concise summary with targeted questions.
 
-## Structure
+## Verification
 
-- `shared/skills/` - canonical skill definitions (author here only; compiler reads only from this directory)
-- `dist/clients/<platform>/` - emitted packages (claude-code, cursor); self-sufficient, no source-tree references
-- `dist/registry/index.json` - cross-platform skill registry
-- `shared/targets/platforms/` - platform capability definitions
-- `VERSION` - canonical release version (only file humans edit for version bumps)
-- `scripts/build/` - compiler: validates skills, resolves compatibility, emits `dist/`
-- `scripts/lint/` - Node-based linters for skills and platform files
-- `adapters/claude/materialise.sh` - shell wrapper for client-side package materialization
-- `worker/` - Cloudflare Worker serving compiled skills via bearer-auth REST API
-- `runtime/` - desired-state tool management: config, adapters, sync, manifest, MCP server
-- `dashboard/` - React SPA: tool status, skill stats, context cost, config, audit, analytics
-- `plugins/core-skills/skills/` - optional symlinks into shared/skills (never edit here directly)
+- Validate changes with relevant project checks before declaring completion.
+- Prefer fast, high-signal checks first, then broader checks when risk is higher.
+- Report exactly what was run and what passed or failed.
+- Never claim tests passed unless they were executed successfully.
 
-## Creating a new skill
+## Git Safety
 
-```bash
-node scripts/build/new-skill.mjs <skill-name>            # creates dir, updates manifest, optional symlink
-node scripts/build/new-skill.mjs <skill-name> --no-link  # skip symlink (non-Unix)
-```
+- Inspect branch, remote, and upstream state before synchronization operations.
+- Verify target branch and merge intent from repository evidence rather than assumptions.
+- Avoid history-rewriting and force operations unless explicitly instructed.
 
-Start from `shared/skills/_template/SKILL.md`. See `docs/SKILLS.md` for frontmatter reference (invocation control, subagents, capability contracts, multi-model variants).
+## Change Discipline
 
-## Build and test
+- Keep changes scoped to a single coherent objective.
+- Prefer incremental commits of working code.
+- Avoid unrelated refactors unless required for correctness.
+- Preserve behavior-critical logic and test intent during conflict resolution.
 
-```bash
-npm install                                     # first time only
-node scripts/build/compile.mjs                  # validate + resolve compatibility + emit dist/
-npm test                                        # delivery contract + portability tests
-adapters/claude/dev-test.sh                     # validate plugin structure
-ops/validate-all.sh                             # pre-commit gate (all validators)
-```
+## Communication
 
-See `docs/DEPLOYMENT.md` for Worker deployment and Executor Worker architecture.
-See `docs/SESSION_START.md` for session-start robustness contract.
-
-## Key rules
-
-- Always author skills in `shared/skills/`, never directly in `plugins/`
-- Only bump version in `VERSION`; run `npm run version:sync` then `npm run version:check` before committing
-- `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` versions are derived - never edit by hand
-- Symlinks are optional Unix convenience; if created, use relative paths: `../../../shared/skills/<name>`
-- Run `claude plugin validate .` before committing
-- Default to ASCII when editing or creating files; only introduce non-ASCII where already present with clear justification
-- Add code comments only when logic is genuinely non-obvious; comments that explain what the code does add no value
-- Never revert changes you did not make; work around unrelated edits in files you touch
-- If unexpected changes appear in files you are editing mid-session, stop and ask before proceeding
-
-## Session startup checklist
-
-Before doing any work on a `claude/` branch:
-
-1. **Fetch main**
-   ```sh
-   git fetch origin main
-   ```
-2. **Rebase onto main** (skip if branch has been reviewed, 5+ commits with likely conflicts, or cut from historical tag)
-   ```sh
-   git rebase origin/main
-   ```
-3. **Version bump** - edit `VERSION` only, then sync derived files:
-   ```sh
-   npm run version:sync
-   npm run version:check
-   ```
-
-Use the `git-ops` skill to validate before rebasing.
-
-## Workflow - Local Proxy Environment
-
-Remote is `http://local_proxy@127.0.0.1:41590/git/...` - not a direct GitHub connection.
-
-**Works:**
-- `git add` + `git commit` + `git push -u origin <branch-name>`
-
-**Does NOT work - skip these immediately:**
-- `gh pr create` - gh cannot resolve the local proxy as a known GitHub host
-- `git push origin main` - branch protection returns HTTP 403
-- Proxy REST API calls (`/api/v1/...`) - proxy handles git protocol only, not REST
-- Repointing remote to github.com - the GITHUB_TOKEN in the environment is not valid for that repo
-
-Merging to main happens via the repo owner's GitHub UI. Do not retry failing approaches.
-
-## Cross-Platform CI Patterns
-
-See `docs/CI_PATTERNS.md` for the full reference (pitfalls, safe patterns, reusable utilities).
-
-**Critical landmine:** Never pass `path.resolve()` output to `import()`. Use `new URL('../path.mjs', import.meta.url).href` instead - on Windows, `path.resolve()` produces `D:\...` paths that Node treats as a URL scheme and rejects.
-
-## Living docs protocol
-
-Each doc owns a distinct slice - never duplicate content across them:
-
-| Doc | Update when |
-|-----|-------------|
-| `README.md` | Directory structure changes, install steps change, new major capability added |
-| `PLAN.md` | A phase completes, acceptance criteria are met, recommended next steps change |
-| `CLAUDE.md` | Dev conventions change, new ops scripts added, git/proxy workflow changes |
-| `shared/manifest.md` | A skill is added, renamed, or removed (one row per skill) |
-| `docs/SKILLS.md` | Skill format changes, new Claude Code skill features, hooks patterns |
-| `docs/CI_PATTERNS.md` | New CI pitfall found, new platform added to matrix, Windows portability pattern updated |
-| `docs/SUPPORTED_TODAY.md` | Platform support status changes, new surface confirmed or deprecated |
-
-**Rules for Claude agents:**
-- After any commit that creates or modifies a skill: update `shared/manifest.md` row + check if README or PLAN.md need a line.
-- After any commit that changes repo structure (new top-level dir, new ops script): update README directory table + CLAUDE.md Structure section.
-- After any merge to main: update PLAN.md "Current state" table and "Recommended next" section.
-- Never duplicate content across docs. If you find the same fact in two places, pick the authoritative owner above and remove it from the other.
-- Run `ops/check-docs.sh` before committing to see which docs the changed files are expected to touch.
-
-## Continual self-improvement
-
-If a task failed or ran inefficiently, state explicitly: (1) what went wrong, (2) what to do differently next time.
-Token efficiency is paramount. Prefer concise tool calls; avoid re-reading files already in context.
-**Plan closure:** Reconcile every stated TODO before finishing - mark each Done, Blocked (one sentence + question), or Cancelled.
-**Promise discipline:** Do not commit to tests or broad refactors unless executing them in the same turn.
-
-## Communication style
-
-- For code changes: open with what changed and why - not a "Summary:" heading.
-- Suggest next steps briefly at the end; omit entirely if there are none.
-- When offering options, use a numbered list so the user can respond with a single number.
-- Never reproduce large files in responses; reference paths instead.
-- If blocked, state the blocker explicitly and ask a targeted question rather than leaving it implicit.
+- For code changes, open by stating what changed and why.
+- Be concise, concrete, and explicit about uncertainty.
+- If blocked, state the blocker and ask a targeted question.
+- Present options as a numbered list when a choice is needed.
 
 ## Git Commit Conventions
 
@@ -213,24 +114,52 @@ Delta-only additions for this surface:
 
 Use this overlay with the base doctrine fragments when operating as a Claude-oriented agent in this repository.
 
+## Repository context and purpose
+
+- AI Config OS is a personal AI behavior layer for Claude Code and related agents.
+- Skills are authored in `shared/skills/`, compiled into self-sufficient `dist/` packages, and distributed without requiring source-tree access.
+- Skill format and usage reference lives in `docs/SKILLS.md`.
+
 ## Repository-specific structure
 
 - Author skills in `shared/skills/`; do not edit generated outputs directly.
 - Generated packages live in `dist/clients/<platform>/` and registry output lives in `dist/registry/index.json`.
 - Platform capability definitions are in `shared/targets/platforms/`.
 - Canonical version source is `VERSION`; derived version files must be synchronized through project scripts.
+- Build compiler and linters live in `scripts/build/` and `scripts/lint/`.
+- Adapter scripts and generated plugin surfaces live under `adapters/` and `plugins/`.
 
-## Repository-specific verification commands
+## Repository-specific workflows
+
+### Create a new skill
+
+```bash
+node scripts/build/new-skill.mjs <skill-name>
+node scripts/build/new-skill.mjs <skill-name> --no-link
+```
+
+Start from `shared/skills/_template/SKILL.md`.
+
+### Verification commands
 
 Run relevant checks for touched surfaces:
 
 ```bash
 node scripts/build/compile.mjs
 npm test
+npm run check:cursor-rules
 adapters/claude/dev-test.sh
 ops/validate-all.sh
 claude plugin validate .
 ```
+
+## Repository-specific rules
+
+- Always author skills in `shared/skills/`, never directly in generated plugin outputs.
+- Only bump version in `VERSION`; then run `npm run version:sync` and `npm run version:check`.
+- Derived version files (for example `package.json` and plugin metadata) are script-managed; do not hand-edit them.
+- Use ASCII by default unless existing file content requires non-ASCII.
+- Do not revert unrelated in-progress changes in touched files.
 
 ## Repository-specific git and release safety
 
@@ -244,12 +173,7 @@ claude plugin validate .
 bash ops/pre-pr-mergeability-gate.sh
 ```
 
-- Version bumps must modify `VERSION` first, then run:
-
-```bash
-npm run version:sync
-npm run version:check
-```
+- For `claude/*` branch startup flows, fetch/rebase against `main` and perform version sync/check for release-oriented updates.
 
 ## Local proxy constraints
 
@@ -259,69 +183,16 @@ This repository may use a local proxy remote (`http://local_proxy@127.0.0.1:4159
 - Expected not to work in this environment: `gh pr create`, direct push to protected `main`, proxy REST API calls.
 - Do not repoint the remote unless explicitly instructed.
 
-## Hook System Architecture
+## Living docs protocol
 
-Claude Code hooks are organized in three layers to separate policy (config) from enforcement (dispatcher) from implementation (rules):
+Use authoritative ownership for documentation updates to avoid duplicated guidance:
 
-### Architecture Overview
+- `README.md`: directory structure, install steps, major capabilities
+- `PLAN.md`: phase status, acceptance outcomes, next actions
+- `CLAUDE.md`: developer conventions and operational workflows
+- `shared/manifest.md`: skill inventory changes
+- `docs/SKILLS.md`: skill format and feature contract changes
+- `docs/CI_PATTERNS.md`: CI portability pitfalls and safe patterns
+- `docs/SUPPORTED_TODAY.md`: current support matrix status
 
-```
-.claude/settings.json          ← Thin router: event type → hook command
-    ↓
-.claude/hooks/*.sh             ← Shell wrappers: pipe stdin to Node dispatcher
-    ↓
-.claude/hooks/dispatch.mjs      ← Typed dispatcher: parse JSON, validate, route to rules
-    ↓
-.claude/hooks/lib/rules/*.mjs   ← Rule modules: policy, analytics, state tracking
-```
-
-### Key Design Principles
-
-1. **Single JSON parser** — `dispatch.mjs` parses all events; rules don't parse JSON
-2. **Typed contracts** — Event shapes defined in TypeScript; validation before dispatch
-3. **Isolated rules** — Each rule is stateless, testable, and independently versionable
-4. **Graceful degradation** — Rule failures don't crash Claude Code sessions
-5. **Backward compatible** — JSONL outputs unchanged; observation readers work as-is
-
-### Adding a New Hook Rule
-
-1. Create `.claude/hooks/lib/rules/my-rule.mjs`:
-```javascript
-export const rule = {
-  name: 'my-rule',
-  triggers: ['PreToolUse'],  // or ['PostToolUse'], ['SessionStart']
-  async execute(event) {
-    // Your logic here
-    return { decision: 'allow' | 'block', reason?: string };
-  }
-};
-```
-
-2. Register in `.claude/hooks/lib/rules/index.mjs`:
-```javascript
-import { rule as myRule } from './my-rule.mjs';
-export const rules = { myRule, ...otherRules };
-```
-
-3. The dispatcher auto-discovers the rule.
-
-### Hook Testing
-
-Run hook-related tests:
-```bash
-npm test -- --grep "hook"
-```
-
-Tests cover:
-- Event parsing and validation (hook-event.test.mjs)
-- Rule registry and dispatch (rule-executor.test.mjs)
-- JSONL format compatibility with observation readers
-
-See `.claude/hooks/lib/__tests__/` for test fixtures and patterns.
-
-### Known Patterns
-
-- **Guard rules** (pre-tool-use) block tool execution; return `{decision: 'block', reason: '...'}`
-- **Reminder rules** (post-tool-use) print to stdout; return `{decision: 'allow'}`
-- **Analytics rules** append to JSONL files in `~/.claude/skill-analytics/`
-- **State rules** track session state in `/tmp/claude-sessions/` (ephemeral)
+When in doubt, keep facts in their owning doc and remove duplicates elsewhere.

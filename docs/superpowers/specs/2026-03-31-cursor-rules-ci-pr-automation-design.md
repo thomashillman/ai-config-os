@@ -1,8 +1,9 @@
 # Design: Cursor rules CI validation + dual-surface PR review
 
-**Status:** Draft for implementation planning  
+**Status:** Ready for implementation  
 **Date:** 2026-03-31  
-**Brainstorming lock-in:** User selected **option 3 — both** Cursor-side rules and GitHub automation for PR critique.
+**Brainstorming lock-in:** User selected **option 3 — both** Cursor-side rules and GitHub automation for PR critique.  
+**Spec review (2026-03-31):** Critical/major amendments applied (permissions, frontmatter matrix, diff safety, comment UX, fork default).
 
 ## 1. Problem
 
@@ -13,7 +14,7 @@
 
 1. **CI validation** — Fail PRs that introduce invalid `.cursor/rules/*.mdc` (required frontmatter, activation fields, optional filename convention).
 2. **Cursor review rule** — One opt-in `.mdc` (`alwaysApply: false`) so Composer/chat can `@`-invoke a **PR critique** aligned with `review-pr` / `code-review` without duplicating full skill bodies.
-3. **GitHub automation** — A workflow that posts review output on pull requests **when configured** (API secret present), reusing the same review dimensions as `review-pr`.
+3. **GitHub automation** — A **separate** workflow that posts review output on pull requests **when configured** (API secret present), reusing the same review dimensions as `review-pr`.
 
 ## 3. Non-goals
 
@@ -26,75 +27,99 @@
 
 | Asset | Role |
 | --- | --- |
-| [`.github/workflows/pr-mergeability-gate.yml`](../../../.github/workflows/pr-mergeability-gate.yml) | Always runs validate/build/test/verify — **add** cursor-rules check step or npm script it calls. |
-| [`.github/workflows/validate.yml`](../../../.github/workflows/validate.yml) | Path-filtered — **add** `.cursor/rules/**` (and `scripts/ci/**` if new script) to `paths`. |
-| [`package.json`](../../../package.json) | Add e.g. `check:cursor-rules` script. |
-| [`yaml`](../../../package.json) dependency | Parse YAML frontmatter in a small Node validator under `scripts/ci/`. |
-| `review-pr` / `code-review` skills | **Source of truth** for review dimensions; Cursor rule and GH prompt template **reference** them by path/name. |
+| [`.github/workflows/pr-mergeability-gate.yml`](../../../.github/workflows/pr-mergeability-gate.yml) | Always runs validate/build/test/verify — **add** `npm run check:cursor-rules` after `npm ci`. **Do not** raise `GITHUB_TOKEN` permissions here; mergeability gate stays read-only for PR metadata. |
+| [`.github/workflows/validate.yml`](../../../.github/workflows/validate.yml) | Path-filtered — **add** `.cursor/rules/**` and `.github/workflows/pr-ai-review.yml` (and `scripts/ci/**` as needed). |
+| [`.github/workflows/build.yml`](../../../.github/workflows/build.yml) | Same path extensions so rules-only or workflow-only changes trigger CI. |
+| [`package.json`](../../../package.json) | `check:cursor-rules` script. |
+| [`yaml`](../../../package.json) dependency | Parse YAML frontmatter in `scripts/ci/validate-cursor-rules.mjs`. |
+| `review-pr` / `code-review` skills | **Source of truth** for review dimensions; Cursor rule and GH prompt **reference** them by path/name. |
 
 ## 5. Component A — CI validation (`scripts/ci/`)
 
-**Deliverable:** `scripts/ci/validate-cursor-rules.mjs` (or `.sh` if minimal; prefer Node + `yaml` for correctness).
+**Deliverable:** [`scripts/ci/validate-cursor-rules.mjs`](../../../scripts/ci/validate-cursor-rules.mjs).
 
-**Checks (initial):**
+### Frontmatter matrix (locked; matches [Cursor Rules](https://cursor.com/docs/context/rules))
 
-- Every file in `.cursor/rules/` matching `*.mdc` is readable and has a YAML fence with:
-  - `description` (non-empty string)
-  - Either `alwaysApply: true|false` **or** `globs` (non-empty), per [Cursor project rules](https://cursor.com/docs/context/rules) (both may be present; define explicit rules: e.g. require `description` always; require `alwaysApply` key if no `globs`, or allow `globs` + optional `alwaysApply`).
-- Optional: enforce **ordered kebab** basename pattern `^\d{3}-[a-z0-9-]+\.mdc$` to match [locked convention](../../../.cursor/rules/) from the Cursor rules system plan.
+| Field | Rule |
+| --- | --- |
+| `description` | **Required.** Non-empty string (after trim). |
+| `alwaysApply` | **Required** for every `*.mdc` under `.cursor/rules/`. Must be boolean `true` or `false`. |
+| `globs` | **Optional.** If present, must be a non-empty string (after trim) or a non-empty array of non-empty strings. Omit the key entirely when not file-scoping a rule. |
+| Other keys | Allowed if Cursor adds them later; validator does not fail on unknown keys (YAGNI). |
+
+**Filename convention (enforced):** Basename must match `^\d{3}-[a-z0-9-]+\.mdc$` (ordered kebab). Only `*.mdc` files are validated; other files under `.cursor/rules/` (e.g. a future `README.md`) are ignored by the validator.
 
 **Wiring:**
 
 - `package.json`: `"check:cursor-rules": "node scripts/ci/validate-cursor-rules.mjs"`
-- `pr-mergeability-gate.yml`: run `npm run check:cursor-rules` after `npm ci` (alongside existing validate).
-- `validate.yml` / `build.yml`: extend `paths` so pushes/PRs that only touch `.cursor/rules/**` still run relevant workflows.
+- `pr-mergeability-gate.yml`: run after `npm ci` (read-only job; no permission changes).
+- `validate.yml` / `build.yml`: extend `paths` for `.cursor/rules/**`, `scripts/ci/**`, and `.github/workflows/pr-ai-review.yml`.
 
-**Tests:** Add a small test under `scripts/build/test/` or co-located `validate-cursor-rules.test.mjs` with fixture invalid/valid snippets (optional v1: script only + manual PR).
+**Tests:** Golden tests in `scripts/build/test/validate-cursor-rules.test.mjs` (valid + invalid fixtures) so regressions fail `npm test`.
 
 ## 6. Component B — Cursor review rule
 
-**Deliverable:** `.cursor/rules/300-pr-review.mdc` (or next free prefix), `alwaysApply: false`.
+**Deliverable:** `.cursor/rules/300-pr-review.mdc`, `alwaysApply: false`.
 
 **Content outline:**
 
-- When to use: `@300-pr-review` (or chosen name) + paste or reference PR diff / list of changed files.
+- When to use: `@300-pr-review` + paste or reference PR diff / changed files.
 - Output shape: mirror `review-pr` sections (breaking changes, security, tests, API design) with **severity** labels and **approve / request changes** recommendation.
-- **Single line** pointing authors to `shared/skills/review-pr/SKILL.md` for full skill contract and variants.
+- One line pointing to `shared/skills/review-pr/SKILL.md` for full contract and variants.
 
-**Duplication policy:** Keep the `.mdc` under ~50 lines; do not paste entire skill prompts.
+**Duplication policy:** Keep under ~50 lines; do not paste full skill prompts.
 
 ## 7. Component C — GitHub PR review automation
 
-**Deliverable:** `.github/workflows/pr-ai-review.yml` (name TBD) + `scripts/ci/pr-review-comment.mjs` (or composite action) **or** documented use of a maintained third-party action (prefer repo-owned script for transparency).
+**Deliverable:** [`.github/workflows/pr-ai-review.yml`](../../../.github/workflows/pr-ai-review.yml) + [`scripts/ci/pr-ai-review.mjs`](../../../scripts/ci/pr-ai-review.mjs).
 
-**Behaviour:**
+### Permissions (critical)
 
-- Trigger: `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`), optional `workflow_dispatch` for dry run.
-- **Guard:** Run full review job only if secret `AI_PR_REVIEW_API_KEY` (or vendor-specific name) is configured; otherwise **skip** or emit a neutral notice (avoid failing CI when secret absent).
-- Gather context: `git diff` base...head for changed files; cap lines/bytes (e.g. max 200KB) to control cost; exclude generated paths via allowlist/denylist.
-- Call model API (provider **TBD** in implementation — document interface: JSON in, markdown review out).
-- Post result as **one** issue comment on the PR via `actions/github-script` or `gh api`, signed clearly as **automated** / non-blocking unless you later add a branch protection rule.
+- **New workflow only.** Grant **`issues: write`** (PR comments use the issues comments API), **`contents: read`**, **`pull-requests: read`**.
+- **Do not** widen permissions on [`pr-mergeability-gate.yml`](../../../.github/workflows/pr-mergeability-gate.yml).
 
-**Security and fork PRs:**
+### Behaviour
 
-- **Default policy:** Document that **secrets are not available** to workflows from **fork** PRs on `pull_request`. Options: (a) same-repo PRs only for automation; (b) `pull_request_target` is **high risk** if it checks out untrusted code — if ever used, restrict to diff fetched without executing untrusted scripts and follow [GitHub hardening guidance](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/).
-- Do not echo secrets or full file contents in logs.
+- **Trigger:** `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`). No `workflow_dispatch` in v1 (avoids ambiguous PR context); re-run via GitHub “Re-run jobs” on the PR event.
+- **Draft PRs:** Skip (same spirit as mergeability gate).
+- **Fork default:** Run **only** when `github.event.pull_request.head.repo.full_name == github.repository`. Fork PRs get **no** bot comment and **no** secret exposure (`pull_request` from forks does not receive repo secrets).
+- **Secret guard:** If `AI_PR_REVIEW_API_KEY` is unset, exit **0** and print a single line (do not fail CI).
+- **Provider (v1):** OpenAI-compatible Chat Completions HTTP API. Env: `AI_PR_REVIEW_API_KEY` (required when job runs meaningfully), optional `AI_PR_REVIEW_MODEL` (default `gpt-4o-mini`). Document optional future providers separately.
+- **Comment UX:** **One** bot comment per PR, **updated in place** on each push: body must contain HTML marker `<!-- ai-pr-review-bot -->`. If a comment with that marker exists from this workflow, **PATCH** it; otherwise **POST** a new comment. Reduces noise versus a new comment every sync.
+- **Merge blocking:** Use **issue comment** only (not GitHub “request changes” review state) unless maintainers explicitly change policy later.
 
-**Alignment:** System prompt / instruction block in script should reference the same headings as `review-pr` so Cursor and GitHub outputs stay comparable.
+### Diff gathering and safety
+
+- Compute diff: `git diff` between `pull_request.base.sha` and `pull_request.head.sha` (full SHAs from the event; requires `fetch-depth: 0` checkout + `git fetch` of both refs).
+- **Byte cap:** Max **200KB** of diff text after filtering (truncate with a visible notice in the posted review).
+- **File cap:** Max **100** files worth of hunks after filtering (configurable constant in script).
+- **Path denylist** (drop entire file hunk if any path matches): `**/.env`, `**/.env.*`, `**/*.pem`, `**/secrets/**`, paths containing `credential` (case-insensitive), `id_rsa`, `**/*.key` (SSH/private key convention). Extend in code as needed.
+- **Logging:** Do not print raw diff or secret values to `stdout`/`stderr` in CI (short summaries only, e.g. byte length and file count).
+
+### Alignment
+
+- System prompt in `pr-ai-review.mjs` must use the same section headings as `review-pr` (BREAKING CHANGES, SECURITY, TEST COVERAGE, API DESIGN, etc.) so Cursor and GitHub outputs stay comparable.
+
+### `pull_request_target`
+
+- **Out of scope for v1.** If ever considered for fork automation, follow [GitHub hardening guidance](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/) and do not execute untrusted code from the PR checkout.
 
 ## 8. Documentation
 
-- Optional one-line in [`AGENTS.md`](../../../AGENTS.md) or [`README.md`](../../../README.md): Cursor `@300-pr-review` + CI `check:cursor-rules` + optional GH workflow (only if maintainers agree; follow living-docs ownership in AGENTS.md).
-- No duplicate long checklists across AGENTS.md and `.mdc`.
+- After adding `scripts/ci/` validators, run [`ops/check-docs.sh`](../../../ops/check-docs.sh) before commit; if `check:cursor-rules` becomes a canonical check, update [`README.md`](../../../README.md) directory/verification table and [`CLAUDE.md`](../../../CLAUDE.md) / [`AGENTS.md`](../../../AGENTS.md) per the living-docs table when maintainers agree.
+- Optional one-liner: Cursor `@300-pr-review`, `npm run check:cursor-rules`, optional `pr-ai-review` workflow + `AI_PR_REVIEW_API_KEY` secret.
 
-## 9. Implementation order (recommended)
+## 9. Implementation order
 
-1. `validate-cursor-rules.mjs` + `package.json` + mergeability gate + path filters.
-2. `300-pr-review.mdc`.
-3. GH workflow + comment script behind secret; start with same-repo PRs and conservative diff caps.
+1. `validate-cursor-rules.mjs` + tests + `package.json` + mergeability gate + workflow path filters.
+2. `300-pr-review.mdc` (run `check:cursor-rules` after adding).
+3. `pr-ai-review.yml` + `pr-ai-review.mjs` behind secret; same-repo PRs only; caps and denylist as above.
 
-## 10. Open decisions (implementation phase)
+## 10. Resolved decisions
 
-- Exact frontmatter rules for `globs` vs `alwaysApply` (match Cursor behaviour as documented).
-- Model provider and secret naming for Component C.
-- Whether AI review comments should **request changes** via GitHub Review API or only add a comment (comment is simpler and non-blocking).
+| Topic | Decision |
+| --- | --- |
+| Frontmatter | See §5 matrix (`description` + `alwaysApply` required; optional `globs`). |
+| GH comment type | Issue comment, updated in place via marker. |
+| Fork PRs | No automation unless a future hardened design is approved. |
+| Model | OpenAI-compatible v1; `AI_PR_REVIEW_API_KEY` + optional `AI_PR_REVIEW_MODEL`. |
