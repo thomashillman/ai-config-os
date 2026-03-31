@@ -8,6 +8,8 @@
 
 Agent compatibility review reported: missing root `npm install` in README, Contributing under-spec vs AGENTS.md, dashboard path without install, heavy full-test loop, opaque failures from the root entrypoint contract test, false MIT/README license claims vs repo metadata, and no repo-root formatter for scanner/CI alignment.
 
+**Note:** The root entrypoint contract test compares **tracked** files after compile; it catches **compile/dist** drift (e.g. `CLAUDE.md`, `dist/clients/codex/AGENTS.md`, plugin json) but not every class of doctrine mistake if the committed tree already matches the working tree. **`npm run doctrine:check`** remains the guard when `shared/agent-doctrine/**` changes without regenerating committed entrypoints.
+
 ## 2. Goals
 
 - Cold contributors and agents can bootstrap from **README** with explicit **root** `npm ci` / `npm install` before Node build/test commands.
@@ -51,27 +53,30 @@ Replace single-step “only dev-test.sh” with:
 
 Add a short **Generated entrypoints** (or **Before full test**) note:
 
-- Full `npm test` includes a contract that **tracked** generator outputs stay in sync after compile (e.g. root `CLAUDE.md`, `dist/clients/codex/AGENTS.md`, Claude plugin metadata under `dist/`).
-- Local edits without regenerating and committing will fail that test; run `npm run build` (and doctrine emit as needed), commit, or revert.
+- **`npm run build`** runs **`compile.mjs` only** (skills → `dist/` clients, registry, etc.). It does **not** emit root `CLAUDE.md` or root `AGENTS.md`.
+- **`npm run doctrine:build`** runs **`emit-agent-entrypoints.mjs`** and refreshes doctrine-driven roots (e.g. root `CLAUDE.md`, root `AGENTS.md` per repo wiring).
+- Full `npm test` includes a contract that **tracked** outputs stay in sync **after compile** for a fixed list today: root `CLAUDE.md`, **`dist/clients/codex/AGENTS.md`** (compile-emitted Codex package), and `dist/clients/claude-code/.claude-plugin/plugin.json`. Root **`AGENTS.md`** is doctrine-generated separately; keep both Codex surfaces in mind when debugging “stale agent instructions.”
+- Local edits without regenerating and committing will fail the contract when `git diff` shows those tracked paths dirty post-compile; run **`npm run doctrine:build`** when overlays or doctrine inputs change, **`npm run build`** when skills/compiler outputs change, then commit, or revert local edits.
 
 Add a **cross-surface** one-liner: Codex agents use **AGENTS.md**; Claude-oriented detail also in **CLAUDE.md** / overlay — pick the checklist that matches the surface you are using.
 
-Regenerate entrypoints per repo workflow (`npm run doctrine:build` / compile as documented) so generated files stay consistent.
+Regenerate entrypoints per repo workflow (`npm run doctrine:build` for doctrine, `npm run build` for compile) so generated files stay consistent. When editing `shared/agent-doctrine/**`, also run **`npm run doctrine:check`** before completion (analogous to `check:cursor-rules` for `.cursor/rules/**`).
 
 ## 5. Test runner and contract test
 
 ### 5.1 `scripts/build/test/run-tests.mjs`
 
-- If additional CLI arguments are present after the script name, treat them as explicit `.test.mjs` paths (resolve relative to cwd or repo conventions as implemented).
+- If additional CLI arguments are present after the script name, treat each as a **test file path**, resolved from **repository root** (reject missing files; only allow paths ending in `.test.mjs` or document exception if deploy tests use another suffix—today deploy tests are `.test.mjs` under `scripts/deploy/test/` and may be passed explicitly).
 - Preserve existing behavior when **no** extra args: discover all tests, classify dist-writers vs pure, two-phase execution unchanged for the selected or full set.
 
 ### 5.2 `package.json` scripts
 
-- Add e.g. `test:file` that documents invocation, e.g. `node scripts/build/test/run-tests.mjs` with placeholder comment in docs or pass-through: `"test:file": "node scripts/build/test/run-tests.mjs"` (npm run test:file -- path).
+- Add e.g. `"test:file": "node scripts/build/test/run-tests.mjs"` so **`npm run test:file -- <paths>`** forwards paths to the runner.
+- **`test:file` does not run `pretest`:** unlike `npm test`, it skips the automatic full compile. Document that agents should run **`npm run build`** (or `npm run validate` / full `npm test`) first when the selected tests or contracts depend on a fresh **`dist/`** or compile output.
 
 ### 5.3 `scripts/build/test/root-entrypoints-contract.test.mjs`
 
-- When `gitChangedFiles` is non-empty, fail with a message that lists **paths** and states remediation: run `npm run build` / doctrine emit, commit generated outputs, or discard local edits to those tracked files.
+- When `gitChangedFiles` is non-empty, fail with a message that lists **paths** and states remediation: for compile-owned outputs run **`npm run build`**; for doctrine-owned roots run **`npm run doctrine:build`**; then commit generated outputs, or discard local edits to those tracked files.
 
 ## 6. Package metadata
 
@@ -93,13 +98,13 @@ Regenerate entrypoints per repo workflow (`npm run doctrine:build` / compile as 
 
 ### 7.3 CI
 
-- In [`.github/workflows/pr-mergeability-gate.yml`](../../../.github/workflows/pr-mergeability-gate.yml), after `npm ci`, add a step `npm run format:check`.
-- Extend workflow `paths` filters if required so changes to Prettier config always run the gate (follow existing patterns in that file and `validate.yml`).
+- In [`.github/workflows/pr-mergeability-gate.yml`](../../../.github/workflows/pr-mergeability-gate.yml), after `npm ci`, add a step `npm run format:check`. This workflow has **no** `paths:` filter on `pull_request` (it already runs for non-draft PRs to `main`), so Prettier-only PRs still hit `format:check` once the step exists.
+- **Path-filter gap (other workflows):** [`.github/workflows/validate.yml`](../../../.github/workflows/validate.yml) and [`.github/workflows/build.yml`](../../../.github/workflows/build.yml) use explicit `paths:` lists. Extend them to include **`.prettierrc`**, **`.prettierignore`**, and **`.github/workflows/pr-mergeability-gate.yml`** (and any related workflow path) so edits that touch only formatter config or the gate file still trigger the appropriate workflows where desired—mirror existing glob style in those files.
 
 ## 8. Verification
 
 - `npm run format:check` and `npm run format` after initial format pass.
-- `npm run validate`, `npm test`, `npm run check:cursor-rules` when rules change.
+- `npm run validate`, `npm test`, `npm run check:cursor-rules` when `.cursor/rules/**` changes, **`npm run doctrine:check`** (and regenerate if needed) when `shared/agent-doctrine/**` changes.
 - Re-run agent compatibility pass (`/check-agent-compatibility`) optionally to confirm score movement.
 
 ## 9. Implementation order
