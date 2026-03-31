@@ -29,9 +29,9 @@
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const DEFAULT_WORKER_URL = 'https://ai-config-os-main.tj-hillman.workers.dev';
+const DEFAULT_WORKER_URL = "https://ai-config-os-main.tj-hillman.workers.dev";
 const DEFAULT_TIMEOUT_MS = 5_000;
-const CACHE_KEY_PREFIX = 'ai-config-os:cap:';
+const CACHE_KEY_PREFIX = "ai-config-os:cap:";
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour (Worker responses are immutable by version anyway)
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
@@ -39,8 +39,8 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour (Worker responses are immutable b
 export class CapabilityClientError extends Error {
   constructor(message, { code, status, hint } = {}) {
     super(message);
-    this.name = 'CapabilityClientError';
-    this.code = code ?? 'CLIENT_ERROR';
+    this.name = "CapabilityClientError";
+    this.code = code ?? "CLIENT_ERROR";
     this.status = status ?? null;
     this.hint = hint ?? null;
   }
@@ -53,7 +53,10 @@ class MemoryCache {
   get(key) {
     const entry = this.#store.get(key);
     if (!entry) return null;
-    if (Date.now() > entry.expiresAt) { this.#store.delete(key); return null; }
+    if (Date.now() > entry.expiresAt) {
+      this.#store.delete(key);
+      return null;
+    }
     return entry.value;
   }
   set(key, value, ttlMs) {
@@ -67,25 +70,36 @@ class LocalStorageCache {
       const raw = globalThis.localStorage?.getItem(CACHE_KEY_PREFIX + key);
       if (!raw) return null;
       const entry = JSON.parse(raw);
-      if (Date.now() > entry.expiresAt) { this.delete(key); return null; }
+      if (Date.now() > entry.expiresAt) {
+        this.delete(key);
+        return null;
+      }
       return entry.value;
-    } catch { return null; }
+    } catch {
+      return null;
+    }
   }
   set(key, value, ttlMs) {
     try {
       globalThis.localStorage?.setItem(
         CACHE_KEY_PREFIX + key,
-        JSON.stringify({ value, expiresAt: Date.now() + ttlMs })
+        JSON.stringify({ value, expiresAt: Date.now() + ttlMs }),
       );
-    } catch { /* storage full or unavailable — degrade silently */ }
+    } catch {
+      /* storage full or unavailable — degrade silently */
+    }
   }
   delete(key) {
-    try { globalThis.localStorage?.removeItem(CACHE_KEY_PREFIX + key); } catch { /* ignore */ }
+    try {
+      globalThis.localStorage?.removeItem(CACHE_KEY_PREFIX + key);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
 function makeCache(strategy) {
-  if (strategy === 'localstorage') return new LocalStorageCache();
+  if (strategy === "localstorage") return new LocalStorageCache();
   return new MemoryCache(); // default: in-process memory
 }
 
@@ -107,12 +121,12 @@ export class CapabilityClient {
    * @param {'memory'|'localstorage'} [opts.cache] - Cache strategy
    */
   constructor({ workerUrl, token, platform, timeoutMs, cache } = {}) {
-    if (!token) throw new CapabilityClientError('token is required');
-    this.#workerUrl = (workerUrl ?? DEFAULT_WORKER_URL).replace(/\/$/, '');
+    if (!token) throw new CapabilityClientError("token is required");
+    this.#workerUrl = (workerUrl ?? DEFAULT_WORKER_URL).replace(/\/$/, "");
     this.#token = token;
     this.#platform = platform ?? null;
     this.#timeoutMs = timeoutMs ?? DEFAULT_TIMEOUT_MS;
-    this.#cache = makeCache(cache ?? 'memory');
+    this.#cache = makeCache(cache ?? "memory");
   }
 
   // ─── Public API ─────────────────────────────────────────────────────────────
@@ -125,21 +139,22 @@ export class CapabilityClient {
     if (this.#platform) return this.#platform;
 
     // Node.js environment signals
-    if (typeof process !== 'undefined') {
-      if (process.env.CLAUDE_CODE_REMOTE === 'true') return 'claude-code';
-      if (process.env.CLAUDE_CODE || process.env.CLAUDE_CODE_REMOTE) return 'claude-code';
-      if (process.env.CURSOR_SESSION) return 'cursor';
-      if (process.env.CODEX_CLI) return 'codex';
+    if (typeof process !== "undefined") {
+      if (process.env.CLAUDE_CODE_REMOTE === "true") return "claude-code";
+      if (process.env.CLAUDE_CODE || process.env.CLAUDE_CODE_REMOTE)
+        return "claude-code";
+      if (process.env.CURSOR_SESSION) return "cursor";
+      if (process.env.CODEX_CLI) return "codex";
     }
 
     // Browser environment
-    if (typeof navigator !== 'undefined') {
-      const ua = navigator.userAgent ?? '';
-      if (/iPhone|iPad|iPod/i.test(ua)) return 'claude-ios';
-      return 'claude-web';
+    if (typeof navigator !== "undefined") {
+      const ua = navigator.userAgent ?? "";
+      if (/iPhone|iPad|iPod/i.test(ua)) return "claude-ios";
+      return "claude-web";
     }
 
-    return 'claude-code'; // safe default for CLI
+    return "claude-code"; // safe default for CLI
   }
 
   /**
@@ -156,7 +171,9 @@ export class CapabilityClient {
     const cached = this.#cache.get(cacheKey);
     if (cached) return cached;
 
-    const data = await this.#get(`/v1/capabilities/platform/${encodeURIComponent(pid)}`);
+    const data = await this.#get(
+      `/v1/capabilities/platform/${encodeURIComponent(pid)}`,
+    );
     this.#cache.set(cacheKey, data, CACHE_TTL_MS);
     return data;
   }
@@ -171,19 +188,21 @@ export class CapabilityClient {
   async getCompatibleSkills(capabilities) {
     if (!Array.isArray(capabilities) || capabilities.length === 0) {
       throw new CapabilityClientError(
-        'capabilities must be a non-empty array of capability IDs',
-        { code: 'INVALID_ARGUMENT' }
+        "capabilities must be a non-empty array of capability IDs",
+        { code: "INVALID_ARGUMENT" },
       );
     }
 
     const sorted = [...capabilities].sort();
-    const cacheKey = `compatible:${sorted.join(',')}`;
+    const cacheKey = `compatible:${sorted.join(",")}`;
 
     const cached = this.#cache.get(cacheKey);
     if (cached) return cached;
 
-    const caps = sorted.join(',');
-    const data = await this.#get(`/v1/skills/compatible?caps=${encodeURIComponent(caps)}`);
+    const caps = sorted.join(",");
+    const data = await this.#get(
+      `/v1/skills/compatible?caps=${encodeURIComponent(caps)}`,
+    );
     this.#cache.set(cacheKey, data, CACHE_TTL_MS);
     return data;
   }
@@ -204,7 +223,7 @@ export class CapabilityClient {
 
     // If no supported caps known, return all zero-requirement skills
     const skills = await this.getCompatibleSkills(
-      supported.length > 0 ? supported : ['network.http']
+      supported.length > 0 ? supported : ["network.http"],
     );
 
     return { platform: pid, profile, skills };
@@ -222,10 +241,10 @@ export class CapabilityClient {
 
       try {
         response = await fetch(url, {
-          method: 'GET',
+          method: "GET",
           headers: {
             Authorization: `Bearer ${this.#token}`,
-            Accept: 'application/json',
+            Accept: "application/json",
           },
           signal: controller.signal,
         });
@@ -233,28 +252,33 @@ export class CapabilityClient {
         clearTimeout(timer);
       }
     } catch (err) {
-      if (err.name === 'AbortError') {
+      if (err.name === "AbortError") {
         throw new CapabilityClientError(
           `Request to ${path} timed out after ${this.#timeoutMs}ms`,
-          { code: 'TIMEOUT' }
+          { code: "TIMEOUT" },
         );
       }
       throw new CapabilityClientError(
         `Network error fetching ${path}: ${err.message}`,
-        { code: 'NETWORK_ERROR' }
+        { code: "NETWORK_ERROR" },
       );
     }
 
     if (!response.ok) {
       let errorBody;
-      try { errorBody = await response.json(); } catch { errorBody = null; }
+      try {
+        errorBody = await response.json();
+      } catch {
+        errorBody = null;
+      }
       throw new CapabilityClientError(
-        errorBody?.error?.message ?? `Request failed with status ${response.status}`,
+        errorBody?.error?.message ??
+          `Request failed with status ${response.status}`,
         {
-          code: errorBody?.error?.code ?? 'HTTP_ERROR',
+          code: errorBody?.error?.code ?? "HTTP_ERROR",
           status: response.status,
           hint: errorBody?.error?.hint ?? null,
-        }
+        },
       );
     }
 
@@ -263,7 +287,7 @@ export class CapabilityClient {
     } catch {
       throw new CapabilityClientError(
         `Response from ${path} contained invalid JSON`,
-        { code: 'PARSE_ERROR', status: response.status }
+        { code: "PARSE_ERROR", status: response.status },
       );
     }
   }

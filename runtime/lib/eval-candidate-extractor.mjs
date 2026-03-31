@@ -16,7 +16,7 @@ export function extractEvalCandidates(observations = []) {
   const frictionMap = new Map();
 
   for (const obs of observations) {
-    if (obs.type !== 'friction_observed') {
+    if (obs.type !== "friction_observed") {
       continue;
     }
 
@@ -41,7 +41,7 @@ export function extractEvalCandidates(observations = []) {
     if (obs.metadata?.impact) {
       entry.impacts.push(obs.metadata.impact);
     }
-    if (typeof obs.metadata?.turn_index === 'number') {
+    if (typeof obs.metadata?.turn_index === "number") {
       entry.turns.push(obs.metadata.turn_index);
     }
     if (obs.metadata?.description) {
@@ -67,7 +67,7 @@ export function extractEvalCandidates(observations = []) {
         ? entry.impacts.map((i) => severityOrder[i] || 0)
         : [0]),
     );
-    const severityMap = { 3: 'high', 2: 'medium', 1: 'low', 0: 'unknown' };
+    const severityMap = { 3: "high", 2: "medium", 1: "low", 0: "unknown" };
     const severity = severityMap[maxSeverity];
 
     const candidate = {
@@ -82,9 +82,9 @@ export function extractEvalCandidates(observations = []) {
         repeatable: entry.repeatable,
       },
       recommendation:
-        severity === 'high'
-          ? 'Consider creating an eval or template adjustment'
-          : 'Monitor for pattern evolution',
+        severity === "high"
+          ? "Consider creating an eval or template adjustment"
+          : "Monitor for pattern evolution",
       created_at: new Date().toISOString(),
     };
 

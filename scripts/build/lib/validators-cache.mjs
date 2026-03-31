@@ -5,20 +5,20 @@
  * compile.mjs, lint/skill.mjs, and test files. Validators are lazy-initialised
  * on first access and reused for the lifetime of the process.
  */
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
-const SCHEMAS_DIR = resolve(__filename, '..', '..', '..', '..', 'schemas');
+const SCHEMAS_DIR = resolve(__filename, "..", "..", "..", "..", "schemas");
 
 let _ajv = null;
 const _cache = new Map();
 
 async function getAjv() {
   if (!_ajv) {
-    const { default: Ajv } = await import('ajv/dist/2020.js');
-    const { default: addFormats } = await import('ajv-formats');
+    const { default: Ajv } = await import("ajv/dist/2020.js");
+    const { default: addFormats } = await import("ajv-formats");
     _ajv = new Ajv({ allErrors: true, strict: false });
     addFormats(_ajv);
   }
@@ -26,7 +26,9 @@ async function getAjv() {
 }
 
 function loadSchema(name) {
-  return JSON.parse(readFileSync(resolve(SCHEMAS_DIR, `${name}.schema.json`), 'utf8'));
+  return JSON.parse(
+    readFileSync(resolve(SCHEMAS_DIR, `${name}.schema.json`), "utf8"),
+  );
 }
 
 async function getValidator(name) {
@@ -38,14 +40,22 @@ async function getValidator(name) {
   return _cache.get(name);
 }
 
-export async function getSkillValidator() { return getValidator('skill'); }
-export async function getPlatformValidator() { return getValidator('platform'); }
-export async function getRouteValidator() { return getValidator('route'); }
-export async function getOutcomeValidator() { return getValidator('outcome'); }
+export async function getSkillValidator() {
+  return getValidator("skill");
+}
+export async function getPlatformValidator() {
+  return getValidator("platform");
+}
+export async function getRouteValidator() {
+  return getValidator("route");
+}
+export async function getOutcomeValidator() {
+  return getValidator("outcome");
+}
 
 /**
  * Returns the raw parsed skill schema (for extracting $defs like capabilityId).
  */
 export function getSkillSchema() {
-  return loadSchema('skill');
+  return loadSchema("skill");
 }

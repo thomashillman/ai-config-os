@@ -132,11 +132,12 @@ offers to generate the missing lockfile without writing `node_modules`.
 
 - Before deploying a new subpackage (e.g. a new Worker, a new dashboard)
 - When a CI/CD build fails with `npm ci can only install packages when your package.json
-  and package-lock.json are in sync` or `Missing: package-lock.json`
+and package-lock.json are in sync` or `Missing: package-lock.json`
 - As a pre-push check after adding a new `package.json`
 - Invoke manually with `/lockfile-audit [scope]`
 
 Auto-invoke when user says:
+
 - "npm ci is failing because of a missing lockfile"
 - "check for missing lockfiles before we deploy"
 - "why does the worker deploy fail?"
@@ -146,6 +147,7 @@ Auto-invoke when user says:
 ### Step 1 — Discover all package.json files
 
 **If `shell.exec` is available:**
+
 ```bash
 find . -name "package.json" \
   -not -path "*/node_modules/*" \
@@ -163,6 +165,7 @@ find . -name "package.json" \
 ### Step 2 — Check for lockfiles
 
 For each `package.json` found, check whether any of these exist **in the same directory**:
+
 - `package-lock.json` (npm)
 - `yarn.lock` (Yarn)
 - `pnpm-lock.yaml` (pnpm)
@@ -177,31 +180,36 @@ Record packages with **no lockfile** for the next step.
 For each package missing a lockfile, search for deploy references:
 
 **Wrangler / Cloudflare Workers:**
+
 ```bash
 grep -r "package.json\|npm\|yarn\|pnpm" wrangler.toml */wrangler.toml 2>/dev/null
 ```
+
 Look for `[build]` sections with `command = "npm ..."` or directory references.
 
 **GitHub Actions workflows** (`.github/workflows/*.yml`):
+
 - Does any step `cd` into the package directory and run `npm ci`, `npm clean-install`,
   or `yarn install --frozen-lockfile`?
 - Does any step reference the package directory path?
 
 **Dockerfile / docker-compose:**
+
 - Does `COPY` include the package directory?
 - Does `RUN` call `npm ci` inside it?
 
 **Cloudflare Pages config** (`pages.json`, `wrangler.toml` with `[pages]`):
+
 - Is the package's directory the build root?
 
 ---
 
 ### Step 4 — Classify severity
 
-| Severity | Condition |
-|----------|-----------|
-| **BLOCKING** | A deploy config runs `npm ci`, `npm clean-install`, or `yarn install --frozen-lockfile` in this package's directory. Will hard-fail without a lockfile. |
-| **WARNING** | Package exists but no deploy config references it. May be local tooling, a script, or an orphaned directory. Won't break a deploy now, but could if added later. |
+| Severity     | Condition                                                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **BLOCKING** | A deploy config runs `npm ci`, `npm clean-install`, or `yarn install --frozen-lockfile` in this package's directory. Will hard-fail without a lockfile.          |
+| **WARNING**  | Package exists but no deploy config references it. May be local tooling, a script, or an orphaned directory. Won't break a deploy now, but could if added later. |
 
 ---
 
@@ -222,6 +230,7 @@ Package: <relative/path/to/package.json>
 ```
 
 For WARNING items with no deploy reference:
+
 ```
   Fix:        Review whether this package needs a lockfile. If it will ever be
               deployed, generate one now: cd <dir> && npm install --package-lock-only
@@ -275,6 +284,7 @@ requires no network access for packages already in the registry.
 **Input:** `Audit lockfiles across the repo`
 
 **Output:**
+
 ```
 FINDINGS
 
@@ -305,6 +315,7 @@ SUMMARY
 ### Example 2 — All lockfiles present
 
 **Output:**
+
 ```
 SUMMARY
 Packages scanned: 4  |  Missing lockfiles: 0

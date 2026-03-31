@@ -11,8 +11,8 @@
  * R2 holds the canonical full record; KV is the index.
  */
 
-import type { BootstrapRun } from './schema';
-import { sanitizeRecord } from './sanitize';
+import type { BootstrapRun } from "./schema";
+import { sanitizeRecord } from "./sanitize";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -21,7 +21,7 @@ export interface RunSummary {
   run_id: string;
   started_at: string;
   finished_at?: string;
-  status: BootstrapRun['status'];
+  status: BootstrapRun["status"];
   first_failed_phase?: string;
   error_code?: string;
   expected_version?: string;
@@ -46,8 +46,8 @@ export function runMetaKvKey(runId: string): string {
   return `observability:run:${runId}:meta`;
 }
 
-export const LATEST_RUN_KV_KEY = 'observability:latest-run';
-export const RUNS_INDEX_KV_KEY = 'observability:runs:index';
+export const LATEST_RUN_KV_KEY = "observability:latest-run";
+export const RUNS_INDEX_KV_KEY = "observability:runs:index";
 
 /** Maximum number of run IDs to retain in the lightweight KV index. */
 const MAX_INDEX_SIZE = 100;
@@ -62,7 +62,8 @@ export function buildRunSummary(run: BootstrapRun): RunSummary {
     phase_count: run.phases.length,
   };
   if (run.finished_at) summary.finished_at = run.finished_at;
-  if (run.first_failed_phase) summary.first_failed_phase = run.first_failed_phase;
+  if (run.first_failed_phase)
+    summary.first_failed_phase = run.first_failed_phase;
   if (run.error_code) summary.error_code = run.error_code;
   if (run.expected_version) summary.expected_version = run.expected_version;
   if (run.observed_version) summary.observed_version = run.observed_version;
@@ -78,7 +79,12 @@ type KvStore = {
 
 type R2Bucket = {
   put(key: string, value: string): Promise<void>;
-  get(key: string): Promise<{ text(): Promise<string> } | null> | { text(): Promise<string> } | null;
+  get(
+    key: string,
+  ):
+    | Promise<{ text(): Promise<string> } | null>
+    | { text(): Promise<string> }
+    | null;
 };
 
 // ── Write ─────────────────────────────────────────────────────────────────────
@@ -115,7 +121,11 @@ export async function writeBootstrapRun(
   // Update runs index (prepend new run_id, cap at MAX_INDEX_SIZE)
   await updateRunsIndex(kv, sanitized.run_id);
 
-  return { run_id: sanitized.run_id, summary_key: summaryKey, kv_meta_key: metaKey };
+  return {
+    run_id: sanitized.run_id,
+    summary_key: summaryKey,
+    kv_meta_key: metaKey,
+  };
 }
 
 async function updateRunsIndex(kv: KvStore, runId: string): Promise<void> {
@@ -130,7 +140,10 @@ async function updateRunsIndex(kv: KvStore, runId: string): Promise<void> {
     }
   }
   // Prepend; deduplicate; cap
-  index = [runId, ...index.filter(id => id !== runId)].slice(0, MAX_INDEX_SIZE);
+  index = [runId, ...index.filter((id) => id !== runId)].slice(
+    0,
+    MAX_INDEX_SIZE,
+  );
   await kv.put(RUNS_INDEX_KV_KEY, JSON.stringify(index));
 }
 
@@ -200,7 +213,9 @@ export async function getBootstrapRun(
  * Read the latest run summary from KV.
  * Returns null if no runs have been recorded.
  */
-export async function getLatestRunSummary(kv: KvStore): Promise<RunSummary | null> {
+export async function getLatestRunSummary(
+  kv: KvStore,
+): Promise<RunSummary | null> {
   const runId = await kv.get(LATEST_RUN_KV_KEY);
   if (!runId) return null;
   const meta = await kv.get(runMetaKvKey(runId));

@@ -8,6 +8,8 @@
     "build": "node scripts/build/compile.mjs",
     "build:watch": "node --watch scripts/build/compile.mjs",
     "check:skill-count-drift": "node scripts/ci/check-skill-count-drift.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "check:cursor-rules": "node scripts/ci/validate-cursor-rules.mjs",
     "validate": "node scripts/build/compile.mjs --validate-only",
     "pretest": "node scripts/build/compile.mjs",
@@ -32,6 +34,7 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "prettier": "^3.8.1",
     "typescript": "^5.7.2"
   },
   "engines": {

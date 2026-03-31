@@ -4,7 +4,13 @@
   "title": "TaskStateSnapshot",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "task_id", "snapshot_version", "created_at", "task"],
+  "required": [
+    "schema_version",
+    "task_id",
+    "snapshot_version",
+    "created_at",
+    "task"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "task_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },

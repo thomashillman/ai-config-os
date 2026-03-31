@@ -1,12 +1,12 @@
-import { existsSync } from 'node:fs';
-import { spawn, spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
-import { resolveProviderContext } from './provider-context.mjs';
-import { createTelemetrySink } from './telemetry.mjs';
+import { existsSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { resolveProviderContext } from "./provider-context.mjs";
+import { createTelemetrySink } from "./telemetry.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFERRED_RUNNER = join(__dirname, 'run-deferred.mjs');
+const DEFERRED_RUNNER = join(__dirname, "run-deferred.mjs");
 
 function defaultRunCommand(command, { cwd, env, deferred = false } = {}) {
   const [cmd, ...args] = command;
@@ -17,23 +17,23 @@ function defaultRunCommand(command, { cwd, env, deferred = false } = {}) {
       cwd,
       env,
       detached: true,
-      stdio: 'ignore',
+      stdio: "ignore",
     });
     child.unref();
-    return { ok: true, code: 0, stdout: '', stderr: '' };
+    return { ok: true, code: 0, stdout: "", stderr: "" };
   }
 
   const result = runner(cmd, args, {
     cwd,
     env,
-    encoding: 'utf8',
+    encoding: "utf8",
   });
 
   return {
     ok: result.status === 0,
     code: result.status ?? 1,
-    stdout: result.stdout || '',
-    stderr: result.stderr || '',
+    stdout: result.stdout || "",
+    stderr: result.stderr || "",
   };
 }
 
@@ -41,7 +41,15 @@ function createError(code, message, detail = undefined) {
   return detail ? { code, message, detail } : { code, message };
 }
 
-function emitPhaseEvent({ eventSink, provider, phase, durationMs, result, errorCode = null, deferred = false }) {
+function emitPhaseEvent({
+  eventSink,
+  provider,
+  phase,
+  durationMs,
+  result,
+  errorCode = null,
+  deferred = false,
+}) {
   eventSink({
     phase,
     provider,
@@ -60,7 +68,16 @@ function isCapabilityEnabled(context, capabilityName) {
   return Boolean(context.capabilities?.[capabilityName]);
 }
 
-function runPhase({ phase, provider, command, cwd, env, runCommand, eventSink, deferred = false }) {
+function runPhase({
+  phase,
+  provider,
+  command,
+  cwd,
+  env,
+  runCommand,
+  eventSink,
+  deferred = false,
+}) {
   const started = Date.now();
   const result = runCommand(command, { cwd, env, deferred });
   const durationMs = Date.now() - started;
@@ -70,7 +87,7 @@ function runPhase({ phase, provider, command, cwd, env, runCommand, eventSink, d
     provider,
     phase,
     durationMs,
-    result: result.ok ? 'ok' : 'error',
+    result: result.ok ? "ok" : "error",
     errorCode: result.ok ? null : `${phase.toUpperCase()}_FAILED`,
     deferred,
   });
@@ -78,7 +95,13 @@ function runPhase({ phase, provider, command, cwd, env, runCommand, eventSink, d
   return { ...result, durationMs };
 }
 
-function maybeAcquireLocalBundle({ context, runCommand, env, eventSink, result }) {
+function maybeAcquireLocalBundle({
+  context,
+  runCommand,
+  env,
+  eventSink,
+  result,
+}) {
   const localBundle = context.paths.local_bundle;
   const command = context.commands.acquire_local_bundle;
 
@@ -87,7 +110,7 @@ function maybeAcquireLocalBundle({ context, runCommand, env, eventSink, result }
   }
 
   const acquire = runPhase({
-    phase: 'acquire_local_bundle',
+    phase: "acquire_local_bundle",
     provider: context.provider,
     command,
     cwd: context.paths.repo_root,
@@ -98,7 +121,13 @@ function maybeAcquireLocalBundle({ context, runCommand, env, eventSink, result }
   result.durations.acquire_local_bundle = acquire.durationMs;
 
   if (!acquire.ok) {
-    result.errors.push(createError('LOCAL_BUNDLE_ACQUIRE_FAILED', 'Failed to acquire local bundle.', acquire.stderr || acquire.stdout));
+    result.errors.push(
+      createError(
+        "LOCAL_BUNDLE_ACQUIRE_FAILED",
+        "Failed to acquire local bundle.",
+        acquire.stderr || acquire.stdout,
+      ),
+    );
     return false;
   }
 
@@ -106,13 +135,18 @@ function maybeAcquireLocalBundle({ context, runCommand, env, eventSink, result }
 }
 
 function installFromLocal({ context, runCommand, env, eventSink, result }) {
-  if (!maybeAcquireLocalBundle({ context, runCommand, env, eventSink, result })) {
+  if (
+    !maybeAcquireLocalBundle({ context, runCommand, env, eventSink, result })
+  ) {
     return false;
   }
 
-  if (context.capabilities.can_materialize_skills && context.commands.materialize_local) {
+  if (
+    context.capabilities.can_materialize_skills &&
+    context.commands.materialize_local
+  ) {
     const materialize = runPhase({
-      phase: 'materialize_local',
+      phase: "materialize_local",
       provider: context.provider,
       command: context.commands.materialize_local,
       cwd: context.paths.repo_root,
@@ -123,14 +157,23 @@ function installFromLocal({ context, runCommand, env, eventSink, result }) {
     result.durations.materialize_local = materialize.durationMs;
 
     if (!materialize.ok) {
-      result.errors.push(createError('LOCAL_MATERIALIZE_FAILED', 'Failed to materialize local bundle.', materialize.stderr || materialize.stdout));
+      result.errors.push(
+        createError(
+          "LOCAL_MATERIALIZE_FAILED",
+          "Failed to materialize local bundle.",
+          materialize.stderr || materialize.stdout,
+        ),
+      );
       return false;
     }
   }
 
-  if (context.capabilities.can_write_target && context.commands.install_target) {
+  if (
+    context.capabilities.can_write_target &&
+    context.commands.install_target
+  ) {
     const install = runPhase({
-      phase: 'install_target',
+      phase: "install_target",
       provider: context.provider,
       command: context.commands.install_target,
       cwd: context.paths.repo_root,
@@ -141,17 +184,30 @@ function installFromLocal({ context, runCommand, env, eventSink, result }) {
     result.durations.install_target = install.durationMs;
 
     if (!install.ok) {
-      result.errors.push(createError('INSTALL_TARGET_FAILED', 'Failed to install target artifacts.', install.stderr || install.stdout));
+      result.errors.push(
+        createError(
+          "INSTALL_TARGET_FAILED",
+          "Failed to install target artifacts.",
+          install.stderr || install.stdout,
+        ),
+      );
       return false;
     }
   }
 
   result.installed = true;
-  result.source = 'local';
+  result.source = "local";
   return true;
 }
 
-function startDeferredWork({ context, env, strictMode, runCommand, eventSink, spawnDeferred }) {
+function startDeferredWork({
+  context,
+  env,
+  strictMode,
+  runCommand,
+  eventSink,
+  spawnDeferred,
+}) {
   const runnableJobs = [];
   const deferredJobs = [];
 
@@ -162,7 +218,7 @@ function startDeferredWork({ context, env, strictMode, runCommand, eventSink, sp
         provider: context.provider,
         phase: job.phase,
         durationMs: 0,
-        result: 'skipped',
+        result: "skipped",
         deferred: !strictMode,
       });
       continue;
@@ -197,20 +253,24 @@ function startDeferredWork({ context, env, strictMode, runCommand, eventSink, sp
 
 function defaultSpawnDeferred({ context, env, eventSink }) {
   const started = Date.now();
-  const child = spawn(process.execPath, [DEFERRED_RUNNER, '--provider', context.provider], {
-    cwd: context.paths.repo_root,
-    env,
-    detached: true,
-    stdio: 'ignore',
-  });
+  const child = spawn(
+    process.execPath,
+    [DEFERRED_RUNNER, "--provider", context.provider],
+    {
+      cwd: context.paths.repo_root,
+      env,
+      detached: true,
+      stdio: "ignore",
+    },
+  );
   child.unref();
 
   emitPhaseEvent({
     eventSink,
     provider: context.provider,
-    phase: 'deferred_dispatch',
+    phase: "deferred_dispatch",
     durationMs: Date.now() - started,
-    result: 'ok',
+    result: "ok",
     deferred: true,
   });
 }
@@ -230,12 +290,12 @@ export function executeBootstrap({
         home: env.HOME || env.USERPROFILE || cwd,
         provider: context.provider,
       });
-  const strictMode = env.AI_CONFIG_STRICT_BOOTSTRAP === '1';
+  const strictMode = env.AI_CONFIG_STRICT_BOOTSTRAP === "1";
   const result = {
     ok: true,
     provider: context.provider,
     installed: false,
-    source: 'noop',
+    source: "noop",
     fallback_used: false,
     durations: {},
     deferred_jobs: [],
@@ -246,18 +306,18 @@ export function executeBootstrap({
   emitPhaseEvent({
     eventSink: telemetry.emit,
     provider: context.provider,
-    phase: 'resolve_provider',
+    phase: "resolve_provider",
     durationMs: 0,
-    result: 'ok',
+    result: "ok",
   });
 
   if (!context.startup.shouldInstallOnStart) {
     emitPhaseEvent({
       eventSink: telemetry.emit,
       provider: context.provider,
-      phase: 'startup_scope',
+      phase: "startup_scope",
       durationMs: 0,
-      result: 'skipped',
+      result: "skipped",
     });
     return { result, exitCode: 0 };
   }
@@ -269,7 +329,7 @@ export function executeBootstrap({
 
   if (canAttemptRemote) {
     const remote = runPhase({
-      phase: 'acquire_remote_bundle',
+      phase: "acquire_remote_bundle",
       provider: context.provider,
       command: context.commands.remote_install,
       cwd: context.paths.repo_root,
@@ -281,9 +341,15 @@ export function executeBootstrap({
 
     if (remote.ok) {
       result.installed = true;
-      result.source = 'remote';
+      result.source = "remote";
     } else {
-      result.errors.push(createError('REMOTE_BUNDLE_FAILED', 'Remote bundle install failed.', remote.stderr || remote.stdout));
+      result.errors.push(
+        createError(
+          "REMOTE_BUNDLE_FAILED",
+          "Remote bundle install failed.",
+          remote.stderr || remote.stdout,
+        ),
+      );
       result.fallback_used = true;
     }
   }
@@ -302,10 +368,10 @@ export function executeBootstrap({
       emitPhaseEvent({
         eventSink: telemetry.emit,
         provider: context.provider,
-        phase: 'bootstrap_result',
+        phase: "bootstrap_result",
         durationMs: 0,
-        result: 'error',
-        errorCode: result.errors.at(-1)?.code || 'BOOTSTRAP_FAILED',
+        result: "error",
+        errorCode: result.errors.at(-1)?.code || "BOOTSTRAP_FAILED",
       });
       return { result, exitCode: 1 };
     }
@@ -323,9 +389,9 @@ export function executeBootstrap({
   emitPhaseEvent({
     eventSink: telemetry.emit,
     provider: context.provider,
-    phase: 'bootstrap_result',
+    phase: "bootstrap_result",
     durationMs: 0,
-    result: 'ok',
+    result: "ok",
   });
 
   return { result, exitCode: 0 };

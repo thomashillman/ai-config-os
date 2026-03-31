@@ -4,44 +4,46 @@
  * Runtime-safe validation and types for Claude Code hook events.
  */
 
-import path from 'path';
+import path from "path";
 
 export function validateHookEvent(event) {
-  if (!event || typeof event !== 'object') {
-    throw new TypeError('Event must be a non-null object');
+  if (!event || typeof event !== "object") {
+    throw new TypeError("Event must be a non-null object");
   }
 
   const type = event.type;
 
   // Check event type
-  if (!['PreToolUse', 'PostToolUse', 'SessionStart'].includes(type)) {
+  if (!["PreToolUse", "PostToolUse", "SessionStart"].includes(type)) {
     throw new TypeError(
-      `Invalid event type: "${type}". Must be PreToolUse, PostToolUse, or SessionStart.`
+      `Invalid event type: "${type}". Must be PreToolUse, PostToolUse, or SessionStart.`,
     );
   }
 
   // Check timestamp format (ISO 8601)
-  if (typeof event.timestamp !== 'string' || !isValidISO8601(event.timestamp)) {
+  if (typeof event.timestamp !== "string" || !isValidISO8601(event.timestamp)) {
     throw new TypeError(
-      `Event timestamp must be ISO 8601 format (got: ${event.timestamp})`
+      `Event timestamp must be ISO 8601 format (got: ${event.timestamp})`,
     );
   }
 
   // Check session_id
-  if (typeof event.session_id !== 'string' || !event.session_id.trim()) {
-    throw new TypeError('Event session_id is required and must be a non-empty string');
+  if (typeof event.session_id !== "string" || !event.session_id.trim()) {
+    throw new TypeError(
+      "Event session_id is required and must be a non-empty string",
+    );
   }
 
   // Type-specific validations
-  if (type === 'SessionStart') {
-    if (typeof event.project_dir !== 'string' || !event.project_dir.trim()) {
-      throw new TypeError('SessionStartEvent requires project_dir');
+  if (type === "SessionStart") {
+    if (typeof event.project_dir !== "string" || !event.project_dir.trim()) {
+      throw new TypeError("SessionStartEvent requires project_dir");
     }
-    if (typeof event.home_dir !== 'string' || !event.home_dir.trim()) {
-      throw new TypeError('SessionStartEvent requires home_dir');
+    if (typeof event.home_dir !== "string" || !event.home_dir.trim()) {
+      throw new TypeError("SessionStartEvent requires home_dir");
     }
-  } else if (type === 'PreToolUse' || type === 'PostToolUse') {
-    if (typeof event.tool_name !== 'string' || !event.tool_name.trim()) {
+  } else if (type === "PreToolUse" || type === "PostToolUse") {
+    if (typeof event.tool_name !== "string" || !event.tool_name.trim()) {
       throw new TypeError(`${type} requires tool_name`);
     }
   }

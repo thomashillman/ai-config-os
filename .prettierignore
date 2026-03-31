@@ -1,0 +1,13 @@
+dist/
+AGENTS.md
+CLAUDE.md
+shared/skills/_template/
+**/node_modules/
+package-lock.json
+dashboard/
+.cursor/plugins/
+**/.cursor/plugins/**
+coverage/
+*.min.js
+yarn.lock
+pnpm-lock.yaml

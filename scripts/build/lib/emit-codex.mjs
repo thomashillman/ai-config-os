@@ -12,8 +12,8 @@
  *
  * Format: Markdown document with skill sections — loaded as Codex system instructions.
  */
-import { mkdirSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, writeFileSync } from "fs";
+import { join } from "path";
 
 /**
  * @param {object[]} skills - Pre-filtered skills for codex (from compatibility resolution)
@@ -23,7 +23,10 @@ import { join } from 'path';
  * @param {object|null} [opts.provenance] - optional provenance (release mode only)
  * @param {Map<string, Map<string, object>>} opts.compatMatrix - full compatibility matrix
  */
-export function emitCodex(skills, { distDir, releaseVersion, provenance, compatMatrix }) {
+export function emitCodex(
+  skills,
+  { distDir, releaseVersion, provenance, compatMatrix },
+) {
   mkdirSync(distDir, { recursive: true });
 
   const sections = [];
@@ -33,46 +36,54 @@ export function emitCodex(skills, { distDir, releaseVersion, provenance, compatM
   sections.push(`# Version: ${releaseVersion}`);
   if (provenance?.builtAt) sections.push(`# Built: ${provenance.builtAt}`);
   if (provenance?.buildId) sections.push(`# Build ID: ${provenance.buildId}`);
-  if (provenance?.sourceCommit) sections.push(`# Source Commit: ${provenance.sourceCommit}`);
+  if (provenance?.sourceCommit)
+    sections.push(`# Source Commit: ${provenance.sourceCommit}`);
   sections.push(`# Skills: ${skills.length}`);
-  sections.push('');
-  sections.push('These instructions define skills for AI coding assistant agents.');
-  sections.push('Each skill section describes a behaviour, capability, or protocol to follow.');
-  sections.push('');
+  sections.push("");
+  sections.push(
+    "These instructions define skills for AI coding assistant agents.",
+  );
+  sections.push(
+    "Each skill section describes a behaviour, capability, or protocol to follow.",
+  );
+  sections.push("");
 
   for (const skill of skills) {
     const fm = skill.frontmatter;
     const skillId = skill.skillName;
 
     // Get compatibility info for degradation notes
-    const compat = compatMatrix?.get(skillId)?.get('codex');
+    const compat = compatMatrix?.get(skillId)?.get("codex");
 
     sections.push(`## ${fm.skill || skillId}`);
 
     if (fm.description) {
-      sections.push('');
-      sections.push(`> ${fm.description.trim().split('\n')[0]}`);
+      sections.push("");
+      sections.push(`> ${fm.description.trim().split("\n")[0]}`);
     }
 
     // Add limitation note for degraded/excluded compatibility
-    const hasLimitation = compat && (compat.mode !== 'native' || compat.status !== 'supported');
+    const hasLimitation =
+      compat && (compat.mode !== "native" || compat.status !== "supported");
     if (hasLimitation) {
       const limitationReason =
         compat.notes ||
-        (compat.status === 'unverified'
-          ? 'Capability support is unverified for Codex.'
-          : compat.status === 'excluded'
-            ? 'This skill is excluded for Codex due to unsupported capability requirements.'
-            : 'Some capabilities may not be available in Codex.');
+        (compat.status === "unverified"
+          ? "Capability support is unverified for Codex."
+          : compat.status === "excluded"
+            ? "This skill is excluded for Codex due to unsupported capability requirements."
+            : "Some capabilities may not be available in Codex.");
 
-      sections.push('');
-      sections.push(`> ⚠ **Limitation (${compat.status}/${compat.mode}):** ${limitationReason}`);
+      sections.push("");
+      sections.push(
+        `> ⚠ **Limitation (${compat.status}/${compat.mode}):** ${limitationReason}`,
+      );
       if (fm.capabilities?.fallback_notes) {
         sections.push(`> Fallback: ${fm.capabilities.fallback_notes}`);
       }
     }
 
-    sections.push('');
+    sections.push("");
 
     // Emit skill body (the prompt content after frontmatter)
     const body = skill.body?.trim();
@@ -82,13 +93,15 @@ export function emitCodex(skills, { distDir, releaseVersion, provenance, compatM
       sections.push(`_(skill body not available)_`);
     }
 
-    sections.push('');
-    sections.push('---');
-    sections.push('');
+    sections.push("");
+    sections.push("---");
+    sections.push("");
   }
 
-  const agentsContent = sections.join('\n').trim() + '\n';
-  const agentsPath = join(distDir, 'AGENTS.md');
+  const agentsContent = sections.join("\n").trim() + "\n";
+  const agentsPath = join(distDir, "AGENTS.md");
   writeFileSync(agentsPath, agentsContent);
-  console.log(`  [codex] AGENTS.md → ${agentsPath} (${skills.length} skill(s))`);
+  console.log(
+    `  [codex] AGENTS.md → ${agentsPath} (${skills.length} skill(s))`,
+  );
 }

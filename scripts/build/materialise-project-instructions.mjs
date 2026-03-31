@@ -1,28 +1,41 @@
 #!/usr/bin/env node
 
-import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
-import { resolve, join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  existsSync,
+  readdirSync,
+} from "node:fs";
+import { resolve, join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_BASE_DIR = resolve(SCRIPT_DIR, '..', '..', 'shared', 'agent-doctrine', 'base');
+const DEFAULT_BASE_DIR = resolve(
+  SCRIPT_DIR,
+  "..",
+  "..",
+  "shared",
+  "agent-doctrine",
+  "base",
+);
 const DEFAULT_CLAUDE_SURFACE = resolve(
   SCRIPT_DIR,
-  '..',
-  '..',
-  'shared',
-  'agent-doctrine',
-  'surfaces',
-  'claude.md'
+  "..",
+  "..",
+  "shared",
+  "agent-doctrine",
+  "surfaces",
+  "claude.md",
 );
 const DEFAULT_CODEX_SURFACE = resolve(
   SCRIPT_DIR,
-  '..',
-  '..',
-  'shared',
-  'agent-doctrine',
-  'surfaces',
-  'codex.md'
+  "..",
+  "..",
+  "shared",
+  "agent-doctrine",
+  "surfaces",
+  "codex.md",
 );
 
 function fail(message) {
@@ -32,14 +45,14 @@ function fail(message) {
 
 function requireValue(argv, index, flag) {
   const value = argv[index + 1];
-  if (!value || value.startsWith('--')) {
+  if (!value || value.startsWith("--")) {
     fail(`${flag} requires a value`);
   }
   return value;
 }
 
 function parseOverlayFileSpec(spec, overlays) {
-  const splitIndex = spec.indexOf('=');
+  const splitIndex = spec.indexOf("=");
   if (splitIndex === -1) {
     fail(`Invalid --overlay-file value: ${spec}. Expected <surface>=<path>`);
   }
@@ -50,26 +63,28 @@ function parseOverlayFileSpec(spec, overlays) {
     fail(`Invalid --overlay-file value: ${spec}. Path must not be empty`);
   }
 
-  if (surface === 'base') {
+  if (surface === "base") {
     overlays.baseOverlayFile = filePath;
     return;
   }
 
-  if (surface === 'claude') {
+  if (surface === "claude") {
     overlays.claudeOverlayFile = filePath;
     return;
   }
 
-  if (surface === 'codex' || surface === 'agents') {
+  if (surface === "codex" || surface === "agents") {
     overlays.codexOverlayFile = filePath;
     return;
   }
 
-  fail(`Invalid --overlay-file surface: ${surface}. Use base, claude, codex, or agents`);
+  fail(
+    `Invalid --overlay-file surface: ${surface}. Use base, claude, codex, or agents`,
+  );
 }
 
 function parseArgs(argv) {
-  if (argv.includes('--help') || argv.includes('-h')) {
+  if (argv.includes("--help") || argv.includes("-h")) {
     return { help: true };
   }
 
@@ -87,51 +102,51 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
-    if (!arg.startsWith('--')) {
+    if (!arg.startsWith("--")) {
       positional.push(arg);
       continue;
     }
 
-    if (arg === '--dry-run') {
+    if (arg === "--dry-run") {
       options.dryRun = true;
       continue;
     }
 
-    if (arg === '--claude-only') {
+    if (arg === "--claude-only") {
       options.claudeOnly = true;
       continue;
     }
 
-    if (arg === '--codex-only') {
+    if (arg === "--codex-only") {
       options.codexOnly = true;
       continue;
     }
 
-    if (arg === '--overlay') {
+    if (arg === "--overlay") {
       options.overlayDir = requireValue(argv, i, arg);
       i++;
       continue;
     }
 
-    if (arg === '--base-overlay-file') {
+    if (arg === "--base-overlay-file") {
       options.baseOverlayFile = requireValue(argv, i, arg);
       i++;
       continue;
     }
 
-    if (arg === '--claude-overlay-file') {
+    if (arg === "--claude-overlay-file") {
       options.claudeOverlayFile = requireValue(argv, i, arg);
       i++;
       continue;
     }
 
-    if (arg === '--codex-overlay-file') {
+    if (arg === "--codex-overlay-file") {
       options.codexOverlayFile = requireValue(argv, i, arg);
       i++;
       continue;
     }
 
-    if (arg === '--overlay-file') {
+    if (arg === "--overlay-file") {
       parseOverlayFileSpec(requireValue(argv, i, arg), options);
       i++;
       continue;
@@ -141,11 +156,13 @@ function parseArgs(argv) {
   }
 
   if (options.claudeOnly && options.codexOnly) {
-    fail('Cannot use --claude-only and --codex-only together');
+    fail("Cannot use --claude-only and --codex-only together");
   }
 
   if (positional.length !== 1) {
-    fail('Usage: node scripts/build/materialise-project-instructions.mjs <target-repo-path> [options]');
+    fail(
+      "Usage: node scripts/build/materialise-project-instructions.mjs <target-repo-path> [options]",
+    );
   }
 
   return {
@@ -156,12 +173,12 @@ function parseArgs(argv) {
 }
 
 function readIfExists(filePath) {
-  if (!filePath) return '';
+  if (!filePath) return "";
   const resolvedPath = resolve(filePath);
   if (!existsSync(resolvedPath)) {
     fail(`File does not exist: ${filePath}`);
   }
-  return readFileSync(resolvedPath, 'utf8').trim();
+  return readFileSync(resolvedPath, "utf8").trim();
 }
 
 function readRequired(filePath) {
@@ -169,7 +186,7 @@ function readRequired(filePath) {
   if (!existsSync(resolvedPath)) {
     fail(`Required file does not exist: ${filePath}`);
   }
-  return readFileSync(resolvedPath, 'utf8').trim();
+  return readFileSync(resolvedPath, "utf8").trim();
 }
 
 function readBaseDefaults(baseDir) {
@@ -179,15 +196,15 @@ function readBaseDefaults(baseDir) {
   }
 
   const files = readdirSync(resolvedBaseDir, { withFileTypes: true })
-    .filter(entry => entry.isFile() && entry.name.endsWith('.md'))
-    .map(entry => entry.name)
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
+    .map((entry) => entry.name)
     .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
   if (files.length === 0) {
     fail(`No base markdown files found in: ${baseDir}`);
   }
 
-  return files.map(fileName => readRequired(join(resolvedBaseDir, fileName)));
+  return files.map((fileName) => readRequired(join(resolvedBaseDir, fileName)));
 }
 
 function resolveOverlayFiles(overlayDir) {
@@ -197,14 +214,16 @@ function resolveOverlayFiles(overlayDir) {
 
   const overlayRoot = resolve(overlayDir);
   const candidates = {
-    base: ['base.md'],
-    claude: ['claude.md', 'CLAUDE.md'],
-    codex: ['codex.md', 'AGENTS.md'],
+    base: ["base.md"],
+    claude: ["claude.md", "CLAUDE.md"],
+    codex: ["codex.md", "AGENTS.md"],
   };
 
   const resolvedFiles = {};
   for (const [surface, names] of Object.entries(candidates)) {
-    const found = names.map(name => join(overlayRoot, name)).find(path => existsSync(path));
+    const found = names
+      .map((name) => join(overlayRoot, name))
+      .find((path) => existsSync(path));
     resolvedFiles[surface] = found || null;
   }
 
@@ -214,21 +233,23 @@ function resolveOverlayFiles(overlayDir) {
 function compose(parts) {
   return (
     parts
-      .map(part => part.trim())
+      .map((part) => part.trim())
       .filter(Boolean)
-      .join('\n\n')
-      .trim() + '\n'
+      .join("\n\n")
+      .trim() + "\n"
   );
 }
 
 function emitFile(targetPath, content, dryRun) {
   if (dryRun) {
-    console.log(`[dry-run] would write ${targetPath} (${Buffer.byteLength(content, 'utf8')} bytes)`);
+    console.log(
+      `[dry-run] would write ${targetPath} (${Buffer.byteLength(content, "utf8")} bytes)`,
+    );
     return;
   }
 
   mkdirSync(dirname(targetPath), { recursive: true });
-  writeFileSync(targetPath, content, 'utf8');
+  writeFileSync(targetPath, content, "utf8");
   console.log(`wrote ${targetPath}`);
 }
 
@@ -270,22 +291,38 @@ function main() {
   }
 
   const overlayFromDir = resolveOverlayFiles(parsed.overlayDir);
-  const baseOverlay = readIfExists(parsed.baseOverlayFile || overlayFromDir.base);
-  const claudeOverlay = readIfExists(parsed.claudeOverlayFile || overlayFromDir.claude);
-  const codexOverlay = readIfExists(parsed.codexOverlayFile || overlayFromDir.codex);
+  const baseOverlay = readIfExists(
+    parsed.baseOverlayFile || overlayFromDir.base,
+  );
+  const claudeOverlay = readIfExists(
+    parsed.claudeOverlayFile || overlayFromDir.claude,
+  );
+  const codexOverlay = readIfExists(
+    parsed.codexOverlayFile || overlayFromDir.codex,
+  );
 
   const baseDefaults = readBaseDefaults(DEFAULT_BASE_DIR);
   const claudeSurface = readRequired(DEFAULT_CLAUDE_SURFACE);
   const codexSurface = readRequired(DEFAULT_CODEX_SURFACE);
 
   if (!parsed.codexOnly) {
-    const claudeContent = compose([...baseDefaults, claudeSurface, baseOverlay, claudeOverlay]);
-    emitFile(join(targetRepoPath, 'CLAUDE.md'), claudeContent, parsed.dryRun);
+    const claudeContent = compose([
+      ...baseDefaults,
+      claudeSurface,
+      baseOverlay,
+      claudeOverlay,
+    ]);
+    emitFile(join(targetRepoPath, "CLAUDE.md"), claudeContent, parsed.dryRun);
   }
 
   if (!parsed.claudeOnly) {
-    const codexContent = compose([...baseDefaults, codexSurface, baseOverlay, codexOverlay]);
-    emitFile(join(targetRepoPath, 'AGENTS.md'), codexContent, parsed.dryRun);
+    const codexContent = compose([
+      ...baseDefaults,
+      codexSurface,
+      baseOverlay,
+      codexOverlay,
+    ]);
+    emitFile(join(targetRepoPath, "AGENTS.md"), codexContent, parsed.dryRun);
   }
 }
 

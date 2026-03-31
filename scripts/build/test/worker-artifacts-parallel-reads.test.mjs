@@ -5,20 +5,26 @@
  * artifact reads (outcomes, routes, tools) and their error handling.
  * Regression guard for the Promise.all parallelization change.
  */
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import ts from 'typescript';
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import ts from "typescript";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..', '..', '..');
+const REPO_ROOT = resolve(__dirname, "..", "..", "..");
 
 function transpileWorkerModule(relativePath, outPath) {
-  const sourcePath = join(REPO_ROOT, 'worker', 'src', relativePath);
-  let code = ts.transpileModule(readFileSync(sourcePath, 'utf8'), {
+  const sourcePath = join(REPO_ROOT, "worker", "src", relativePath);
+  let code = ts.transpileModule(readFileSync(sourcePath, "utf8"), {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
       target: ts.ScriptTarget.ES2022,
@@ -31,17 +37,22 @@ function transpileWorkerModule(relativePath, outPath) {
     .replace("from '../types';", "from '../types.mjs';");
 
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, code, 'utf8');
+  writeFileSync(outPath, code, "utf8");
 }
 
 async function importArtifactsHandler() {
-  const tempDir = mkdtempSync(join(tmpdir(), 'worker-artifacts-parallel-'));
+  const tempDir = mkdtempSync(join(tmpdir(), "worker-artifacts-parallel-"));
 
-  transpileWorkerModule('http.ts', join(tempDir, 'http.mjs'));
-  transpileWorkerModule('types.ts', join(tempDir, 'types.mjs'));
-  transpileWorkerModule('handlers/artifacts.ts', join(tempDir, 'handlers', 'artifacts.mjs'));
+  transpileWorkerModule("http.ts", join(tempDir, "http.mjs"));
+  transpileWorkerModule("types.ts", join(tempDir, "types.mjs"));
+  transpileWorkerModule(
+    "handlers/artifacts.ts",
+    join(tempDir, "handlers", "artifacts.mjs"),
+  );
 
-  const module = await import(pathToFileURL(join(tempDir, 'handlers', 'artifacts.mjs')).href);
+  const module = await import(
+    pathToFileURL(join(tempDir, "handlers", "artifacts.mjs")).href
+  );
 
   return {
     handleEffectiveContractPreview: module.handleEffectiveContractPreview,
@@ -49,9 +60,9 @@ async function importArtifactsHandler() {
   };
 }
 
-const OUTCOMES = { schema_version: '1.0', outcomes: ['deploy'] };
-const ROUTES = { schema_version: '1.0', routes: ['route-a'] };
-const TOOLS = { schema_version: '1.0', tools: ['tool-x'] };
+const OUTCOMES = { schema_version: "1.0", outcomes: ["deploy"] };
+const ROUTES = { schema_version: "1.0", routes: ["route-a"] };
+const TOOLS = { schema_version: "1.0", tools: ["tool-x"] };
 
 function makeR2(store) {
   return {
@@ -67,10 +78,11 @@ function makeKv(version) {
   return { get: async () => version };
 }
 
-const VERSION = '0.9.0';
+const VERSION = "0.9.0";
 
-test('handleEffectiveContractPreview returns merged contract when all artifacts present', async () => {
-  const { handleEffectiveContractPreview, cleanup } = await importArtifactsHandler();
+test("handleEffectiveContractPreview returns merged contract when all artifacts present", async () => {
+  const { handleEffectiveContractPreview, cleanup } =
+    await importArtifactsHandler();
 
   try {
     const env = {
@@ -82,7 +94,9 @@ test('handleEffectiveContractPreview returns merged contract when all artifacts 
       }),
     };
 
-    const response = await handleEffectiveContractPreview(env, { version: VERSION });
+    const response = await handleEffectiveContractPreview(env, {
+      version: VERSION,
+    });
     assert.equal(response.status, 200);
 
     const body = await response.json();
@@ -95,8 +109,9 @@ test('handleEffectiveContractPreview returns merged contract when all artifacts 
   }
 });
 
-test('handleEffectiveContractPreview returns 404 when outcomes artifact missing', async () => {
-  const { handleEffectiveContractPreview, cleanup } = await importArtifactsHandler();
+test("handleEffectiveContractPreview returns 404 when outcomes artifact missing", async () => {
+  const { handleEffectiveContractPreview, cleanup } =
+    await importArtifactsHandler();
 
   try {
     const env = {
@@ -108,15 +123,18 @@ test('handleEffectiveContractPreview returns 404 when outcomes artifact missing'
       }),
     };
 
-    const response = await handleEffectiveContractPreview(env, { version: VERSION });
+    const response = await handleEffectiveContractPreview(env, {
+      version: VERSION,
+    });
     assert.equal(response.status, 404);
   } finally {
     cleanup();
   }
 });
 
-test('handleEffectiveContractPreview returns 404 when routes artifact missing', async () => {
-  const { handleEffectiveContractPreview, cleanup } = await importArtifactsHandler();
+test("handleEffectiveContractPreview returns 404 when routes artifact missing", async () => {
+  const { handleEffectiveContractPreview, cleanup } =
+    await importArtifactsHandler();
 
   try {
     const env = {
@@ -128,15 +146,18 @@ test('handleEffectiveContractPreview returns 404 when routes artifact missing', 
       }),
     };
 
-    const response = await handleEffectiveContractPreview(env, { version: VERSION });
+    const response = await handleEffectiveContractPreview(env, {
+      version: VERSION,
+    });
     assert.equal(response.status, 404);
   } finally {
     cleanup();
   }
 });
 
-test('handleEffectiveContractPreview returns 404 when tools artifact missing', async () => {
-  const { handleEffectiveContractPreview, cleanup } = await importArtifactsHandler();
+test("handleEffectiveContractPreview returns 404 when tools artifact missing", async () => {
+  const { handleEffectiveContractPreview, cleanup } =
+    await importArtifactsHandler();
 
   try {
     const env = {
@@ -148,15 +169,18 @@ test('handleEffectiveContractPreview returns 404 when tools artifact missing', a
       }),
     };
 
-    const response = await handleEffectiveContractPreview(env, { version: VERSION });
+    const response = await handleEffectiveContractPreview(env, {
+      version: VERSION,
+    });
     assert.equal(response.status, 404);
   } finally {
     cleanup();
   }
 });
 
-test('handleEffectiveContractPreview returns 503 when R2 not configured', async () => {
-  const { handleEffectiveContractPreview, cleanup } = await importArtifactsHandler();
+test("handleEffectiveContractPreview returns 503 when R2 not configured", async () => {
+  const { handleEffectiveContractPreview, cleanup } =
+    await importArtifactsHandler();
 
   try {
     const env = {
@@ -164,7 +188,9 @@ test('handleEffectiveContractPreview returns 503 when R2 not configured', async 
       // no ARTEFACTS_R2
     };
 
-    const response = await handleEffectiveContractPreview(env, { version: VERSION });
+    const response = await handleEffectiveContractPreview(env, {
+      version: VERSION,
+    });
     assert.equal(response.status, 503);
   } finally {
     cleanup();

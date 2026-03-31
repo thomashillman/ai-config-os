@@ -5,7 +5,13 @@
   "description": "Locality and safety flags that describe where and how a contract resource can be served.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["worker_backed", "local_only", "remote_safe", "tunnel_required", "unavailable_on_surface"],
+  "required": [
+    "worker_backed",
+    "local_only",
+    "remote_safe",
+    "tunnel_required",
+    "unavailable_on_surface"
+  ],
   "properties": {
     "worker_backed": {
       "type": "boolean",

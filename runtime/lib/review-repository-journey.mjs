@@ -1,18 +1,18 @@
-import { createPortableTask } from './portable-task-lifecycle.mjs';
-import { buildEffectiveExecutionContract } from './effective-execution-contract.mjs';
-import { validateReviewRepositoryRouteInputs } from './review-repository-route-runtime.mjs';
+import { createPortableTask } from "./portable-task-lifecycle.mjs";
+import { buildEffectiveExecutionContract } from "./effective-execution-contract.mjs";
+import { validateReviewRepositoryRouteInputs } from "./review-repository-route-runtime.mjs";
 
-const REVIEW_REPOSITORY_TASK_TYPE = 'review_repository';
+const REVIEW_REPOSITORY_TASK_TYPE = "review_repository";
 const MAX_INPUT_LENGTH = 200_000;
 
 function assertObject(name, value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${name} must be an object`);
   }
 }
 
 function assertNonEmptyString(name, value) {
-  if (typeof value !== 'string' || value.trim().length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${name} is required`);
   }
 }
@@ -37,27 +37,27 @@ function assertSafeText(name, value) {
 function validateRouteSpecificInputs({ routeId, inputs }) {
   validateReviewRepositoryRouteInputs({ routeId, inputs });
 
-  if (routeId === 'github_pr') {
-    assertSafeText('repository_slug', inputs.repository_slug);
-    assertSafeText('pull_request_number', String(inputs.pull_request_number));
+  if (routeId === "github_pr") {
+    assertSafeText("repository_slug", inputs.repository_slug);
+    assertSafeText("pull_request_number", String(inputs.pull_request_number));
   }
 
-  if (routeId === 'local_repo') {
-    assertSafeSingleLinePath('repository_path', inputs.repository_path);
+  if (routeId === "local_repo") {
+    assertSafeSingleLinePath("repository_path", inputs.repository_path);
   }
 
-  if (routeId === 'uploaded_bundle') {
-    assertSafeSingleLinePath('bundle_path', inputs.bundle_path);
+  if (routeId === "uploaded_bundle") {
+    assertSafeSingleLinePath("bundle_path", inputs.bundle_path);
   }
 
-  if (routeId === 'pasted_diff') {
-    assertSafeText('diff_text', inputs.diff_text);
+  if (routeId === "pasted_diff") {
+    assertSafeText("diff_text", inputs.diff_text);
   }
 }
 
 function summariseFindings(findings) {
   return findings.reduce((summary, finding) => {
-    const status = finding?.provenance?.status || 'unknown';
+    const status = finding?.provenance?.status || "unknown";
     summary[status] = (summary[status] || 0) + 1;
     return summary;
   }, {});
@@ -69,11 +69,13 @@ function getReadinessUpgradeState(task, effectiveExecutionContract) {
   const missingCapabilities = Array.isArray(selectedRoute?.missing_capabilities)
     ? selectedRoute.missing_capabilities
     : [];
-  const routeIsFullySupported = selectedRoute?.equivalence_level === 'equal' && missingCapabilities.length === 0;
+  const routeIsFullySupported =
+    selectedRoute?.equivalence_level === "equal" &&
+    missingCapabilities.length === 0;
   const strongerRouteAvailable = Boolean(
-    selectedRouteId
-    && selectedRouteId !== task.current_route
-    && routeIsFullySupported
+    selectedRouteId &&
+    selectedRouteId !== task.current_route &&
+    routeIsFullySupported,
   );
 
   if (strongerRouteAvailable) {
@@ -81,10 +83,11 @@ function getReadinessUpgradeState(task, effectiveExecutionContract) {
   }
 
   const strongerGuidance = effectiveExecutionContract?.stronger_host_guidance;
-  if (typeof strongerGuidance === 'string' && strongerGuidance.length > 0) {
-    const blockedCapabilityText = missingCapabilities.length > 0
-      ? missingCapabilities.join(', ')
-      : 'required capability support';
+  if (typeof strongerGuidance === "string" && strongerGuidance.length > 0) {
+    const blockedCapabilityText =
+      missingCapabilities.length > 0
+        ? missingCapabilities.join(", ")
+        : "required capability support";
     return {
       strongerRouteAvailable: false,
       blockedReason: `Upgrade unavailable due to missing capability: ${blockedCapabilityText}.`,
@@ -106,10 +109,10 @@ export function startReviewRepositoryTask({
   narrator = null,
   observer = null,
 } = {}) {
-  assertObject('taskStore', taskStore);
-  assertObject('routeInputs', routeInputs);
-  assertNonEmptyString('taskId', taskId);
-  assertNonEmptyString('goal', goal);
+  assertObject("taskStore", taskStore);
+  assertObject("routeInputs", routeInputs);
+  assertNonEmptyString("taskId", taskId);
+  assertNonEmptyString("goal", goal);
 
   const effectiveExecutionContract = buildEffectiveExecutionContract({
     taskId,
@@ -134,7 +137,7 @@ export function startReviewRepositoryTask({
   const createdTask = taskStore.create(task);
   const activeTask = taskStore.transitionState(taskId, {
     expectedVersion: createdTask.version,
-    nextState: 'active',
+    nextState: "active",
     nextAction: `Execute '${routeId}' route and collect first findings.`,
     updatedAt: now,
     progress: { completed_steps: 1, total_steps: totalSteps },
@@ -143,14 +146,14 @@ export function startReviewRepositoryTask({
   taskStore.progressEvents.append({
     taskId,
     eventId: `evt_${activeTask.version}_state_change_start`,
-    type: 'state_change',
+    type: "state_change",
     message: `Started review_repository task in '${routeId}' route.`,
     createdAt: now,
     metadata: {
       route_id: routeId,
       equivalence_level: effectiveExecutionContract.equivalence_level,
       required_inputs: effectiveExecutionContract.required_inputs,
-      phase: 'start',
+      phase: "start",
     },
   });
 
@@ -161,8 +164,8 @@ export function startReviewRepositoryTask({
   if (narration && observer) {
     observer.recordNarration({
       taskId,
-      narrationPoint: 'onStart',
-      templateVersion: narrator.templateVersion || '1.0.0',
+      narrationPoint: "onStart",
+      templateVersion: narrator.templateVersion || "1.0.0",
       narratorOutput: narration,
       taskSnapshot: activeTask,
     });
@@ -185,8 +188,8 @@ export function resumeReviewRepositoryTask({
   observer = null,
   previousContract = null,
 } = {}) {
-  assertObject('taskStore', taskStore);
-  assertNonEmptyString('taskId', taskId);
+  assertObject("taskStore", taskStore);
+  assertNonEmptyString("taskId", taskId);
 
   const loadedTask = taskStore.load(taskId);
 
@@ -219,14 +222,14 @@ export function resumeReviewRepositoryTask({
     taskStore.progressEvents.append({
       taskId,
       eventId: `evt_${task.version}_route_selected_resume`,
-      type: 'route_selected',
+      type: "route_selected",
       message: `Resumed task in stronger '${selectedRouteId}' route.`,
       createdAt: now,
       metadata: {
         from_route: loadedTask.current_route,
         to_route: selectedRouteId,
         equivalence_level: effectiveExecutionContract.equivalence_level,
-        phase: 'resume',
+        phase: "resume",
       },
     });
   }
@@ -238,8 +241,8 @@ export function resumeReviewRepositoryTask({
   if (narration && observer) {
     observer.recordNarration({
       taskId,
-      narrationPoint: 'onResume',
-      templateVersion: narrator.templateVersion || '1.0.0',
+      narrationPoint: "onResume",
+      templateVersion: narrator.templateVersion || "1.0.0",
       narratorOutput: narration,
       taskSnapshot: task,
     });
@@ -253,25 +256,35 @@ export function resumeReviewRepositoryTask({
   };
 }
 
-export function buildTaskReadinessView({ task, effectiveExecutionContract, progressEvents = [], narrator = null } = {}) {
-  assertObject('task', task);
+export function buildTaskReadinessView({
+  task,
+  effectiveExecutionContract,
+  progressEvents = [],
+  narrator = null,
+} = {}) {
+  assertObject("task", task);
   if (effectiveExecutionContract !== undefined) {
-    assertObject('effectiveExecutionContract', effectiveExecutionContract);
+    assertObject("effectiveExecutionContract", effectiveExecutionContract);
   }
   if (!Array.isArray(progressEvents)) {
-    throw new Error('progressEvents must be an array');
+    throw new Error("progressEvents must be an array");
   }
 
   const totalSteps = task.progress?.total_steps || 0;
   const completedSteps = task.progress?.completed_steps || 0;
 
-  const readinessUpgradeState = getReadinessUpgradeState(task, effectiveExecutionContract);
-  const strongerRouteAvailable = task.task_type === REVIEW_REPOSITORY_TASK_TYPE
-    && readinessUpgradeState.strongerRouteAvailable;
+  const readinessUpgradeState = getReadinessUpgradeState(
+    task,
+    effectiveExecutionContract,
+  );
+  const strongerRouteAvailable =
+    task.task_type === REVIEW_REPOSITORY_TASK_TYPE &&
+    readinessUpgradeState.strongerRouteAvailable;
 
-  const narration = narrator && strongerRouteAvailable
-    ? narrator.onUpgradeAvailable(task, effectiveExecutionContract, null)
-    : null;
+  const narration =
+    narrator && strongerRouteAvailable
+      ? narrator.onUpgradeAvailable(task, effectiveExecutionContract, null)
+      : null;
 
   return {
     task_id: task.task_id,
@@ -281,9 +294,10 @@ export function buildTaskReadinessView({ task, effectiveExecutionContract, progr
     next_action: task.next_action,
     route_history: task.route_history,
     readiness: {
-      is_ready: task.state === 'active' && completedSteps < totalSteps,
+      is_ready: task.state === "active" && completedSteps < totalSteps,
       stronger_route_available: strongerRouteAvailable,
-      progress_ratio: totalSteps === 0 ? 1 : Number((completedSteps / totalSteps).toFixed(4)),
+      progress_ratio:
+        totalSteps === 0 ? 1 : Number((completedSteps / totalSteps).toFixed(4)),
       upgrade_unavailable_reason: readinessUpgradeState.blockedReason,
     },
     findings_provenance: summariseFindings(task.findings || []),

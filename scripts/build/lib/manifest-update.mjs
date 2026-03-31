@@ -5,8 +5,8 @@
  * Ensures correct insertion into the Skills table and auto-populates description.
  */
 
-import { readFileSync, writeFileSync } from 'fs';
-import { parse as parseYaml } from 'yaml';
+import { readFileSync, writeFileSync } from "fs";
+import { parse as parseYaml } from "yaml";
 
 /**
  * Extract description from skill frontmatter
@@ -16,15 +16,15 @@ import { parse as parseYaml } from 'yaml';
 export function extractDescription(skillContent) {
   const frontmatterMatch = skillContent.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!frontmatterMatch) {
-    return 'TODO: add description from SKILL.md frontmatter';
+    return "TODO: add description from SKILL.md frontmatter";
   }
 
   try {
     const frontmatter = parseYaml(frontmatterMatch[1], { strict: false });
-    if (typeof frontmatter?.description === 'string') {
+    if (typeof frontmatter?.description === "string") {
       const firstLine = frontmatter.description
         .split(/\r?\n/)
-        .map(line => line.trim())
+        .map((line) => line.trim())
         .find(Boolean);
       if (firstLine) {
         return firstLine;
@@ -34,7 +34,7 @@ export function extractDescription(skillContent) {
     // Fall through to placeholder to keep scaffolding resilient.
   }
 
-  return 'TODO: add description from SKILL.md frontmatter';
+  return "TODO: add description from SKILL.md frontmatter";
 }
 
 /**
@@ -45,19 +45,19 @@ export function extractDescription(skillContent) {
  * @throws {Error} If manifest structure is invalid
  */
 export function updateManifestWithSkill(manifestPath, skillName, description) {
-  const manifest = readFileSync(manifestPath, 'utf8');
+  const manifest = readFileSync(manifestPath, "utf8");
 
   // Find the Skills section
-  const skillsHeadingIdx = manifest.indexOf('## Skills');
+  const skillsHeadingIdx = manifest.indexOf("## Skills");
   if (skillsHeadingIdx === -1) {
-    throw new Error('## Skills heading not found in manifest');
+    throw new Error("## Skills heading not found in manifest");
   }
 
   // Find the table header (the line with |---|---|---|)
   const tableHeaderRegex = /\n\|---\|---\|---\|\n/;
   const headerMatch = manifest.slice(skillsHeadingIdx).match(tableHeaderRegex);
   if (!headerMatch) {
-    throw new Error('Skill table header not found in manifest');
+    throw new Error("Skill table header not found in manifest");
   }
 
   // Find where to insert: before the first blank line or section heading after Skills table
@@ -66,7 +66,7 @@ export function updateManifestWithSkill(manifestPath, skillName, description) {
   // Find the next section heading (## Workflows, ## Plugins, etc.)
   const nextSectionMatch = manifest.slice(startOfTable).match(/\n\n## /);
   if (!nextSectionMatch) {
-    throw new Error('No section boundary found after Skills table');
+    throw new Error("No section boundary found after Skills table");
   }
 
   const insertIdx = startOfTable + nextSectionMatch.index;
@@ -75,7 +75,8 @@ export function updateManifestWithSkill(manifestPath, skillName, description) {
   const row = `| \`${skillName}\` | ${description} | \`shared/skills/${skillName}/SKILL.md\` |`;
 
   // Insert the row with a newline
-  const updated = manifest.slice(0, insertIdx) + '\n' + row + manifest.slice(insertIdx);
+  const updated =
+    manifest.slice(0, insertIdx) + "\n" + row + manifest.slice(insertIdx);
 
   writeFileSync(manifestPath, updated);
 }

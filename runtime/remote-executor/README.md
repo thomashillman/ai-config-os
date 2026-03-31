@@ -5,9 +5,11 @@ HTTP runtime service for tool execution requests proxied from the Cloudflare wor
 ## API
 
 ### `GET /v1/health`
+
 Returns a simple service health payload.
 
 ### `POST /v1/execute`
+
 Executes an allowed tool script and returns a normalized payload.
 
 Request contract:
@@ -23,6 +25,7 @@ Request contract:
 ```
 
 Headers:
+
 - `X-Executor-Shared-Secret`: required, must match `REMOTE_EXECUTOR_SHARED_SECRET`.
 - `X-Request-Signature`: optional base64 signature (verified when public key is configured).
 

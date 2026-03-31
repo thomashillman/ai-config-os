@@ -86,7 +86,9 @@ Response includes:
 - manifest payload
 
 #### `GET /v1/outcomes/latest`
+
 #### `GET /v1/routes/latest`
+
 #### `GET /v1/tools/latest`
 
 Behavior:
@@ -100,7 +102,9 @@ Artifacts:
 - `tools.json`
 
 #### `GET /v1/outcomes/:version`
+
 #### `GET /v1/routes/:version`
+
 #### `GET /v1/tools/:version`
 
 Behavior:

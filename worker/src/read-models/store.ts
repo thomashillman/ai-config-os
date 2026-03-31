@@ -1,7 +1,7 @@
-import { snapshotKey } from './keys';
-import type { DashboardSnapshot, SnapshotMeta, SnapshotScope } from './types';
+import { snapshotKey } from "./keys";
+import type { DashboardSnapshot, SnapshotMeta, SnapshotScope } from "./types";
 
-type KV = NonNullable<import('../types').Env['MANIFEST_KV']>;
+type KV = NonNullable<import("../types").Env["MANIFEST_KV"]>;
 
 export async function readSnapshot(
   kv: KV,
@@ -31,8 +31,8 @@ export async function writeSnapshot(
 export function missingMeta(scope: SnapshotScope): SnapshotMeta {
   return {
     generated_at: new Date().toISOString(),
-    publisher_surface: 'worker',
-    freshness_state: 'missing',
+    publisher_surface: "worker",
+    freshness_state: "missing",
     scope,
   };
 }

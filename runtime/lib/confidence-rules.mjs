@@ -6,21 +6,21 @@
  */
 
 export const ROUTE_CONFIDENCE_MAP = Object.freeze({
-  pasted_diff: 'low',
-  uploaded_bundle: 'low',
-  github_pr: 'medium',
-  local_repo: 'high',
+  pasted_diff: "low",
+  uploaded_bundle: "low",
+  github_pr: "medium",
+  local_repo: "high",
 });
 
 export const CONFIDENCE_BASIS_MAP = Object.freeze({
-  pasted_diff: 'diff_only',
-  uploaded_bundle: 'bundle_context',
-  github_pr: 'github_context',
-  local_repo: 'full_repo_verification',
+  pasted_diff: "diff_only",
+  uploaded_bundle: "bundle_context",
+  github_pr: "github_context",
+  local_repo: "full_repo_verification",
 });
 
 /** Ordinal ordering of confidence levels (weakest → strongest). */
-export const CONFIDENCE_ORDER = Object.freeze(['low', 'medium', 'high']);
+export const CONFIDENCE_ORDER = Object.freeze(["low", "medium", "high"]);
 
 /**
  * Returns the confidence and confidence_basis for a route.
@@ -31,7 +31,9 @@ export const CONFIDENCE_ORDER = Object.freeze(['low', 'medium', 'high']);
 export function confidenceForRoute(routeId) {
   const confidence = ROUTE_CONFIDENCE_MAP[routeId];
   if (!confidence) {
-    throw new Error(`Unknown route ID: "${routeId}". Expected one of: ${Object.keys(ROUTE_CONFIDENCE_MAP).join(', ')}`);
+    throw new Error(
+      `Unknown route ID: "${routeId}". Expected one of: ${Object.keys(ROUTE_CONFIDENCE_MAP).join(", ")}`,
+    );
   }
   return {
     confidence,

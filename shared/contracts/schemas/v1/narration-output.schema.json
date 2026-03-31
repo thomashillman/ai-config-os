@@ -19,10 +19,7 @@
       "minLength": 1
     },
     "progress": {
-      "oneOf": [
-        { "type": "string", "minLength": 1 },
-        { "type": "null" }
-      ]
+      "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
     },
     "strength": {
       "type": "object",
@@ -44,10 +41,7 @@
       }
     },
     "next_action": {
-      "oneOf": [
-        { "type": "string", "minLength": 1 },
-        { "type": "null" }
-      ]
+      "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
     },
     "upgrade": {
       "oneOf": [
@@ -69,7 +63,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["finding_id", "narrative", "confidence_change", "evidence_summary"],
+        "required": [
+          "finding_id",
+          "narrative",
+          "confidence_change",
+          "evidence_summary"
+        ],
         "properties": {
           "finding_id": {
             "type": "string",
@@ -94,10 +93,7 @@
             ]
           },
           "evidence_summary": {
-            "oneOf": [
-              { "type": "string", "minLength": 1 },
-              { "type": "null" }
-            ]
+            "oneOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
           }
         }
       }

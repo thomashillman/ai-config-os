@@ -25,14 +25,14 @@
 
 ## 4. Existing assets to extend
 
-| Asset | Role |
-| --- | --- |
+| Asset                                                                                               | Role                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`.github/workflows/pr-mergeability-gate.yml`](../../../.github/workflows/pr-mergeability-gate.yml) | Always runs validate/build/test/verify — **add** `npm run check:cursor-rules` after `npm ci`. **Do not** raise `GITHUB_TOKEN` permissions here; mergeability gate stays read-only for PR metadata. |
-| [`.github/workflows/validate.yml`](../../../.github/workflows/validate.yml) | Path-filtered — **add** `.cursor/rules/**` and `.github/workflows/pr-ai-review.yml` (and `scripts/ci/**` as needed). |
-| [`.github/workflows/build.yml`](../../../.github/workflows/build.yml) | Same path extensions so rules-only or workflow-only changes trigger CI. |
-| [`package.json`](../../../package.json) | `check:cursor-rules` script. |
-| [`yaml`](../../../package.json) dependency | Parse YAML frontmatter in `scripts/ci/validate-cursor-rules.mjs`. |
-| `review-pr` / `code-review` skills | **Source of truth** for review dimensions; Cursor rule and GH prompt **reference** them by path/name. |
+| [`.github/workflows/validate.yml`](../../../.github/workflows/validate.yml)                         | Path-filtered — **add** `.cursor/rules/**` and `.github/workflows/pr-ai-review.yml` (and `scripts/ci/**` as needed).                                                                               |
+| [`.github/workflows/build.yml`](../../../.github/workflows/build.yml)                               | Same path extensions so rules-only or workflow-only changes trigger CI.                                                                                                                            |
+| [`package.json`](../../../package.json)                                                             | `check:cursor-rules` script.                                                                                                                                                                       |
+| [`yaml`](../../../package.json) dependency                                                          | Parse YAML frontmatter in `scripts/ci/validate-cursor-rules.mjs`.                                                                                                                                  |
+| `review-pr` / `code-review` skills                                                                  | **Source of truth** for review dimensions; Cursor rule and GH prompt **reference** them by path/name.                                                                                              |
 
 ## 5. Component A — CI validation (`scripts/ci/`)
 
@@ -40,12 +40,12 @@
 
 ### Frontmatter matrix (locked; matches [Cursor Rules](https://cursor.com/docs/context/rules))
 
-| Field | Rule |
-| --- | --- |
-| `description` | **Required.** Non-empty string (after trim). |
-| `alwaysApply` | **Required** for every `*.mdc` under `.cursor/rules/`. Must be boolean `true` or `false`. |
-| `globs` | **Optional.** If present, must be a non-empty string (after trim) or a non-empty array of non-empty strings. Omit the key entirely when not file-scoping a rule. |
-| Other keys | Allowed if Cursor adds them later; validator does not fail on unknown keys (YAGNI). |
+| Field         | Rule                                                                                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `description` | **Required.** Non-empty string (after trim).                                                                                                                     |
+| `alwaysApply` | **Required** for every `*.mdc` under `.cursor/rules/`. Must be boolean `true` or `false`.                                                                        |
+| `globs`       | **Optional.** If present, must be a non-empty string (after trim) or a non-empty array of non-empty strings. Omit the key entirely when not file-scoping a rule. |
+| Other keys    | Allowed if Cursor adds them later; validator does not fail on unknown keys (YAGNI).                                                                              |
 
 **Filename convention (enforced):** Basename must match `^\d{3}-[a-z0-9-]+\.mdc$` (ordered kebab). Only `*.mdc` files are validated; other files under `.cursor/rules/` (e.g. a future `README.md`) are ignored by the validator.
 
@@ -117,9 +117,9 @@
 
 ## 10. Resolved decisions
 
-| Topic | Decision |
-| --- | --- |
-| Frontmatter | See §5 matrix (`description` + `alwaysApply` required; optional `globs`). |
-| GH comment type | Issue comment, updated in place via marker. |
-| Fork PRs | No automation unless a future hardened design is approved. |
-| Model | OpenAI-compatible v1; `AI_PR_REVIEW_API_KEY` + optional `AI_PR_REVIEW_MODEL`. |
+| Topic           | Decision                                                                      |
+| --------------- | ----------------------------------------------------------------------------- |
+| Frontmatter     | See §5 matrix (`description` + `alwaysApply` required; optional `globs`).     |
+| GH comment type | Issue comment, updated in place via marker.                                   |
+| Fork PRs        | No automation unless a future hardened design is approved.                    |
+| Model           | OpenAI-compatible v1; `AI_PR_REVIEW_API_KEY` + optional `AI_PR_REVIEW_MODEL`. |

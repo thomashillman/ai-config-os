@@ -5,22 +5,25 @@
 // coordinate all momentum subsystems. The MCP handler and task skills both
 // consume this interface.
 
-import { createNarrator } from './momentum-narrator.mjs';
-import { MomentumObserver } from './momentum-observer.mjs';
-import { buildMomentumShelf } from './momentum-shelf.mjs';
-import { resolveIntent } from './intent-lexicon.mjs';
-import { reflect } from './momentum-reflector.mjs';
-import { templates as defaultTemplates, TEMPLATE_VERSION } from './momentum-templates.mjs';
-import { definitions as defaultDefinitions } from './intent-lexicon-definitions.mjs';
+import { createNarrator } from "./momentum-narrator.mjs";
+import { MomentumObserver } from "./momentum-observer.mjs";
+import { buildMomentumShelf } from "./momentum-shelf.mjs";
+import { resolveIntent } from "./intent-lexicon.mjs";
+import { reflect } from "./momentum-reflector.mjs";
+import {
+  templates as defaultTemplates,
+  TEMPLATE_VERSION,
+} from "./momentum-templates.mjs";
+import { definitions as defaultDefinitions } from "./intent-lexicon-definitions.mjs";
 
 function assertObject(name, value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${name} must be an object`);
   }
 }
 
 function assertString(name, value) {
-  if (typeof value !== 'string' || value.trim().length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${name} must be a non-empty string`);
   }
 }
@@ -34,12 +37,18 @@ function assertString(name, value) {
  * @param {Array}  [deps.intentDefinitions] - Custom intent definitions (default: built-in)
  * @returns {MomentumEngine}
  */
-export function createMomentumEngine({ taskStore, templates, intentDefinitions } = {}) {
-  assertObject('taskStore', taskStore);
+export function createMomentumEngine({
+  taskStore,
+  templates,
+  intentDefinitions,
+} = {}) {
+  assertObject("taskStore", taskStore);
 
   const progressEventStore = taskStore.progressEvents;
-  if (!progressEventStore || typeof progressEventStore.append !== 'function') {
-    throw new Error('taskStore must expose a progressEvents property (ProgressEventStore)');
+  if (!progressEventStore || typeof progressEventStore.append !== "function") {
+    throw new Error(
+      "taskStore must expose a progressEvents property (ProgressEventStore)",
+    );
   }
 
   const activeTemplates = templates || defaultTemplates;
@@ -74,11 +83,11 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
      * @returns {object} Validated NarrationOutput
      */
     narrateStart(task, contract) {
-      assertObject('task', task);
+      assertObject("task", task);
       const narration = narrator.onStart(task, contract);
       observer.recordNarration({
         taskId: task.task_id,
-        narrationPoint: 'onStart',
+        narrationPoint: "onStart",
         templateVersion: narrator.templateVersion,
         narratorOutput: narration,
         taskSnapshot: task,
@@ -94,11 +103,11 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
      * @returns {object} Validated NarrationOutput
      */
     narrateResume(task, contract, previousContract) {
-      assertObject('task', task);
+      assertObject("task", task);
       const narration = narrator.onResume(task, contract, previousContract);
       observer.recordNarration({
         taskId: task.task_id,
-        narrationPoint: 'onResume',
+        narrationPoint: "onResume",
         templateVersion: narrator.templateVersion,
         narratorOutput: narration,
         taskSnapshot: task,
@@ -115,12 +124,17 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
      * @returns {object} Validated NarrationOutput
      */
     narrateFindingEvolved(task, finding, previousConfidence, newConfidence) {
-      assertObject('task', task);
-      assertObject('finding', finding);
-      const narration = narrator.onFindingEvolved(task, finding, previousConfidence, newConfidence);
+      assertObject("task", task);
+      assertObject("finding", finding);
+      const narration = narrator.onFindingEvolved(
+        task,
+        finding,
+        previousConfidence,
+        newConfidence,
+      );
       observer.recordNarration({
         taskId: task.task_id,
-        narrationPoint: 'onFindingEvolved',
+        narrationPoint: "onFindingEvolved",
         templateVersion: narrator.templateVersion,
         narratorOutput: narration,
         taskSnapshot: task,
@@ -136,11 +150,15 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
      * @returns {object} Validated NarrationOutput
      */
     narrateUpgradeAvailable(task, currentContract, availableContract) {
-      assertObject('task', task);
-      const narration = narrator.onUpgradeAvailable(task, currentContract, availableContract);
+      assertObject("task", task);
+      const narration = narrator.onUpgradeAvailable(
+        task,
+        currentContract,
+        availableContract,
+      );
       observer.recordNarration({
         taskId: task.task_id,
-        narrationPoint: 'onUpgradeAvailable',
+        narrationPoint: "onUpgradeAvailable",
         templateVersion: narrator.templateVersion,
         narratorOutput: narration,
         taskSnapshot: task,
@@ -159,8 +177,8 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
      * @returns {object} ProgressEvent
      */
     recordUserResponse(params) {
-      assertObject('params', params);
-      assertString('params.taskId', params.taskId);
+      assertObject("params", params);
+      assertString("params.taskId", params.taskId);
       return observer.recordResponse(params);
     },
 
@@ -181,7 +199,7 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
      * @returns {Array<{ narration, response }>}
      */
     getObservations(taskId) {
-      assertString('taskId', taskId);
+      assertString("taskId", taskId);
       return observer.getObservationPairs({ taskId });
     },
 
@@ -193,7 +211,9 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
      * @returns {{ report: object, applied: Array }}
      */
     reflect(params = {}) {
-      const since = params.since || new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const since =
+        params.since ||
+        new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const limit = params.limit || 200;
 
       const observations = observer.getRecentObservations({ since, limit });
@@ -215,11 +235,15 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
      * @returns {{ applied: boolean, target: string, reason: string }}
      */
     applyInsight(insight, options = {}) {
-      assertObject('insight', insight);
+      assertObject("insight", insight);
       const minConfidence = options.minConfidence ?? 0.7;
 
       if (!insight.suggestion) {
-        return { applied: false, target: null, reason: 'No suggestion in insight' };
+        return {
+          applied: false,
+          target: null,
+          reason: "No suggestion in insight",
+        };
       }
 
       const confidence = insight.suggestion.confidence ?? 0;
@@ -232,7 +256,10 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
       }
 
       // Intent coverage: add new patterns to the active definitions
-      if (insight.type === 'intent_coverage' && insight.suggestion.action === 'add_patterns') {
+      if (
+        insight.type === "intent_coverage" &&
+        insight.suggestion.action === "add_patterns"
+      ) {
         const patterns = insight.suggestion.patterns;
         const taskType = insight.suggestion.taskType;
         if (Array.isArray(patterns) && patterns.length > 0 && taskType) {
@@ -245,18 +272,25 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
           });
           return {
             applied: true,
-            target: 'definitions',
+            target: "definitions",
             reason: `Added ${patterns.length} pattern(s) for task type '${taskType}'`,
           };
         }
       }
 
       // Template changes: replace a template string
-      if (insight.type === 'template_effectiveness' && insight.suggestion.target && insight.suggestion.proposed) {
-        const path = insight.suggestion.target.split('.');
-        if (path.length === 2 && path[0] === 'templates') {
+      if (
+        insight.type === "template_effectiveness" &&
+        insight.suggestion.target &&
+        insight.suggestion.proposed
+      ) {
+        const path = insight.suggestion.target.split(".");
+        if (path.length === 2 && path[0] === "templates") {
           const key = path[1];
-          if (activeTemplates[key] && typeof insight.suggestion.proposed === 'object') {
+          if (
+            activeTemplates[key] &&
+            typeof insight.suggestion.proposed === "object"
+          ) {
             Object.assign(activeTemplates[key], insight.suggestion.proposed);
             return {
               applied: true,
@@ -270,7 +304,7 @@ export function createMomentumEngine({ taskStore, templates, intentDefinitions }
       return {
         applied: false,
         target: insight.suggestion.target || null,
-        reason: 'Insight type or suggestion shape not supported for auto-apply',
+        reason: "Insight type or suggestion shape not supported for auto-apply",
       };
     },
   };

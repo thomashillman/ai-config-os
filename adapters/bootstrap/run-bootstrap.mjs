@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { executeBootstrap, formatBootstrapResult } from './core.mjs';
+import { executeBootstrap, formatBootstrapResult } from "./core.mjs";
 
 const { result, exitCode } = executeBootstrap({
   env: process.env,

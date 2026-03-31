@@ -1,8 +1,8 @@
 // Eval Candidate Store — persists candidates as durable JSON files.
 
-import { writeFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { createHash } from 'node:crypto';
+import { writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 /**
  * Generate a deterministic filename for a candidate.
@@ -14,21 +14,23 @@ import { createHash } from 'node:crypto';
  */
 export function determineCandidateFilename({ candidate, index = 0 } = {}) {
   if (!candidate) {
-    throw new Error('candidate is required');
+    throw new Error("candidate is required");
   }
 
   // Create deterministic hash from candidate key fields
-  const hash = createHash('sha256')
-    .update(JSON.stringify({
-      signal_type: candidate.signal_type,
-      severity: candidate.severity,
-      count: candidate.count,
-    }))
-    .digest('hex')
+  const hash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        signal_type: candidate.signal_type,
+        severity: candidate.severity,
+        count: candidate.count,
+      }),
+    )
+    .digest("hex")
     .slice(0, 8);
 
   if (index > 0) {
-    return `candidate_${candidate.signal_type}_${hash}_${String(index).padStart(2, '0')}.json`;
+    return `candidate_${candidate.signal_type}_${hash}_${String(index).padStart(2, "0")}.json`;
   }
 
   return `candidate_${candidate.signal_type}_${hash}.json`;
@@ -43,12 +45,16 @@ export function determineCandidateFilename({ candidate, index = 0 } = {}) {
  * @param {boolean} [deps.allowOverwrite=false] - Allow overwriting existing files
  * @returns {Promise<string>} Filename written (relative to outputDir)
  */
-export async function persistCandidate({ candidate, outputDir, allowOverwrite = false } = {}) {
+export async function persistCandidate({
+  candidate,
+  outputDir,
+  allowOverwrite = false,
+} = {}) {
   if (!candidate) {
-    throw new Error('candidate is required');
+    throw new Error("candidate is required");
   }
   if (!outputDir) {
-    throw new Error('outputDir is required');
+    throw new Error("outputDir is required");
   }
 
   let filename = determineCandidateFilename({ candidate, index: 0 });
@@ -64,7 +70,7 @@ export async function persistCandidate({ candidate, outputDir, allowOverwrite = 
 
   // Write pretty-printed JSON
   const content = JSON.stringify(candidate, null, 2);
-  writeFileSync(filepath, content, 'utf8');
+  writeFileSync(filepath, content, "utf8");
 
   return filename;
 }

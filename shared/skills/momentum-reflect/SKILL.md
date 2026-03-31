@@ -1,6 +1,7 @@
 ---
 skill: "momentum-reflect"
-description: "Analyzes momentum narration effectiveness and proposes improvements.
+description:
+  "Analyzes momentum narration effectiveness and proposes improvements.
 
   Reads observation data (narration+response pairs) from the progress event
   pipeline and produces improvement insights for templates and intent coverage.\n"
@@ -96,6 +97,7 @@ Run manually or via the self-improvement loop:
 ## Output
 
 Returns a structured report with:
+
 - Engagement statistics (total narrations, responses, engagement rate)
 - Insights with evidence and confidence scores
 - Improvement suggestions (report-only in v1)

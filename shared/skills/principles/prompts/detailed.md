@@ -28,6 +28,7 @@ Return the repo's principles with rationale and examples for each:
 ## Principles
 
 ### Communication
+
 - **Be direct and concise. Avoid filler phrases.**
   - Rationale: Clarity saves time and reduces ambiguity. Filler adds cognitive load.
   - Example: "The feature is broken on MacOS" (clear) vs. "It seems like maybe the feature could be having some issues on the Apple platform, possibly" (filler)
@@ -44,6 +45,7 @@ Return the repo's principles with rationale and examples for each:
   - Anti-pattern: Explaining concepts without showing usage
 
 ### Code
+
 - **Favour readability over cleverness.**
   - Rationale: Code is read more than written; readable code is maintainable
   - Example: `if is_valid(x): process(x)` (clear) vs. `if x and validate(x.data): x|>process` (clever)
@@ -60,6 +62,7 @@ Return the repo's principles with rationale and examples for each:
   - Anti-pattern: "While I'm here, let me reorganize this entire module"
 
 ### Decision-making
+
 - **When multiple approaches exist, briefly state the trade-offs and recommend one.**
   - Rationale: Explicit trade-off analysis makes decisions faster and more defensible
   - Example: "Option A is simpler but less efficient; Option B adds complexity but scales better. Recommend Option A for now, revisit if scaling becomes a constraint."

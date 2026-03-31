@@ -39,14 +39,14 @@ All portable resources MUST include `contract_version` using semantic versioning
 
 Canonical purpose: stable index of released skills/artifacts.
 
-| Field | Type | Req | Notes |
-|---|---|---:|---|
-| `resource_family` | string | Yes | Must be `manifest`. |
-| `contract_version` | string | Yes | Semver contract version. |
-| `manifest_version` | string | Yes | Published release version. |
-| `generated_at` | string (ISO8601) | Yes | Build/emission timestamp. |
-| `skills` | array<object> | Yes | Skill descriptors. |
-| `meta?` | object | No | Build metadata / trace IDs. |
+| Field              | Type             | Req | Notes                       |
+| ------------------ | ---------------- | --: | --------------------------- |
+| `resource_family`  | string           | Yes | Must be `manifest`.         |
+| `contract_version` | string           | Yes | Semver contract version.    |
+| `manifest_version` | string           | Yes | Published release version.  |
+| `generated_at`     | string (ISO8601) | Yes | Build/emission timestamp.   |
+| `skills`           | array<object>    | Yes | Skill descriptors.          |
+| `meta?`            | object           |  No | Build metadata / trace IDs. |
 
 `skills[]` minimum:
 
@@ -57,31 +57,31 @@ Canonical purpose: stable index of released skills/artifacts.
 
 Canonical purpose: runtime surface capability truth for a specific platform.
 
-| Field | Type | Req | Notes |
-|---|---|---:|---|
-| `resource_family` | string | Yes | `capability_profile`. |
-| `contract_version` | string | Yes | Semver contract version. |
-| `platform` | string | Yes | e.g. `claude-code`, `claude-web`. |
-| `surface` | string | Yes | e.g. `cli`, `web-app`, `mobile-app`. |
-| `manifest_version` | string | Yes | Registry version used for resolution. |
-| `capabilities.supported` | array<string> | Yes | Positive support set. |
-| `capabilities.unsupported?` | array<string> | No | Explicitly unavailable capabilities. |
-| `capabilities.unknown?` | array<string> | No | Unknown/unprobed capabilities. |
-| `capability_detail?` | object | No | Per-capability confidence/source metadata. |
+| Field                       | Type          | Req | Notes                                      |
+| --------------------------- | ------------- | --: | ------------------------------------------ |
+| `resource_family`           | string        | Yes | `capability_profile`.                      |
+| `contract_version`          | string        | Yes | Semver contract version.                   |
+| `platform`                  | string        | Yes | e.g. `claude-code`, `claude-web`.          |
+| `surface`                   | string        | Yes | e.g. `cli`, `web-app`, `mobile-app`.       |
+| `manifest_version`          | string        | Yes | Registry version used for resolution.      |
+| `capabilities.supported`    | array<string> | Yes | Positive support set.                      |
+| `capabilities.unsupported?` | array<string> |  No | Explicitly unavailable capabilities.       |
+| `capabilities.unknown?`     | array<string> |  No | Unknown/unprobed capabilities.             |
+| `capability_detail?`        | object        |  No | Per-capability confidence/source metadata. |
 
 ### 2.3 `compatibility_result` family
 
 Canonical purpose: skills compatible with requested capability set.
 
-| Field | Type | Req | Notes |
-|---|---|---:|---|
-| `resource_family` | string | Yes | `compatibility_result`. |
-| `contract_version` | string | Yes | Semver contract version. |
-| `manifest_version` | string | Yes | Resolver basis. |
-| `requested_capabilities` | array<string> | Yes | Filter input. |
-| `compatible_count` | number | Yes | Result size. |
-| `total_skills` | number | Yes | Full manifest denominator. |
-| `skills` | array<object> | Yes | Compatible skills. |
+| Field                    | Type          | Req | Notes                      |
+| ------------------------ | ------------- | --: | -------------------------- |
+| `resource_family`        | string        | Yes | `compatibility_result`.    |
+| `contract_version`       | string        | Yes | Semver contract version.   |
+| `manifest_version`       | string        | Yes | Resolver basis.            |
+| `requested_capabilities` | array<string> | Yes | Filter input.              |
+| `compatible_count`       | number        | Yes | Result size.               |
+| `total_skills`           | number        | Yes | Full manifest denominator. |
+| `skills`                 | array<object> | Yes | Compatible skills.         |
 
 `skills[]` minimum:
 
@@ -92,43 +92,43 @@ Canonical purpose: skills compatible with requested capability set.
 
 Canonical purpose: durable task lifecycle state and progression.
 
-| Field | Type | Req | Notes |
-|---|---|---:|---|
-| `resource_family` | string | Yes | `task`. |
-| `contract_version` | string | Yes | Semver contract version. |
-| `task_id` | string | Yes | Stable unique ID. |
-| `task_code?` | string | No | Friendly code (if allocated). |
-| `name` | string | Yes | Human-readable task name. |
-| `state` | string | Yes | Lifecycle state (`queued`, `active`, `paused`, etc.). |
-| `created_at` | string (ISO8601) | Yes | Creation timestamp. |
-| `updated_at` | string (ISO8601) | Yes | Last state mutation timestamp. |
-| `route?` | object | No | Route selection details. |
-| `readiness?` | object | No | Readiness probe output. |
-| `findings?` | array<object> | No | Accumulated findings/events. |
+| Field              | Type             | Req | Notes                                                 |
+| ------------------ | ---------------- | --: | ----------------------------------------------------- |
+| `resource_family`  | string           | Yes | `task`.                                               |
+| `contract_version` | string           | Yes | Semver contract version.                              |
+| `task_id`          | string           | Yes | Stable unique ID.                                     |
+| `task_code?`       | string           |  No | Friendly code (if allocated).                         |
+| `name`             | string           | Yes | Human-readable task name.                             |
+| `state`            | string           | Yes | Lifecycle state (`queued`, `active`, `paused`, etc.). |
+| `created_at`       | string (ISO8601) | Yes | Creation timestamp.                                   |
+| `updated_at`       | string (ISO8601) | Yes | Last state mutation timestamp.                        |
+| `route?`           | object           |  No | Route selection details.                              |
+| `readiness?`       | object           |  No | Readiness probe output.                               |
+| `findings?`        | array<object>    |  No | Accumulated findings/events.                          |
 
 ### 2.5 `outcome_contract` family
 
 Canonical purpose: effective execution policy/honesty contract for a tool and channel.
 
-| Field | Type | Req | Notes |
-|---|---|---:|---|
-| `resource_family` | string | Yes | `outcome_contract`. |
-| `contract_version` | string | Yes | Semver contract version. |
-| `tool_name` | string | Yes | Tool identifier. |
-| `execution_channel` | string | Yes | `worker`, `mcp`, `dashboard`, etc. |
-| `mode` | string | Yes | e.g. `strict`, `advisory`. |
-| `requirements` | object | Yes | Required outcome guarantees. |
-| `fallbacks?` | array<object> | No | Allowed fallback behavior. |
+| Field               | Type          | Req | Notes                              |
+| ------------------- | ------------- | --: | ---------------------------------- |
+| `resource_family`   | string        | Yes | `outcome_contract`.                |
+| `contract_version`  | string        | Yes | Semver contract version.           |
+| `tool_name`         | string        | Yes | Tool identifier.                   |
+| `execution_channel` | string        | Yes | `worker`, `mcp`, `dashboard`, etc. |
+| `mode`              | string        | Yes | e.g. `strict`, `advisory`.         |
+| `requirements`      | object        | Yes | Required outcome guarantees.       |
+| `fallbacks?`        | array<object> |  No | Allowed fallback behavior.         |
 
 ## 3) Locality truth matrix
 
-| Resource family | Worker | MCP local runtime | Dashboard | Source of truth / conflict rule |
-|---|---|---|---|---|
-| `manifest` | **Authoritative for distributed clients** (`/v1/manifest/latest`) | Cached/materialized copy for local operation | Read-only projection via runtime action | Worker wins for published release; MCP cache wins during offline mode. |
-| `capability_profile` | Authoritative platform profile (`/v1/capabilities/platform/:platform`) | Authoritative for *current machine* probe cache | Projection of runtime/worker data | For local execution decisions, MCP probe truth wins over static Worker platform profile. |
-| `compatibility_result` | Authoritative remote resolver (`/v1/skills/compatible`) | Deterministic local recompute possible from cached manifest+probe | Projection optimized for UI | Use resolver nearest execution surface; ties broken by latest `manifest_version`. |
-| `task` | Authoritative global task lifecycle (`/v1/tasks...`) | Local continuation context and transient execution state | Task-control UX surface (`/api/tasks/...`) | Worker canonical for durable state IDs/transitions; dashboard mirrors Worker semantics. |
-| `outcome_contract` | Versioned artifact preview endpoint | Effective contract computed at runtime per channel | Dashboard includes effective contract in responses | Channel-specific computed contract is canonical for that channel; artifact is reference baseline. |
+| Resource family        | Worker                                                                 | MCP local runtime                                                 | Dashboard                                          | Source of truth / conflict rule                                                                   |
+| ---------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `manifest`             | **Authoritative for distributed clients** (`/v1/manifest/latest`)      | Cached/materialized copy for local operation                      | Read-only projection via runtime action            | Worker wins for published release; MCP cache wins during offline mode.                            |
+| `capability_profile`   | Authoritative platform profile (`/v1/capabilities/platform/:platform`) | Authoritative for _current machine_ probe cache                   | Projection of runtime/worker data                  | For local execution decisions, MCP probe truth wins over static Worker platform profile.          |
+| `compatibility_result` | Authoritative remote resolver (`/v1/skills/compatible`)                | Deterministic local recompute possible from cached manifest+probe | Projection optimized for UI                        | Use resolver nearest execution surface; ties broken by latest `manifest_version`.                 |
+| `task`                 | Authoritative global task lifecycle (`/v1/tasks...`)                   | Local continuation context and transient execution state          | Task-control UX surface (`/api/tasks/...`)         | Worker canonical for durable state IDs/transitions; dashboard mirrors Worker semantics.           |
+| `outcome_contract`     | Versioned artifact preview endpoint                                    | Effective contract computed at runtime per channel                | Dashboard includes effective contract in responses | Channel-specific computed contract is canonical for that channel; artifact is reference baseline. |
 
 ## 4) Request/response examples
 
@@ -279,9 +279,7 @@ Response:
     { "id": "stable", "label": "Stable", "count": 22 },
     { "id": "beta", "label": "Beta", "count": 4 }
   ],
-  "actions": [
-    { "id": "download", "label": "Download artifact" }
-  ]
+  "actions": [{ "id": "download", "label": "Download artifact" }]
 }
 ```
 
@@ -317,7 +315,11 @@ Response:
     "unknown": ["fs.read", "fs.write"]
   },
   "diagnostics": [
-    { "capability": "network.http", "confidence": "medium", "source": "vendor-doc" }
+    {
+      "capability": "network.http",
+      "confidence": "medium",
+      "source": "vendor-doc"
+    }
   ]
 }
 ```
@@ -398,9 +400,7 @@ Response:
   },
   "state": {
     "current": "queued",
-    "timeline": [
-      { "state": "queued", "at": "2026-03-26T12:10:00.000Z" }
-    ]
+    "timeline": [{ "state": "queued", "at": "2026-03-26T12:10:00.000Z" }]
   },
   "route": {
     "selected": null,
@@ -448,12 +448,12 @@ Response:
 
 ### 6.1 Legacy-to-portable mapping
 
-| Legacy surface | Legacy path | Portable path | Migration action |
-|---|---|---|---|
-| Dashboard API | `/api/manifest` | `/v1/manifest/latest` (Worker) | Keep `/api/manifest` as UI facade; attach `resource_family` + `contract_version`. |
-| Dashboard API | `/api/outcome-contract` | `/v1/effective-contract/preview` (Worker) | Align payload naming to `outcome_contract` family while preserving UI helper field names. |
-| Unversioned/implicit responses | n/a | `/v1/...` + body-level `contract_version` | Introduce explicit version values; reject shape-breaking changes without major bump. |
-| Ad-hoc local objects | local-only runtime outputs | MCP response envelope with `resource_family` | Wrap existing payloads in portable envelope before cross-surface sharing. |
+| Legacy surface                 | Legacy path                | Portable path                                | Migration action                                                                          |
+| ------------------------------ | -------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Dashboard API                  | `/api/manifest`            | `/v1/manifest/latest` (Worker)               | Keep `/api/manifest` as UI facade; attach `resource_family` + `contract_version`.         |
+| Dashboard API                  | `/api/outcome-contract`    | `/v1/effective-contract/preview` (Worker)    | Align payload naming to `outcome_contract` family while preserving UI helper field names. |
+| Unversioned/implicit responses | n/a                        | `/v1/...` + body-level `contract_version`    | Introduce explicit version values; reject shape-breaking changes without major bump.      |
+| Ad-hoc local objects           | local-only runtime outputs | MCP response envelope with `resource_family` | Wrap existing payloads in portable envelope before cross-surface sharing.                 |
 
 ### 6.2 Breaking-change migration checklist
 
@@ -469,4 +469,3 @@ When moving from legacy shape to contract v1 envelope:
 - Treat unknown fields as non-fatal.
 - Prefer feature detection (`if field exists`) over strict field-count checks.
 - Pin by major contract (`1.x`) and monitor minor changes automatically.
-

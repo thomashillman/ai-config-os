@@ -4,11 +4,11 @@ This base fragment is intentionally repository-agnostic.
 
 ## Engineering Principles
 
-mindset:  prioritise high-value problems; take ownership end-to-end; success = user outcomes not lines of code
-design:   KISS/YAGNI | DRY | high-cohesion/low-coupling | SOLID-as-refactoring-lens
-quality:  readability>cleverness | TDD-by-default | conform-to-conventions | tight-error-handling/no-broad-catch | search-before-adding
+mindset: prioritise high-value problems; take ownership end-to-end; success = user outcomes not lines of code
+design: KISS/YAGNI | DRY | high-cohesion/low-coupling | SOLID-as-refactoring-lens
+quality: readability>cleverness | TDD-by-default | conform-to-conventions | tight-error-handling/no-broad-catch | search-before-adding
 delivery: small-increments | instrument-observability | quality-built-in
-process:  source-control-is-truth | done=production-value-not-QA | fix-systems-not-people
+process: source-control-is-truth | done=production-value-not-QA | fix-systems-not-people
 
 ## Autonomy and Persistence
 

@@ -8,20 +8,22 @@
  *   node adapters/claude/filter-skills-cli.mjs --summary     # one-line for session-start
  */
 
-import { fileURLToPath } from 'node:url';
-import { join, dirname } from 'node:path';
-import { filterSkills, formatText, formatSummary } from './filter-skills.mjs';
+import { fileURLToPath } from "node:url";
+import { join, dirname } from "node:path";
+import { filterSkills, formatText, formatSummary } from "./filter-skills.mjs";
 
 const args = process.argv.slice(2);
-const mode = args.includes('--json')    ? 'json'
-           : args.includes('--summary') ? 'summary'
-           : 'text';
+const mode = args.includes("--json")
+  ? "json"
+  : args.includes("--summary")
+    ? "summary"
+    : "text";
 
 const result = filterSkills();
 
-if (mode === 'json') {
+if (mode === "json") {
   console.log(JSON.stringify(result, null, 2));
-} else if (mode === 'summary') {
+} else if (mode === "summary") {
   if (result.warning) {
     process.stderr.write(`[warn] ${result.warning}\n`);
   }

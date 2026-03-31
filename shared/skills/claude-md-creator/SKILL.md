@@ -161,6 +161,7 @@ Do not ask all of these. Ask only what is missing from codebase signals (README,
 existing docs).
 
 **Check these first (read, do not ask):**
+
 - Does README describe the project? If yes, skip explanation questions.
 - Does package.json or similar show the tech stack? If yes, skip stack questions.
 - Are there existing test commands? If yes, skip testing questions.
@@ -168,14 +169,17 @@ existing docs).
 **Ask only these gaps:**
 
 If tech stack is unclear:
+
 - Language(s) and primary framework?
 - Test framework? How do you run tests?
 
 If constraints are unclear:
+
 - What breaks the build? (Non-negotiable constraint)
 - Is there a deprecated pattern or forbidden approach?
 
 If workflows are unclear:
+
 - Who deploys and how? (One sentence.)
 - Is there a release process? (Versioning scheme, if any)
 
@@ -189,16 +193,19 @@ Stop early. Fill gaps from README/code later if needed.
 Read the existing CLAUDE.md first. Do not ask the user questions yet.
 
 **First pass (max 3 minutes):**
+
 1. Read the entire file.
 2. Identify ONE critical gap or ONE instance of vague language.
 3. Check for stale references (files/patterns that no longer exist in codebase).
 
 **Do not:**
+
 - Rewrite the whole file
 - Ask for missing sections you have not identified in the file yet
 - Suggest modularization unless it is already >150 lines
 
 **Report to user:**
+
 - One strength (what is working)
 - One gap or weakness (what is blocking clarity)
 - One recommendation (highest-impact fix)
@@ -220,6 +227,7 @@ interview. Do not add sections not explicitly needed.
 sections.
 
 **Review your output against these only:**
+
 - [ ] Every file path is absolute or project-root-relative?
 - [ ] Is there at least one copyable command (test, build, deploy)?
 - [ ] Are there any em-dashes or en-dashes? (Replace if found.)
@@ -258,26 +266,31 @@ If the user has an existing codebase with scattered documentation, consolidate:
 ### Operating principles: Minimal context, maximum focus
 
 **Default posture:**
+
 - Minimal context first. Do not assume extra guidance is needed.
 - Prioritise direct signals. Use code, tests, and existing CLAUDE.md content.
 - Act before exploring. Start with the existing CLAUDE.md, README, or package.json first.
 
 **Search and investigation:**
+
 - Strict file read limits: start with max 3 file reads. Expand only if blocked.
 - Targeted search: use function names, error strings, or specific constraint keywords.
 - Expand incrementally: if the first attempt fails, add one more file read.
 
 **Editing and iteration:**
+
 - Minimal edits: modify the fewest files necessary.
 - Avoid refactoring: unless required to fix a critical constraint.
 - One meaningful change per iteration.
 
 **Stopping discipline:**
+
 - Stop if no progress after 2-3 iterations.
 - Prefer partial insight over exhaustive search.
 - Solve the task with the least exploration, least code change, and least tool use necessary.
 
 **Cost guardrails:**
+
 - Max file reads per task: 10
 - Max edit attempts: 3
 
@@ -298,6 +311,7 @@ Landmine entry.
 **Input:** "Audit my CLAUDE.md" (followed by the file content)
 
 **Output:**
+
 ```
 ### Strengths
 - Critical Constraints section is specific and actionable

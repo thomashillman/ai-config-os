@@ -14,14 +14,20 @@
  * All functions are pure (no side effects) except loadProbeResults / loadManifest.
  */
 
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // ─── Default paths ────────────────────────────────────────────────────────────
 
-const HOME = process.env.HOME || process.env.USERPROFILE || '/tmp';
-const DEFAULT_PROBE_PATH    = join(HOME, '.ai-config-os', 'probe-report.json');
-const DEFAULT_MANIFEST_PATH = join(HOME, '.ai-config-os', 'cache', 'claude-code', 'latest.json');
+const HOME = process.env.HOME || process.env.USERPROFILE || "/tmp";
+const DEFAULT_PROBE_PATH = join(HOME, ".ai-config-os", "probe-report.json");
+const DEFAULT_MANIFEST_PATH = join(
+  HOME,
+  ".ai-config-os",
+  "cache",
+  "claude-code",
+  "latest.json",
+);
 
 // ─── Types (JSDoc) ────────────────────────────────────────────────────────────
 
@@ -50,8 +56,8 @@ const DEFAULT_MANIFEST_PATH = join(HOME, '.ai-config-os', 'cache', 'claude-code'
  */
 
 const PLATFORM_ALIASES = Object.freeze({
-  'claude-code-remote': 'claude-code',
-  'claude-jetbrains':   'claude-vscode',
+  "claude-code-remote": "claude-code",
+  "claude-jetbrains": "claude-vscode",
 });
 
 // ─── Loaders ──────────────────────────────────────────────────────────────────
@@ -68,22 +74,23 @@ const PLATFORM_ALIASES = Object.freeze({
 export function loadProbeResults(probePath = DEFAULT_PROBE_PATH) {
   let data;
   try {
-    data = JSON.parse(readFileSync(probePath, 'utf8'));
+    data = JSON.parse(readFileSync(probePath, "utf8"));
   } catch (err) {
     return {
       supported: null,
-      surface_hint: 'unknown',
-      platform_hint: 'unknown',
-      warning: err.code === 'ENOENT'
-        ? `Probe file not found: ${probePath}`
-        : `Failed to parse probe file: ${err.message}`,
+      surface_hint: "unknown",
+      platform_hint: "unknown",
+      warning:
+        err.code === "ENOENT"
+          ? `Probe file not found: ${probePath}`
+          : `Failed to parse probe file: ${err.message}`,
     };
   }
 
   const supported = new Set();
   const results = data.results || {};
   for (const [cap, entry] of Object.entries(results)) {
-    if (entry && entry.status === 'supported') {
+    if (entry && entry.status === "supported") {
       supported.add(cap);
     }
     // 'error', 'unsupported', missing → not added (treated as unsupported)
@@ -91,8 +98,8 @@ export function loadProbeResults(probePath = DEFAULT_PROBE_PATH) {
 
   return {
     supported,
-    surface_hint:  data.surface_hint  || 'unknown',
-    platform_hint: data.platform_hint || 'unknown',
+    surface_hint: data.surface_hint || "unknown",
+    platform_hint: data.platform_hint || "unknown",
     warning: null,
   };
 }
@@ -104,23 +111,24 @@ export function loadProbeResults(probePath = DEFAULT_PROBE_PATH) {
 export function loadManifest(manifestPath = DEFAULT_MANIFEST_PATH) {
   let data;
   try {
-    data = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    data = JSON.parse(readFileSync(manifestPath, "utf8"));
   } catch (err) {
     return {
       skills: [],
       version: null,
-      warning: err.code === 'ENOENT'
-        ? `Manifest not found: ${manifestPath}`
-        : `Failed to parse manifest: ${err.message}`,
+      warning:
+        err.code === "ENOENT"
+          ? `Manifest not found: ${manifestPath}`
+          : `Failed to parse manifest: ${err.message}`,
     };
   }
 
   return {
-    skills:  data.skills  || [],
+    skills: data.skills || [],
     version: data.version || null,
     platforms: Array.isArray(data.platforms) ? data.platforms : [],
     platform_definitions:
-      data.platform_definitions && typeof data.platform_definitions === 'object'
+      data.platform_definitions && typeof data.platform_definitions === "object"
         ? data.platform_definitions
         : {},
     warning: null,
@@ -139,8 +147,8 @@ export function loadManifest(manifestPath = DEFAULT_MANIFEST_PATH) {
  * @returns {{ registry_platform_hint: string, warning: string|null }}
  */
 export function resolveRegistryPlatformHint(platformHint, manifest) {
-  if (!platformHint || platformHint === 'unknown') {
-    return { registry_platform_hint: 'unknown', warning: null };
+  if (!platformHint || platformHint === "unknown") {
+    return { registry_platform_hint: "unknown", warning: null };
   }
 
   const knownPlatforms = new Set([
@@ -168,7 +176,7 @@ export function resolveRegistryPlatformHint(platformHint, manifest) {
   }
 
   return {
-    registry_platform_hint: 'unknown',
+    registry_platform_hint: "unknown",
     warning: `Probe platform '${platformHint}' not found in manifest platform registry`,
   };
 }
@@ -183,40 +191,40 @@ export function resolveRegistryPlatformHint(platformHint, manifest) {
  * @returns {ClassifiedSkill}
  */
 export function classifySkill(skill, supported) {
-  const caps        = skill.capabilities || {};
-  const required    = Array.isArray(caps.required) ? caps.required : [];
-  const optional    = Array.isArray(caps.optional) ? caps.optional : [];
+  const caps = skill.capabilities || {};
+  const required = Array.isArray(caps.required) ? caps.required : [];
+  const optional = Array.isArray(caps.optional) ? caps.optional : [];
   const fallbackMode = caps.fallback_mode || null;
 
-  const missingRequired = required.filter(c => !supported.has(c));
-  const missingOptional = optional.filter(c => !supported.has(c));
+  const missingRequired = required.filter((c) => !supported.has(c));
+  const missingOptional = optional.filter((c) => !supported.has(c));
 
   let bucket;
   let mode;
 
   if (missingRequired.length === 0) {
     if (missingOptional.length === 0) {
-      bucket = 'available';
-      mode   = 'native';
+      bucket = "available";
+      mode = "native";
     } else {
-      bucket = 'degraded';
-      mode   = 'degraded';
+      bucket = "degraded";
+      mode = "degraded";
     }
   } else {
     if (fallbackMode) {
-      bucket = 'excluded';
-      mode   = fallbackMode;
+      bucket = "excluded";
+      mode = fallbackMode;
     } else {
-      bucket = 'unavailable';
-      mode   = 'none';
+      bucket = "unavailable";
+      mode = "none";
     }
   }
 
   return {
-    id:              skill.id,
-    description:     skill.description || '',
-    type:            skill.type        || 'prompt',
-    status:          skill.status      || 'stable',
+    id: skill.id,
+    description: skill.description || "",
+    type: skill.type || "prompt",
+    status: skill.status || "stable",
     bucket,
     mode,
     missingRequired,
@@ -236,19 +244,19 @@ export function classifySkill(skill, supported) {
 export function classifyAll(skills, supported) {
   if (supported === null) {
     // No probe data — treat everything as available
-    return skills.map(skill => ({
-      id:              skill.id,
-      description:     skill.description || '',
-      type:            skill.type        || 'prompt',
-      status:          skill.status      || 'stable',
-      bucket:          'available',
-      mode:            'native',
+    return skills.map((skill) => ({
+      id: skill.id,
+      description: skill.description || "",
+      type: skill.type || "prompt",
+      status: skill.status || "stable",
+      bucket: "available",
+      mode: "native",
       missingRequired: [],
       missingOptional: [],
     }));
   }
 
-  return skills.map(skill => classifySkill(skill, supported));
+  return skills.map((skill) => classifySkill(skill, supported));
 }
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -260,52 +268,64 @@ export function classifyAll(skills, supported) {
  * @returns {string}
  */
 export function formatText(result) {
-  const { available, degraded, excluded, unavailable, surface_hint, platform_hint, warning } = result;
+  const {
+    available,
+    degraded,
+    excluded,
+    unavailable,
+    surface_hint,
+    platform_hint,
+    warning,
+  } = result;
   const lines = [];
 
   if (warning) {
     lines.push(`[WARNING] ${warning}`);
-    lines.push('');
+    lines.push("");
   }
 
   lines.push(`Surface: ${surface_hint} (${platform_hint})`);
-  lines.push('');
+  lines.push("");
 
   if (available.length > 0) {
     lines.push(`AVAILABLE (${available.length})`);
     for (const s of available) {
       lines.push(`  • ${s.id} — ${s.description}`);
     }
-    lines.push('');
+    lines.push("");
   }
 
   if (degraded.length > 0) {
     lines.push(`DEGRADED — missing optional capabilities (${degraded.length})`);
     for (const s of degraded) {
       lines.push(`  • ${s.id} — ${s.description}`);
-      lines.push(`    missing optional: ${s.missingOptional.join(', ')}`);
+      lines.push(`    missing optional: ${s.missingOptional.join(", ")}`);
     }
-    lines.push('');
+    lines.push("");
   }
 
   if (excluded.length > 0) {
     lines.push(`EXCLUDED — fallback available (${excluded.length})`);
     for (const s of excluded) {
       lines.push(`  • ${s.id} — ${s.description}`);
-      lines.push(`    missing: ${s.missingRequired.join(', ')} | fallback: ${s.mode}`);
+      lines.push(
+        `    missing: ${s.missingRequired.join(", ")} | fallback: ${s.mode}`,
+      );
     }
-    lines.push('');
+    lines.push("");
   }
 
   if (unavailable.length > 0) {
-    lines.push(`UNAVAILABLE — required capabilities missing (${unavailable.length})`);
+    lines.push(
+      `UNAVAILABLE — required capabilities missing (${unavailable.length})`,
+    );
     for (const s of unavailable) {
-      lines.push(`  • ${s.id} — missing: ${s.missingRequired.join(', ')}`);
+      lines.push(`  • ${s.id} — missing: ${s.missingRequired.join(", ")}`);
     }
-    lines.push('');
+    lines.push("");
   }
 
-  return lines.join('\n');
+  return lines.join("\n");
 }
 
 /**
@@ -317,11 +337,11 @@ export function formatText(result) {
 export function formatSummary(result) {
   const { available, degraded, excluded, unavailable } = result;
   const parts = [];
-  if (available.length  > 0) parts.push(`${available.length} available`);
-  if (degraded.length   > 0) parts.push(`${degraded.length} degraded`);
-  if (excluded.length   > 0) parts.push(`${excluded.length} excluded`);
+  if (available.length > 0) parts.push(`${available.length} available`);
+  if (degraded.length > 0) parts.push(`${degraded.length} degraded`);
+  if (excluded.length > 0) parts.push(`${excluded.length} excluded`);
   if (unavailable.length > 0) parts.push(`${unavailable.length} unavailable`);
-  return `Skills: ${parts.join(', ')}`;
+  return `Skills: ${parts.join(", ")}`;
 }
 
 // ─── Main entry ───────────────────────────────────────────────────────────────
@@ -337,19 +357,26 @@ export function formatSummary(result) {
 export function filterSkills(opts = {}) {
   const { probePath, manifestPath } = opts;
 
-  const probe    = loadProbeResults(probePath);
+  const probe = loadProbeResults(probePath);
   const manifest = loadManifest(manifestPath);
-  const platformResolution = resolveRegistryPlatformHint(probe.platform_hint, manifest);
+  const platformResolution = resolveRegistryPlatformHint(
+    probe.platform_hint,
+    manifest,
+  );
 
-  const warning = [
-    probe.warning,
-    manifest.warning,
-    platformResolution.warning,
-  ].filter(Boolean).join('; ') || null;
+  const warning =
+    [probe.warning, manifest.warning, platformResolution.warning]
+      .filter(Boolean)
+      .join("; ") || null;
 
   const classified = classifyAll(manifest.skills, probe.supported);
 
-  const grouped = { available: [], degraded: [], excluded: [], unavailable: [] };
+  const grouped = {
+    available: [],
+    degraded: [],
+    excluded: [],
+    unavailable: [],
+  };
   for (const s of classified) {
     grouped[s.bucket].push(s);
   }
@@ -357,9 +384,9 @@ export function filterSkills(opts = {}) {
   return {
     ...grouped,
     warning,
-    surface_hint:  probe.surface_hint,
+    surface_hint: probe.surface_hint,
     platform_hint: probe.platform_hint,
     registry_platform_hint: platformResolution.registry_platform_hint,
-    version:       manifest.version,
+    version: manifest.version,
   };
 }

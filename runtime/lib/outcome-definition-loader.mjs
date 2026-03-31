@@ -1,13 +1,19 @@
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parse as parseYaml } from 'yaml';
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_DEFINITIONS_PATH = join(__dirname, '..', 'outcome-definitions.yaml');
+const DEFAULT_DEFINITIONS_PATH = join(
+  __dirname,
+  "..",
+  "outcome-definitions.yaml",
+);
 
-export function loadOutcomeDefinitions(definitionsPath = DEFAULT_DEFINITIONS_PATH) {
-  const raw = readFileSync(definitionsPath, 'utf8');
+export function loadOutcomeDefinitions(
+  definitionsPath = DEFAULT_DEFINITIONS_PATH,
+) {
+  const raw = readFileSync(definitionsPath, "utf8");
   const parsed = parseYaml(raw) || {};
 
   const toolOutcomeMap = parsed.toolOutcomes ?? {};
@@ -17,7 +23,9 @@ export function loadOutcomeDefinitions(definitionsPath = DEFAULT_DEFINITIONS_PAT
   return { toolOutcomeMap, outcomesById, routesById };
 }
 
-export function createCachedOutcomeDefinitionsLoader(definitionsPath = DEFAULT_DEFINITIONS_PATH) {
+export function createCachedOutcomeDefinitionsLoader(
+  definitionsPath = DEFAULT_DEFINITIONS_PATH,
+) {
   let cached = null;
   return function loadCachedOutcomeDefinitions() {
     if (cached === null) {

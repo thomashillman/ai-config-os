@@ -130,6 +130,7 @@ You are using the Haiku variant for cost efficiency. Work through the steps belo
 ### Step 1: Collect context
 
 Identify the PR reference from `$ARGUMENTS`, or auto-detect:
+
 ```bash
 git log --merges -1 --pretty="%s"
 # or
@@ -142,17 +143,18 @@ Note the approximate session turn count and total tool calls from context.
 
 Scan every assistant turn and tool call in context. Classify each signal:
 
-| Signal type | Definition |
-|---|---|
-| `error` | Tool call or command returned non-zero exit or error message |
-| `correction` | User explicitly corrected Claude's output or direction |
-| `loop` | Claude re-read or re-executed the same operation without clear progress |
-| `assumption_failure` | Claude made an assumption that proved wrong, requiring backtrack |
-| `missing_context` | Claude asked for information the user supplied that could have been pre-loaded |
-| `inefficiency` | Approach that worked but took significantly more steps than necessary |
-| `capability_gap` | Task where no skill/tool existed, forcing ad-hoc reasoning from scratch |
+| Signal type          | Definition                                                                     |
+| -------------------- | ------------------------------------------------------------------------------ |
+| `error`              | Tool call or command returned non-zero exit or error message                   |
+| `correction`         | User explicitly corrected Claude's output or direction                         |
+| `loop`               | Claude re-read or re-executed the same operation without clear progress        |
+| `assumption_failure` | Claude made an assumption that proved wrong, requiring backtrack               |
+| `missing_context`    | Claude asked for information the user supplied that could have been pre-loaded |
+| `inefficiency`       | Approach that worked but took significantly more steps than necessary          |
+| `capability_gap`     | Task where no skill/tool existed, forcing ad-hoc reasoning from scratch        |
 
 For each signal record:
+
 - `type` — from table above
 - `turn_index` — approximate assistant turn number
 - `description` — one concrete sentence
@@ -169,6 +171,7 @@ Classify each into one of eight categories:
 `library-api-reference | product-verification | data-fetching | business-automation | scaffolding | code-quality | ci-cd | runbook`
 
 Emit each recommendation with:
+
 - `name` — kebab-case skill name
 - `category` — from list above
 - `rationale` — one sentence linking it to the observed friction
@@ -193,12 +196,14 @@ HTTP_STATUS=$(curl -s -o /tmp/retro-response.json -w "%{http_code}" \
 - No `fs.write`: print JSON to stdout and note "stdout fallback"
 
 To query for skill signals across all recent retrospectives:
+
 ```bash
 curl -s "${AI_CONFIG_WORKER}/v1/retrospectives/aggregate" \
   -H "Authorization: Bearer ${AI_CONFIG_TOKEN}"
 ```
 
 Print a concise summary:
+
 ```
 Signals: <N> total, <N> high-impact
 Recommendations: <N> skills proposed
@@ -273,9 +278,11 @@ See `schema/artifact.schema.json` for the full contract. Top-level structure:
 ## Examples
 
 ### Example 1 — auto-detected PR
+
 **Input:** `/post-merge-retrospective`
 **Output:** Artifact at `~/.ai-config-os/retrospectives/2026-03-23-pr42.json` — 4 signals (2 high-impact), 2 skill recommendations
 
 ### Example 2 — explicit PR ref, schema-loader recommendation
+
 **Input:** `/post-merge-retrospective 17`
 **Output:** Artifact with 1 signal (`missing_context`, high), 1 recommendation: `db-schema-loader` (category: `library-api-reference`, priority: `high`, estimated_reuse: `frequent`)

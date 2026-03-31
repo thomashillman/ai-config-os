@@ -3,14 +3,14 @@
  * Validate `.cursor/rules/*.mdc` project rules (frontmatter + filename convention).
  * See docs/superpowers/specs/2026-03-31-cursor-rules-ci-pr-automation-design.md
  */
-import { readFileSync, readdirSync, existsSync } from 'fs';
-import { join, resolve } from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
-import { parse as parseYaml } from 'yaml';
+import { readFileSync, readdirSync, existsSync } from "fs";
+import { join, resolve } from "path";
+import { fileURLToPath, pathToFileURL } from "url";
+import { parse as parseYaml } from "yaml";
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const REPO_ROOT = join(__dirname, '..', '..');
-const DEFAULT_RULES_DIR = join(REPO_ROOT, '.cursor', 'rules');
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const REPO_ROOT = join(__dirname, "..", "..");
+const DEFAULT_RULES_DIR = join(REPO_ROOT, ".cursor", "rules");
 const FILENAME_RE = /^\d{3}-[a-z0-9-]+\.mdc$/;
 
 /**
@@ -26,7 +26,7 @@ export function validateCursorRules(rulesDir = DEFAULT_RULES_DIR) {
 
   const entries = readdirSync(rulesDir, { withFileTypes: true });
   const mdcFiles = entries
-    .filter((e) => e.isFile() && e.name.endsWith('.mdc'))
+    .filter((e) => e.isFile() && e.name.endsWith(".mdc"))
     .map((e) => e.name);
 
   for (const name of mdcFiles) {
@@ -38,7 +38,7 @@ export function validateCursorRules(rulesDir = DEFAULT_RULES_DIR) {
 
     let content;
     try {
-      content = readFileSync(rel, 'utf8');
+      content = readFileSync(rel, "utf8");
     } catch (e) {
       errors.push(`${name}: ${e.message}`);
       continue;
@@ -62,12 +62,12 @@ export function validateCursorRules(rulesDir = DEFAULT_RULES_DIR) {
 function parseFrontmatter(content) {
   const m = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) {
-    return { error: 'missing YAML frontmatter (opening ---, closing ---)' };
+    return { error: "missing YAML frontmatter (opening ---, closing ---)" };
   }
   try {
     const data = parseYaml(m[1]);
-    if (data === null || typeof data !== 'object' || Array.isArray(data)) {
-      return { error: 'frontmatter must parse to a YAML mapping' };
+    if (data === null || typeof data !== "object" || Array.isArray(data)) {
+      return { error: "frontmatter must parse to a YAML mapping" };
     }
     return { data };
   } catch (e) {
@@ -80,21 +80,21 @@ function parseFrontmatter(content) {
  * @param {string} filename
  */
 function validateMeta(data, filename) {
-  if (typeof data.description !== 'string' || !data.description.trim()) {
+  if (typeof data.description !== "string" || !data.description.trim()) {
     return `${filename}: description must be a non-empty string`;
   }
-  if (typeof data.alwaysApply !== 'boolean') {
+  if (typeof data.alwaysApply !== "boolean") {
     return `${filename}: alwaysApply must be boolean true or false`;
   }
   if (data.globs !== undefined && data.globs !== null) {
-    if (typeof data.globs === 'string') {
+    if (typeof data.globs === "string") {
       if (!data.globs.trim()) {
         return `${filename}: globs must be non-empty when set`;
       }
     } else if (Array.isArray(data.globs)) {
       if (
         data.globs.length === 0 ||
-        !data.globs.every((g) => typeof g === 'string' && g.trim())
+        !data.globs.every((g) => typeof g === "string" && g.trim())
       ) {
         return `${filename}: globs array must contain non-empty strings`;
       }
@@ -111,12 +111,12 @@ function main() {
   const { ok, errors, fileCount } = validateCursorRules(rulesDir);
 
   if (!ok) {
-    console.error(errors.join('\n'));
+    console.error(errors.join("\n"));
     process.exit(1);
   }
 
   if (fileCount === 0) {
-    console.log('check:cursor-rules: no .mdc files under .cursor/rules (OK)');
+    console.log("check:cursor-rules: no .mdc files under .cursor/rules (OK)");
   } else {
     console.log(`check:cursor-rules: OK (${fileCount} rule file(s))`);
   }

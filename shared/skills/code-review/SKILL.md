@@ -1,6 +1,7 @@
 ---
 skill: "code-review"
-description: "Perform structured code review with severity levels and actionable feedback.
+description:
+  "Perform structured code review with severity levels and actionable feedback.
 
   Use when reviewing pull requests, code changes, or implementation details.\n"
 type: "prompt"
@@ -155,9 +156,11 @@ Invoke when you need to review code changes, pull requests, or implementation de
 ## Examples
 
 ### Full code review
+
 **Input:** A function with a potential null pointer and O(n²) performance
 **Output:** Structured list with critical/warning/nit issues, specific fixes suggested
 
 ### Security review
+
 **Input:** Code using SQL query concatenation
 **Output:** SQL injection vulnerability identified, parametrized query recommended

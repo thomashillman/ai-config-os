@@ -20,10 +20,10 @@ my-skill/
 
 **Required frontmatter fields** (per the open standard):
 
-| Field         | Constraints                                                             |
-|---------------|-------------------------------------------------------------------------|
+| Field         | Constraints                                                              |
+| ------------- | ------------------------------------------------------------------------ |
 | `name`        | 1–64 chars, lowercase letters/numbers/hyphens, must match directory name |
-| `description` | 1–1024 chars, describes what the skill does and when to use it          |
+| `description` | 1–1024 chars, describes what the skill does and when to use it           |
 
 **Optional standard fields:** `license`, `compatibility`, `metadata`, `allowed-tools`
 
@@ -57,17 +57,17 @@ Claude Code extends the Agent Skills standard with additional capabilities. Thes
 
 Two frontmatter fields control who can invoke a skill:
 
-| Field                        | Effect                                                                 |
-|------------------------------|------------------------------------------------------------------------|
+| Field                            | Effect                                                                                                                                |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `disable-model-invocation: true` | Only the user can invoke via `/skill-name`. Claude won't trigger it automatically. Use for side-effect workflows like deploy, commit. |
-| `user-invocable: false`      | Only Claude can invoke. Hidden from the `/` menu. Use for background knowledge that isn't actionable as a command. |
+| `user-invocable: false`          | Only Claude can invoke. Hidden from the `/` menu. Use for background knowledge that isn't actionable as a command.                    |
 
 **Default behavior (advisory):** Both user and Claude are expected to be able to invoke the skill. Description preloading depends on the active Claude Code runtime and should be treated as expected behavior, not an enforcement guarantee from this repository alone.
 
-| Frontmatter                      | User can invoke | Claude can invoke | Context loading                                             |
-|----------------------------------|-----------------|-------------------|-------------------------------------------------------------|
+| Frontmatter                      | User can invoke | Claude can invoke | Context loading                                                                                |
+| -------------------------------- | --------------- | ----------------- | ---------------------------------------------------------------------------------------------- |
 | (default)                        | Yes             | Yes               | Description is typically in context; full skill usually loads when invoked (runtime-dependent) |
-| `disable-model-invocation: true` | Yes             | No                | Description not in context; full skill loads on user invoke   |
+| `disable-model-invocation: true` | Yes             | No                | Description not in context; full skill loads on user invoke                                    |
 | `user-invocable: false`          | No              | Yes               | Description is typically in context; full skill usually loads when invoked (runtime-dependent) |
 
 ### Running skills in a subagent
@@ -118,13 +118,13 @@ This is preprocessing — Claude receives the final rendered prompt with actual 
 
 Skills support positional arguments:
 
-| Variable            | Description                                         |
-|---------------------|-----------------------------------------------------|
-| `$ARGUMENTS`        | All arguments passed when invoking the skill        |
-| `$ARGUMENTS[N]`     | Specific argument by 0-based index                  |
-| `$N`                | Shorthand for `$ARGUMENTS[N]`                       |
-| `${CLAUDE_SESSION_ID}` | Current session ID                               |
-| `${CLAUDE_SKILL_DIR}`  | Directory containing the skill's SKILL.md file    |
+| Variable               | Description                                    |
+| ---------------------- | ---------------------------------------------- |
+| `$ARGUMENTS`           | All arguments passed when invoking the skill   |
+| `$ARGUMENTS[N]`        | Specific argument by 0-based index             |
+| `$N`                   | Shorthand for `$ARGUMENTS[N]`                  |
+| `${CLAUDE_SESSION_ID}` | Current session ID                             |
+| `${CLAUDE_SKILL_DIR}`  | Directory containing the skill's SKILL.md file |
 
 If `$ARGUMENTS` is not present in content, arguments are appended as `ARGUMENTS: <value>`.
 
@@ -142,20 +142,20 @@ allowed-tools: Read, Grep, Glob
 
 ### Additional Claude Code frontmatter
 
-| Field           | Purpose                                                              |
-|-----------------|----------------------------------------------------------------------|
-| `argument-hint` | Hint shown during autocomplete (e.g., `[issue-number]`)            |
-| `model`         | Model to use when skill is active                                    |
-| `hooks`         | Hooks scoped to this skill's lifecycle                               |
+| Field           | Purpose                                                 |
+| --------------- | ------------------------------------------------------- |
+| `argument-hint` | Hint shown during autocomplete (e.g., `[issue-number]`) |
+| `model`         | Model to use when skill is active                       |
+| `hooks`         | Hooks scoped to this skill's lifecycle                  |
 
 ### Skill locations in Claude Code
 
-| Scope      | Path                                       | Applies to                     |
-|------------|--------------------------------------------|--------------------------------|
-| Enterprise | Managed settings                           | All users in organization      |
-| Personal   | `~/.claude/skills/<name>/SKILL.md`         | All your projects              |
-| Project    | `.claude/skills/<name>/SKILL.md`           | This project only              |
-| Plugin     | `<plugin>/skills/<name>/SKILL.md`          | Where plugin is enabled        |
+| Scope      | Path                               | Applies to                |
+| ---------- | ---------------------------------- | ------------------------- |
+| Enterprise | Managed settings                   | All users in organization |
+| Personal   | `~/.claude/skills/<name>/SKILL.md` | All your projects         |
+| Project    | `.claude/skills/<name>/SKILL.md`   | This project only         |
+| Plugin     | `<plugin>/skills/<name>/SKILL.md`  | Where plugin is enabled   |
 
 Priority: enterprise > personal > project. Plugin skills use `plugin-name:skill-name` namespace.
 
@@ -163,13 +163,13 @@ Claude Code also discovers skills from nested `.claude/skills/` directories (mon
 
 ### Bundled skills (ship with Claude Code)
 
-| Skill           | Purpose                                                            |
-|-----------------|--------------------------------------------------------------------|
-| `/batch <instruction>` | Orchestrate large-scale parallel changes across a codebase   |
-| `/claude-api`   | Load Claude API reference for your project's language              |
-| `/debug [desc]` | Troubleshoot current session by reading debug log                  |
-| `/loop [interval] <prompt>` | Run a prompt repeatedly on an interval              |
-| `/simplify [focus]` | Review changed files for reuse, quality, efficiency issues    |
+| Skill                       | Purpose                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| `/batch <instruction>`      | Orchestrate large-scale parallel changes across a codebase |
+| `/claude-api`               | Load Claude API reference for your project's language      |
+| `/debug [desc]`             | Troubleshoot current session by reading debug log          |
+| `/loop [interval] <prompt>` | Run a prompt repeatedly on an interval                     |
+| `/simplify [focus]`         | Review changed files for reuse, quality, efficiency issues |
 
 ### MCP prompts as commands
 
@@ -181,21 +181,21 @@ AI Config OS extends the Agent Skills standard with additional metadata for mult
 
 ### Frontmatter mapping: standard vs extended
 
-| Standard field   | This repo's field | Notes                                      |
-|------------------|-------------------|--------------------------------------------|
-| `name`           | `skill`           | Used as `skill:` internally; emitted as `name:` for Claude Code |
-| `description`    | `description`     | Same                                       |
-| `allowed-tools`  | `allowed-tools`   | Same                                       |
-| —                | `type`            | `prompt`, `hook`, `agent`, `workflow-blueprint` |
-| —                | `status`          | `stable`, `experimental`, `deprecated`     |
-| —                | `capabilities`    | Structured capability requirements         |
-| —                | `platforms`       | Platform-specific overrides                |
-| —                | `variants`        | Multi-model prompt variants                |
-| —                | `inputs`/`outputs`| Typed parameter declarations               |
-| —                | `dependencies`    | Skill, API, and model dependencies         |
-| —                | `tests`           | Automated validation definitions           |
-| —                | `monitoring`      | Performance tracking configuration         |
-| —                | `version`         | Skill-level semver (independent of release version) |
+| Standard field  | This repo's field  | Notes                                                           |
+| --------------- | ------------------ | --------------------------------------------------------------- |
+| `name`          | `skill`            | Used as `skill:` internally; emitted as `name:` for Claude Code |
+| `description`   | `description`      | Same                                                            |
+| `allowed-tools` | `allowed-tools`    | Same                                                            |
+| —               | `type`             | `prompt`, `hook`, `agent`, `workflow-blueprint`                 |
+| —               | `status`           | `stable`, `experimental`, `deprecated`                          |
+| —               | `capabilities`     | Structured capability requirements                              |
+| —               | `platforms`        | Platform-specific overrides                                     |
+| —               | `variants`         | Multi-model prompt variants                                     |
+| —               | `inputs`/`outputs` | Typed parameter declarations                                    |
+| —               | `dependencies`     | Skill, API, and model dependencies                              |
+| —               | `tests`            | Automated validation definitions                                |
+| —               | `monitoring`       | Performance tracking configuration                              |
+| —               | `version`          | Skill-level semver (independent of release version)             |
 
 ### Capability contract
 
@@ -203,9 +203,9 @@ Skills declare structured capability requirements. The compiler uses these to re
 
 ```yaml
 capabilities:
-  required: [git.read, shell.exec]     # Must be supported for skill to work
-  optional: [fs.write]                 # Enhances skill but not essential
-  fallback_mode: prompt-only           # none | manual | prompt-only
+  required: [git.read, shell.exec] # Must be supported for skill to work
+  optional: [fs.write] # Enhances skill but not essential
+  fallback_mode: prompt-only # none | manual | prompt-only
   fallback_notes: "User can paste git output manually"
 ```
 
@@ -244,7 +244,7 @@ Skills define test cases in frontmatter:
 ```yaml
 tests:
   - id: test-basic
-    type: prompt-validation    # or: structure-check, integration, performance
+    type: prompt-validation # or: structure-check, integration, performance
     input: "Example input"
     expected_substring: "expected text"
     models_to_test: [sonnet]
@@ -261,24 +261,24 @@ Hooks are configured shell commands intended to run at Claude Code lifecycle poi
 
 ### Hook types
 
-| Type      | Behavior                                                |
-|-----------|---------------------------------------------------------|
-| `command` | Run a shell command (default)                           |
-| `http`    | POST event data to a URL                                |
-| `prompt`  | Single-turn LLM evaluation (yes/no decision)            |
-| `agent`   | Multi-turn verification with tool access                |
+| Type      | Behavior                                     |
+| --------- | -------------------------------------------- |
+| `command` | Run a shell command (default)                |
+| `http`    | POST event data to a URL                     |
+| `prompt`  | Single-turn LLM evaluation (yes/no decision) |
+| `agent`   | Multi-turn verification with tool access     |
 
 ### Key hook events
 
-| Event              | When it fires                                          | Matcher filters      |
-|--------------------|--------------------------------------------------------|----------------------|
-| `SessionStart`     | Session begins or resumes                              | `startup`, `resume`, `compact` |
-| `PreToolUse`       | Before a tool executes (can block)                     | Tool name            |
-| `PostToolUse`      | After a tool succeeds                                  | Tool name            |
-| `PermissionRequest`| Permission dialog appears                              | Tool name            |
-| `Notification`     | Claude needs input                                     | Notification type    |
-| `Stop`             | Claude finishes responding                             | —                    |
-| `ConfigChange`     | Settings or skills file modified                       | Config source        |
+| Event               | When it fires                      | Matcher filters                |
+| ------------------- | ---------------------------------- | ------------------------------ |
+| `SessionStart`      | Session begins or resumes          | `startup`, `resume`, `compact` |
+| `PreToolUse`        | Before a tool executes (can block) | Tool name                      |
+| `PostToolUse`       | After a tool succeeds              | Tool name                      |
+| `PermissionRequest` | Permission dialog appears          | Tool name                      |
+| `Notification`      | Claude needs input                 | Notification type              |
+| `Stop`              | Claude finishes responding         | —                              |
+| `ConfigChange`      | Settings or skills file modified   | Config source                  |
 
 ### Hook communication
 
@@ -291,37 +291,61 @@ Hooks are configured shell commands intended to run at Claude Code lifecycle poi
 ### Common patterns
 
 **Auto-format after edits:**
+
 ```json
 {
   "hooks": {
-    "PostToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [{ "type": "command", "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write" }]
-    }]
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | xargs npx prettier --write"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 **Block protected files:**
+
 ```json
 {
   "hooks": {
-    "PreToolUse": [{
-      "matcher": "Edit|Write",
-      "hooks": [{ "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-files.sh" }]
-    }]
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/protect-files.sh"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 **Re-inject context after compaction:**
+
 ```json
 {
   "hooks": {
-    "SessionStart": [{
-      "matcher": "compact",
-      "hooks": [{ "type": "command", "command": "echo 'Reminder: use Bun, not npm. Run bun test before committing.'" }]
-    }]
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Reminder: use Bun, not npm. Run bun test before committing.'"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -329,7 +353,7 @@ Hooks are configured shell commands intended to run at Claude Code lifecycle poi
 ### Hook location scopes
 
 | Location                        | Scope                   |
-|---------------------------------|-------------------------|
+| ------------------------------- | ----------------------- |
 | `~/.claude/settings.json`       | All your projects       |
 | `.claude/settings.json`         | Single project (shared) |
 | `.claude/settings.local.json`   | Single project (local)  |
@@ -376,16 +400,19 @@ node scripts/lint/platform.mjs shared/targets/platforms/*.yaml
 ### Testing a skill
 
 **In Claude Code — automatic invocation:** Ask something matching the description:
+
 ```
 How does this code work?
 ```
 
 **In Claude Code — direct invocation:**
+
 ```
 /explain-code src/auth/login.ts
 ```
 
 **Validation suite:**
+
 ```bash
 bash adapters/claude/dev-test.sh
 npm test
@@ -399,5 +426,5 @@ npm test
 - [Claude Code hooks reference](https://code.claude.com/docs/en/hooks) — Full event schemas
 - [Claude Code commands](https://code.claude.com/docs/en/commands) — Built-in command reference
 - [Example skills](https://github.com/anthropics/skills) — Open-source skill examples
-- [shared/skills/_template/SKILL.md](../shared/skills/_template/SKILL.md) — This repo's skill template
+- [shared/skills/\_template/SKILL.md](../shared/skills/_template/SKILL.md) — This repo's skill template
 - [shared/manifest.md](../shared/manifest.md) — Index of all skills in this repo

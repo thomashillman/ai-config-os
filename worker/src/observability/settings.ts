@@ -40,7 +40,7 @@ export const DEFAULT_SETTINGS: ObservabilitySettings = {
   max_message_length: 2048,
 };
 
-const KV_SETTINGS_KEY = 'observability:settings';
+const KV_SETTINGS_KEY = "observability:settings";
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -52,29 +52,35 @@ export type SettingsValidationResult =
  * Validate a settings object against safe bounds.
  * Returns all validation errors, not just the first.
  */
-export function validateObservabilitySettings(input: unknown): SettingsValidationResult {
+export function validateObservabilitySettings(
+  input: unknown,
+): SettingsValidationResult {
   const errors: string[] = [];
 
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    return { ok: false, errors: ['Settings must be a JSON object'] };
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return { ok: false, errors: ["Settings must be a JSON object"] };
   }
 
   const data = input as Record<string, unknown>;
   const result: Partial<ObservabilitySettings> = {};
 
-  for (const [field, bounds] of Object.entries(SETTINGS_BOUNDS) as Array<[keyof ObservabilitySettings, { min: number; max: number }]>) {
+  for (const [field, bounds] of Object.entries(SETTINGS_BOUNDS) as Array<
+    [keyof ObservabilitySettings, { min: number; max: number }]
+  >) {
     const v = data[field];
     if (v === undefined) {
       // Use default for missing fields
       result[field] = DEFAULT_SETTINGS[field];
       continue;
     }
-    if (typeof v !== 'number' || !Number.isInteger(v) || !Number.isFinite(v)) {
+    if (typeof v !== "number" || !Number.isInteger(v) || !Number.isFinite(v)) {
       errors.push(`Field '${field}' must be an integer`);
       continue;
     }
     if (v < bounds.min || v > bounds.max) {
-      errors.push(`Field '${field}' must be between ${bounds.min} and ${bounds.max} (got ${v})`);
+      errors.push(
+        `Field '${field}' must be between ${bounds.min} and ${bounds.max} (got ${v})`,
+      );
       continue;
     }
     result[field] = v;
@@ -98,7 +104,9 @@ type KvStore = {
  * Read observability settings from KV.
  * Returns defaults if the key is absent or contains invalid JSON.
  */
-export async function readObservabilitySettings(kv: KvStore | undefined): Promise<ObservabilitySettings> {
+export async function readObservabilitySettings(
+  kv: KvStore | undefined,
+): Promise<ObservabilitySettings> {
   if (!kv) return { ...DEFAULT_SETTINGS };
 
   let raw: string | null;

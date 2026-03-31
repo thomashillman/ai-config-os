@@ -18,6 +18,7 @@ curl -sf -X PATCH \
 ```
 
 Then output (2 lines max):
+
 ```
 Saved. [N] findings[, note if given].
 Continue: ai-config-os.workers.dev/hub/latest
@@ -40,6 +41,7 @@ Or visit: ai-config-os.workers.dev/hub/latest
 ```
 
 ## Never
+
 - Never ask "are you sure?" before saving
 - Never emit more than 3 lines of output
 - Never show raw JSON, task IDs, or API responses

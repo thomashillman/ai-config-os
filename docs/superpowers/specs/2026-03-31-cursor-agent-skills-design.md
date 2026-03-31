@@ -23,11 +23,11 @@ The compiler’s Cursor client today emits a **single concatenated** `dist/clien
 
 ## 4. Vendor references
 
-| Topic | URL |
-| --- | --- |
+| Topic                                           | URL                                    |
+| ----------------------------------------------- | -------------------------------------- |
 | Agent Skills (paths, `SKILL.md`, optional dirs) | https://cursor.com/docs/context/skills |
-| Project rules (`.cursor/rules`, `.mdc`) | https://cursor.com/docs/context/rules |
-| MCP config locations | https://cursor.com/docs/mcp |
+| Project rules (`.cursor/rules`, `.mdc`)         | https://cursor.com/docs/context/rules  |
+| MCP config locations                            | https://cursor.com/docs/mcp            |
 
 ## 5. Artefact layout
 
@@ -82,14 +82,14 @@ Introduce a **shared helper** `scripts/build/lib/emit-skill-tree.mjs` (new file)
 
 ## 8. Install, sync, and bootstrap (behavioral contract)
 
-| Mechanism | Behavior |
-| --- | --- |
-| **Default install target** | `~/.cursor/skills` |
-| **Optional project target** | `<repo>/.cursor/skills` (env or CLI flag on future `materialise.sh`) |
-| **Merge policy** | For each skill folder name, **delete existing target dir** (if any) and **copy** emitted dir wholesale |
-| **Cache dir (future)** | `~/.ai-config-os/cache/cursor/` for Worker-fetched packages |
-| **Provider context** | [`adapters/bootstrap/provider-context.mjs`](../../../adapters/bootstrap/provider-context.mjs) should eventually expose `target_path` (or parallel field) as global skills dir when Cursor is detected |
-| **file-adapter** | [`runtime/adapters/file-adapter.sh`](../../../runtime/adapters/file-adapter.sh) `sync` should copy `dist/clients/cursor/skills/*` to configured path when cursor is in desired state (follow-on task) |
+| Mechanism                   | Behavior                                                                                                                                                                                              |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Default install target**  | `~/.cursor/skills`                                                                                                                                                                                    |
+| **Optional project target** | `<repo>/.cursor/skills` (env or CLI flag on future `materialise.sh`)                                                                                                                                  |
+| **Merge policy**            | For each skill folder name, **delete existing target dir** (if any) and **copy** emitted dir wholesale                                                                                                |
+| **Cache dir (future)**      | `~/.ai-config-os/cache/cursor/` for Worker-fetched packages                                                                                                                                           |
+| **Provider context**        | [`adapters/bootstrap/provider-context.mjs`](../../../adapters/bootstrap/provider-context.mjs) should eventually expose `target_path` (or parallel field) as global skills dir when Cursor is detected |
+| **file-adapter**            | [`runtime/adapters/file-adapter.sh`](../../../runtime/adapters/file-adapter.sh) `sync` should copy `dist/clients/cursor/skills/*` to configured path when cursor is in desired state (follow-on task) |
 
 ## 9. Testing
 

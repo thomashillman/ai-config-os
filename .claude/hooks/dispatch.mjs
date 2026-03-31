@@ -14,11 +14,14 @@
  *   1: Error (invalid input, validation failure, etc.)
  */
 
-import { validateHookEvent, normalizeFilePath } from './lib/contracts/hook-event.mjs';
-import { RuleExecutor } from './lib/rule-executor.mjs';
+import {
+  validateHookEvent,
+  normalizeFilePath,
+} from "./lib/contracts/hook-event.mjs";
+import { RuleExecutor } from "./lib/rule-executor.mjs";
 
 // Import the rule registry (populated as rules are implemented)
-import { rules } from './lib/rules/index.mjs';
+import { rules } from "./lib/rules/index.mjs";
 
 /**
  * Main dispatcher logic
@@ -49,8 +52,14 @@ async function main() {
     }
 
     // 5. Normalize file paths
-    if (event.file_path && (event.type === 'PreToolUse' || event.type === 'PostToolUse')) {
-      event.file_path = normalizeFilePath(event.file_path, process.env.CLAUDE_PROJECT_DIR || process.cwd());
+    if (
+      event.file_path &&
+      (event.type === "PreToolUse" || event.type === "PostToolUse")
+    ) {
+      event.file_path = normalizeFilePath(
+        event.file_path,
+        process.env.CLAUDE_PROJECT_DIR || process.cwd(),
+      );
     }
 
     // 6. Create executor and dispatch
@@ -61,16 +70,18 @@ async function main() {
     const blockingResult = RuleExecutor.getBlockingResult(results);
     if (blockingResult) {
       // Output block decision as JSON to stdout
-      console.log(JSON.stringify({
-        decision: 'block',
-        reason: blockingResult.reason || 'Hook guard triggered'
-      }));
+      console.log(
+        JSON.stringify({
+          decision: "block",
+          reason: blockingResult.reason || "Hook guard triggered",
+        }),
+      );
     }
 
     // Exit cleanly (success)
     process.exit(0);
   } catch (err) {
-    console.error('Dispatcher error:', err.message);
+    console.error("Dispatcher error:", err.message);
     process.exit(0); // Graceful: allow on unexpected errors
   }
 }
@@ -80,7 +91,8 @@ async function main() {
  */
 function enrichEventWithContext(event) {
   if (!event.session_id) {
-    event.session_id = process.env.CLAUDE_SESSION_ID || `pid-${process.pid}-${Date.now()}`;
+    event.session_id =
+      process.env.CLAUDE_SESSION_ID || `pid-${process.pid}-${Date.now()}`;
   }
 
   if (!event.timestamp) {
@@ -95,26 +107,26 @@ function enrichEventWithContext(event) {
  */
 async function readStdin() {
   return new Promise((resolve, reject) => {
-    let data = '';
+    let data = "";
 
-    process.stdin.setEncoding('utf8');
-    process.stdin.on('readable', () => {
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("readable", () => {
       let chunk;
       while ((chunk = process.stdin.read()) !== null) {
         data += chunk;
       }
     });
 
-    process.stdin.on('end', () => {
+    process.stdin.on("end", () => {
       resolve(data);
     });
 
-    process.stdin.on('error', reject);
+    process.stdin.on("error", reject);
   });
 }
 
 // Run main
-main().catch(err => {
-  console.error('Uncaught error:', err.message);
+main().catch((err) => {
+  console.error("Uncaught error:", err.message);
   process.exit(0);
 });

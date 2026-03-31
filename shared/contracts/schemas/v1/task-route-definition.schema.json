@@ -8,7 +8,10 @@
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "route_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "equivalence_level": { "type": "string", "enum": ["equal", "degraded", "upgrade"] },
+    "equivalence_level": {
+      "type": "string",
+      "enum": ["equal", "degraded", "upgrade"]
+    },
     "required_capabilities": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 },

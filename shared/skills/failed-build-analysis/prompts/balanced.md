@@ -32,7 +32,9 @@ If shell access is unavailable, work entirely from pasted content.
 ## Your output (two sections)
 
 ### FAILURE SUMMARY
+
 For each unique failure group:
+
 ```
 Job: <name>  |  Workflow: <name>  |  Type: <lint|type-check|test|build|deploy>
 Root cause: <one sentence — the actual cause, not the symptom>
@@ -41,6 +43,7 @@ Log excerpt: "<exact failing line>"
 ```
 
 ### FIX PLAN
+
 Ordered, atomic steps. Each step must be independently verifiable.
 
 ```
@@ -63,6 +66,7 @@ Ordered, atomic steps. Each step must be independently verifiable.
 End with **Confidence: High / Medium / Low** and any flakiness or environment notes.
 
 ## Rules
+
 - Fix only what the log proves is broken
 - Smallest diff that makes the test green
 - No refactoring, no "while we're here" changes

@@ -17,27 +17,30 @@ When Claude Code starts in a remote environment (`.claude/hooks/session-start.sh
 
 ## Robustness guarantees
 
-| Scenario | Behavior | Fallback |
-|----------|----------|----------|
-| Worker unavailable | Uses last-known-good manifest | Oldest cached manifest (forever valid) |
-| Network partition | Skills still work | All local skills loaded from cache |
-| Manifest 1 week old | Still usable | Versions are immutable; no retroactive breaking changes |
-| New skill published | Available next session | Current session uses cached skills |
-| Capability mismatch | Skill excluded from display | Manual prompt-only fallback available |
+| Scenario            | Behavior                      | Fallback                                                |
+| ------------------- | ----------------------------- | ------------------------------------------------------- |
+| Worker unavailable  | Uses last-known-good manifest | Oldest cached manifest (forever valid)                  |
+| Network partition   | Skills still work             | All local skills loaded from cache                      |
+| Manifest 1 week old | Still usable                  | Versions are immutable; no retroactive breaking changes |
+| New skill published | Available next session        | Current session uses cached skills                      |
+| Capability mismatch | Skill excluded from display   | Manual prompt-only fallback available                   |
 
 ## Architecture
 
 **Worker contract (immutable-by-version):**
+
 - `GET /v1/manifest/latest` - returns manifest with `Cache-Control: max-age=31536000, immutable`
 - ETag: version hash (clients can use If-None-Match)
 - Fallback: serve cached manifest if KV/R2 unavailable
 
 **Client contract (local-first):**
+
 - Manifest cache: `~/.ai-config-os/cache/claude-code/latest.json`
 - Capability cache: `~/.ai-config-os/probe-report.json`
 - Both caches survive Worker downtime indefinitely
 
 **Skill compatibility:**
+
 - Skills declare `capabilities.required` (e.g., `[shell.exec, fs.write]`)
 - Client filters display to skills compatible with detected capabilities
 - Fallback modes: if skill unavailable, show prompt-only guidance
@@ -53,17 +56,20 @@ bash ops/capability-probe.sh                       # run probe manually
 ## When robustness fails
 
 **Manifest cache corrupted or missing:**
+
 ```bash
 rm ~/.ai-config-os/cache/claude-code/latest.json
 bash adapters/claude/materialise.sh fetch
 ```
 
 **Probe results stale (>1 week):**
+
 ```bash
 bash ops/capability-probe.sh --quiet
 ```
 
 **Skills incompatible with detected capabilities:**
+
 - Check `~/.ai-config-os/probe-report.json` for detected capabilities
 - Cross-reference against skill's `capabilities.required` in SKILL.md
 - File issue if skill declares wrong requirements

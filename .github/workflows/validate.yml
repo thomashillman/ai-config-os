@@ -4,33 +4,39 @@ on:
   push:
     branches: [main]
     paths:
-      - 'shared/skills/**'
-      - 'plugins/**'
-      - 'runtime/**'
-      - 'shared/lib/**'
-      - 'ops/**'
-      - 'scripts/ci/**'
-      - '.cursor/rules/**'
-      - '.github/workflows/pr-ai-review.yml'
-      - 'PLAN.md'
-      - 'README.md'
-      - 'package.json'
-      - '.github/workflows/validate.yml'
+      - "shared/skills/**"
+      - "plugins/**"
+      - "runtime/**"
+      - "shared/lib/**"
+      - "ops/**"
+      - "scripts/ci/**"
+      - ".cursor/rules/**"
+      - ".github/workflows/pr-ai-review.yml"
+      - "PLAN.md"
+      - "README.md"
+      - "package.json"
+      - ".github/workflows/validate.yml"
+      - ".prettierrc"
+      - ".prettierignore"
+      - ".github/workflows/pr-mergeability-gate.yml"
   pull_request:
     branches: [main]
     paths:
-      - 'shared/skills/**'
-      - 'plugins/**'
-      - 'runtime/**'
-      - 'shared/lib/**'
-      - 'ops/**'
-      - 'scripts/ci/**'
-      - '.cursor/rules/**'
-      - '.github/workflows/pr-ai-review.yml'
-      - 'PLAN.md'
-      - 'README.md'
-      - 'package.json'
-      - '.github/workflows/validate.yml'
+      - "shared/skills/**"
+      - "plugins/**"
+      - "runtime/**"
+      - "shared/lib/**"
+      - "ops/**"
+      - "scripts/ci/**"
+      - ".cursor/rules/**"
+      - ".github/workflows/pr-ai-review.yml"
+      - "PLAN.md"
+      - "README.md"
+      - "package.json"
+      - ".github/workflows/validate.yml"
+      - ".prettierrc"
+      - ".prettierignore"
+      - ".github/workflows/pr-mergeability-gate.yml"
 
 jobs:
   validate:
@@ -61,8 +67,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install Node dependencies
         run: npm ci

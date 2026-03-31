@@ -8,7 +8,11 @@
  * Invoked weekly via the Cloudflare scheduled handler in src/index.ts.
  */
 
-import { artifactR2Key, artifactMetaKvKey, RETRO_INDEX_KV_KEY } from './storage';
+import {
+  artifactR2Key,
+  artifactMetaKvKey,
+  RETRO_INDEX_KV_KEY,
+} from "./storage";
 
 type KvStore = {
   get(key: string): Promise<string | null> | string | null;
@@ -56,7 +60,11 @@ export async function cleanupExpiredRetrospectives(
 
     if (!metaRaw) {
       // Meta already expired via KV TTL — delete R2 object
-      try { await r2.delete(artifactR2Key(id)); } catch { /* best-effort */ }
+      try {
+        await r2.delete(artifactR2Key(id));
+      } catch {
+        /* best-effort */
+      }
       deleted++;
       continue;
     }
@@ -77,8 +85,12 @@ export async function cleanupExpiredRetrospectives(
 
     if (expired) {
       await Promise.all([
-        kv.delete(artifactMetaKvKey(id)).catch(() => { /* best-effort */ }),
-        r2.delete(artifactR2Key(id)).catch(() => { /* best-effort */ }),
+        kv.delete(artifactMetaKvKey(id)).catch(() => {
+          /* best-effort */
+        }),
+        r2.delete(artifactR2Key(id)).catch(() => {
+          /* best-effort */
+        }),
       ]);
       deleted++;
     } else {

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-import { loadSkillModels, validateVariants } from './lib/ops-skill-model.mjs';
-import { parseRepoRootArg, printErrorsAndExit } from './lib/ops-cli-utils.mjs';
+import { loadSkillModels, validateVariants } from "./lib/ops-skill-model.mjs";
+import { parseRepoRootArg, printErrorsAndExit } from "./lib/ops-cli-utils.mjs";
 
 function main() {
   const repoRoot = parseRepoRootArg(process.argv.slice(2));
-  console.log('==> Validating skill variant definitions...');
-  console.log('');
+  console.log("==> Validating skill variant definitions...");
+  console.log("");
 
   const { models, errors: loadErrors } = loadSkillModels(repoRoot);
   const variantErrors = validateVariants(models);
@@ -17,7 +17,7 @@ function main() {
   }
 
   console.log(`[ok] Validated variants for ${models.length} skill(s)`);
-  console.log('[ok] All variant definitions valid');
+  console.log("[ok] All variant definitions valid");
 }
 
 main();

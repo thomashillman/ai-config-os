@@ -4,9 +4,7 @@
   "title": "ContractEnvelopeError",
   "description": "Canonical error response envelope. Extends the success envelope with a required error object.",
   "type": "object",
-  "allOf": [
-    { "$ref": "response-envelope.schema.json" }
-  ],
+  "allOf": [{ "$ref": "response-envelope.schema.json" }],
   "required": ["error"],
   "properties": {
     "data": {

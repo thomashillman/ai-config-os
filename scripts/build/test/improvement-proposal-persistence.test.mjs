@@ -1,19 +1,22 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { existsSync, readFileSync, mkdirSync, rmSync } from 'node:fs';
-import { createImprovementProposal } from '../../../runtime/lib/improvement-proposal.mjs';
-import { persistProposal, determineCandidateFilename } from '../../../runtime/lib/improvement-proposal-store.mjs';
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { existsSync, readFileSync, mkdirSync, rmSync } from "node:fs";
+import { createImprovementProposal } from "../../../runtime/lib/improvement-proposal.mjs";
+import {
+  persistProposal,
+  determineCandidateFilename,
+} from "../../../runtime/lib/improvement-proposal-store.mjs";
 
 function templateInsight() {
   return {
-    id: 'insight_001',
-    type: 'template_effectiveness',
+    id: "insight_001",
+    type: "template_effectiveness",
     finding: "'onStart' narrations get 90% engagement",
-    evidence: { best_point: 'onStart' },
+    evidence: { best_point: "onStart" },
     suggestion: {
-      target: 'templates.onStart',
+      target: "templates.onStart",
       confidence: 0.85,
     },
   };
@@ -21,19 +24,19 @@ function templateInsight() {
 
 function intentInsight() {
   return {
-    id: 'insight_002',
-    type: 'intent_coverage',
-    finding: '3 follow-up phrases could map to known task types',
-    evidence: { phrases: ['phrase1', 'phrase2'] },
+    id: "insight_002",
+    type: "intent_coverage",
+    finding: "3 follow-up phrases could map to known task types",
+    evidence: { phrases: ["phrase1", "phrase2"] },
     suggestion: {
-      target: 'definitions',
-      action: 'add_patterns',
+      target: "definitions",
+      action: "add_patterns",
       confidence: 0.65,
     },
   };
 }
 
-test('persistProposal writes proposal to file', async (t) => {
+test("persistProposal writes proposal to file", async (t) => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `proposal-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -42,9 +45,9 @@ test('persistProposal writes proposal to file', async (t) => {
     const insight = templateInsight();
     const proposal = createImprovementProposal({
       insight,
-      target: 'templates.onStart',
-      current: 'old text',
-      proposed: 'new text',
+      target: "templates.onStart",
+      current: "old text",
+      proposed: "new text",
     });
 
     const filename = await persistProposal({
@@ -57,19 +60,19 @@ test('persistProposal writes proposal to file', async (t) => {
     assert.ok(existsSync(filepath), `File should exist at ${filepath}`);
 
     // Verify file contents
-    const content = readFileSync(filepath, 'utf8');
+    const content = readFileSync(filepath, "utf8");
     const saved = JSON.parse(content);
 
     assert.equal(saved.id, proposal.id);
     assert.equal(saved.type, proposal.type);
-    assert.equal(saved.target, 'templates.onStart');
-    assert.equal(saved.status, 'pending_review');
+    assert.equal(saved.target, "templates.onStart");
+    assert.equal(saved.status, "pending_review");
   } finally {
     rmSync(testDir, { recursive: true });
   }
 });
 
-test('persistProposal returns deterministic filename', async (t) => {
+test("persistProposal returns deterministic filename", async (t) => {
   const tempDir = tmpdir();
   const testDir1 = join(tempDir, `proposal-test-${Date.now()}-1`);
   const testDir2 = join(tempDir, `proposal-test-${Date.now()}-2`);
@@ -80,9 +83,9 @@ test('persistProposal returns deterministic filename', async (t) => {
     const insight = templateInsight();
     const proposal = createImprovementProposal({
       insight,
-      target: 'templates.onStart',
-      current: 'old',
-      proposed: 'new',
+      target: "templates.onStart",
+      current: "old",
+      proposed: "new",
     });
 
     const filename1 = await persistProposal({
@@ -103,7 +106,7 @@ test('persistProposal returns deterministic filename', async (t) => {
   }
 });
 
-test('persistProposal avoids collision by incrementing index when file exists', async (t) => {
+test("persistProposal avoids collision by incrementing index when file exists", async (t) => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `proposal-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -112,9 +115,9 @@ test('persistProposal avoids collision by incrementing index when file exists', 
     const insight = templateInsight();
     const proposal1 = createImprovementProposal({
       insight,
-      target: 'templates.onStart',
-      current: 'old',
-      proposed: 'new',
+      target: "templates.onStart",
+      current: "old",
+      proposed: "new",
     });
 
     // First write
@@ -132,8 +135,8 @@ test('persistProposal avoids collision by incrementing index when file exists', 
 
     // Should get different filenames due to collision avoidance
     assert.notEqual(filename1, filename2);
-    assert.ok(filename1.startsWith('proposal_'));
-    assert.ok(filename2.includes('_01'));
+    assert.ok(filename1.startsWith("proposal_"));
+    assert.ok(filename2.includes("_01"));
 
     // Both files should exist
     assert.ok(existsSync(join(testDir, filename1)));
@@ -143,7 +146,7 @@ test('persistProposal avoids collision by incrementing index when file exists', 
   }
 });
 
-test('persistProposal allows explicit overwrite', async (t) => {
+test("persistProposal allows explicit overwrite", async (t) => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `proposal-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -152,9 +155,9 @@ test('persistProposal allows explicit overwrite', async (t) => {
     const insight = templateInsight();
     const proposal = createImprovementProposal({
       insight,
-      target: 'templates.onStart',
-      current: 'old',
-      proposed: 'new',
+      target: "templates.onStart",
+      current: "old",
+      proposed: "new",
     });
 
     const filename = await persistProposal({
@@ -178,13 +181,13 @@ test('persistProposal allows explicit overwrite', async (t) => {
   }
 });
 
-test('determineCandidateFilename generates deterministic filename', () => {
+test("determineCandidateFilename generates deterministic filename", () => {
   const insight = templateInsight();
   const proposal = createImprovementProposal({
     insight,
-    target: 'templates.onStart',
-    current: 'old',
-    proposed: 'new',
+    target: "templates.onStart",
+    current: "old",
+    proposed: "new",
   });
 
   const filename1 = determineCandidateFilename({
@@ -199,17 +202,17 @@ test('determineCandidateFilename generates deterministic filename', () => {
 
   // Same proposal → same filename
   assert.equal(filename1, filename2);
-  assert.ok(filename1.startsWith('proposal_'));
-  assert.ok(filename1.endsWith('.json'));
+  assert.ok(filename1.startsWith("proposal_"));
+  assert.ok(filename1.endsWith(".json"));
 });
 
-test('determineCandidateFilename includes index for collision avoidance', () => {
+test("determineCandidateFilename includes index for collision avoidance", () => {
   const insight = templateInsight();
   const proposal = createImprovementProposal({
     insight,
-    target: 'templates.onStart',
-    current: 'old',
-    proposed: 'new',
+    target: "templates.onStart",
+    current: "old",
+    proposed: "new",
   });
 
   const filename0 = determineCandidateFilename({
@@ -227,7 +230,7 @@ test('determineCandidateFilename includes index for collision avoidance', () => 
   assert.ok(filename1.length > 0);
 });
 
-test('persistProposal creates pretty-printed JSON', async (t) => {
+test("persistProposal creates pretty-printed JSON", async (t) => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `proposal-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -236,9 +239,9 @@ test('persistProposal creates pretty-printed JSON', async (t) => {
     const insight = templateInsight();
     const proposal = createImprovementProposal({
       insight,
-      target: 'templates.onStart',
-      current: 'old',
-      proposed: 'new',
+      target: "templates.onStart",
+      current: "old",
+      proposed: "new",
     });
 
     const filename = await persistProposal({
@@ -246,9 +249,9 @@ test('persistProposal creates pretty-printed JSON', async (t) => {
       outputDir: testDir,
     });
 
-    const content = readFileSync(join(testDir, filename), 'utf8');
+    const content = readFileSync(join(testDir, filename), "utf8");
     // Pretty-printed JSON should have newlines
-    assert.ok(content.includes('\n'));
+    assert.ok(content.includes("\n"));
     // Verify it's valid JSON
     const parsed = JSON.parse(content);
     assert.equal(parsed.id, proposal.id);

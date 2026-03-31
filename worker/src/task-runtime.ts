@@ -1,14 +1,18 @@
 // @ts-ignore - runtime JS module
-import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/lib/task-store-worker.mjs';
+import {
+  TaskConflictError,
+  TaskNotFoundError,
+  TaskStore,
+} from "../../runtime/lib/task-store-worker.mjs";
 // @ts-ignore - runtime JS module
-import { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';
+import { KvTaskStore } from "../../runtime/lib/task-store-kv.mjs";
 // @ts-ignore - runtime JS module
-import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service-worker.mjs';
+import { createTaskControlPlaneService } from "../../runtime/lib/task-control-plane-service-worker.mjs";
 // @ts-ignore - runtime JS module
-import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service-worker.mjs';
-import { DualWriteTaskStore } from './dual-write-task-store';
-import { contractErrorResponse, WORKER_CAPABILITY } from './contracts';
-import type { Env } from './types';
+import { createHandoffTokenService } from "../../runtime/lib/handoff-token-service-worker.mjs";
+import { DualWriteTaskStore } from "./dual-write-task-store";
+import { contractErrorResponse, WORKER_CAPABILITY } from "./contracts";
+import type { Env } from "./types";
 
 let taskStore: TaskStore | KvTaskStore | DualWriteTaskStore | null = null;
 let taskStoreSecret: string | null = null;
@@ -18,23 +22,33 @@ let taskStoreDualWriteEnabled = false;
 const MAX_CONTINUATION_FINGERPRINTS = 5000;
 const continuationFingerprints = new Map<string, string>();
 
-function ensureTaskStore(env: Env): TaskStore | KvTaskStore | DualWriteTaskStore {
+function ensureTaskStore(
+  env: Env,
+): TaskStore | KvTaskStore | DualWriteTaskStore {
   const secret = env.HANDOFF_TOKEN_SIGNING_KEY ?? null;
   const kv = env.MANIFEST_KV ?? null;
-  const dualWriteRequested = env.TASK_DO_DUAL_WRITE === 'true';
+  const dualWriteRequested = env.TASK_DO_DUAL_WRITE === "true";
 
   // Use KV-backed store when available (durable, survives Worker instance recycling)
   if (kv) {
-    const needsRebuild = !taskStore || kv !== taskStoreKvRef || dualWriteRequested !== taskStoreDualWriteEnabled;
+    const needsRebuild =
+      !taskStore ||
+      kv !== taskStoreKvRef ||
+      dualWriteRequested !== taskStoreDualWriteEnabled;
     if (needsRebuild) {
-      const kvStore = new KvTaskStore(kv, secret ? createHandoffTokenService({ secret }) : null);
+      const kvStore = new KvTaskStore(
+        kv,
+        secret ? createHandoffTokenService({ secret }) : null,
+      );
 
       if (dualWriteRequested && env.TASK_OBJECT) {
         taskStore = new DualWriteTaskStore(kvStore, env.TASK_OBJECT);
         taskStoreDualWriteEnabled = true;
       } else {
         if (dualWriteRequested && !env.TASK_OBJECT) {
-          console.warn('[TaskRuntime] TASK_DO_DUAL_WRITE is "true" but TASK_OBJECT binding is missing. Falling back to KV-only.');
+          console.warn(
+            '[TaskRuntime] TASK_DO_DUAL_WRITE is "true" but TASK_OBJECT binding is missing. Falling back to KV-only.',
+          );
         }
         taskStore = kvStore;
         taskStoreDualWriteEnabled = false;
@@ -49,7 +63,9 @@ function ensureTaskStore(env: Env): TaskStore | KvTaskStore | DualWriteTaskStore
   // Fallback: in-memory store for local dev (ephemeral)
   if (!taskStore || secret !== taskStoreSecret || taskStoreKvRef !== null) {
     taskStore = secret
-      ? new TaskStore({ handoffTokenService: createHandoffTokenService({ secret }) })
+      ? new TaskStore({
+          handoffTokenService: createHandoffTokenService({ secret }),
+        })
       : new TaskStore();
     taskStoreSecret = secret;
     taskStoreKvRef = null;
@@ -59,11 +75,16 @@ function ensureTaskStore(env: Env): TaskStore | KvTaskStore | DualWriteTaskStore
   return taskStore;
 }
 
-export function getContinuationFingerprint(tokenId: string): string | undefined {
+export function getContinuationFingerprint(
+  tokenId: string,
+): string | undefined {
   return continuationFingerprints.get(tokenId);
 }
 
-export function setContinuationFingerprint(tokenId: string, fingerprint: string): void {
+export function setContinuationFingerprint(
+  tokenId: string,
+  fingerprint: string,
+): void {
   if (continuationFingerprints.has(tokenId)) {
     continuationFingerprints.set(tokenId, fingerprint);
     return;
@@ -73,7 +94,7 @@ export function setContinuationFingerprint(tokenId: string, fingerprint: string)
 
   if (continuationFingerprints.size > MAX_CONTINUATION_FINGERPRINTS) {
     const oldestTokenId = continuationFingerprints.keys().next().value;
-    if (typeof oldestTokenId === 'string') {
+    if (typeof oldestTokenId === "string") {
       continuationFingerprints.delete(oldestTokenId);
     }
   }
@@ -86,62 +107,77 @@ export function getTaskService(env: Env) {
 export function taskErrorResponse(error: unknown): Response | null {
   if (error instanceof TaskNotFoundError) {
     const known = error as Error & { code?: string };
-    return contractErrorResponse({
-      resource: 'tasks.error',
-      data: null,
-      summary: known.message,
-      capability: WORKER_CAPABILITY,
-      error: {
-        code: String(known.code ?? 'not_found'),
-        message: known.message,
-        hint: 'Check the task ID and try again.',
+    return contractErrorResponse(
+      {
+        resource: "tasks.error",
+        data: null,
+        summary: known.message,
+        capability: WORKER_CAPABILITY,
+        error: {
+          code: String(known.code ?? "not_found"),
+          message: known.message,
+          hint: "Check the task ID and try again.",
+        },
       },
-    }, 404);
+      404,
+    );
   }
 
   if (error instanceof TaskConflictError) {
     const known = error as Error & { code?: string };
-    return contractErrorResponse({
-      resource: 'tasks.error',
-      data: null,
-      summary: known.message,
-      capability: WORKER_CAPABILITY,
-      error: {
-        code: String(known.code ?? 'version_conflict'),
-        message: known.message,
-        hint: 'Fetch the latest task version and retry with the updated expected_version.',
+    return contractErrorResponse(
+      {
+        resource: "tasks.error",
+        data: null,
+        summary: known.message,
+        capability: WORKER_CAPABILITY,
+        error: {
+          code: String(known.code ?? "version_conflict"),
+          message: known.message,
+          hint: "Fetch the latest task version and retry with the updated expected_version.",
+        },
       },
-    }, 409);
+      409,
+    );
   }
 
   if (error instanceof Error) {
-    const message = error.message || 'Continuation token validation failed';
-    if (message.includes('Token is expired') || message.includes('already consumed')) {
-      return contractErrorResponse({
-        resource: 'tasks.error',
-        data: null,
-        summary: message,
-        capability: WORKER_CAPABILITY,
-        error: {
-          code: 'handoff_token_forbidden',
-          message,
-          hint: 'Request a new handoff token.',
+    const message = error.message || "Continuation token validation failed";
+    if (
+      message.includes("Token is expired") ||
+      message.includes("already consumed")
+    ) {
+      return contractErrorResponse(
+        {
+          resource: "tasks.error",
+          data: null,
+          summary: message,
+          capability: WORKER_CAPABILITY,
+          error: {
+            code: "handoff_token_forbidden",
+            message,
+            hint: "Request a new handoff token.",
+          },
         },
-      }, 403);
+        403,
+      );
     }
 
-    if (message.includes('Token')) {
-      return contractErrorResponse({
-        resource: 'tasks.error',
-        data: null,
-        summary: message,
-        capability: WORKER_CAPABILITY,
-        error: {
-          code: 'handoff_token_invalid',
-          message,
-          hint: 'Verify the token structure and signing key.',
+    if (message.includes("Token")) {
+      return contractErrorResponse(
+        {
+          resource: "tasks.error",
+          data: null,
+          summary: message,
+          capability: WORKER_CAPABILITY,
+          error: {
+            code: "handoff_token_invalid",
+            message,
+            hint: "Verify the token structure and signing key.",
+          },
         },
-      }, 401);
+        401,
+      );
     }
   }
 

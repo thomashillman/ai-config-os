@@ -75,7 +75,12 @@
   ],
 
   "dependencies_required": {
-    "skills": ["git-ops", "commit-conventions", "changelog", "release-checklist"],
+    "skills": [
+      "git-ops",
+      "commit-conventions",
+      "changelog",
+      "release-checklist"
+    ],
     "models": ["sonnet", "haiku"],
     "apis": []
   },

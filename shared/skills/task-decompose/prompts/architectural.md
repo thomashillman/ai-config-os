@@ -3,6 +3,7 @@
 Break down tasks with detailed dependency analysis and execution order optimization.
 
 ## Analysis Framework
+
 1. **Identify interdependencies**: which subtasks must complete before others can start
 2. **Determine parallelizability**: which subtasks can run in parallel
 3. **Create critical path**: identify longest chain of dependent tasks
@@ -10,6 +11,7 @@ Break down tasks with detailed dependency analysis and execution order optimizat
 5. **Flag blockers**: identify external dependencies, unknown risks
 
 ## Output Format
+
 ```json
 {
   "task": "overall goal",

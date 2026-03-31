@@ -1,5 +1,5 @@
-import { jsonResponse, notFound, versionedCachedResponse } from '../http';
-import type { Env } from '../types';
+import { jsonResponse, notFound, versionedCachedResponse } from "../http";
+import type { Env } from "../types";
 
 export type RegistryLike = {
   version: string;
@@ -8,19 +8,26 @@ export type RegistryLike = {
 };
 
 function readAsObject(payload: unknown): Record<string, unknown> | null {
-  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    Array.isArray(payload)
+  ) {
     return null;
   }
   return payload as Record<string, unknown>;
 }
 
-export async function readLatestVersion(env: Env, registry: RegistryLike): Promise<string | Response> {
+export async function readLatestVersion(
+  env: Env,
+  registry: RegistryLike,
+): Promise<string | Response> {
   if (!env.MANIFEST_KV) {
     return registry.version;
   }
 
-  const version = await env.MANIFEST_KV.get('latest');
-  if (typeof version !== 'string' || version.length === 0) {
+  const version = await env.MANIFEST_KV.get("latest");
+  if (typeof version !== "string" || version.length === 0) {
     // Fallback to registry version if 'latest' key is missing in KV
     return registry.version;
   }
@@ -28,9 +35,15 @@ export async function readLatestVersion(env: Env, registry: RegistryLike): Promi
   return version;
 }
 
-export async function readArtifactJson(env: Env, key: string): Promise<unknown | Response> {
+export async function readArtifactJson(
+  env: Env,
+  key: string,
+): Promise<unknown | Response> {
   if (!env.ARTEFACTS_R2) {
-    return jsonResponse({ error: 'Manifest artefact storage is not configured' }, 503);
+    return jsonResponse(
+      { error: "Manifest artefact storage is not configured" },
+      503,
+    );
   }
 
   const object = await env.ARTEFACTS_R2.get(key);
@@ -42,20 +55,26 @@ export async function readArtifactJson(env: Env, key: string): Promise<unknown |
   try {
     return JSON.parse(text);
   } catch {
-    return jsonResponse({ error: `Artifact '${key}' contains invalid JSON` }, 502);
+    return jsonResponse(
+      { error: `Artifact '${key}' contains invalid JSON` },
+      502,
+    );
   }
 }
 
 export function handleHealth(env: Env, registry: RegistryLike): Response {
   return jsonResponse({
-    status: 'ok',
+    status: "ok",
     version: registry.version,
     built_at: registry.built_at,
-    environment: env.ENVIRONMENT ?? 'unknown',
+    environment: env.ENVIRONMENT ?? "unknown",
   });
 }
 
-export async function handleManifestLatest(env: Env, registry: RegistryLike): Promise<Response> {
+export async function handleManifestLatest(
+  env: Env,
+  registry: RegistryLike,
+): Promise<Response> {
   if (!env.MANIFEST_KV || !env.ARTEFACTS_R2) {
     // Fallback: return registry directly, cacheable by version
     return versionedCachedResponse(registry, registry.version);
@@ -77,7 +96,11 @@ export async function handleManifestLatest(env: Env, registry: RegistryLike): Pr
   return versionedCachedResponse(manifest, version);
 }
 
-export async function handleVersionedArtifact(env: Env, version: string, artifactName: string): Promise<Response> {
+export async function handleVersionedArtifact(
+  env: Env,
+  version: string,
+  artifactName: string,
+): Promise<Response> {
   const key = `manifests/${version}/${artifactName}`;
   const artifact = await readArtifactJson(env, key);
   if (artifact instanceof Response) {
@@ -87,7 +110,11 @@ export async function handleVersionedArtifact(env: Env, version: string, artifac
   return jsonResponse({ version, key, artifact });
 }
 
-export async function handleLatestArtifact(env: Env, registry: RegistryLike, artifactName: string): Promise<Response> {
+export async function handleLatestArtifact(
+  env: Env,
+  registry: RegistryLike,
+  artifactName: string,
+): Promise<Response> {
   const version = await readLatestVersion(env, registry);
   if (version instanceof Response) {
     return version;
@@ -96,7 +123,10 @@ export async function handleLatestArtifact(env: Env, registry: RegistryLike, art
   return handleVersionedArtifact(env, version, artifactName);
 }
 
-export async function handleEffectiveContractPreview(env: Env, registry: RegistryLike): Promise<Response> {
+export async function handleEffectiveContractPreview(
+  env: Env,
+  registry: RegistryLike,
+): Promise<Response> {
   const version = await readLatestVersion(env, registry);
   if (version instanceof Response) {
     return version;
@@ -130,19 +160,26 @@ export async function handleEffectiveContractPreview(env: Env, registry: Registr
   });
 }
 
-export function handleClientLatest(client: string, registry: RegistryLike, pluginJson: unknown): Response {
-  if (client !== 'claude-code') {
+export function handleClientLatest(
+  client: string,
+  registry: RegistryLike,
+  pluginJson: unknown,
+): Response {
+  if (client !== "claude-code") {
     return notFound(`Client '${client}' not found. Available: claude-code`);
   }
 
-  return versionedCachedResponse({
-    version: registry.version,
-    built_at: registry.built_at,
-    client: 'claude-code',
-    plugin_json: pluginJson,
-    skills: registry.skills,
-    note: 'Fetch individual skill content via GET /v1/skill/:skillId',
-  }, registry.version);
+  return versionedCachedResponse(
+    {
+      version: registry.version,
+      built_at: registry.built_at,
+      client: "claude-code",
+      plugin_json: pluginJson,
+      skills: registry.skills,
+      note: "Fetch individual skill content via GET /v1/skill/:skillId",
+    },
+    registry.version,
+  );
 }
 
 export function handleSkill(skillId: string, registry: RegistryLike): Response {
@@ -166,21 +203,27 @@ export function handleSkill(skillId: string, registry: RegistryLike): Response {
  * Used by materialise.sh bootstrap for fast session startup.
  * KV key: claude-code-package:latest or claude-code-package:<version>
  */
-export async function handleClientPackage(client: string, env: Env): Promise<Response> {
-  if (client !== 'claude-code') {
+export async function handleClientPackage(
+  client: string,
+  env: Env,
+): Promise<Response> {
+  if (client !== "claude-code") {
     return notFound(`Client '${client}' not found. Available: claude-code`);
   }
 
   if (!env.MANIFEST_KV) {
-    return jsonResponse({ error: 'Skills package storage not configured' }, 503);
+    return jsonResponse(
+      { error: "Skills package storage not configured" },
+      503,
+    );
   }
 
   // Fetch from KV: skills package with all file contents embedded
-  const pkg = await env.MANIFEST_KV.get('claude-code-package:latest');
+  const pkg = await env.MANIFEST_KV.get("claude-code-package:latest");
 
   if (!pkg) {
     return notFound(
-      'Skills package not found. Trigger a release build to populate KV.'
+      "Skills package not found. Trigger a release build to populate KV.",
     );
   }
 
@@ -189,16 +232,13 @@ export async function handleClientPackage(client: string, env: Env): Promise<Res
   try {
     pkgData = JSON.parse(pkg);
   } catch (err) {
-    return jsonResponse(
-      { error: 'Skills package contains invalid JSON' },
-      502
-    );
+    return jsonResponse({ error: "Skills package contains invalid JSON" }, 502);
   }
 
   if (!pkgData.version || !pkgData.skills) {
     return jsonResponse(
-      { error: 'Skills package missing required fields (version, skills)' },
-      502
+      { error: "Skills package missing required fields (version, skills)" },
+      502,
     );
   }
 

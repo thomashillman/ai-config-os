@@ -10,8 +10,16 @@
  * - Guarantee: zero filesystem access to source-tree (shared/skills/) is required
  */
 
-import { readFileSync, statSync, copyFileSync, mkdirSync, readdirSync, existsSync, cpSync } from 'fs';
-import { join, dirname, resolve, relative, sep } from 'path';
+import {
+  readFileSync,
+  statSync,
+  copyFileSync,
+  mkdirSync,
+  readdirSync,
+  existsSync,
+  cpSync,
+} from "fs";
+import { join, dirname, resolve, relative, sep } from "path";
 
 /**
  * Validation error with structured context
@@ -19,7 +27,7 @@ import { join, dirname, resolve, relative, sep } from 'path';
 export class MaterialiserError extends Error {
   constructor(message, context = {}) {
     super(message);
-    this.name = 'MaterialiserError';
+    this.name = "MaterialiserError";
     this.context = context;
   }
 }
@@ -43,34 +51,37 @@ export function readPackageMetadata(packageRoot) {
   }
 
   if (!stat.isDirectory()) {
-    throw new MaterialiserError(`Package root is not a directory: ${packageRoot}`, {
-      path: packageRoot,
-    });
+    throw new MaterialiserError(
+      `Package root is not a directory: ${packageRoot}`,
+      {
+        path: packageRoot,
+      },
+    );
   }
 
   // Read plugin.json
-  const pluginJsonPath = join(packageRoot, '.claude-plugin', 'plugin.json');
+  const pluginJsonPath = join(packageRoot, ".claude-plugin", "plugin.json");
   let pluginJson;
 
   try {
-    const content = readFileSync(pluginJsonPath, 'utf8');
+    const content = readFileSync(pluginJsonPath, "utf8");
     pluginJson = JSON.parse(content);
   } catch (err) {
     throw new MaterialiserError(
       `Failed to read or parse plugin.json: ${err.message}`,
-      { path: pluginJsonPath, originalError: err.message }
+      { path: pluginJsonPath, originalError: err.message },
     );
   }
 
   // Validate required fields
   if (!pluginJson.version) {
-    throw new MaterialiserError('plugin.json missing required field: version', {
+    throw new MaterialiserError("plugin.json missing required field: version", {
       path: pluginJsonPath,
     });
   }
 
   if (!Array.isArray(pluginJson.skills)) {
-    throw new MaterialiserError('plugin.json.skills must be an array', {
+    throw new MaterialiserError("plugin.json.skills must be an array", {
       path: pluginJsonPath,
     });
   }
@@ -96,26 +107,29 @@ export function validatePackageContents(packageRoot, metadata) {
     }
 
     // Security Layer 1: Reject absolute paths and null bytes
-    if (skill.path.startsWith('/') || skill.path.startsWith('\\')) {
+    if (skill.path.startsWith("/") || skill.path.startsWith("\\")) {
       throw new MaterialiserError(
         `Skill path must be relative, got absolute path: ${skill.path}`,
-        { skill: skill.name, path: skill.path }
+        { skill: skill.name, path: skill.path },
       );
     }
 
-    if (skill.path.includes('\0')) {
+    if (skill.path.includes("\0")) {
       throw new MaterialiserError(
         `Skill path contains null byte (security violation): ${skill.path}`,
-        { skill: skill.name, path: skill.path }
+        { skill: skill.name, path: skill.path },
       );
     }
 
     // Security Layer 2: Reject obvious path traversal patterns
-    if (skill.path.includes('..')) {
-      throw new MaterialiserError(`Skill path must not escape package root: ${skill.path}`, {
-        skill: skill.name,
-        path: skill.path,
-      });
+    if (skill.path.includes("..")) {
+      throw new MaterialiserError(
+        `Skill path must not escape package root: ${skill.path}`,
+        {
+          skill: skill.name,
+          path: skill.path,
+        },
+      );
     }
 
     // Security Layer 3: Resolve and verify boundary
@@ -125,8 +139,8 @@ export function validatePackageContents(packageRoot, metadata) {
     // Canonical path check: resolved path must be within or equal to packageRoot
     const isWithinRoot =
       resolvedSkillPath === resolvedRoot ||
-      (resolvedSkillPath.startsWith(resolvedRoot + '/') ||
-        resolvedSkillPath.startsWith(resolvedRoot + '\\')); // Windows compatibility
+      resolvedSkillPath.startsWith(resolvedRoot + "/") ||
+      resolvedSkillPath.startsWith(resolvedRoot + "\\"); // Windows compatibility
 
     if (!isWithinRoot) {
       throw new MaterialiserError(
@@ -136,7 +150,7 @@ export function validatePackageContents(packageRoot, metadata) {
           path: skill.path,
           resolvedPath: resolvedSkillPath,
           packageRoot: resolvedRoot,
-        }
+        },
       );
     }
 
@@ -147,14 +161,18 @@ export function validatePackageContents(packageRoot, metadata) {
     } catch (err) {
       throw new MaterialiserError(
         `Skill file does not exist or is not readable: ${skill.path}`,
-        { skill: skill.name, path: skill.path, originalError: err.message }
+        { skill: skill.name, path: skill.path, originalError: err.message },
       );
     }
 
     if (!fileStat.isFile()) {
       throw new MaterialiserError(
         `Skill path is not a regular file (is directory or special): ${skill.path}`,
-        { skill: skill.name, path: skill.path, isDirectory: fileStat.isDirectory() }
+        {
+          skill: skill.name,
+          path: skill.path,
+          isDirectory: fileStat.isDirectory(),
+        },
       );
     }
   }
@@ -191,8 +209,8 @@ export function materializePackage(packageRoot, destinationRoot, options = {}) {
   for (const skill of metadata.skills) {
     const sourceFile = resolve(join(resolvedRoot, skill.path));
     const sourceSkillDir = dirname(sourceFile);
-    const destSkillDir = join(resolvedDest, 'skills', skill.name);
-    const destFile = join(destSkillDir, 'SKILL.md');
+    const destSkillDir = join(resolvedDest, "skills", skill.name);
+    const destFile = join(destSkillDir, "SKILL.md");
 
     if (verbose) {
       console.log(`  Materializing: ${skill.name}`);
@@ -251,12 +269,16 @@ function copySkillResources(sourceDir, destDir) {
     const destSubDir = join(destDir, entry.name);
 
     // Security: reject directory names with path traversal
-    if (entry.name.includes('..') || entry.name.includes('\0')) continue;
+    if (entry.name.includes("..") || entry.name.includes("\0")) continue;
 
     // Verify the resolved destination stays within the skill directory
     const resolvedDest = resolve(destSubDir);
     const resolvedParent = resolve(destDir);
-    if (!resolvedDest.startsWith(resolvedParent + sep) && resolvedDest !== resolvedParent) continue;
+    if (
+      !resolvedDest.startsWith(resolvedParent + sep) &&
+      resolvedDest !== resolvedParent
+    )
+      continue;
 
     cpSync(srcSubDir, destSubDir, { recursive: true });
   }

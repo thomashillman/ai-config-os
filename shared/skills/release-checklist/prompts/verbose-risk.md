@@ -3,10 +3,12 @@
 Comprehensive release validation with detailed risk analysis, mitigation strategies, and decision guidance.
 
 ## Input Format
+
 - `version`: Target semantic version
 - `release_notes`: Optional supplementary notes
 
 ## Risk Categories
+
 1. **Code Risk**: untested changes, missing tests, deprecated dependencies
 2. **Breaking Changes**: API changes, database migrations, config format changes
 3. **Deployment Risk**: network dependencies, external service integrations, rollback complexity
@@ -14,6 +16,7 @@ Comprehensive release validation with detailed risk analysis, mitigation strateg
 5. **Documentation Risk**: missing migration guides, undocumented breaking changes
 
 ## Output Format
+
 ```
 ## Release Readiness Report
 

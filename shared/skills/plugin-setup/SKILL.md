@@ -1,6 +1,7 @@
 ---
 skill: "plugin-setup"
-description: "Step-by-step guidance for creating and registering a new skill in this repo's Claude Code plugin.
+description:
+  "Step-by-step guidance for creating and registering a new skill in this repo's Claude Code plugin.
 
   Use when adding a new skill, troubleshooting a broken symlink, or explaining the skill authoring workflow.\n"
 type: "prompt"
@@ -8,7 +9,7 @@ status: "stable"
 inputs:
   - name: "skill_name"
     type: "string"
-    description: "The kebab-case name for the new skill (e.g. \"web-search\", \"commit-conventions\")"
+    description: 'The kebab-case name for the new skill (e.g. "web-search", "commit-conventions")'
     required: false
 outputs:
   - name: "setup_steps"
@@ -126,6 +127,7 @@ ops/new-skill.sh <skill-name>
 ```
 
 This single command:
+
 - Creates `shared/skills/<skill-name>/SKILL.md` from the Phase 2 template
 - Creates the symlink `plugins/core-skills/skills/<skill-name>` → `../../../shared/skills/<skill-name>`
 - Bumps the plugin patch version in `plugins/core-skills/.claude-plugin/plugin.json`
@@ -133,6 +135,7 @@ This single command:
 ### 2. Edit the SKILL.md
 
 Open `shared/skills/<skill-name>/SKILL.md` and fill in:
+
 - YAML frontmatter: `description`, `inputs`, `outputs`, `variants`, `tests`, `version`
 - Body: `## When to use`, `## Instructions`, `## Examples`
 
@@ -165,13 +168,13 @@ This runs `claude plugin validate .` and confirms the plugin loads correctly.
 
 ## Key rules
 
-| Rule | Detail |
-|---|---|
-| Author location | `shared/skills/<name>/SKILL.md` — never inside `plugins/` |
-| Symlink format | Relative path: `../../../shared/skills/<name>` |
-| Version bump | Patch for content edits; **minor for new skills** |
-| Template | Start from `shared/skills/_template/SKILL.md` (Phase 2 frontmatter) |
-| Naming | kebab-case only (e.g. `web-search`, `commit-conventions`) |
+| Rule            | Detail                                                              |
+| --------------- | ------------------------------------------------------------------- |
+| Author location | `shared/skills/<name>/SKILL.md` — never inside `plugins/`           |
+| Symlink format  | Relative path: `../../../shared/skills/<name>`                      |
+| Version bump    | Patch for content edits; **minor for new skills**                   |
+| Template        | Start from `shared/skills/_template/SKILL.md` (Phase 2 frontmatter) |
+| Naming          | kebab-case only (e.g. `web-search`, `commit-conventions`)           |
 
 ## File anatomy
 
@@ -189,6 +192,7 @@ plugins/core-skills/skills/<name>  ← symlink (do not edit)
 ## Troubleshooting
 
 **Broken symlink** (`ls -la plugins/core-skills/skills/` shows red entry):
+
 ```bash
 # Remove and recreate
 rm plugins/core-skills/skills/<name>
@@ -196,10 +200,12 @@ ln -s ../../../shared/skills/<name> plugins/core-skills/skills/<name>
 ```
 
 **Plugin validate fails after adding skill:**
+
 - Check the symlink resolves: `readlink -f plugins/core-skills/skills/<name>`
 - Check SKILL.md has valid YAML frontmatter (the `---` delimiters must be present)
 - Re-run `adapters/claude/dev-test.sh`
 
 **Version not picked up on other device:**
+
 - Ensure you bumped the version in `plugin.json` and committed it
 - On the other device: restart Claude Code (auto-update enabled) or run `claude plugin update core-skills@ai-config-os`

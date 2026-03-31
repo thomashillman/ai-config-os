@@ -46,13 +46,13 @@ variants:
 tests:
   - id: "test-vague-task"
     type: "prompt-validation"
-    input: "{\"task_description\": \"Improve the codebase\"}"
+    input: '{"task_description": "Improve the codebase"}'
     expected_substring: "subtasks"
     models_to_test:
       - "sonnet"
   - id: "test-constrained-task"
     type: "prompt-validation"
-    input: "{\"task_description\": \"Add dark mode\", \"constraints\": \"2 days, React only, no API changes\"}"
+    input: '{"task_description": "Add dark mode", "constraints": "2 days, React only, no API changes"}'
     expected_substring: "acceptance_criteria"
     models_to_test:
       - "sonnet"
@@ -89,6 +89,7 @@ capabilities:
 ## When to use
 
 Use `task-decompose` when:
+
 - Facing a vague or ill-scoped task
 - Need to break work into parallel or sequential chunks
 - Want to identify blockers before starting
@@ -108,6 +109,7 @@ Use `task-decompose` when:
 ## Examples
 
 ### Input
+
 ```json
 {
   "task_description": "Add dark mode to the application",
@@ -116,6 +118,7 @@ Use `task-decompose` when:
 ```
 
 ### Output (sonnet)
+
 ```json
 {
   "subtasks": [
@@ -169,6 +172,7 @@ Use `task-decompose` when:
 ```
 
 ### Output (opus variant with dependency graph)
+
 ```json
 {
   "subtasks": [
@@ -228,7 +232,10 @@ Use `task-decompose` when:
         "No reload flicker"
       ],
       "blockers": [],
-      "dependencies": ["Refactor components (Phase 1: UI library)", "Refactor components (Phase 2: pages)"],
+      "dependencies": [
+        "Refactor components (Phase 1: UI library)",
+        "Refactor components (Phase 2: pages)"
+      ],
       "estimated_hours": 2,
       "risk": "low"
     }

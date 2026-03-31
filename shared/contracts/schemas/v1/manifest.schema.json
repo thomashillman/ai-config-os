@@ -4,7 +4,13 @@
   "title": "Manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "skill_count", "platform_count", "platforms", "skills"],
+  "required": [
+    "version",
+    "skill_count",
+    "platform_count",
+    "platforms",
+    "skills"
+  ],
   "properties": {
     "version": { "type": "string" },
     "built_at": { "type": "string" },

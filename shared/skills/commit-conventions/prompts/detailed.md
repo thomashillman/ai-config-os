@@ -44,15 +44,15 @@ Why this prefix was chosen; when it applies; similar examples.
 
 ## Prefix reference with rationale
 
-| Prefix | Use for | Rationale | Example |
-|--------|---------|-----------|---------|
-| `feat:` | New capability, feature, or template | Introduces new user-facing or internal functionality | `feat: add commit-conventions skill` |
-| `fix:` | Bug fix or correction | Corrects incorrect behavior without changing intended scope | `fix: repair broken symlink in plugin` |
-| `style:` | CSS/formatting only, no logic | Changes appearance or formatting, zero logic change | `style: add newline to SKILL.md` |
-| `refactor:` | Restructure, no behaviour change | Reorganizes code without changing what it does | `refactor: split marketplace discovery from loader` |
-| `docs:` | Documentation, comments, guides | Updates docs, README, guides, or code comments | `docs: add troubleshooting section to CLAUDE.md` |
-| `build:` | Build system, CI/CD, tooling | Changes build, tooling, deps, or CI/CD config | `build: update plugin version to 0.3.0` |
-| `chore:` | Maintenance, cleanup, no logic | Maintenance task; version bumps; dependency updates | `chore: bump Claude SDK to latest` |
+| Prefix      | Use for                              | Rationale                                                   | Example                                             |
+| ----------- | ------------------------------------ | ----------------------------------------------------------- | --------------------------------------------------- |
+| `feat:`     | New capability, feature, or template | Introduces new user-facing or internal functionality        | `feat: add commit-conventions skill`                |
+| `fix:`      | Bug fix or correction                | Corrects incorrect behavior without changing intended scope | `fix: repair broken symlink in plugin`              |
+| `style:`    | CSS/formatting only, no logic        | Changes appearance or formatting, zero logic change         | `style: add newline to SKILL.md`                    |
+| `refactor:` | Restructure, no behaviour change     | Reorganizes code without changing what it does              | `refactor: split marketplace discovery from loader` |
+| `docs:`     | Documentation, comments, guides      | Updates docs, README, guides, or code comments              | `docs: add troubleshooting section to CLAUDE.md`    |
+| `build:`    | Build system, CI/CD, tooling         | Changes build, tooling, deps, or CI/CD config               | `build: update plugin version to 0.3.0`             |
+| `chore:`    | Maintenance, cleanup, no logic       | Maintenance task; version bumps; dependency updates         | `chore: bump Claude SDK to latest`                  |
 
 ## Anti-patterns to avoid
 

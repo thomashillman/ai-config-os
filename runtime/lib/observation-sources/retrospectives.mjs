@@ -9,12 +9,15 @@
  * @param {object} deps.artifact - Retrospective artifact from post-merge-retrospective skill
  * @returns {Array} Array of canonical observation events
  */
-export function mapRetrospectiveToObservations({ retrospectiveId, artifact } = {}) {
+export function mapRetrospectiveToObservations({
+  retrospectiveId,
+  artifact,
+} = {}) {
   if (!retrospectiveId) {
-    throw new Error('retrospectiveId is required');
+    throw new Error("retrospectiveId is required");
   }
   if (!artifact) {
-    throw new Error('artifact is required');
+    throw new Error("artifact is required");
   }
 
   const observations = [];
@@ -23,7 +26,7 @@ export function mapRetrospectiveToObservations({ retrospectiveId, artifact } = {
   if (artifact.friction_signals && Array.isArray(artifact.friction_signals)) {
     for (const signal of artifact.friction_signals) {
       observations.push({
-        type: 'friction_observed',
+        type: "friction_observed",
         createdAt: new Date().toISOString(),
         metadata: {
           retrospective_id: retrospectiveId,
@@ -40,10 +43,13 @@ export function mapRetrospectiveToObservations({ retrospectiveId, artifact } = {
   }
 
   // Map skill recommendations to skill_recommended events
-  if (artifact.skill_recommendations && Array.isArray(artifact.skill_recommendations)) {
+  if (
+    artifact.skill_recommendations &&
+    Array.isArray(artifact.skill_recommendations)
+  ) {
     for (const recommendation of artifact.skill_recommendations) {
       observations.push({
-        type: 'skill_recommended',
+        type: "skill_recommended",
         createdAt: new Date().toISOString(),
         metadata: {
           retrospective_id: retrospectiveId,

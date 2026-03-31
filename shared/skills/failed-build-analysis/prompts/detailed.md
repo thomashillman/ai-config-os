@@ -38,17 +38,21 @@ If shell access is unavailable, work entirely from pasted content.
 ## Analysis protocol
 
 ### Phase 1 — Failure inventory
+
 List every failing job with: job name, workflow, run ID, failure type, and the first
 log line that caused a cascade (ignore downstream noise).
 
 ### Phase 2 — Root cause clustering
+
 Group failures that share a root cause. For each group:
+
 - Quote the exact failing log line
 - Identify the true source (not the symptom) using the pattern checklist below
 - Estimate blast radius: files, tests, downstream jobs affected
 - Identify any inter-job dependencies (e.g., build must pass before deploy is reached)
 
 **Pattern checklist:**
+
 - Missing mock / fixture / factory / seed data
 - Import order / unused variable / linter rule violation
 - Type mismatch (TypeScript / mypy / Flow / Sorbet)
@@ -61,7 +65,9 @@ Group failures that share a root cause. For each group:
 - Resource exhaustion (memory, open file handles, DB connections)
 
 ### Phase 3 — Dependency ordering
+
 Before writing the plan, order fixes by dependency:
+
 1. Fixes that unblock other fixes go first
 2. Fixes with no dependencies can be parallelised (mark them explicitly)
 3. Infra / environment fixes before code fixes
@@ -69,14 +75,17 @@ Before writing the plan, order fixes by dependency:
 ## Your output (three sections)
 
 ### FAILURE INVENTORY
+
 ```
 Run #<id> | Job: <name> | Workflow: <name>
 Status: failed | Type: <lint|type-check|test|build|deploy|infra>
 First failing line: "<exact log line>"
 ```
+
 One entry per failed job.
 
 ### ROOT CAUSE ANALYSIS
+
 ```
 Group <N>: <short label>
 Jobs affected: <list>
@@ -88,6 +97,7 @@ Flakiness: Yes / No / Suspected
 ```
 
 ### FIX PLAN
+
 Ordered by dependency. Mark parallelisable steps.
 
 ```
@@ -116,12 +126,14 @@ Ordered by dependency. Mark parallelisable steps.
 ```
 
 End with:
+
 - **Overall confidence:** High / Medium / Low
 - **Flakiness notes** (which tests are suspected non-deterministic, and why)
 - **Environment notes** (secrets, env vars, or infra needed locally to reproduce)
 - **Follow-up recommendations** (optional: tests to add, monitoring to improve)
 
 ## Rules
+
 - Fix only what the log proves is broken
 - Smallest diff that makes the test green
 - No refactoring, no speculative improvements

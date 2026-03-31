@@ -1,5 +1,5 @@
-import { test, describe } from 'node:test';
-import assert from 'node:assert/strict';
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
 import {
   chmodSync,
   mkdtempSync,
@@ -10,84 +10,91 @@ import {
   existsSync,
   rmSync,
   realpathSync,
-} from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { resolveBashCommand } from './shell-test-helpers.mjs';
+} from "node:fs";
+import { join, resolve, dirname } from "node:path";
+import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { resolveBashCommand } from "./shell-test-helpers.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..', '..', '..');
+const REPO_ROOT = resolve(__dirname, "..", "..", "..");
 const BASH_COMMAND = resolveBashCommand();
 const SHELL_TEST_OPTIONS = BASH_COMMAND
   ? {}
-  : { skip: 'bash is unavailable for shell integration tests' };
+  : { skip: "bash is unavailable for shell integration tests" };
 
 function toPosixPath(path) {
-  return path.replace(/\\/g, '/');
+  return path.replace(/\\/g, "/");
 }
 
 function runBash(scriptPath, { cwd, env = {}, args = [] } = {}) {
   if (!BASH_COMMAND) {
-    throw new Error('bash is unavailable for shell integration tests');
+    throw new Error("bash is unavailable for shell integration tests");
   }
 
-  return spawnSync(BASH_COMMAND, [toPosixPath(scriptPath), ...args.map(toPosixPath)], {
-    cwd,
-    encoding: 'utf8',
-    env: { ...process.env, ...env },
-  });
+  return spawnSync(
+    BASH_COMMAND,
+    [toPosixPath(scriptPath), ...args.map(toPosixPath)],
+    {
+      cwd,
+      encoding: "utf8",
+      env: { ...process.env, ...env },
+    },
+  );
 }
 
 function normalizePathForAssert(pathValue) {
   const resolvedPath = resolve(pathValue);
   try {
     const realPath = realpathSync.native(resolvedPath);
-    if (process.platform === 'win32') {
+    if (process.platform === "win32") {
       return realPath.toLowerCase();
     }
     return realPath;
   } catch {
-    if (process.platform !== 'win32') {
+    if (process.platform !== "win32") {
       return resolvedPath;
     }
     return resolvedPath.toLowerCase();
   }
 }
 
-function createClaudeDevTestFixture({ dependencyExit = 0, variantsExit = 0 } = {}) {
-  const fixture = mkdtempSync(join(tmpdir(), 'adapter-dev-test-'));
-  mkdirSync(join(fixture, 'adapters', 'claude'), { recursive: true });
-  mkdirSync(join(fixture, 'ops'), { recursive: true });
-  mkdirSync(join(fixture, 'plugins', 'core-skills'), { recursive: true });
+function createClaudeDevTestFixture({
+  dependencyExit = 0,
+  variantsExit = 0,
+} = {}) {
+  const fixture = mkdtempSync(join(tmpdir(), "adapter-dev-test-"));
+  mkdirSync(join(fixture, "adapters", "claude"), { recursive: true });
+  mkdirSync(join(fixture, "ops"), { recursive: true });
+  mkdirSync(join(fixture, "plugins", "core-skills"), { recursive: true });
 
   copyFileSync(
-    join(REPO_ROOT, 'adapters', 'claude', 'dev-test.sh'),
-    join(fixture, 'adapters', 'claude', 'dev-test.sh')
+    join(REPO_ROOT, "adapters", "claude", "dev-test.sh"),
+    join(fixture, "adapters", "claude", "dev-test.sh"),
   );
 
   writeFileSync(
-    join(fixture, 'ops', 'validate-dependencies.sh'),
+    join(fixture, "ops", "validate-dependencies.sh"),
     `#!/usr/bin/env bash
 set -euo pipefail
 exit ${dependencyExit}
-`
+`,
   );
   writeFileSync(
-    join(fixture, 'ops', 'validate-variants.sh'),
+    join(fixture, "ops", "validate-variants.sh"),
     `#!/usr/bin/env bash
 set -euo pipefail
 exit ${variantsExit}
-`
+`,
   );
 
-  spawnSync('git', ['init', '-b', 'main'], { cwd: fixture, encoding: 'utf8' });
+  spawnSync("git", ["init", "-b", "main"], { cwd: fixture, encoding: "utf8" });
   return fixture;
 }
 
 function createClaudeWrapper({ captureDir, targetScript, claudeExit = 0 }) {
-  const wrapperPath = join(captureDir, 'run-dev-test.sh');
+  const wrapperPath = join(captureDir, "run-dev-test.sh");
   writeFileSync(
     wrapperPath,
     `#!/usr/bin/env bash
@@ -103,33 +110,33 @@ claude() {
 }
 export -f claude
 "${toPosixPath(targetScript)}"
-`
+`,
   );
   return wrapperPath;
 }
 
 function createSessionStartHookFixture() {
-  const fixture = mkdtempSync(join(tmpdir(), 'session-start-hook-'));
-  const installRoot = join(fixture, 'shared-install');
-  const projectRoot = join(fixture, 'other-repo');
-  const homeRoot = join(fixture, 'home');
-  const binDir = join(fixture, 'bin');
-  const logDir = join(fixture, 'logs');
+  const fixture = mkdtempSync(join(tmpdir(), "session-start-hook-"));
+  const installRoot = join(fixture, "shared-install");
+  const projectRoot = join(fixture, "other-repo");
+  const homeRoot = join(fixture, "home");
+  const binDir = join(fixture, "bin");
+  const logDir = join(fixture, "logs");
 
-  mkdirSync(join(installRoot, '.claude', 'hooks'), { recursive: true });
-  mkdirSync(join(installRoot, 'adapters', 'bootstrap'), { recursive: true });
+  mkdirSync(join(installRoot, ".claude", "hooks"), { recursive: true });
+  mkdirSync(join(installRoot, "adapters", "bootstrap"), { recursive: true });
   mkdirSync(projectRoot, { recursive: true });
   mkdirSync(homeRoot, { recursive: true });
   mkdirSync(binDir, { recursive: true });
   mkdirSync(logDir, { recursive: true });
 
   copyFileSync(
-    join(REPO_ROOT, '.claude', 'hooks', 'session-start.sh'),
-    join(installRoot, '.claude', 'hooks', 'session-start.sh')
+    join(REPO_ROOT, ".claude", "hooks", "session-start.sh"),
+    join(installRoot, ".claude", "hooks", "session-start.sh"),
   );
 
   writeFileSync(
-    join(binDir, 'node'),
+    join(binDir, "node"),
     `#!/usr/bin/env bash
 set -euo pipefail
 if [ "\${1:-}" = "-e" ]; then
@@ -142,252 +149,338 @@ else
 fi
 printf '%s\\n' "\${1:-}" >> "$AI_CONFIG_NODE_LOG"
 exit 0
-`
+`,
   );
-  chmodSync(join(binDir, 'node'), 0o755);
+  chmodSync(join(binDir, "node"), 0o755);
 
   return { fixture, installRoot, projectRoot, homeRoot, binDir, logDir };
 }
 
-describe('adapter scripts: claude dev-test', () => {
-  test('runs validation from the repository root even when invoked elsewhere', SHELL_TEST_OPTIONS, () => {
-    const fixture = createClaudeDevTestFixture();
-    const outsideDir = mkdtempSync(join(tmpdir(), 'adapter-dev-test-outside-'));
-    const captureDir = mkdtempSync(join(tmpdir(), 'adapter-dev-test-capture-'));
-
-    try {
-      const wrapper = createClaudeWrapper({
-        captureDir,
-        targetScript: join(fixture, 'adapters', 'claude', 'dev-test.sh'),
-      });
-
-      const result = runBash(wrapper, {
-        cwd: outsideDir,
-        env: {
-          CLAUDE_CWD_FILE: join(captureDir, 'claude.cwd'),
-          CLAUDE_ARGS_FILE: join(captureDir, 'claude.args'),
-        },
-      });
-
-      assert.equal(result.status, 0, `dev-test.sh failed:\n${result.stdout}\n${result.stderr}`);
-
-      const claudeCwd = readFileSync(join(captureDir, 'claude.cwd'), 'utf8').trim();
-      const claudeArgs = readFileSync(join(captureDir, 'claude.args'), 'utf8')
-        .trim()
-        .split(/\r?\n/);
-
-      assert.equal(
-        normalizePathForAssert(claudeCwd),
-        normalizePathForAssert(fixture),
-        'dev-test should validate from the repository root'
+describe("adapter scripts: claude dev-test", () => {
+  test(
+    "runs validation from the repository root even when invoked elsewhere",
+    SHELL_TEST_OPTIONS,
+    () => {
+      const fixture = createClaudeDevTestFixture();
+      const outsideDir = mkdtempSync(
+        join(tmpdir(), "adapter-dev-test-outside-"),
       );
-      assert.deepEqual(
-        claudeArgs.slice(0, 2),
-        ['plugin', 'validate'],
-        'dev-test should invoke claude plugin validation'
+      const captureDir = mkdtempSync(
+        join(tmpdir(), "adapter-dev-test-capture-"),
       );
-      assert.notEqual(claudeArgs[2], '.', 'dev-test should not validate the caller directory');
-      assert.equal(
-        claudeArgs[2].split('/').filter(Boolean).at(-1),
-        fixture.split(/[\\/]/).filter(Boolean).at(-1),
-        'dev-test should validate the resolved repository path'
+
+      try {
+        const wrapper = createClaudeWrapper({
+          captureDir,
+          targetScript: join(fixture, "adapters", "claude", "dev-test.sh"),
+        });
+
+        const result = runBash(wrapper, {
+          cwd: outsideDir,
+          env: {
+            CLAUDE_CWD_FILE: join(captureDir, "claude.cwd"),
+            CLAUDE_ARGS_FILE: join(captureDir, "claude.args"),
+          },
+        });
+
+        assert.equal(
+          result.status,
+          0,
+          `dev-test.sh failed:\n${result.stdout}\n${result.stderr}`,
+        );
+
+        const claudeCwd = readFileSync(
+          join(captureDir, "claude.cwd"),
+          "utf8",
+        ).trim();
+        const claudeArgs = readFileSync(join(captureDir, "claude.args"), "utf8")
+          .trim()
+          .split(/\r?\n/);
+
+        assert.equal(
+          normalizePathForAssert(claudeCwd),
+          normalizePathForAssert(fixture),
+          "dev-test should validate from the repository root",
+        );
+        assert.deepEqual(
+          claudeArgs.slice(0, 2),
+          ["plugin", "validate"],
+          "dev-test should invoke claude plugin validation",
+        );
+        assert.notEqual(
+          claudeArgs[2],
+          ".",
+          "dev-test should not validate the caller directory",
+        );
+        assert.equal(
+          claudeArgs[2].split("/").filter(Boolean).at(-1),
+          fixture.split(/[\\/]/).filter(Boolean).at(-1),
+          "dev-test should validate the resolved repository path",
+        );
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+        rmSync(outsideDir, { recursive: true, force: true });
+        rmSync(captureDir, { recursive: true, force: true });
+      }
+    },
+  );
+
+  test(
+    "fails fast when prerequisite validators fail",
+    SHELL_TEST_OPTIONS,
+    () => {
+      const fixture = createClaudeDevTestFixture({ dependencyExit: 17 });
+      const outsideDir = mkdtempSync(
+        join(tmpdir(), "adapter-dev-test-outside-"),
       );
-    } finally {
-      rmSync(fixture, { recursive: true, force: true });
-      rmSync(outsideDir, { recursive: true, force: true });
-      rmSync(captureDir, { recursive: true, force: true });
-    }
-  });
-
-  test('fails fast when prerequisite validators fail', SHELL_TEST_OPTIONS, () => {
-    const fixture = createClaudeDevTestFixture({ dependencyExit: 17 });
-    const outsideDir = mkdtempSync(join(tmpdir(), 'adapter-dev-test-outside-'));
-    const captureDir = mkdtempSync(join(tmpdir(), 'adapter-dev-test-capture-'));
-
-    try {
-      const wrapper = createClaudeWrapper({
-        captureDir,
-        targetScript: join(fixture, 'adapters', 'claude', 'dev-test.sh'),
-      });
-
-      const result = runBash(wrapper, {
-        cwd: outsideDir,
-        env: {
-          CLAUDE_CWD_FILE: join(captureDir, 'claude.cwd'),
-          CLAUDE_ARGS_FILE: join(captureDir, 'claude.args'),
-        },
-      });
-
-      assert.notEqual(result.status, 0, 'dev-test should fail when a validator fails');
-      assert.equal(
-        existsSync(join(captureDir, 'claude.args')),
-        false,
-        'claude validation should not run after a prerequisite failure'
+      const captureDir = mkdtempSync(
+        join(tmpdir(), "adapter-dev-test-capture-"),
       );
-    } finally {
-      rmSync(fixture, { recursive: true, force: true });
-      rmSync(outsideDir, { recursive: true, force: true });
-      rmSync(captureDir, { recursive: true, force: true });
-    }
-  });
+
+      try {
+        const wrapper = createClaudeWrapper({
+          captureDir,
+          targetScript: join(fixture, "adapters", "claude", "dev-test.sh"),
+        });
+
+        const result = runBash(wrapper, {
+          cwd: outsideDir,
+          env: {
+            CLAUDE_CWD_FILE: join(captureDir, "claude.cwd"),
+            CLAUDE_ARGS_FILE: join(captureDir, "claude.args"),
+          },
+        });
+
+        assert.notEqual(
+          result.status,
+          0,
+          "dev-test should fail when a validator fails",
+        );
+        assert.equal(
+          existsSync(join(captureDir, "claude.args")),
+          false,
+          "claude validation should not run after a prerequisite failure",
+        );
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+        rmSync(outsideDir, { recursive: true, force: true });
+        rmSync(captureDir, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
-describe('adapter scripts: cursor installer', () => {
-  test('replaces an existing managed block instead of leaving stale rules behind', SHELL_TEST_OPTIONS, () => {
-    const targetDir = mkdtempSync(join(tmpdir(), 'cursor-install-'));
-    const cursorRules = join(targetDir, '.cursorrules');
+describe("adapter scripts: cursor installer", () => {
+  test(
+    "replaces an existing managed block instead of leaving stale rules behind",
+    SHELL_TEST_OPTIONS,
+    () => {
+      const targetDir = mkdtempSync(join(tmpdir(), "cursor-install-"));
+      const cursorRules = join(targetDir, ".cursorrules");
 
-    try {
-      writeFileSync(
-        cursorRules,
-        [
-          '# User rules',
-          '',
-          '# --- AI Config OS Configuration ---',
-          'stale content',
-          '',
-        ].join('\n')
-      );
+      try {
+        writeFileSync(
+          cursorRules,
+          [
+            "# User rules",
+            "",
+            "# --- AI Config OS Configuration ---",
+            "stale content",
+            "",
+          ].join("\n"),
+        );
 
-      const installScript = join(REPO_ROOT, 'adapters', 'cursor', 'install.sh');
+        const installScript = join(
+          REPO_ROOT,
+          "adapters",
+          "cursor",
+          "install.sh",
+        );
 
-      const firstRun = runBash(installScript, {
-        cwd: REPO_ROOT,
-        env: { HOME: targetDir },
-        args: [targetDir],
-      });
-      assert.equal(firstRun.status, 0, `cursor install failed:\n${firstRun.stdout}\n${firstRun.stderr}`);
+        const firstRun = runBash(installScript, {
+          cwd: REPO_ROOT,
+          env: { HOME: targetDir },
+          args: [targetDir],
+        });
+        assert.equal(
+          firstRun.status,
+          0,
+          `cursor install failed:\n${firstRun.stdout}\n${firstRun.stderr}`,
+        );
 
-      const secondRun = runBash(installScript, {
-        cwd: REPO_ROOT,
-        env: { HOME: targetDir },
-        args: [targetDir],
-      });
-      assert.equal(secondRun.status, 0, `second cursor install failed:\n${secondRun.stdout}\n${secondRun.stderr}`);
+        const secondRun = runBash(installScript, {
+          cwd: REPO_ROOT,
+          env: { HOME: targetDir },
+          args: [targetDir],
+        });
+        assert.equal(
+          secondRun.status,
+          0,
+          `second cursor install failed:\n${secondRun.stdout}\n${secondRun.stderr}`,
+        );
 
-      const content = readFileSync(cursorRules, 'utf8');
-      const startMarker = '# --- AI Config OS Configuration (start) ---';
-      const endMarker = '# --- AI Config OS Configuration (end) ---';
+        const content = readFileSync(cursorRules, "utf8");
+        const startMarker = "# --- AI Config OS Configuration (start) ---";
+        const endMarker = "# --- AI Config OS Configuration (end) ---";
 
-      assert.equal(
-        (content.match(new RegExp(startMarker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length,
-        1,
-        'installer should keep a single managed block after repeated runs'
-      );
-      assert.ok(content.includes(endMarker), 'installer should add an end marker for the managed block');
-      assert.ok(content.includes('# Principles'), 'installer should refresh current principles content');
-      assert.ok(content.includes('- **code-review**:'), 'installer should refresh current skill summary');
-      assert.equal(content.includes('stale content'), false, 'installer should remove stale managed content');
-      assert.ok(content.startsWith('# User rules'), 'installer should preserve unrelated user content');
-    } finally {
-      rmSync(targetDir, { recursive: true, force: true });
-    }
-  });
+        assert.equal(
+          (
+            content.match(
+              new RegExp(
+                startMarker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                "g",
+              ),
+            ) || []
+          ).length,
+          1,
+          "installer should keep a single managed block after repeated runs",
+        );
+        assert.ok(
+          content.includes(endMarker),
+          "installer should add an end marker for the managed block",
+        );
+        assert.ok(
+          content.includes("# Principles"),
+          "installer should refresh current principles content",
+        );
+        assert.ok(
+          content.includes("- **code-review**:"),
+          "installer should refresh current skill summary",
+        );
+        assert.equal(
+          content.includes("stale content"),
+          false,
+          "installer should remove stale managed content",
+        );
+        assert.ok(
+          content.startsWith("# User rules"),
+          "installer should preserve unrelated user content",
+        );
+      } finally {
+        rmSync(targetDir, { recursive: true, force: true });
+      }
+    },
+  );
 });
 
-describe('session-start hook — structural checks', () => {
-  const hookPath = join(REPO_ROOT, '.claude', 'hooks', 'session-start.sh');
+describe("session-start hook — structural checks", () => {
+  const hookPath = join(REPO_ROOT, ".claude", "hooks", "session-start.sh");
 
-  test('session-start hook exists', () => {
-    assert.ok(existsSync(hookPath), 'session-start.sh must exist');
+  test("session-start hook exists", () => {
+    assert.ok(existsSync(hookPath), "session-start.sh must exist");
   });
 
-  test('session-start remains a thin wrapper around the shared bootstrap core', () => {
-    const content = readFileSync(hookPath, 'utf8');
+  test("session-start remains a thin wrapper around the shared bootstrap core", () => {
+    const content = readFileSync(hookPath, "utf8");
     assert.ok(
-      content.includes('run-bootstrap.mjs'),
-      'session-start must delegate to the shared bootstrap runner'
+      content.includes("run-bootstrap.mjs"),
+      "session-start must delegate to the shared bootstrap runner",
     );
     assert.ok(
-      content.includes('_detect_resume_task'),
-      'session-start should preserve resume detection in the shell wrapper'
-    );
-  });
-
-  test('session-start resolves the project dir before invoking bootstrap', () => {
-    const content = readFileSync(hookPath, 'utf8');
-    const projectDirIdx = content.indexOf('CLAUDE_PROJECT_DIR');
-    const bootstrapIdx = content.indexOf('run-bootstrap.mjs');
-    assert.ok(projectDirIdx > -1, 'CLAUDE_PROJECT_DIR resolution must exist');
-    assert.ok(bootstrapIdx > -1, 'bootstrap runner invocation must exist');
-    assert.ok(projectDirIdx < bootstrapIdx, 'project dir must be resolved before bootstrap runs');
-  });
-
-  test('session-start resolves the shared install root from the hook location', () => {
-    const content = readFileSync(hookPath, 'utf8');
-    assert.ok(
-      content.includes('BASH_SOURCE[0]') && content.includes('INSTALL_ROOT'),
-      'session-start must derive the shared install root from the hook path'
+      content.includes("_detect_resume_task"),
+      "session-start should preserve resume detection in the shell wrapper",
     );
   });
 
-  test('session-start delegates startup behavior instead of embedding bootstrap steps', () => {
-    const content = readFileSync(hookPath, 'utf8');
+  test("session-start resolves the project dir before invoking bootstrap", () => {
+    const content = readFileSync(hookPath, "utf8");
+    const projectDirIdx = content.indexOf("CLAUDE_PROJECT_DIR");
+    const bootstrapIdx = content.indexOf("run-bootstrap.mjs");
+    assert.ok(projectDirIdx > -1, "CLAUDE_PROJECT_DIR resolution must exist");
+    assert.ok(bootstrapIdx > -1, "bootstrap runner invocation must exist");
+    assert.ok(
+      projectDirIdx < bootstrapIdx,
+      "project dir must be resolved before bootstrap runs",
+    );
+  });
+
+  test("session-start resolves the shared install root from the hook location", () => {
+    const content = readFileSync(hookPath, "utf8");
+    assert.ok(
+      content.includes("BASH_SOURCE[0]") && content.includes("INSTALL_ROOT"),
+      "session-start must derive the shared install root from the hook path",
+    );
+  });
+
+  test("session-start delegates startup behavior instead of embedding bootstrap steps", () => {
+    const content = readFileSync(hookPath, "utf8");
     assert.equal(
-      content.includes('capability-probe.sh'),
+      content.includes("capability-probe.sh"),
       true,
-      'session-start must call capability-probe.sh for device-change detection'
+      "session-start must call capability-probe.sh for device-change detection",
     );
     assert.equal(
-      content.includes('materialise.sh bootstrap'),
+      content.includes("materialise.sh bootstrap"),
       false,
-      'session-start should no longer inline install orchestration'
+      "session-start should no longer inline install orchestration",
     );
   });
 
-  test('session-start probes capabilities when device changes', () => {
-    const content = readFileSync(hookPath, 'utf8');
+  test("session-start probes capabilities when device changes", () => {
+    const content = readFileSync(hookPath, "utf8");
     assert.ok(
-      content.includes('_CURRENT_HOSTNAME') && content.includes('_CACHED_HOSTNAME'),
-      'session-start must compare current and cached hostname to detect device changes'
+      content.includes("_CURRENT_HOSTNAME") &&
+        content.includes("_CACHED_HOSTNAME"),
+      "session-start must compare current and cached hostname to detect device changes",
     );
     assert.ok(
-      content.includes('probe-report.json'),
-      'session-start must reference the probe cache file'
+      content.includes("probe-report.json"),
+      "session-start must reference the probe cache file",
     );
     assert.ok(
-      content.includes('capability-probe.sh') && content.includes('--quiet'),
-      'session-start must invoke capability-probe.sh in quiet mode'
+      content.includes("capability-probe.sh") && content.includes("--quiet"),
+      "session-start must invoke capability-probe.sh in quiet mode",
     );
   });
 
-  test('session_start_hook_uses_shared_install_runner_in_cross_repo_sessions', SHELL_TEST_OPTIONS, () => {
-    const { fixture, installRoot, projectRoot, homeRoot, binDir, logDir } =
-      createSessionStartHookFixture();
+  test(
+    "session_start_hook_uses_shared_install_runner_in_cross_repo_sessions",
+    SHELL_TEST_OPTIONS,
+    () => {
+      const { fixture, installRoot, projectRoot, homeRoot, binDir, logDir } =
+        createSessionStartHookFixture();
 
-    try {
-      const result = runBash(join(installRoot, '.claude', 'hooks', 'session-start.sh'), {
-        cwd: projectRoot,
-        env: {
-          HOME: homeRoot,
-          PATH: `${binDir}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}`,
-          AI_CONFIG_WORKER: 'https://worker.example.test',
-          AI_CONFIG_TOKEN: 'test-token',
-          AI_CONFIG_NODE_LOG: join(logDir, 'node.log'),
-          AI_CONFIG_NODE_CWD_LOG: join(logDir, 'node.cwd'),
-        },
-      });
+      try {
+        const result = runBash(
+          join(installRoot, ".claude", "hooks", "session-start.sh"),
+          {
+            cwd: projectRoot,
+            env: {
+              HOME: homeRoot,
+              PATH: `${binDir}${process.platform === "win32" ? ";" : ":"}${process.env.PATH ?? ""}`,
+              AI_CONFIG_WORKER: "https://worker.example.test",
+              AI_CONFIG_TOKEN: "test-token",
+              AI_CONFIG_NODE_LOG: join(logDir, "node.log"),
+              AI_CONFIG_NODE_CWD_LOG: join(logDir, "node.cwd"),
+            },
+          },
+        );
 
-      assert.equal(result.status, 0, `session-start.sh failed:\n${result.stdout}\n${result.stderr}`);
+        assert.equal(
+          result.status,
+          0,
+          `session-start.sh failed:\n${result.stdout}\n${result.stderr}`,
+        );
 
-      const nodeLog = readFileSync(join(logDir, 'node.log'), 'utf8');
-      const nodeCwd = readFileSync(join(logDir, 'node.cwd'), 'utf8').trim();
+        const nodeLog = readFileSync(join(logDir, "node.log"), "utf8");
+        const nodeCwd = readFileSync(join(logDir, "node.cwd"), "utf8").trim();
 
-      assert.match(
-        nodeLog,
-        /shared-install\/adapters\/bootstrap\/run-bootstrap\.mjs/
-      );
-      assert.equal(
-        normalizePathForAssert(nodeCwd),
-        normalizePathForAssert(projectRoot),
-        'session-start should keep the current project repo as the working directory'
-      );
-      assert.doesNotMatch(
-        nodeLog,
-        /other-repo\/adapters\/bootstrap\/run-bootstrap\.mjs/
-      );
-    } finally {
-      rmSync(fixture, { recursive: true, force: true });
-    }
-  });
+        assert.match(
+          nodeLog,
+          /shared-install\/adapters\/bootstrap\/run-bootstrap\.mjs/,
+        );
+        assert.equal(
+          normalizePathForAssert(nodeCwd),
+          normalizePathForAssert(projectRoot),
+          "session-start should keep the current project repo as the working directory",
+        );
+        assert.doesNotMatch(
+          nodeLog,
+          /other-repo\/adapters\/bootstrap\/run-bootstrap\.mjs/,
+        );
+      } finally {
+        rmSync(fixture, { recursive: true, force: true });
+      }
+    },
+  );
 });

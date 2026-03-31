@@ -3,6 +3,7 @@
 ## DOs
 
 ### Structure & Clarity
+
 - **Keep it under 100 lines.** Anything longer gets skimmed. If you need more, split into
   referenced docs.
 - **Lead with constraints.** Critical Constraints section comes before everything except
@@ -20,8 +21,9 @@
   we benchmarked it vs Y" helps Claude make better decisions than "Use Postgres".
 
 ### Hierarchy & Modular Structure
+
 - **Three-tier hierarchy works:** Personal (~/.claude/CLAUDE.md) > Project (./CLAUDE.md) >
-  Subdirectory (./**/CLAUDE.md).
+  Subdirectory (./\*\*/CLAUDE.md).
 - **Personal file covers your work style:** Verbosity preference, thinking style, code
   personality, response format, tool preferences.
 - **Project file covers constraints:** Tech stack, testing, deployment, critical patterns,
@@ -35,6 +37,7 @@
   one-line descriptions.
 
 ### Content Selection
+
 - **Include things Claude won't already know:**
   - Project-specific patterns (weird legacy constraint, non-standard deployment process)
   - Gotchas unique to your codebase (this test is slow, this module is fragile)
@@ -49,6 +52,7 @@
   - Information already visible in README, package.json, or config files
 
 ### Maintenance
+
 - **Review quarterly or after major changes.**
 - **Run staleness checks.** If a rule references a pattern or file no longer in the
   codebase, delete it. Ghost rules confuse.
@@ -61,6 +65,7 @@
 ## DON'Ts
 
 ### Structure & Clarity
+
 - **Don't make it a manual.** CLAUDE.md is a constraint file and navigation layer, not a
   replacement for real documentation. If you're writing paragraphs of explanation, move it
   to `/docs/`.
@@ -77,6 +82,7 @@
   `src/auth/` or `/docs/auth.md`" is actionable.
 
 ### Content Selection
+
 - **Don't include personal preferences in shared CLAUDE.md.** It's checked in, it's for
   the team. Personal stuff goes in ~/.claude/CLAUDE.md.
 - **Don't document things Claude should infer from the codebase.** "Use async/await" is
@@ -90,6 +96,7 @@
   to know or will forget. If it's nice to know, it goes in `/docs/` with a reference.
 
 ### Hierarchy & Modular Structure
+
 - **Don't create too many levels.** Personal > Project > Subdirectory is enough.
 - **Don't orphan CLAUDE.md files.** If you create `.claude/rules/fancy-new-rule.md`,
   reference it in the parent CLAUDE.md.
@@ -97,6 +104,7 @@
 - **Don't nest CLAUDE.md imports too deep.** Max 2 levels of imports.
 
 ### Maintenance
+
 - **Don't let CLAUDE.md drift from reality.** A rule that no longer applies is active
   misinformation. Delete it.
 - **Don't add rules without removing old ones.** For every rule added, scan for something
@@ -107,6 +115,7 @@
   actionable. Just say "Do Y".
 
 ### For Specialized Scenarios
+
 - **Don't use CLAUDE.md for secrets or keys.** It's checked in.
 - **Don't add constraints that only apply in one branch.** Use a feature branch CLAUDE.md
   or `.claude/rules/` file with a date. Delete it after the branch merges.
@@ -133,12 +142,14 @@
 ### Testing
 
 **Weak:**
+
 ```
 ## Testing
 Test your changes regularly. Use the test framework.
 ```
 
 **Strong:**
+
 ```
 ## Before You Code
 - Run tests: `npm test` -- must pass before commit
@@ -151,12 +162,14 @@ Test your changes regularly. Use the test framework.
 ### API Conventions
 
 **Weak:**
+
 ```
 ## API Conventions
 Endpoints should return JSON. Use REST principles.
 ```
 
 **Strong:**
+
 ```
 ## API Conventions
 - Responses: `{ data: {...}, meta: { timestamp, version } }`
@@ -170,6 +183,7 @@ Endpoints should return JSON. Use REST principles.
 ### Known Landmines
 
 **Weak:**
+
 ```
 ## Known Landmines
 - The auth system is old
@@ -177,6 +191,7 @@ Endpoints should return JSON. Use REST principles.
 ```
 
 **Strong:**
+
 ```
 ## Known Landmines
 - `src/auth/legacy.js` handles both session and token auth due to a migration that
@@ -193,15 +208,18 @@ Endpoints should return JSON. Use REST principles.
 ## When to Create a New CLAUDE.md vs When to Update Existing
 
 **Create a new one if:**
+
 - You're starting a new project or service in a monorepo
 - A subdirectory has constraints that differ from the project level
 - A team has documented decisions specific to their area
 
 **Update the existing one if:**
+
 - The constraint already applies at project level
 - It's a minor clarification
 - It's a new pattern the whole team should know
 
 **Delete it if:**
+
 - All constraints apply equally at project level and subdirectory adds nothing new
 - The subdirectory will inherit everything from above and has no special rules

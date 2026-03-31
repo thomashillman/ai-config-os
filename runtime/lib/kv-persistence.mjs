@@ -2,11 +2,14 @@
 // Extracted from KvTaskStore to separate infrastructure from task lifecycle.
 
 export function normaliseSlug(name) {
-  return (name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 32);
+  return (name || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "")
+    .slice(0, 32);
 }
 
 export function generateShortCode(name, count) {
-  const prefix = normaliseSlug(name).slice(0, 4) || 'task';
+  const prefix = normaliseSlug(name).slice(0, 4) || "task";
   return `${prefix}${count}`;
 }
 
@@ -18,13 +21,27 @@ export class KvPersistence {
   }
 
   // --- Key builders ---
-  _taskKey(taskId) { return `task:${taskId}`; }
-  _logKey(taskId) { return `task:${taskId}:log`; }
-  _eventsKey(taskId) { return `task:${taskId}:events`; }
-  _snapshotsKey(taskId) { return `task:${taskId}:snapshots`; }
-  _shortCodeKey(code) { return `task:short:${code}`; }
-  _nameSlugKey(slug) { return `task:name:${slug}`; }
-  _indexKey() { return 'task:index'; }
+  _taskKey(taskId) {
+    return `task:${taskId}`;
+  }
+  _logKey(taskId) {
+    return `task:${taskId}:log`;
+  }
+  _eventsKey(taskId) {
+    return `task:${taskId}:events`;
+  }
+  _snapshotsKey(taskId) {
+    return `task:${taskId}:snapshots`;
+  }
+  _shortCodeKey(code) {
+    return `task:short:${code}`;
+  }
+  _nameSlugKey(slug) {
+    return `task:name:${slug}`;
+  }
+  _indexKey() {
+    return "task:index";
+  }
 
   // --- Low-level KV helpers ---
   async _get(key) {
@@ -63,13 +80,15 @@ export class KvPersistence {
 
   async _updateIndex(taskId, meta) {
     const index = await this._loadIndex();
-    const i = index.findIndex(t => t.task_id === taskId);
+    const i = index.findIndex((t) => t.task_id === taskId);
     if (i >= 0) {
       index[i] = { ...index[i], ...meta };
     } else {
       index.push({ task_id: taskId, ...meta });
     }
-    index.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+    index.sort((a, b) =>
+      (b.updated_at || "").localeCompare(a.updated_at || ""),
+    );
     if (index.length > 200) index.length = 200;
     this._indexDirty = true;
   }

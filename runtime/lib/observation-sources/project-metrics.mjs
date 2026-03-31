@@ -6,7 +6,7 @@
  * If the file does not exist, returns an empty array.
  */
 
-import fs from 'node:fs';
+import fs from "node:fs";
 
 /**
  * Read project metrics events from a JSONL file.
@@ -16,8 +16,8 @@ import fs from 'node:fs';
  * @returns {Array} Array of metric events (parsed JSON objects)
  */
 export function readProjectMetricsEvents({ metricsPath } = {}) {
-  if (!metricsPath || typeof metricsPath !== 'string') {
-    throw new Error('metricsPath is required and must be a string');
+  if (!metricsPath || typeof metricsPath !== "string") {
+    throw new Error("metricsPath is required and must be a string");
   }
 
   // Return empty array if file doesn't exist
@@ -26,8 +26,8 @@ export function readProjectMetricsEvents({ metricsPath } = {}) {
   }
 
   try {
-    const content = fs.readFileSync(metricsPath, 'utf8');
-    const lines = content.split('\n');
+    const content = fs.readFileSync(metricsPath, "utf8");
+    const lines = content.split("\n");
     const events = [];
 
     for (const line of lines) {

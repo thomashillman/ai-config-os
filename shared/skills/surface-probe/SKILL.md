@@ -1,6 +1,7 @@
 ---
 skill: "surface-probe"
-description: "Investigates environment signals when a user manually states their surface or platform.
+description:
+  "Investigates environment signals when a user manually states their surface or platform.
 
   Gathers all available indicators (env vars, session metadata, context clues) and produces
   a structured report to improve future automatic detection in ops/capability-probe.sh.\n"
@@ -125,9 +126,11 @@ Follow the instructions in the active variant prompt file. In summary:
 ## Examples
 
 ### User on iOS
+
 **Input:** "I'm using the Claude iOS app"
 **Output:** Report showing `CLAUDE_CODE_ENTRYPOINT=remote_mobile` as a new signal, with recommendation to check it before `CLAUDE_CODE_REMOTE` in `detect_platform()`.
 
 ### User on mobile browser
+
 **Input:** "I'm accessing Claude Code from a mobile browser"
 **Output:** Report noting that mobile vs desktop browser is indistinguishable from within the remote shell; recommends `CLAUDE_SURFACE=mobile-app` as workaround.

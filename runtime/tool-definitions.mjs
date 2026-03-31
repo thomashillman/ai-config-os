@@ -1,34 +1,34 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parse as parseYaml } from 'yaml';
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { parse as parseYaml } from "yaml";
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const DEFAULT_REGISTRY_PATH = resolve(__dirname, 'tool-registry.yaml');
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+const DEFAULT_REGISTRY_PATH = resolve(__dirname, "tool-registry.yaml");
 
 const ADAPTER_TO_EXECUTION_CLASS = {
-  cli: 'local',
-  file: 'local',
-  shell: 'local',
+  cli: "local",
+  file: "local",
+  shell: "local",
 };
 
 const ADAPTER_TO_REQUIRED_CAPABILITIES = {
-  cli: ['shell.exec'],
-  file: ['fs.read', 'fs.write'],
-  shell: ['shell.exec'],
+  cli: ["shell.exec"],
+  file: ["fs.read", "fs.write"],
+  shell: ["shell.exec"],
 };
 
 const CORE_TOOL_KEYS = new Set([
-  'id',
-  'name',
-  'description',
-  'adapter',
-  'executionClass',
-  'requiredCapabilities',
-  'inputSchema',
-  'outputSchema',
-  'limits',
-  'fallbackPolicy',
+  "id",
+  "name",
+  "description",
+  "adapter",
+  "executionClass",
+  "requiredCapabilities",
+  "inputSchema",
+  "outputSchema",
+  "limits",
+  "fallbackPolicy",
 ]);
 
 /**
@@ -61,8 +61,10 @@ function extractAdapterExtensions(tool) {
  * @param {string} [registryPath]
  * @returns {ToolDefinition[]}
  */
-export function loadCanonicalToolDefinitions(registryPath = DEFAULT_REGISTRY_PATH) {
-  const raw = readFileSync(registryPath, 'utf8');
+export function loadCanonicalToolDefinitions(
+  registryPath = DEFAULT_REGISTRY_PATH,
+) {
+  const raw = readFileSync(registryPath, "utf8");
   const parsed = parseYaml(raw, { strict: false }) || {};
   const tools = Array.isArray(parsed.tools) ? parsed.tools : [];
 
@@ -72,41 +74,48 @@ export function loadCanonicalToolDefinitions(registryPath = DEFAULT_REGISTRY_PAT
     return {
       id: tool.id,
       name: tool.name,
-      description: tool.description || '',
-      executionClass: tool.executionClass ?? ADAPTER_TO_EXECUTION_CLASS[adapter] ?? 'remote-privileged',
-      requiredCapabilities: tool.requiredCapabilities ?? ADAPTER_TO_REQUIRED_CAPABILITIES[adapter] ?? [],
+      description: tool.description || "",
+      executionClass:
+        tool.executionClass ??
+        ADAPTER_TO_EXECUTION_CLASS[adapter] ??
+        "remote-privileged",
+      requiredCapabilities:
+        tool.requiredCapabilities ??
+        ADAPTER_TO_REQUIRED_CAPABILITIES[adapter] ??
+        [],
       inputSchema: tool.inputSchema ?? {
-        type: 'object',
+        type: "object",
         additionalProperties: false,
         properties: {
           action: {
-            type: 'string',
-            enum: ['check', 'sync', 'list'],
+            type: "string",
+            enum: ["check", "sync", "list"],
           },
           dry_run: {
-            type: 'boolean',
+            type: "boolean",
             default: false,
           },
         },
-        required: ['action'],
+        required: ["action"],
       },
       outputSchema: tool.outputSchema ?? {
-        type: 'object',
+        type: "object",
         additionalProperties: false,
         properties: {
-          success: { type: 'boolean' },
-          output: { type: 'string' },
-          error: { type: ['string', 'null'] },
+          success: { type: "boolean" },
+          output: { type: "string" },
+          error: { type: ["string", "null"] },
         },
-        required: ['success', 'output', 'error'],
+        required: ["success", "output", "error"],
       },
       limits: tool.limits ?? {
         timeoutMs: 30_000,
         maxOutputBytes: 1_000_000,
       },
       fallbackPolicy: tool.fallbackPolicy ?? {
-        mode: 'manual',
-        notes: 'If adapter operations fail, report status and provide manual remediation steps.',
+        mode: "manual",
+        notes:
+          "If adapter operations fail, report status and provide manual remediation steps.",
       },
       extensions: {
         adapter,
@@ -117,5 +126,7 @@ export function loadCanonicalToolDefinitions(registryPath = DEFAULT_REGISTRY_PAT
 }
 
 export function registeredToolIds(registryPath = DEFAULT_REGISTRY_PATH) {
-  return new Set(loadCanonicalToolDefinitions(registryPath).map((tool) => tool.id));
+  return new Set(
+    loadCanonicalToolDefinitions(registryPath).map((tool) => tool.id),
+  );
 }

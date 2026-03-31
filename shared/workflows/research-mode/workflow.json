@@ -43,6 +43,6 @@
 
   "performance_expectations": {
     "total_latency_ms": 3000,
-    "estimated_cost": 0.010
+    "estimated_cost": 0.01
   }
 }

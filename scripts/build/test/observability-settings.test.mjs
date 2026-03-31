@@ -1,8 +1,8 @@
 /**
  * Atom 3 — Observability settings tests
  */
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
 // ── Inline implementation (mirrors worker/src/observability/settings.ts) ──────
 
@@ -22,22 +22,29 @@ const DEFAULT_SETTINGS = {
   max_message_length: 2048,
 };
 
-const KV_SETTINGS_KEY = 'observability:settings';
+const KV_SETTINGS_KEY = "observability:settings";
 
 function validateObservabilitySettings(input) {
   const errors = [];
-  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    return { ok: false, errors: ['Settings must be a JSON object'] };
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return { ok: false, errors: ["Settings must be a JSON object"] };
   }
   const result = {};
   for (const [field, bounds] of Object.entries(SETTINGS_BOUNDS)) {
     const v = input[field];
-    if (v === undefined) { result[field] = DEFAULT_SETTINGS[field]; continue; }
-    if (typeof v !== 'number' || !Number.isInteger(v) || !Number.isFinite(v)) {
-      errors.push(`Field '${field}' must be an integer`); continue;
+    if (v === undefined) {
+      result[field] = DEFAULT_SETTINGS[field];
+      continue;
+    }
+    if (typeof v !== "number" || !Number.isInteger(v) || !Number.isFinite(v)) {
+      errors.push(`Field '${field}' must be an integer`);
+      continue;
     }
     if (v < bounds.min || v > bounds.max) {
-      errors.push(`Field '${field}' must be between ${bounds.min} and ${bounds.max} (got ${v})`); continue;
+      errors.push(
+        `Field '${field}' must be between ${bounds.min} and ${bounds.max} (got ${v})`,
+      );
+      continue;
     }
     result[field] = v;
   }
@@ -48,10 +55,18 @@ function validateObservabilitySettings(input) {
 async function readObservabilitySettings(kv) {
   if (!kv) return { ...DEFAULT_SETTINGS };
   let raw;
-  try { raw = await kv.get(KV_SETTINGS_KEY); } catch { return { ...DEFAULT_SETTINGS }; }
+  try {
+    raw = await kv.get(KV_SETTINGS_KEY);
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
   if (!raw) return { ...DEFAULT_SETTINGS };
   let parsed;
-  try { parsed = JSON.parse(raw); } catch { return { ...DEFAULT_SETTINGS }; }
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
   const result = validateObservabilitySettings(parsed);
   if (!result.ok) return { ...DEFAULT_SETTINGS };
   return result.value;
@@ -68,69 +83,92 @@ function makeKv(initial = {}) {
   return {
     store,
     get: async (key) => store[key] ?? null,
-    put: async (key, value) => { store[key] = value; },
+    put: async (key, value) => {
+      store[key] = value;
+    },
   };
 }
 
 // ── Tests: validateObservabilitySettings ─────────────────────────────────────
 
-test('validateObservabilitySettings: accepts all valid defaults', () => {
+test("validateObservabilitySettings: accepts all valid defaults", () => {
   const result = validateObservabilitySettings(DEFAULT_SETTINGS);
   assert.equal(result.ok, true);
   assert.deepEqual(result.value, DEFAULT_SETTINGS);
 });
 
-test('validateObservabilitySettings: fills missing fields with defaults', () => {
+test("validateObservabilitySettings: fills missing fields with defaults", () => {
   const result = validateObservabilitySettings({});
   assert.equal(result.ok, true);
   assert.deepEqual(result.value, DEFAULT_SETTINGS);
 });
 
-test('validateObservabilitySettings: rejects non-object', () => {
+test("validateObservabilitySettings: rejects non-object", () => {
   assert.equal(validateObservabilitySettings(null).ok, false);
-  assert.equal(validateObservabilitySettings('string').ok, false);
+  assert.equal(validateObservabilitySettings("string").ok, false);
   assert.equal(validateObservabilitySettings([]).ok, false);
 });
 
-test('validateObservabilitySettings: rejects non-integer values', () => {
-  const result = validateObservabilitySettings({ ...DEFAULT_SETTINGS, raw_retention_days: 3.5 });
+test("validateObservabilitySettings: rejects non-integer values", () => {
+  const result = validateObservabilitySettings({
+    ...DEFAULT_SETTINGS,
+    raw_retention_days: 3.5,
+  });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some(e => e.includes('raw_retention_days')));
+  assert.ok(result.errors.some((e) => e.includes("raw_retention_days")));
 });
 
-test('validateObservabilitySettings: rejects raw_retention_days below min (1)', () => {
-  const result = validateObservabilitySettings({ ...DEFAULT_SETTINGS, raw_retention_days: 0 });
+test("validateObservabilitySettings: rejects raw_retention_days below min (1)", () => {
+  const result = validateObservabilitySettings({
+    ...DEFAULT_SETTINGS,
+    raw_retention_days: 0,
+  });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some(e => e.includes('raw_retention_days')));
+  assert.ok(result.errors.some((e) => e.includes("raw_retention_days")));
 });
 
-test('validateObservabilitySettings: rejects raw_retention_days above max (30)', () => {
-  const result = validateObservabilitySettings({ ...DEFAULT_SETTINGS, raw_retention_days: 31 });
+test("validateObservabilitySettings: rejects raw_retention_days above max (30)", () => {
+  const result = validateObservabilitySettings({
+    ...DEFAULT_SETTINGS,
+    raw_retention_days: 31,
+  });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some(e => e.includes('raw_retention_days')));
+  assert.ok(result.errors.some((e) => e.includes("raw_retention_days")));
 });
 
-test('validateObservabilitySettings: rejects summary_retention_days below min (7)', () => {
-  const result = validateObservabilitySettings({ ...DEFAULT_SETTINGS, summary_retention_days: 6 });
-  assert.equal(result.ok, false);
-});
-
-test('validateObservabilitySettings: rejects summary_retention_days above max (365)', () => {
-  const result = validateObservabilitySettings({ ...DEFAULT_SETTINGS, summary_retention_days: 366 });
-  assert.equal(result.ok, false);
-});
-
-test('validateObservabilitySettings: rejects aggregate_retention_days below min (30)', () => {
-  const result = validateObservabilitySettings({ ...DEFAULT_SETTINGS, aggregate_retention_days: 29 });
-  assert.equal(result.ok, false);
-});
-
-test('validateObservabilitySettings: rejects aggregate_retention_days above max (730)', () => {
-  const result = validateObservabilitySettings({ ...DEFAULT_SETTINGS, aggregate_retention_days: 731 });
+test("validateObservabilitySettings: rejects summary_retention_days below min (7)", () => {
+  const result = validateObservabilitySettings({
+    ...DEFAULT_SETTINGS,
+    summary_retention_days: 6,
+  });
   assert.equal(result.ok, false);
 });
 
-test('validateObservabilitySettings: accepts boundary values (min)', () => {
+test("validateObservabilitySettings: rejects summary_retention_days above max (365)", () => {
+  const result = validateObservabilitySettings({
+    ...DEFAULT_SETTINGS,
+    summary_retention_days: 366,
+  });
+  assert.equal(result.ok, false);
+});
+
+test("validateObservabilitySettings: rejects aggregate_retention_days below min (30)", () => {
+  const result = validateObservabilitySettings({
+    ...DEFAULT_SETTINGS,
+    aggregate_retention_days: 29,
+  });
+  assert.equal(result.ok, false);
+});
+
+test("validateObservabilitySettings: rejects aggregate_retention_days above max (730)", () => {
+  const result = validateObservabilitySettings({
+    ...DEFAULT_SETTINGS,
+    aggregate_retention_days: 731,
+  });
+  assert.equal(result.ok, false);
+});
+
+test("validateObservabilitySettings: accepts boundary values (min)", () => {
   const result = validateObservabilitySettings({
     raw_retention_days: 1,
     summary_retention_days: 7,
@@ -142,7 +180,7 @@ test('validateObservabilitySettings: accepts boundary values (min)', () => {
   assert.equal(result.value.raw_retention_days, 1);
 });
 
-test('validateObservabilitySettings: accepts boundary values (max)', () => {
+test("validateObservabilitySettings: accepts boundary values (max)", () => {
   const result = validateObservabilitySettings({
     raw_retention_days: 30,
     summary_retention_days: 365,
@@ -154,7 +192,7 @@ test('validateObservabilitySettings: accepts boundary values (max)', () => {
   assert.equal(result.value.aggregate_retention_days, 730);
 });
 
-test('validateObservabilitySettings: returns all errors, not just first', () => {
+test("validateObservabilitySettings: returns all errors, not just first", () => {
   const result = validateObservabilitySettings({
     ...DEFAULT_SETTINGS,
     raw_retention_days: 0,
@@ -166,45 +204,52 @@ test('validateObservabilitySettings: returns all errors, not just first', () => 
 
 // ── Tests: readObservabilitySettings ─────────────────────────────────────────
 
-test('readObservabilitySettings: returns defaults when kv is undefined', async () => {
+test("readObservabilitySettings: returns defaults when kv is undefined", async () => {
   const result = await readObservabilitySettings(undefined);
   assert.deepEqual(result, DEFAULT_SETTINGS);
 });
 
-test('readObservabilitySettings: returns defaults when key is absent', async () => {
+test("readObservabilitySettings: returns defaults when key is absent", async () => {
   const kv = makeKv({});
   const result = await readObservabilitySettings(kv);
   assert.deepEqual(result, DEFAULT_SETTINGS);
 });
 
-test('readObservabilitySettings: returns defaults when value is invalid JSON', async () => {
-  const kv = makeKv({ [KV_SETTINGS_KEY]: 'not-json' });
+test("readObservabilitySettings: returns defaults when value is invalid JSON", async () => {
+  const kv = makeKv({ [KV_SETTINGS_KEY]: "not-json" });
   const result = await readObservabilitySettings(kv);
   assert.deepEqual(result, DEFAULT_SETTINGS);
 });
 
-test('readObservabilitySettings: returns defaults when value fails validation', async () => {
-  const kv = makeKv({ [KV_SETTINGS_KEY]: JSON.stringify({ raw_retention_days: 999 }) });
+test("readObservabilitySettings: returns defaults when value fails validation", async () => {
+  const kv = makeKv({
+    [KV_SETTINGS_KEY]: JSON.stringify({ raw_retention_days: 999 }),
+  });
   const result = await readObservabilitySettings(kv);
   assert.deepEqual(result, DEFAULT_SETTINGS);
 });
 
-test('readObservabilitySettings: returns stored settings when valid', async () => {
+test("readObservabilitySettings: returns stored settings when valid", async () => {
   const custom = { ...DEFAULT_SETTINGS, raw_retention_days: 14 };
   const kv = makeKv({ [KV_SETTINGS_KEY]: JSON.stringify(custom) });
   const result = await readObservabilitySettings(kv);
   assert.equal(result.raw_retention_days, 14);
 });
 
-test('readObservabilitySettings: returns defaults when kv.get throws', async () => {
-  const kv = { get: async () => { throw new Error('KV unavailable'); }, put: async () => {} };
+test("readObservabilitySettings: returns defaults when kv.get throws", async () => {
+  const kv = {
+    get: async () => {
+      throw new Error("KV unavailable");
+    },
+    put: async () => {},
+  };
   const result = await readObservabilitySettings(kv);
   assert.deepEqual(result, DEFAULT_SETTINGS);
 });
 
 // ── Tests: writeObservabilitySettings ────────────────────────────────────────
 
-test('writeObservabilitySettings: persists settings to KV', async () => {
+test("writeObservabilitySettings: persists settings to KV", async () => {
   const kv = makeKv({});
   const custom = { ...DEFAULT_SETTINGS, raw_retention_days: 3 };
   await writeObservabilitySettings(kv, custom);

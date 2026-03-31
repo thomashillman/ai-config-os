@@ -20,27 +20,33 @@ Converge duplicated MCP/dashboard runtime action behavior behind shared runtime 
 ### 1) Runtime Action Matrix
 
 File:
+
 - `runtime/lib/runtime-action-matrix.mjs`
 
 Responsibilities:
+
 - Define action classification (`shared-service`, `script-wrapper`, `surface-only`).
 - Expose lookup helpers for dispatcher and parity tests.
 
 Interface contract:
+
 - Deterministic, version-controlled map.
 - Complete coverage for all MCP/dashboard shared actions.
 
 ### 2) Shared Runtime Action Dispatcher
 
 File:
+
 - `runtime/lib/runtime-action-dispatcher.mjs`
 
 Responsibilities:
+
 - Route `script-wrapper` actions through one mapping path.
 - Normalize/default arguments before execution.
 - Throw typed errors for unknown action and invalid arguments.
 
 Interface contract:
+
 - Input: `actionName`, `actionArgs`.
 - Output: normalized execution result shared by MCP and dashboard wrappers.
 - Errors: typed and surface-mappable.
@@ -48,40 +54,49 @@ Interface contract:
 ### 3) MCP Adapter Layer
 
 File:
+
 - `runtime/mcp/handlers.mjs`
 
 Responsibilities:
+
 - Delegate script-wrapper actions to dispatcher.
 - Preserve existing task-service routing and tool contract behavior.
 
 Integration contract:
+
 - Tool names and response envelopes remain backward compatible.
 - Capability profile attachment and existing tool error semantics remain intact.
 
 ### 4) Dashboard API Adapter Layer
 
 File:
+
 - `runtime/mcp/dashboard-api.mjs`
 
 Responsibilities:
+
 - Delegate script-backed routes to dispatcher.
 - Preserve dashboard route structure and JSON envelope format.
 
 Integration contract:
+
 - Existing route paths and success/failure payload structure remain stable.
 - Dashboard-specific transport details stay local to this adapter.
 
 ### 5) Root Verification and Mergeability Gate
 
 Files:
+
 - `scripts/build/verify.mjs`
 - `.github/workflows/pr-mergeability-gate.yml`
 
 Responsibilities:
+
 - `verify.mjs` runs dashboard test and dashboard production build as explicit steps.
 - PR mergeability workflow installs dashboard dependencies before `npm run -s verify`.
 
 Integration contract:
+
 - Dashboard regressions fail branch mergeability via the same root gate used by CI.
 - Dashboard enforcement is part of normal branch readiness, not an optional side workflow.
 
@@ -120,11 +135,13 @@ Integration contract:
 ## File Change Plan
 
 Add:
+
 - `runtime/lib/runtime-action-matrix.mjs`
 - `runtime/lib/runtime-action-dispatcher.mjs`
 - `runtime/lib/runtime-action-dispatcher.test.mjs`
 
 Update:
+
 - `runtime/mcp/handlers.mjs`
 - `runtime/mcp/dashboard-api.mjs`
 - `runtime/mcp/dashboard-api.test.mjs`
@@ -135,19 +152,23 @@ Update:
 ## Test Strategy
 
 ### Unit tests
+
 - Dispatcher + matrix behavior:
   - mapping lookup
   - argument defaults/normalization
   - typed error paths
 
 ### Adapter tests
+
 - MCP handler tests for migrated script-wrapper actions.
 - Dashboard API tests for migrated routes and error semantics.
 
 ### Parity tests
+
 - Matrix-driven parity checks for classified shared actions across MCP/dashboard.
 
 ### Gate tests
+
 - Root `npm run -s verify` includes dashboard test/build.
 - Mergeability workflow path provisions dashboard dependencies before verify.
 
@@ -158,6 +179,7 @@ Update:
 3. Command invocation differences across OS shells can break dashboard checks unless verifier invocation is cross-platform-safe.
 
 Mitigations:
+
 - Keep parity tests table-driven from the matrix.
 - Keep dashboard gate commands explicit and shell-compatible in verifier.
 - Report baseline failures separately from convergence/gate integration status.

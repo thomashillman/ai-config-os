@@ -8,15 +8,19 @@
 
 // ─── Capability status ────────────────────────────────────────────────────────
 
-export type CapabilityStatus = 'supported' | 'unsupported' | 'unknown';
-export type CompatibilityStatus = 'supported' | 'excluded' | 'unverified' | 'degraded';
-export type FallbackMode = 'none' | 'manual' | 'prompt-only';
+export type CapabilityStatus = "supported" | "unsupported" | "unknown";
+export type CompatibilityStatus =
+  | "supported"
+  | "excluded"
+  | "unverified"
+  | "degraded";
+export type FallbackMode = "none" | "manual" | "prompt-only";
 
 // ─── Per-capability entry (from platform YAML definitions) ───────────────────
 
 export interface CapabilityEntry {
   status: CapabilityStatus;
-  confidence: 'high' | 'medium' | 'low';
+  confidence: "high" | "medium" | "low";
   source: string;
   verified_at?: string;
 }
@@ -69,12 +73,12 @@ export interface RegistrySkill {
 // ─── Error codes ─────────────────────────────────────────────────────────────
 
 export type CapabilityErrorCode =
-  | 'INVALID_PLATFORM'
-  | 'INVALID_CAPABILITY_FORMAT'
-  | 'MISSING_CAPS_PARAM'
-  | 'EMPTY_CAPS_PARAM'
-  | 'PLATFORM_DATA_UNAVAILABLE'
-  | 'INTERNAL_ERROR';
+  | "INVALID_PLATFORM"
+  | "INVALID_CAPABILITY_FORMAT"
+  | "MISSING_CAPS_PARAM"
+  | "EMPTY_CAPS_PARAM"
+  | "PLATFORM_DATA_UNAVAILABLE"
+  | "INTERNAL_ERROR";
 
 export interface CapabilityError {
   code: CapabilityErrorCode;

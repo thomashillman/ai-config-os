@@ -5,13 +5,13 @@
  * Uses a simple line-by-line parser — no npm YAML dependency required.
  * Falls back to safe all-false defaults if the file is missing or unreadable.
  */
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { validateManifestFeatureFlags } from '../../scripts/build/lib/versioning.mjs';
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { validateManifestFeatureFlags } from "../../scripts/build/lib/versioning.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_MANIFEST_PATH = join(__dirname, '..', 'manifest.yaml');
+const DEFAULT_MANIFEST_PATH = join(__dirname, "..", "manifest.yaml");
 
 let _cached = null;
 
@@ -25,8 +25,8 @@ let _cached = null;
 export function readManifestYaml(content) {
   const flags = {};
   let inFlagsBlock = false;
-  for (const line of content.split('\n')) {
-    if (line.trimEnd() === 'feature_flags:') {
+  for (const line of content.split("\n")) {
+    if (line.trimEnd() === "feature_flags:") {
       inFlagsBlock = true;
       continue;
     }
@@ -34,11 +34,11 @@ export function readManifestYaml(content) {
       // Direct children of feature_flags: have exactly 2-space indent
       const match = line.match(/^  (\w+):\s*(true|false)\s*$/);
       if (match) {
-        flags[match[1]] = match[2] === 'true';
+        flags[match[1]] = match[2] === "true";
         continue;
       }
       // Any non-empty line without 2-space indent ends the block
-      if (line.trim() && !line.startsWith('  ')) {
+      if (line.trim() && !line.startsWith("  ")) {
         break;
       }
     }
@@ -56,7 +56,7 @@ export function readManifestYaml(content) {
 export function loadManifestFlags(manifestPath = DEFAULT_MANIFEST_PATH) {
   let rawFlags = {};
   try {
-    const content = readFileSync(manifestPath, 'utf8');
+    const content = readFileSync(manifestPath, "utf8");
     rawFlags = readManifestYaml(content);
   } catch {
     // File missing or unreadable — use safe defaults

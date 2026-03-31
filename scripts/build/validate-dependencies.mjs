@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-import { loadSkillModels, validateDependencies } from './lib/ops-skill-model.mjs';
-import { parseRepoRootArg, printErrorsAndExit } from './lib/ops-cli-utils.mjs';
+import {
+  loadSkillModels,
+  validateDependencies,
+} from "./lib/ops-skill-model.mjs";
+import { parseRepoRootArg, printErrorsAndExit } from "./lib/ops-cli-utils.mjs";
 
 function main() {
   const repoRoot = parseRepoRootArg(process.argv.slice(2));
-  console.log('==> Validating skill dependencies...');
-  console.log('');
+  console.log("==> Validating skill dependencies...");
+  console.log("");
 
   const { models, errors: loadErrors } = loadSkillModels(repoRoot);
   const dependencyErrors = validateDependencies(models);
@@ -17,7 +20,7 @@ function main() {
   }
 
   console.log(`[ok] Validated ${models.length} skill(s)`);
-  console.log('[ok] All dependencies valid');
+  console.log("[ok] All dependencies valid");
 }
 
 main();

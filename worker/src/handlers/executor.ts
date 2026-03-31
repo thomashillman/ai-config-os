@@ -1,15 +1,19 @@
-import { jsonResponse } from '../http';
-import type { Env, ExecutePayload } from '../types';
+import { jsonResponse } from "../http";
+import type { Env, ExecutePayload } from "../types";
 
 function asObject(payload: unknown): Record<string, unknown> | null {
-  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    Array.isArray(payload)
+  ) {
     return null;
   }
   return payload as Record<string, unknown>;
 }
 
 function parseTimeoutMs(raw: string | undefined): number {
-  const parsed = Number(raw ?? '10000');
+  const parsed = Number(raw ?? "10000");
   if (!Number.isFinite(parsed) || parsed <= 0) {
     return 10000;
   }
@@ -17,37 +21,45 @@ function parseTimeoutMs(raw: string | undefined): number {
   return Math.min(parsed, 120000);
 }
 
-function validateExecutePayload(payload: unknown): { ok: true; value: ExecutePayload } | { ok: false; error: string } {
+function validateExecutePayload(
+  payload: unknown,
+): { ok: true; value: ExecutePayload } | { ok: false; error: string } {
   const data = asObject(payload);
   if (!data) {
-    return { ok: false, error: 'Payload must be a JSON object' };
+    return { ok: false, error: "Payload must be a JSON object" };
   }
 
-  if (typeof data.tool !== 'string' || data.tool.trim().length === 0) {
+  if (typeof data.tool !== "string" || data.tool.trim().length === 0) {
     return { ok: false, error: "Field 'tool' must be a non-empty string" };
   }
 
   if (
-    data.args !== undefined
-    && (!Array.isArray(data.args) || data.args.some((arg) => typeof arg !== 'string'))
+    data.args !== undefined &&
+    (!Array.isArray(data.args) ||
+      data.args.some((arg) => typeof arg !== "string"))
   ) {
     return { ok: false, error: "Field 'args' must be an array of strings" };
   }
 
   if (
-    data.timeout_ms !== undefined
-    && (!Number.isInteger(data.timeout_ms) || Number(data.timeout_ms) <= 0)
+    data.timeout_ms !== undefined &&
+    (!Number.isInteger(data.timeout_ms) || Number(data.timeout_ms) <= 0)
   ) {
-    return { ok: false, error: "Field 'timeout_ms' must be a positive integer" };
+    return {
+      ok: false,
+      error: "Field 'timeout_ms' must be a positive integer",
+    };
   }
 
-  if (data.request_id !== undefined && typeof data.request_id !== 'string') {
+  if (data.request_id !== undefined && typeof data.request_id !== "string") {
     return { ok: false, error: "Field 'request_id' must be a string" };
   }
 
   if (
-    data.metadata !== undefined
-    && (typeof data.metadata !== 'object' || data.metadata === null || Array.isArray(data.metadata))
+    data.metadata !== undefined &&
+    (typeof data.metadata !== "object" ||
+      data.metadata === null ||
+      Array.isArray(data.metadata))
   ) {
     return { ok: false, error: "Field 'metadata' must be an object" };
   }
@@ -77,12 +89,12 @@ async function invokeExecutorServiceBinding(
 
   try {
     const response = await env.EXECUTOR!.fetch(
-      new Request('https://executor.internal/v1/execute', {
-        method: 'POST',
+      new Request("https://executor.internal/v1/execute", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'X-Executor-Shared-Secret': env.EXECUTOR_SHARED_SECRET,
-          'X-Request-Signature': forwardedSignature,
+          "Content-Type": "application/json",
+          "X-Executor-Shared-Secret": env.EXECUTOR_SHARED_SECRET,
+          "X-Request-Signature": forwardedSignature,
         },
         body: JSON.stringify(payload),
       }),
@@ -90,25 +102,41 @@ async function invokeExecutorServiceBinding(
 
     const responseBody: Record<string, unknown> = await response
       .json()
-      .then((body) => (typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}))
+      .then((body) =>
+        typeof body === "object" && body !== null
+          ? (body as Record<string, unknown>)
+          : {},
+      )
       .catch(() => ({}));
 
-    return jsonResponse({
-      ok: response.ok,
-      status: response.status,
-      result: responseBody.result ?? null,
-      error: response.ok
-        ? null
-        : (responseBody.error ?? { code: 'UPSTREAM_ERROR', message: 'Executor returned an error' }),
-      request_id: payload.request_id ?? null,
-    }, response.ok ? 200 : response.status);
+    return jsonResponse(
+      {
+        ok: response.ok,
+        status: response.status,
+        result: responseBody.result ?? null,
+        error: response.ok
+          ? null
+          : (responseBody.error ?? {
+              code: "UPSTREAM_ERROR",
+              message: "Executor returned an error",
+            }),
+        request_id: payload.request_id ?? null,
+      },
+      response.ok ? 200 : response.status,
+    );
   } catch {
-    return jsonResponse({
-      ok: false,
-      status: 504,
-      error: { code: 'UPSTREAM_TIMEOUT', message: 'Executor request timed out or failed' },
-      request_id: payload.request_id ?? null,
-    }, 504);
+    return jsonResponse(
+      {
+        ok: false,
+        status: 504,
+        error: {
+          code: "UPSTREAM_TIMEOUT",
+          message: "Executor request timed out or failed",
+        },
+        request_id: payload.request_id ?? null,
+      },
+      504,
+    );
   }
 }
 
@@ -123,45 +151,70 @@ async function invokeExecutorProxy(
   const timeoutMs = parseTimeoutMs(env.EXECUTOR_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${env.EXECUTOR_PROXY_URL!.replace(/\/$/, '')}/v1/execute`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Executor-Shared-Secret': env.EXECUTOR_SHARED_SECRET,
-        'X-Request-Signature': forwardedSignature,
+    const response = await fetch(
+      `${env.EXECUTOR_PROXY_URL!.replace(/\/$/, "")}/v1/execute`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Executor-Shared-Secret": env.EXECUTOR_SHARED_SECRET,
+          "X-Request-Signature": forwardedSignature,
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(timeoutMs),
       },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    );
 
     const responseBody: Record<string, unknown> = await response
       .json()
-      .then((body) => (typeof body === 'object' && body !== null ? body as Record<string, unknown> : {}))
+      .then((body) =>
+        typeof body === "object" && body !== null
+          ? (body as Record<string, unknown>)
+          : {},
+      )
       .catch(() => ({}));
 
-    return jsonResponse({
-      ok: response.ok,
-      status: response.status,
-      result: responseBody.result ?? null,
-      error: response.ok
-        ? null
-        : (responseBody.error ?? { code: 'UPSTREAM_ERROR', message: 'Executor returned an error' }),
-      request_id: payload.request_id ?? null,
-    }, response.ok ? 200 : response.status);
+    return jsonResponse(
+      {
+        ok: response.ok,
+        status: response.status,
+        result: responseBody.result ?? null,
+        error: response.ok
+          ? null
+          : (responseBody.error ?? {
+              code: "UPSTREAM_ERROR",
+              message: "Executor returned an error",
+            }),
+        request_id: payload.request_id ?? null,
+      },
+      response.ok ? 200 : response.status,
+    );
   } catch {
-    return jsonResponse({
-      ok: false,
-      status: 504,
-      error: { code: 'UPSTREAM_TIMEOUT', message: 'Executor request timed out or failed' },
-      request_id: payload.request_id ?? null,
-    }, 504);
+    return jsonResponse(
+      {
+        ok: false,
+        status: 504,
+        error: {
+          code: "UPSTREAM_TIMEOUT",
+          message: "Executor request timed out or failed",
+        },
+        request_id: payload.request_id ?? null,
+      },
+      504,
+    );
   }
 }
 
-export async function handleExecute(request: Request, env: Env): Promise<Response> {
+export async function handleExecute(
+  request: Request,
+  env: Env,
+): Promise<Response> {
   // Validate that we have shared secret
   if (!env.EXECUTOR_SHARED_SECRET) {
-    return jsonResponse({ error: 'Executor shared secret is not configured' }, 500);
+    return jsonResponse(
+      { error: "Executor shared secret is not configured" },
+      500,
+    );
   }
 
   // Parse request body
@@ -169,7 +222,7 @@ export async function handleExecute(request: Request, env: Env): Promise<Respons
   try {
     payload = await request.json();
   } catch {
-    return jsonResponse({ error: 'Invalid JSON body' }, 400);
+    return jsonResponse({ error: "Invalid JSON body" }, 400);
   }
 
   // Validate payload
@@ -178,14 +231,18 @@ export async function handleExecute(request: Request, env: Env): Promise<Respons
     return jsonResponse({ error: validation.error }, 400);
   }
 
-  const forwardedSignature = request.headers.get('X-Request-Signature') ?? '';
+  const forwardedSignature = request.headers.get("X-Request-Signature") ?? "";
 
   // --- PHASE 1 PRIMARY PATH: Service binding (Cloudflare-first) ---
   // Invoke executor Worker via service binding. This is the default and only
   // recommended path for Phase 1. No external executor host required.
   // All execution is contained within Cloudflare Workers.
   if (env.EXECUTOR) {
-    return invokeExecutorServiceBinding(env, validation.value, forwardedSignature);
+    return invokeExecutorServiceBinding(
+      env,
+      validation.value,
+      forwardedSignature,
+    );
   }
 
   // --- PHASE 0 COMPATIBILITY / PHASE 2 FUTURE: External executor via HTTP proxy ---
@@ -198,8 +255,12 @@ export async function handleExecute(request: Request, env: Env): Promise<Respons
   }
 
   // Neither path configured - Phase 1 requires service binding
-  return jsonResponse({
-    error: 'Executor is not configured. Phase 1 requires service binding (EXECUTOR) in wrangler.toml. ' +
-           'EXECUTOR_PROXY_URL is optional for backward compatibility or future Phase 2.',
-  }, 500);
+  return jsonResponse(
+    {
+      error:
+        "Executor is not configured. Phase 1 requires service binding (EXECUTOR) in wrangler.toml. " +
+        "EXECUTOR_PROXY_URL is optional for backward compatibility or future Phase 2.",
+    },
+    500,
+  );
 }

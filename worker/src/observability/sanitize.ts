@@ -23,18 +23,21 @@
  * Non-string values are returned as-is.
  */
 export function sanitizeLogField(value: unknown): unknown {
-  if (typeof value !== 'string') return value;
+  if (typeof value !== "string") return value;
 
   // Replace CR, LF, Tab with a single space (readable; prevents log-splitting)
-  let result = value.replace(/[\r\n\t]/g, ' ');
+  let result = value.replace(/[\r\n\t]/g, " ");
 
   // Remove null bytes and remaining ASCII control chars (except space=0x20)
   // eslint-disable-next-line no-control-regex
-  result = result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  result = result.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
 
   // Remove Unicode direction/format overrides (Cf category: U+200B–U+200F,
   // U+202A–U+202E, U+2060–U+2069, U+FEFF, U+FFF9–U+FFFB)
-  result = result.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\uFFF9-\uFFFB]/g, '');
+  result = result.replace(
+    /[\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF\uFFF9-\uFFFB]/g,
+    "",
+  );
 
   return result;
 }
@@ -45,13 +48,13 @@ export function sanitizeLogField(value: unknown): unknown {
  * Returns a new object (does not mutate the input).
  */
 export function sanitizeRecord(value: unknown): unknown {
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     return sanitizeLogField(value);
   }
   if (Array.isArray(value)) {
     return value.map(sanitizeRecord);
   }
-  if (typeof value === 'object' && value !== null) {
+  if (typeof value === "object" && value !== null) {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       result[k] = sanitizeRecord(v);

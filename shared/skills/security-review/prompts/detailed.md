@@ -1,6 +1,7 @@
 # Security Review — Detailed Variant (Opus)
 
 Full OWASP Top 10 analysis including:
+
 - A01: Injection
 - A02: Broken Authentication
 - A03: Sensitive Data Exposure

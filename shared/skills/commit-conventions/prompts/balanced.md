@@ -29,24 +29,26 @@ Given a description of changes, draft a well-formed commit message:
 
 ## Prefix reference
 
-| Prefix | Use for |
-|--------|---------|
-| `feat:` | New feature, capability, or template |
-| `fix:` | Bug fix or correction |
-| `style:` | CSS, formatting, whitespace (no logic change) |
-| `refactor:` | Restructure code (no behaviour change) |
-| `docs:` | Documentation, comments, guides |
-| `build:` | Build system, tooling, CI/CD, dependencies |
-| `chore:` | Maintenance, cleanup, version bumps |
+| Prefix      | Use for                                       |
+| ----------- | --------------------------------------------- |
+| `feat:`     | New feature, capability, or template          |
+| `fix:`      | Bug fix or correction                         |
+| `style:`    | CSS, formatting, whitespace (no logic change) |
+| `refactor:` | Restructure code (no behaviour change)        |
+| `docs:`     | Documentation, comments, guides               |
+| `build:`    | Build system, tooling, CI/CD, dependencies    |
+| `chore:`    | Maintenance, cleanup, version bumps           |
 
 ## Examples
 
 ### Simple commit (subject only)
+
 ```
 feat: add commit-conventions skill
 ```
 
 ### Complex commit (with body)
+
 ```
 refactor: split marketplace discovery from loader
 
@@ -55,6 +57,7 @@ scan failures do not abort partial installs.
 ```
 
 ### Bug fix
+
 ```
 fix: repair broken symlink for session-start-hook
 ```

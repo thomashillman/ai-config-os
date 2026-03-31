@@ -14,26 +14,27 @@
 
 ## File map
 
-| File | Role |
-| --- | --- |
-| [`package.json`](../../package.json) | Add `"license": "UNLICENSED"`, `prettier` devDependency, `format`, `format:check`, `test:file` |
-| [`README.md`](../../README.md) | Root install, dashboard install, License section, Contributing tier |
-| [`shared/agent-doctrine/repos/ai-config-os/codex.overlay.md`](../../shared/agent-doctrine/repos/ai-config-os/codex.overlay.md) | Generated entrypoints + cross-surface + `doctrine:check` when doctrine changes |
-| [`shared/agent-doctrine/repos/ai-config-os/claude.overlay.md`](../../shared/agent-doctrine/repos/ai-config-os/claude.overlay.md) | Same (keep Codex/Claude wording symmetric) |
-| [`scripts/build/test/run-tests.mjs`](../../scripts/build/test/run-tests.mjs) | Parse `process.argv` for explicit test paths from repo root |
-| [`scripts/build/test/root-entrypoints-contract.test.mjs`](../../scripts/build/test/root-entrypoints-contract.test.mjs) | Richer failure message listing paths + `npm run build` vs `npm run doctrine:build` |
-| **Create** [`.prettierrc`](../../.prettierrc) (or `.prettierrc.json`) | Minimal Prettier config |
-| **Create** [`.prettierignore`](../../.prettierignore) | `dist/`, `**/node_modules/`, `dashboard/`, lockfiles, caches, generated vendor trees |
-| [`.github/workflows/pr-mergeability-gate.yml`](../../.github/workflows/pr-mergeability-gate.yml) | Step: `npm run format:check` after `npm ci` |
-| [`.github/workflows/validate.yml`](../../.github/workflows/validate.yml) | Add `.prettierrc`, `.prettierignore`, `.github/workflows/pr-mergeability-gate.yml` to both `paths` lists |
-| [`.github/workflows/build.yml`](../../.github/workflows/build.yml) | Same path additions |
-| Generated (after `doctrine:build`) | `AGENTS.md`, `CLAUDE.md` at repo root |
+| File                                                                                                                             | Role                                                                                                     |
+| -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| [`package.json`](../../package.json)                                                                                             | Add `"license": "UNLICENSED"`, `prettier` devDependency, `format`, `format:check`, `test:file`           |
+| [`README.md`](../../README.md)                                                                                                   | Root install, dashboard install, License section, Contributing tier                                      |
+| [`shared/agent-doctrine/repos/ai-config-os/codex.overlay.md`](../../shared/agent-doctrine/repos/ai-config-os/codex.overlay.md)   | Generated entrypoints + cross-surface + `doctrine:check` when doctrine changes                           |
+| [`shared/agent-doctrine/repos/ai-config-os/claude.overlay.md`](../../shared/agent-doctrine/repos/ai-config-os/claude.overlay.md) | Same (keep Codex/Claude wording symmetric)                                                               |
+| [`scripts/build/test/run-tests.mjs`](../../scripts/build/test/run-tests.mjs)                                                     | Parse `process.argv` for explicit test paths from repo root                                              |
+| [`scripts/build/test/root-entrypoints-contract.test.mjs`](../../scripts/build/test/root-entrypoints-contract.test.mjs)           | Richer failure message listing paths + `npm run build` vs `npm run doctrine:build`                       |
+| **Create** [`.prettierrc`](../../.prettierrc) (or `.prettierrc.json`)                                                            | Minimal Prettier config                                                                                  |
+| **Create** [`.prettierignore`](../../.prettierignore)                                                                            | `dist/`, `**/node_modules/`, `dashboard/`, lockfiles, caches, generated vendor trees                     |
+| [`.github/workflows/pr-mergeability-gate.yml`](../../.github/workflows/pr-mergeability-gate.yml)                                 | Step: `npm run format:check` after `npm ci`                                                              |
+| [`.github/workflows/validate.yml`](../../.github/workflows/validate.yml)                                                         | Add `.prettierrc`, `.prettierignore`, `.github/workflows/pr-mergeability-gate.yml` to both `paths` lists |
+| [`.github/workflows/build.yml`](../../.github/workflows/build.yml)                                                               | Same path additions                                                                                      |
+| Generated (after `doctrine:build`)                                                                                               | `AGENTS.md`, `CLAUDE.md` at repo root                                                                    |
 
 ---
 
 ### Task 1: Package license metadata
 
 **Files:**
+
 - Modify: [`package.json`](../../package.json)
 
 - [ ] **Step 1:** Add `"license": "UNLICENSED"` next to other top-level keys (do not add a `LICENSE` file).
@@ -45,6 +46,7 @@
 ### Task 2: README — License, bootstrap, Contributing, dashboard
 
 **Files:**
+
 - Modify: [`README.md`](../../README.md)
 
 - [ ] **Step 1:** Replace the **License** section (currently MIT + `LICENSE` link) with a short **no license** statement: e.g. no permission to use/copy/modify is granted by default; all rights reserved unless you state otherwise elsewhere. No link to a missing file.
@@ -62,6 +64,7 @@
 ### Task 3: Doctrine overlays + regenerate entrypoints
 
 **Files:**
+
 - Modify: [`shared/agent-doctrine/repos/ai-config-os/codex.overlay.md`](../../shared/agent-doctrine/repos/ai-config-os/codex.overlay.md)
 - Modify: [`shared/agent-doctrine/repos/ai-config-os/claude.overlay.md`](../../shared/agent-doctrine/repos/ai-config-os/claude.overlay.md)
 
@@ -80,6 +83,7 @@
 ### Task 4: `run-tests.mjs` explicit file paths
 
 **Files:**
+
 - Modify: [`scripts/build/test/run-tests.mjs`](../../scripts/build/test/run-tests.mjs)
 
 - [ ] **Step 1:** Define `REPO_ROOT = resolve(__dirname, '..', '..', '..')`.
@@ -101,6 +105,7 @@
 ### Task 5: `test:file` script + contract test message
 
 **Files:**
+
 - Modify: [`package.json`](../../package.json)
 - Modify: [`scripts/build/test/root-entrypoints-contract.test.mjs`](../../scripts/build/test/root-entrypoints-contract.test.mjs)
 
@@ -117,6 +122,7 @@
 ### Task 6: Prettier — deps, config, ignore, scripts
 
 **Files:**
+
 - Modify: [`package.json`](../../package.json)
 - Create: [`.prettierrc`](../../.prettierrc)
 - Create: [`.prettierignore`](../../.prettierignore)
@@ -140,6 +146,7 @@
 ### Task 7: CI — mergeability gate + workflow paths
 
 **Files:**
+
 - Modify: [`.github/workflows/pr-mergeability-gate.yml`](../../.github/workflows/pr-mergeability-gate.yml)
 - Modify: [`.github/workflows/validate.yml`](../../.github/workflows/validate.yml)
 - Modify: [`.github/workflows/build.yml`](../../.github/workflows/build.yml)

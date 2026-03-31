@@ -1,6 +1,7 @@
 ---
 skill: "commit-conventions"
-description: "Surfaces the Conventional Commits prefix rules used in this repo and helps draft well-formed commit messages.
+description:
+  "Surfaces the Conventional Commits prefix rules used in this repo and helps draft well-formed commit messages.
 
   Use when writing or reviewing a git commit message, or when unsure which prefix applies to a change.\n"
 type: "prompt"
@@ -127,21 +128,22 @@ Surfaces the Conventional Commits prefix rules used in this repo and helps draft
 ## When to use
 
 When you are about to commit and need to:
+
 - Choose the correct prefix for the change type
 - Draft a commit subject line (imperative mood, ≤72 chars)
 - Review whether a message follows the repo's conventions
 
 ## Prefix reference
 
-| Prefix | Use for |
-|--------|---------|
-| `feat:` | New feature or capability |
-| `fix:` | Bug fix |
-| `style:` | CSS or formatting-only change (no logic change) |
-| `refactor:` | Restructure without behaviour change |
-| `docs:` | Documentation only |
-| `build:` | Build system, tooling, CI/CD |
-| `chore:` | Maintenance (deps, version bumps, cleanup) |
+| Prefix      | Use for                                         |
+| ----------- | ----------------------------------------------- |
+| `feat:`     | New feature or capability                       |
+| `fix:`      | Bug fix                                         |
+| `style:`    | CSS or formatting-only change (no logic change) |
+| `refactor:` | Restructure without behaviour change            |
+| `docs:`     | Documentation only                              |
+| `build:`    | Build system, tooling, CI/CD                    |
+| `chore:`    | Maintenance (deps, version bumps, cleanup)      |
 
 ## Instructions
 
@@ -157,21 +159,25 @@ If `context` input is provided, apply these rules to produce a complete commit m
 ## Examples
 
 ### New feature
+
 ```
 feat: add ops/new-skill.sh scaffold script
 ```
 
 ### Bug fix
+
 ```
 fix: repair broken symlink for session-start-hook
 ```
 
 ### Documentation update
+
 ```
 docs: add CLAUDE.md with dev conventions and git workflow
 ```
 
 ### Multi-line commit (complex change)
+
 ```
 refactor: split marketplace discovery from loading
 

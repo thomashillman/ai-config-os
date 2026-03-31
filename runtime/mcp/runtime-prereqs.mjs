@@ -4,8 +4,8 @@
  * Runtime prerequisite checks for MCP server operation.
  * Ensures that required system tools are available.
  */
-import { execFileSync } from 'node:child_process';
-import { getRuntimeMode } from '../lib/capability-profile.mjs';
+import { execFileSync } from "node:child_process";
+import { getRuntimeMode } from "../lib/capability-profile.mjs";
 
 /**
  * Assert that all runtime prerequisites are met, using an injected exec function.
@@ -14,17 +14,27 @@ import { getRuntimeMode } from '../lib/capability-profile.mjs';
  * @param {Function} execFn - function with signature (cmd, args, opts) => string
  * @throws {Error} if a required tool is missing
  */
-export function assertRuntimePrereqsWith(execFn, runtimeMode = getRuntimeMode()) {
-  if (runtimeMode === 'web' || runtimeMode === 'mobile' || runtimeMode === 'connector') {
+export function assertRuntimePrereqsWith(
+  execFn,
+  runtimeMode = getRuntimeMode(),
+) {
+  if (
+    runtimeMode === "web" ||
+    runtimeMode === "mobile" ||
+    runtimeMode === "connector"
+  ) {
     return;
   }
 
   try {
-    execFn('bash', ['-lc', 'command -v bash'], { encoding: 'utf8', timeout: 5000 });
+    execFn("bash", ["-lc", "command -v bash"], {
+      encoding: "utf8",
+      timeout: 5000,
+    });
   } catch {
     throw new Error(
-      'ai-config-os runtime requires bash on PATH. ' +
-      'Build and validation may be cross-platform, but MCP runtime execution is Unix-like only.'
+      "ai-config-os runtime requires bash on PATH. " +
+        "Build and validation may be cross-platform, but MCP runtime execution is Unix-like only.",
     );
   }
 }

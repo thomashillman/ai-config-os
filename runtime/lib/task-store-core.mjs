@@ -1,4 +1,8 @@
-import { TaskConflictError, TaskNotFoundError, createReadinessView } from './task-shared.mjs';
+import {
+  TaskConflictError,
+  TaskNotFoundError,
+  createReadinessView,
+} from "./task-shared.mjs";
 
 export { TaskConflictError, TaskNotFoundError };
 
@@ -6,15 +10,15 @@ function defaultClone(value) {
   try {
     return JSON.parse(JSON.stringify(value));
   } catch {
-    if (typeof structuredClone === 'function') {
+    if (typeof structuredClone === "function") {
       return structuredClone(value);
     }
-    throw new Error('Unable to clone value');
+    throw new Error("Unable to clone value");
   }
 }
 
 function resolveEnvSecret() {
-  if (typeof process === 'undefined' || !process?.env) {
+  if (typeof process === "undefined" || !process?.env) {
     return null;
   }
   return process.env.AIOS_HANDOFF_TOKEN_SECRET || null;
@@ -33,32 +37,33 @@ export function createTaskStoreClass({
   maxSnapshots = null,
   setInitialRouteOnCreate = false,
 } = {}) {
-  if (typeof transitionPortableTaskState !== 'function') {
-    throw new Error('transitionPortableTaskState must be provided');
+  if (typeof transitionPortableTaskState !== "function") {
+    throw new Error("transitionPortableTaskState must be provided");
   }
-  if (typeof appendRouteSelection !== 'function') {
-    throw new Error('appendRouteSelection must be provided');
+  if (typeof appendRouteSelection !== "function") {
+    throw new Error("appendRouteSelection must be provided");
   }
-  if (typeof appendFindingToTask !== 'function') {
-    throw new Error('appendFindingToTask must be provided');
+  if (typeof appendFindingToTask !== "function") {
+    throw new Error("appendFindingToTask must be provided");
   }
-  if (typeof transitionFindingsForRouteUpgrade !== 'function') {
-    throw new Error('transitionFindingsForRouteUpgrade must be provided');
+  if (typeof transitionFindingsForRouteUpgrade !== "function") {
+    throw new Error("transitionFindingsForRouteUpgrade must be provided");
   }
-  if (typeof ProgressEventStore !== 'function') {
-    throw new Error('ProgressEventStore must be provided');
+  if (typeof ProgressEventStore !== "function") {
+    throw new Error("ProgressEventStore must be provided");
   }
-  if (typeof createHandoffTokenService !== 'function') {
-    throw new Error('createHandoffTokenService must be provided');
+  if (typeof createHandoffTokenService !== "function") {
+    throw new Error("createHandoffTokenService must be provided");
   }
 
-  const validate = typeof validateContract === 'function'
-    ? (contractName, value) => validateContract(contractName, value)
-    : (_contractName, value) => value;
+  const validate =
+    typeof validateContract === "function"
+      ? (contractName, value) => validateContract(contractName, value)
+      : (_contractName, value) => value;
 
   function createSnapshot(task) {
-    return validate('taskStateSnapshot', {
-      schema_version: '1.0.0',
+    return validate("taskStateSnapshot", {
+      schema_version: "1.0.0",
       task_id: task.task_id,
       snapshot_version: task.version,
       created_at: task.updated_at,
@@ -68,7 +73,11 @@ export function createTaskStoreClass({
 
   function appendSnapshot(snapshots, snapshot) {
     snapshots.push(snapshot);
-    if (Number.isInteger(maxSnapshots) && maxSnapshots > 0 && snapshots.length > maxSnapshots) {
+    if (
+      Number.isInteger(maxSnapshots) &&
+      maxSnapshots > 0 &&
+      snapshots.length > maxSnapshots
+    ) {
       snapshots.splice(0, snapshots.length - maxSnapshots);
     }
   }
@@ -86,8 +95,9 @@ export function createTaskStoreClass({
       this.snapshots = new Map();
       this.progressEvents = new ProgressEventStore();
       const envSecret = resolveEnvSecret();
-      this.handoffTokenService = handoffTokenService
-        || (envSecret ? createHandoffTokenService({ secret: envSecret }) : null);
+      this.handoffTokenService =
+        handoffTokenService ||
+        (envSecret ? createHandoffTokenService({ secret: envSecret }) : null);
     }
 
     create(task) {
@@ -96,9 +106,12 @@ export function createTaskStoreClass({
         nextTask.initial_route = nextTask.current_route;
       }
 
-      const validated = validate('portableTaskObject', nextTask);
+      const validated = validate("portableTaskObject", nextTask);
       if (this.tasks.has(validated.task_id)) {
-        throw new TaskConflictError(`Task already exists: ${validated.task_id}`, { taskId: validated.task_id });
+        throw new TaskConflictError(
+          `Task already exists: ${validated.task_id}`,
+          { taskId: validated.task_id },
+        );
       }
 
       this.tasks.set(validated.task_id, validated);
@@ -123,7 +136,7 @@ export function createTaskStoreClass({
         throw toConflict(taskId, expectedVersion, current.version);
       }
 
-      const next = validate('portableTaskObject', {
+      const next = validate("portableTaskObject", {
         ...current,
         ...clone(changes),
         version: current.version + 1,
@@ -137,7 +150,10 @@ export function createTaskStoreClass({
       return clone(next);
     }
 
-    transitionState(taskId, { expectedVersion, nextState, nextAction, updatedAt, progress }) {
+    transitionState(
+      taskId,
+      { expectedVersion, nextState, nextAction, updatedAt, progress },
+    ) {
       const current = this.tasks.get(taskId);
       if (!current) {
         throw new TaskNotFoundError(taskId);
@@ -163,7 +179,7 @@ export function createTaskStoreClass({
       this.progressEvents.append({
         taskId,
         eventId: `evt_${validated.version}_state_change`,
-        type: 'state_change',
+        type: "state_change",
         message: `Task transitioned to ${validated.state}.`,
         createdAt: updatedAt,
         metadata: {
@@ -201,7 +217,7 @@ export function createTaskStoreClass({
       this.progressEvents.append({
         taskId,
         eventId: `evt_${next.version}_finding_recorded`,
-        type: 'finding_recorded',
+        type: "finding_recorded",
         message: `Recorded finding ${latestFinding.finding_id}.`,
         createdAt: updatedAt,
         metadata: {
@@ -213,7 +229,10 @@ export function createTaskStoreClass({
       return clone(next);
     }
 
-    transitionFindingsForRouteUpgrade(taskId, { expectedVersion, toRouteId, upgradedAt, toEquivalenceLevel }) {
+    transitionFindingsForRouteUpgrade(
+      taskId,
+      { expectedVersion, toRouteId, upgradedAt, toEquivalenceLevel },
+    ) {
       const current = this.tasks.get(taskId);
       if (!current) {
         throw new TaskNotFoundError(taskId);
@@ -229,7 +248,7 @@ export function createTaskStoreClass({
         toEquivalenceLevel,
       });
 
-      const next = validate('portableTaskObject', {
+      const next = validate("portableTaskObject", {
         ...clone(current),
         findings: transitionedFindings,
         version: current.version + 1,
@@ -241,20 +260,26 @@ export function createTaskStoreClass({
       appendSnapshot(snapshots, createSnapshot(next));
       this.snapshots.set(taskId, snapshots);
 
-      const reclassifiedCount = transitionedFindings.reduce((count, nextFinding, index) => {
-        const previousFinding = current.findings[index];
-        if (!previousFinding) {
-          return count + 1;
-        }
-        const statusChanged = previousFinding.provenance.status !== nextFinding.provenance.status;
-        const routeChanged = previousFinding.provenance.recorded_by_route !== nextFinding.provenance.recorded_by_route;
-        return (statusChanged || routeChanged) ? count + 1 : count;
-      }, 0);
+      const reclassifiedCount = transitionedFindings.reduce(
+        (count, nextFinding, index) => {
+          const previousFinding = current.findings[index];
+          if (!previousFinding) {
+            return count + 1;
+          }
+          const statusChanged =
+            previousFinding.provenance.status !== nextFinding.provenance.status;
+          const routeChanged =
+            previousFinding.provenance.recorded_by_route !==
+            nextFinding.provenance.recorded_by_route;
+          return statusChanged || routeChanged ? count + 1 : count;
+        },
+        0,
+      );
 
       this.progressEvents.append({
         taskId,
         eventId: `evt_${next.version}_finding_transitioned`,
-        type: 'finding_transitioned',
+        type: "finding_transitioned",
         message: `Updated findings provenance for route upgrade to ${toRouteId}.`,
         createdAt: upgradedAt,
         metadata: {
@@ -291,7 +316,7 @@ export function createTaskStoreClass({
       this.progressEvents.append({
         taskId,
         eventId: `evt_${next.version}_route_selected`,
-        type: 'route_selected',
+        type: "route_selected",
         message: `Selected route ${routeId}.`,
         createdAt: selectedAt,
         metadata: {
@@ -318,54 +343,70 @@ export function createTaskStoreClass({
       return clone(createReadinessView(task, progressEvents));
     }
 
-    createContinuationPackage(taskId, {
-      handoffToken,
-      effectiveExecutionContract,
-      createdAt = new Date().toISOString(),
-    }) {
+    createContinuationPackage(
+      taskId,
+      {
+        handoffToken,
+        effectiveExecutionContract,
+        createdAt = new Date().toISOString(),
+      },
+    ) {
       const task = this.tasks.get(taskId);
       if (!task) {
         throw new TaskNotFoundError(taskId);
       }
 
-      const validatedHandoffToken = validate('handoffToken', clone(handoffToken));
+      const validatedHandoffToken = validate(
+        "handoffToken",
+        clone(handoffToken),
+      );
       if (validatedHandoffToken.task_id !== taskId) {
         throw new Error(`handoffToken.task_id must match taskId '${taskId}'`);
       }
 
-      const validatedExecutionContract = validate('effectiveExecutionContract', clone(effectiveExecutionContract));
+      const validatedExecutionContract = validate(
+        "effectiveExecutionContract",
+        clone(effectiveExecutionContract),
+      );
       if (validatedExecutionContract.task_id !== taskId) {
-        throw new Error(`effectiveExecutionContract.task_id must match taskId '${taskId}'`);
+        throw new Error(
+          `effectiveExecutionContract.task_id must match taskId '${taskId}'`,
+        );
       }
       if (validatedExecutionContract.task_type !== task.task_type) {
-        throw new Error(`effectiveExecutionContract.task_type must match task task_type '${task.task_type}'`);
+        throw new Error(
+          `effectiveExecutionContract.task_type must match task task_type '${task.task_type}'`,
+        );
       }
 
       const existingContinuationEvent = this.progressEvents
         .listByTaskId(taskId)
-        .find((event) => (
-          event.type === 'continuation_created'
-          && event.metadata?.handoff_token_id === validatedHandoffToken.token_id
-        ));
+        .find(
+          (event) =>
+            event.type === "continuation_created" &&
+            event.metadata?.handoff_token_id === validatedHandoffToken.token_id,
+        );
 
-      const canonicalCreatedAt = existingContinuationEvent?.metadata?.continuation_package_created_at
-        || existingContinuationEvent?.created_at
-        || createdAt;
+      const canonicalCreatedAt =
+        existingContinuationEvent?.metadata?.continuation_package_created_at ||
+        existingContinuationEvent?.created_at ||
+        createdAt;
 
-      const createPackage = (timestamp) => validate('continuationPackage', {
-        schema_version: '1.0.0',
-        task: clone(task),
-        effective_execution_contract: validatedExecutionContract,
-        handoff_token_id: validatedHandoffToken.token_id,
-        created_at: timestamp,
-      });
+      const createPackage = (timestamp) =>
+        validate("continuationPackage", {
+          schema_version: "1.0.0",
+          task: clone(task),
+          effective_execution_contract: validatedExecutionContract,
+          handoff_token_id: validatedHandoffToken.token_id,
+          created_at: timestamp,
+        });
 
       if (existingContinuationEvent) {
         return clone(createPackage(canonicalCreatedAt));
       }
 
       if (!this.handoffTokenService) {
-        throw new Error('handoffTokenService is not configured');
+        throw new Error("handoffTokenService is not configured");
       }
 
       this.handoffTokenService.verifyToken({
@@ -385,7 +426,7 @@ export function createTaskStoreClass({
       const eventPayload = {
         taskId,
         eventId: `evt_continuation_created_${validatedHandoffToken.token_id}`,
-        type: 'continuation_created',
+        type: "continuation_created",
         message: `Created continuation package for token ${validatedHandoffToken.token_id}.`,
         createdAt,
         metadata: {
@@ -403,18 +444,23 @@ export function createTaskStoreClass({
 
         const equivalentEvent = this.progressEvents
           .listByTaskId(taskId)
-          .find((event) => (
-            event.type === 'continuation_created'
-            && event.metadata?.handoff_token_id === validatedHandoffToken.token_id
-          ));
+          .find(
+            (event) =>
+              event.type === "continuation_created" &&
+              event.metadata?.handoff_token_id ===
+                validatedHandoffToken.token_id,
+          );
 
         if (!equivalentEvent) {
           throw error;
         }
 
-        return clone(createPackage(
-          equivalentEvent.metadata?.continuation_package_created_at || equivalentEvent.created_at,
-        ));
+        return clone(
+          createPackage(
+            equivalentEvent.metadata?.continuation_package_created_at ||
+              equivalentEvent.created_at,
+          ),
+        );
       }
 
       return clone(continuationPackage);
@@ -434,7 +480,9 @@ export function createTaskStoreClass({
         throw new TaskNotFoundError(taskId);
       }
 
-      const snapshot = snapshots.find((item) => item.snapshot_version === snapshotVersion);
+      const snapshot = snapshots.find(
+        (item) => item.snapshot_version === snapshotVersion,
+      );
       if (!snapshot) {
         throw new TaskNotFoundError(`${taskId}@${snapshotVersion}`);
       }

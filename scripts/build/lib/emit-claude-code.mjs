@@ -14,9 +14,9 @@
  *     skills/<skill-name>/SKILL.md
  *     skills/<skill-name>/prompts/   (if present in source)
  */
-import { mkdirSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { emitSkillTree } from './emit-skill-tree.mjs';
+import { mkdirSync, writeFileSync } from "fs";
+import { join, dirname } from "path";
+import { emitSkillTree } from "./emit-skill-tree.mjs";
 
 /**
  * Normalize SKILL.md for Claude Code: inject `name:` from `skill:` when missing.
@@ -26,7 +26,7 @@ import { emitSkillTree } from './emit-skill-tree.mjs';
  * @returns {string}
  */
 export function transformSkillMdForClaude(raw, skill) {
-  const normalized = raw.replace(/\r\n/g, '\n');
+  const normalized = raw.replace(/\r\n/g, "\n");
   const skillName = skill.frontmatter?.skill || skill.skillName;
 
   if (skill.frontmatter?.name) {
@@ -46,21 +46,26 @@ export function transformSkillMdForClaude(raw, skill) {
  * @param {string} [opts.provenance.buildId]
  * @param {string} [opts.provenance.sourceCommit]
  */
-export function emitClaudeCode(skills, { distDir, releaseVersion, provenance }) {
-  const distSkillsDir = join(distDir, 'skills');
+export function emitClaudeCode(
+  skills,
+  { distDir, releaseVersion, provenance },
+) {
+  const distSkillsDir = join(distDir, "skills");
   emitSkillTree(skills, distSkillsDir, transformSkillMdForClaude);
-  console.log(`  [claude-code] emitted ${skills.length} skill(s) to ${distDir}/skills/`);
+  console.log(
+    `  [claude-code] emitted ${skills.length} skill(s) to ${distDir}/skills/`,
+  );
 
-  const pluginJsonPath = join(distDir, '.claude-plugin', 'plugin.json');
+  const pluginJsonPath = join(distDir, ".claude-plugin", "plugin.json");
   mkdirSync(dirname(pluginJsonPath), { recursive: true });
 
   const pluginJson = {
-    name: 'core-skills',
+    name: "core-skills",
     version: releaseVersion,
-    description: 'Core AI Config OS skills',
-    skills: skills.map(s => ({
+    description: "Core AI Config OS skills",
+    skills: skills.map((s) => ({
       name: s.skillName,
-      version: s.frontmatter.version || '1.0.0',
+      version: s.frontmatter.version || "1.0.0",
       path: `skills/${s.skillName}/SKILL.md`,
     })),
   };
@@ -68,9 +73,10 @@ export function emitClaudeCode(skills, { distDir, releaseVersion, provenance }) 
   if (provenance) {
     if (provenance.builtAt) pluginJson.built_at = provenance.builtAt;
     if (provenance.buildId) pluginJson.build_id = provenance.buildId;
-    if (provenance.sourceCommit) pluginJson.source_commit = provenance.sourceCommit;
+    if (provenance.sourceCommit)
+      pluginJson.source_commit = provenance.sourceCommit;
   }
 
-  writeFileSync(pluginJsonPath, JSON.stringify(pluginJson, null, 2) + '\n');
+  writeFileSync(pluginJsonPath, JSON.stringify(pluginJson, null, 2) + "\n");
   console.log(`  [claude-code] plugin.json → ${pluginJsonPath}`);
 }

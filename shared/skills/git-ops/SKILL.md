@@ -1,6 +1,7 @@
 ---
 skill: "git-ops"
-description: "Guards and guides git operations for this repo, especially version bumping.
+description:
+  "Guards and guides git operations for this repo, especially version bumping.
 
   Ensures single-source-of-truth for monotonically-incrementing values like plugin.json.\n"
 type: "hook"
@@ -137,6 +138,7 @@ When called with `operation: validate-file`:
 **Input:** `operation: bump-version, file: plugins/core-skills/.claude-plugin/plugin.json`
 
 **Output:**
+
 ```
 {
   allowed: true,
@@ -151,6 +153,7 @@ When called with `operation: validate-file`:
 **Input:** `operation: rebase-session, branch: claude/my-feature, commits: 3`
 
 **Output:**
+
 ```
 {
   allowed: true,
@@ -164,6 +167,7 @@ When called with `operation: validate-file`:
 **Input:** `operation: bump-version, file: plugin.json, known_open_branches: [claude/feature-a, claude/feature-b]`
 
 **Output:**
+
 ```
 {
   allowed: false,

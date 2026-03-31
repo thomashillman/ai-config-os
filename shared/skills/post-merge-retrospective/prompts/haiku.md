@@ -19,6 +19,7 @@ Analyze the conversation already in context. Identify every friction signal, app
 ## Decision gate for skill recommendations
 
 Only recommend a skill if ALL of the following are true:
+
 1. The friction signal is `repeatable: true`
 2. The impact is `medium` or `high`
 3. One of: (a) domain-specific context not in Claude's training, (b) 3+ steps assembled from scratch, (c) a hook/guard would prevent recurrence
@@ -27,7 +28,7 @@ Only recommend a skill if ALL of the following are true:
 
 Respond with:
 
-1. The raw JSON artifact (wrapped in ```json ... ```)
+1. The raw JSON artifact (wrapped in `json ... `)
 2. Run the emit step below
 3. A 3-line summary (no other prose):
    ```
@@ -48,6 +49,7 @@ After generating the artifact JSON:
 4. All paths fail → print JSON to stdout; use "stdout" as the artifact path and note "(stdout fallback)".
 
 To query retrospectives for skill-creation signals later:
+
 ```bash
 curl -s "${AI_CONFIG_WORKER}/v1/retrospectives/aggregate" -H "Authorization: Bearer ${AI_CONFIG_TOKEN}"
 ```

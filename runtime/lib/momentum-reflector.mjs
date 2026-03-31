@@ -10,21 +10,31 @@ function classifyEngagement(observations) {
     if (!point) continue;
 
     if (!byPoint[point]) {
-      byPoint[point] = { total: 0, engaged: 0, ignored: 0, upgrade_accepted: 0, upgrade_declined: 0 };
+      byPoint[point] = {
+        total: 0,
+        engaged: 0,
+        ignored: 0,
+        upgrade_accepted: 0,
+        upgrade_declined: 0,
+      };
     }
 
     byPoint[point].total += 1;
     const responseType = response?.metadata?.response_type;
-    if (responseType === 'engaged' || responseType === 'follow_up' || responseType === 'accepted_upgrade') {
+    if (
+      responseType === "engaged" ||
+      responseType === "follow_up" ||
+      responseType === "accepted_upgrade"
+    ) {
       byPoint[point].engaged += 1;
     }
-    if (responseType === 'ignored') {
+    if (responseType === "ignored") {
       byPoint[point].ignored += 1;
     }
-    if (responseType === 'accepted_upgrade') {
+    if (responseType === "accepted_upgrade") {
       byPoint[point].upgrade_accepted += 1;
     }
-    if (responseType === 'declined_upgrade') {
+    if (responseType === "declined_upgrade") {
       byPoint[point].upgrade_declined += 1;
     }
   }
@@ -55,8 +65,8 @@ function findTemplateEffectivenessInsights(engagementByPoint, insightIndex) {
 
   if (best.total >= 3 && worst.total >= 3 && best.rate - worst.rate > 0.2) {
     insights.push({
-      id: `insight_${String(insightIndex.value++).padStart(3, '0')}`,
-      type: 'template_effectiveness',
+      id: `insight_${String(insightIndex.value++).padStart(3, "0")}`,
+      type: "template_effectiveness",
       finding: `'${best.point}' narrations get ${(best.rate * 100).toFixed(0)}% engagement vs ${(worst.rate * 100).toFixed(0)}% for '${worst.point}'`,
       evidence: {
         best_point: best.point,
@@ -84,14 +94,16 @@ function findUpgradeAcceptanceInsights(engagementByPoint, insightIndex) {
   const upgradeData = engagementByPoint.onUpgradeAvailable;
   if (!upgradeData || upgradeData.total < 2) return insights;
 
-  const acceptRate = (upgradeData.upgrade_accepted + upgradeData.upgrade_declined) > 0
-    ? upgradeData.upgrade_accepted / (upgradeData.upgrade_accepted + upgradeData.upgrade_declined)
-    : null;
+  const acceptRate =
+    upgradeData.upgrade_accepted + upgradeData.upgrade_declined > 0
+      ? upgradeData.upgrade_accepted /
+        (upgradeData.upgrade_accepted + upgradeData.upgrade_declined)
+      : null;
 
   if (acceptRate !== null) {
     insights.push({
-      id: `insight_${String(insightIndex.value++).padStart(3, '0')}`,
-      type: 'upgrade_acceptance',
+      id: `insight_${String(insightIndex.value++).padStart(3, "0")}`,
+      type: "upgrade_acceptance",
       finding: `Upgrade acceptance rate: ${(acceptRate * 100).toFixed(0)}% (${upgradeData.upgrade_accepted} accepted, ${upgradeData.upgrade_declined} declined)`,
       evidence: {
         accepted: upgradeData.upgrade_accepted,
@@ -110,18 +122,22 @@ function findIntentCoverageInsights(observations, insightIndex) {
 
   // Look for user_response events with follow_up_text that could be intents
   const followUps = observations
-    .filter((o) => o.response?.metadata?.response_type === 'follow_up' && o.response?.metadata?.follow_up_text)
+    .filter(
+      (o) =>
+        o.response?.metadata?.response_type === "follow_up" &&
+        o.response?.metadata?.follow_up_text,
+    )
     .map((o) => o.response.metadata.follow_up_text);
 
   if (followUps.length >= 2) {
     insights.push({
-      id: `insight_${String(insightIndex.value++).padStart(3, '0')}`,
-      type: 'intent_coverage',
+      id: `insight_${String(insightIndex.value++).padStart(3, "0")}`,
+      type: "intent_coverage",
       finding: `${followUps.length} follow-up phrases could map to known task types`,
       evidence: { phrases: followUps.slice(0, 10) },
       suggestion: {
-        target: 'definitions',
-        action: 'add_patterns',
+        target: "definitions",
+        action: "add_patterns",
         patterns: followUps.slice(0, 5),
         taskType: null,
         confidence: 0.5,
@@ -139,7 +155,7 @@ function findResponseTimeInsights(observations, insightIndex) {
   for (const { narration, response } of observations) {
     const point = narration?.metadata?.narration_point;
     const timeMs = response?.metadata?.time_to_action_ms;
-    if (!point || typeof timeMs !== 'number') continue;
+    if (!point || typeof timeMs !== "number") continue;
 
     if (!byPoint[point]) byPoint[point] = [];
     byPoint[point].push(timeMs);
@@ -160,8 +176,8 @@ function findResponseTimeInsights(observations, insightIndex) {
 
     if (slowest.median > fastest.median * 2) {
       insights.push({
-        id: `insight_${String(insightIndex.value++).padStart(3, '0')}`,
-        type: 'response_time',
+        id: `insight_${String(insightIndex.value++).padStart(3, "0")}`,
+        type: "response_time",
         finding: `'${fastest.point}' gets responses in ${fastest.median}ms median vs ${slowest.median}ms for '${slowest.point}'`,
         evidence: {
           fastest_point: fastest.point,
@@ -177,7 +193,11 @@ function findResponseTimeInsights(observations, insightIndex) {
   return insights;
 }
 
-export function reflect({ observations, currentTemplates, currentDefinitions } = {}) {
+export function reflect({
+  observations,
+  currentTemplates,
+  currentDefinitions,
+} = {}) {
   const obs = observations || [];
 
   const period = {
@@ -196,7 +216,10 @@ export function reflect({ observations, currentTemplates, currentDefinitions } =
 
   const totalNarrations = obs.filter((o) => o.narration).length;
   const totalResponses = obs.filter((o) => o.response).length;
-  const engagementRate = totalNarrations > 0 ? Number((totalResponses / totalNarrations).toFixed(2)) : 0;
+  const engagementRate =
+    totalNarrations > 0
+      ? Number((totalResponses / totalNarrations).toFixed(2))
+      : 0;
 
   const engagementByPoint = classifyEngagement(obs);
   const insightIndex = { value: 1 };
@@ -211,7 +234,10 @@ export function reflect({ observations, currentTemplates, currentDefinitions } =
   // Cap all confidence values to [0, 1]
   for (const insight of insights) {
     if (insight.suggestion?.confidence !== undefined) {
-      insight.suggestion.confidence = Math.max(0, Math.min(1, insight.suggestion.confidence));
+      insight.suggestion.confidence = Math.max(
+        0,
+        Math.min(1, insight.suggestion.confidence),
+      );
     }
   }
 

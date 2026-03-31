@@ -1,9 +1,9 @@
 export class ExecutorHttpError extends Error {
   constructor(status, code, message) {
-    super(String(message || 'Executor request failed'));
-    this.name = 'ExecutorHttpError';
+    super(String(message || "Executor request failed"));
+    this.name = "ExecutorHttpError";
     this.status = Number(status);
-    this.code = String(code || 'EXECUTOR_ERROR');
+    this.code = String(code || "EXECUTOR_ERROR");
   }
 }
 
@@ -22,7 +22,8 @@ export function toErrorResponse(error) {
     };
   }
 
-  const isValidationError = error instanceof TypeError || error instanceof SyntaxError;
+  const isValidationError =
+    error instanceof TypeError || error instanceof SyntaxError;
   const status = isValidationError ? 400 : 500;
   return {
     status,
@@ -30,7 +31,7 @@ export function toErrorResponse(error) {
       ok: false,
       status,
       error: {
-        code: status === 400 ? 'BAD_REQUEST' : 'EXECUTOR_ERROR',
+        code: status === 400 ? "BAD_REQUEST" : "EXECUTOR_ERROR",
         message: error instanceof Error ? error.message : String(error),
       },
     },

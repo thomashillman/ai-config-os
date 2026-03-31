@@ -30,11 +30,11 @@ export function buildPlatformSkillsAndCheckZeroEmit(compatMatrix, skillById) {
     }
 
     const skill = skillById.get(skillId);
-    if (skill && !hasEmit && skill.frontmatter.status !== 'deprecated') {
+    if (skill && !hasEmit && skill.frontmatter.status !== "deprecated") {
       zeroEmitSkills.push(skillId);
     }
 
-    logLines.push(`  ${skillId}: ${statuses.join(', ')}`);
+    logLines.push(`  ${skillId}: ${statuses.join(", ")}`);
   }
 
   return { platformSkills, zeroEmitSkills, logLines };

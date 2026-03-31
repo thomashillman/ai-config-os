@@ -1,5 +1,5 @@
-import type { ExecutorEnv } from './index';
-import type { ExecuteResponse } from './handler';
+import type { ExecutorEnv } from "./index";
+import type { ExecuteResponse } from "./handler";
 
 /**
  * Tool: health_check
@@ -10,8 +10,8 @@ export async function healthCheck(): Promise<ExecuteResponse> {
     ok: true,
     status: 200,
     result: {
-      status: 'healthy',
-      service: 'executor',
+      status: "healthy",
+      service: "executor",
       timestamp: new Date().toISOString(),
     },
   };
@@ -26,11 +26,11 @@ export async function listPhase1Tools(): Promise<ExecuteResponse> {
     ok: true,
     status: 200,
     result: [
-      'health_check',
-      'list_phase1_tools',
-      'get_skill_metadata',
-      'get_artifact',
-      'skill_stats_cached',
+      "health_check",
+      "list_phase1_tools",
+      "get_skill_metadata",
+      "get_artifact",
+      "skill_stats_cached",
     ],
   };
 }
@@ -42,22 +42,28 @@ export async function listPhase1Tools(): Promise<ExecuteResponse> {
  * Expected key format: skill:<skill-id>
  * Returns: parsed JSON object from KV
  */
-export async function getSkillMetadata(skillId: string, env: ExecutorEnv): Promise<ExecuteResponse> {
+export async function getSkillMetadata(
+  skillId: string,
+  env: ExecutorEnv,
+): Promise<ExecuteResponse> {
   // Validate binding
   if (!env.MANIFEST_KV) {
     return {
       ok: false,
       status: 503,
-      error: { code: 'SERVICE_UNAVAILABLE', message: 'MANIFEST_KV binding not configured' },
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "MANIFEST_KV binding not configured",
+      },
     };
   }
 
   // Validate skill ID (basic check: non-empty, no path traversal)
-  if (!skillId || skillId.includes('/') || skillId.includes('..')) {
+  if (!skillId || skillId.includes("/") || skillId.includes("..")) {
     return {
       ok: false,
       status: 400,
-      error: { code: 'INVALID_REQUEST', message: 'Invalid skill ID' },
+      error: { code: "INVALID_REQUEST", message: "Invalid skill ID" },
     };
   }
 
@@ -69,7 +75,10 @@ export async function getSkillMetadata(skillId: string, env: ExecutorEnv): Promi
       return {
         ok: false,
         status: 404,
-        error: { code: 'NOT_FOUND', message: `Skill '${skillId}' not found in KV` },
+        error: {
+          code: "NOT_FOUND",
+          message: `Skill '${skillId}' not found in KV`,
+        },
       };
     }
 
@@ -81,7 +90,10 @@ export async function getSkillMetadata(skillId: string, env: ExecutorEnv): Promi
       return {
         ok: false,
         status: 500,
-        error: { code: 'INVALID_DATA', message: 'Skill metadata is not valid JSON' },
+        error: {
+          code: "INVALID_DATA",
+          message: "Skill metadata is not valid JSON",
+        },
       };
     }
 
@@ -96,11 +108,14 @@ export async function getSkillMetadata(skillId: string, env: ExecutorEnv): Promi
       },
     };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
     return {
       ok: false,
       status: 500,
-      error: { code: 'INTERNAL_ERROR', message: `KV read failed: ${errorMessage}` },
+      error: {
+        code: "INTERNAL_ERROR",
+        message: `KV read failed: ${errorMessage}`,
+      },
     };
   }
 }
@@ -113,13 +128,20 @@ export async function getSkillMetadata(skillId: string, env: ExecutorEnv): Promi
  * Version must be semver (e.g., 1.0.0)
  * Name must be whitelisted (manifest.json, outcomes.json, routes.json, tools.json)
  */
-export async function getArtifact(version: string, name: string, env: ExecutorEnv): Promise<ExecuteResponse> {
+export async function getArtifact(
+  version: string,
+  name: string,
+  env: ExecutorEnv,
+): Promise<ExecuteResponse> {
   // Validate binding
   if (!env.ARTEFACTS_R2) {
     return {
       ok: false,
       status: 503,
-      error: { code: 'SERVICE_UNAVAILABLE', message: 'ARTEFACTS_R2 binding not configured' },
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "ARTEFACTS_R2 binding not configured",
+      },
     };
   }
 
@@ -128,19 +150,27 @@ export async function getArtifact(version: string, name: string, env: ExecutorEn
     return {
       ok: false,
       status: 400,
-      error: { code: 'INVALID_REQUEST', message: 'Version must be semver format (e.g., 1.0.0)' },
+      error: {
+        code: "INVALID_REQUEST",
+        message: "Version must be semver format (e.g., 1.0.0)",
+      },
     };
   }
 
   // Whitelist artifact names (prevent path traversal)
-  const allowedNames = new Set(['manifest.json', 'outcomes.json', 'routes.json', 'tools.json']);
+  const allowedNames = new Set([
+    "manifest.json",
+    "outcomes.json",
+    "routes.json",
+    "tools.json",
+  ]);
   if (!allowedNames.has(name)) {
     return {
       ok: false,
       status: 400,
       error: {
-        code: 'INVALID_REQUEST',
-        message: `Artifact name must be one of: ${Array.from(allowedNames).join(', ')}`,
+        code: "INVALID_REQUEST",
+        message: `Artifact name must be one of: ${Array.from(allowedNames).join(", ")}`,
       },
     };
   }
@@ -154,7 +184,7 @@ export async function getArtifact(version: string, name: string, env: ExecutorEn
       return {
         ok: false,
         status: 404,
-        error: { code: 'NOT_FOUND', message: `Artifact not found: ${key}` },
+        error: { code: "NOT_FOUND", message: `Artifact not found: ${key}` },
       };
     }
 
@@ -163,11 +193,14 @@ export async function getArtifact(version: string, name: string, env: ExecutorEn
     try {
       text = await artifact.text();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       return {
         ok: false,
         status: 500,
-        error: { code: 'READ_ERROR', message: `Failed to read artifact: ${errorMessage}` },
+        error: {
+          code: "READ_ERROR",
+          message: `Failed to read artifact: ${errorMessage}`,
+        },
       };
     }
 
@@ -179,7 +212,7 @@ export async function getArtifact(version: string, name: string, env: ExecutorEn
       return {
         ok: false,
         status: 500,
-        error: { code: 'INVALID_DATA', message: 'Artifact is not valid JSON' },
+        error: { code: "INVALID_DATA", message: "Artifact is not valid JSON" },
       };
     }
 
@@ -195,11 +228,14 @@ export async function getArtifact(version: string, name: string, env: ExecutorEn
       },
     };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
     return {
       ok: false,
       status: 500,
-      error: { code: 'INTERNAL_ERROR', message: `R2 read failed: ${errorMessage}` },
+      error: {
+        code: "INTERNAL_ERROR",
+        message: `R2 read failed: ${errorMessage}`,
+      },
     };
   }
 }
@@ -214,18 +250,23 @@ export async function getArtifact(version: string, name: string, env: ExecutorEn
  * Note: Stats must be pre-computed and stored in KV by an external process.
  * This tool only retrieves them; it does not compute live metrics.
  */
-export async function skillStatsCached(env: ExecutorEnv): Promise<ExecuteResponse> {
+export async function skillStatsCached(
+  env: ExecutorEnv,
+): Promise<ExecuteResponse> {
   // Validate binding
   if (!env.MANIFEST_KV) {
     return {
       ok: false,
       status: 503,
-      error: { code: 'SERVICE_UNAVAILABLE', message: 'MANIFEST_KV binding not configured' },
+      error: {
+        code: "SERVICE_UNAVAILABLE",
+        message: "MANIFEST_KV binding not configured",
+      },
     };
   }
 
   try {
-    const statsKey = 'stats:latest';
+    const statsKey = "stats:latest";
     const stats = await env.MANIFEST_KV.get(statsKey);
 
     // Stats not yet computed/cached
@@ -233,7 +274,10 @@ export async function skillStatsCached(env: ExecutorEnv): Promise<ExecuteRespons
       return {
         ok: false,
         status: 503,
-        error: { code: 'NOT_AVAILABLE', message: 'Cached stats not yet available (run build to generate)' },
+        error: {
+          code: "NOT_AVAILABLE",
+          message: "Cached stats not yet available (run build to generate)",
+        },
       };
     }
 
@@ -245,7 +289,10 @@ export async function skillStatsCached(env: ExecutorEnv): Promise<ExecuteRespons
       return {
         ok: false,
         status: 500,
-        error: { code: 'INVALID_DATA', message: 'Cached stats are not valid JSON' },
+        error: {
+          code: "INVALID_DATA",
+          message: "Cached stats are not valid JSON",
+        },
       };
     }
 
@@ -259,11 +306,14 @@ export async function skillStatsCached(env: ExecutorEnv): Promise<ExecuteRespons
       },
     };
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
     return {
       ok: false,
       status: 500,
-      error: { code: 'INTERNAL_ERROR', message: `KV stats read failed: ${errorMessage}` },
+      error: {
+        code: "INTERNAL_ERROR",
+        message: `KV stats read failed: ${errorMessage}`,
+      },
     };
   }
 }

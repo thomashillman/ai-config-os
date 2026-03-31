@@ -11,9 +11,10 @@ You are performing a quick code scan. Identify only critical issues that would b
 ## Report Format
 
 **Critical Issues**: [Number found]
+
 - [Issue 1]: [1 sentence description + 1 sentence fix]
 - [Issue 2]: [1 sentence description + 1 sentence fix]
-...
+  ...
 
 **Verdict**: [APPROVE / REQUEST CHANGES]
 

@@ -90,16 +90,16 @@ RTL's `getByText(string)` with `exact: true` (the default) matches elements whos
 
 ### Rule table
 
-| DOM structure | Query | Matches? | Reason |
-|---|---|---|---|
-| `<div>Foo</div>` | `getByText("Foo")` | ✓ | textContent = "Foo" exactly |
-| `<p><span>Label:</span> Foo</p>` | `getByText("Foo")` | ✗ | textContent = "Label: Foo" |
-| `<p><span>Label:</span> Foo</p>` | `getByText(/Foo/)` | ✓ | regex — matches any element whose textContent contains "Foo" |
-| `<p><span>Label:</span> Foo</p>` | `getByText("Label: Foo")` | ✓ | exact match on full textContent |
-| `<li>worker_unreachable</li>` | `getByText("worker_unreachable")` | ✓ | `<li>` textContent is exactly that string |
-| `<span>Degraded</span>` | `getByText("Degraded")` | ✓ | `<span>` textContent = exactly "Degraded" |
-| `<p><span>Status:</span> Degraded</p>` | `getByText("Degraded")` | ✗ | `<p>` textContent = "Status: Degraded"; `<span>` = "Status:" |
-| `<p><span>Status:</span> Degraded</p>` | `getByText(/Degraded/)` | ✓ | regex matches `<p>` |
+| DOM structure                          | Query                             | Matches? | Reason                                                       |
+| -------------------------------------- | --------------------------------- | -------- | ------------------------------------------------------------ |
+| `<div>Foo</div>`                       | `getByText("Foo")`                | ✓        | textContent = "Foo" exactly                                  |
+| `<p><span>Label:</span> Foo</p>`       | `getByText("Foo")`                | ✗        | textContent = "Label: Foo"                                   |
+| `<p><span>Label:</span> Foo</p>`       | `getByText(/Foo/)`                | ✓        | regex — matches any element whose textContent contains "Foo" |
+| `<p><span>Label:</span> Foo</p>`       | `getByText("Label: Foo")`         | ✓        | exact match on full textContent                              |
+| `<li>worker_unreachable</li>`          | `getByText("worker_unreachable")` | ✓        | `<li>` textContent is exactly that string                    |
+| `<span>Degraded</span>`                | `getByText("Degraded")`           | ✓        | `<span>` textContent = exactly "Degraded"                    |
+| `<p><span>Status:</span> Degraded</p>` | `getByText("Degraded")`           | ✗        | `<p>` textContent = "Status: Degraded"; `<span>` = "Status:" |
+| `<p><span>Status:</span> Degraded</p>` | `getByText(/Degraded/)`           | ✓        | regex matches `<p>`                                          |
 
 ### Choosing a query
 
@@ -108,21 +108,26 @@ RTL's `getByText(string)` with `exact: true` (the default) matches elements whos
 2. **Text is part of a mixed-content element** (label + value in the same `<p>`) → use regex `getByText(/value/)` or the full string `getByText("Label: value")`.
 
 3. **Scoping to a container** (e.g. a table row) → `within(container).getByText(...)`:
+
    ```js
-   const row = screen.getByTestId("skill-row-code-review")
-   within(row).getByText("stable")
+   const row = screen.getByTestId("skill-row-code-review");
+   within(row).getByText("stable");
    ```
 
 4. **Async data** (element appears after fetch/state update) → `findByText(...)` or `waitFor(...)`:
+
    ```js
-   expect(await screen.findByText("loop")).toBeInTheDocument()
+   expect(await screen.findByText("loop")).toBeInTheDocument();
    // or
-   await waitFor(() => expect(screen.getByText("loop")).toBeInTheDocument(), { timeout: 5000 })
+   await waitFor(() => expect(screen.getByText("loop")).toBeInTheDocument(), {
+     timeout: 5000,
+   });
    ```
 
 5. **Assert absence** → `queryByText(...)` returns `null` instead of throwing:
+
    ```js
-   expect(screen.queryByText("No data")).not.toBeInTheDocument()
+   expect(screen.queryByText("No data")).not.toBeInTheDocument();
    ```
 
 6. **Interactive elements** → prefer `getByRole("button", { name: "Sync Now" })` — more resilient than `getByText`.
@@ -144,6 +149,7 @@ RTL's `getByText(string)` with `exact: true` (the default) matches elements whos
 No. The `<p>` has textContent `"Status: Degraded"`. The `<span>` has `"Status:"`. Neither equals `"Degraded"`.
 
 Fix options:
+
 - `getByText(/Degraded/)` — regex matches `<p>` whose textContent contains "Degraded"
 - `getByText("Status: Degraded")` — exact match on the full `<p>` text
 - Add `<span data-testid="status-value">Degraded</span>` to the component, use `getByTestId`
@@ -153,10 +159,12 @@ Fix options:
 **Input:** "How do I assert the status cell inside a specific skill row?"
 
 **Output:**
+
 ```js
-const row = screen.getByTestId("skill-row-code-review")
-expect(within(row).getByText("stable")).toBeInTheDocument()
+const row = screen.getByTestId("skill-row-code-review");
+expect(within(row).getByText("stable")).toBeInTheDocument();
 ```
+
 Without `within`, `getByText("stable")` might match the wrong row if multiple rows share the same value.
 
 ### Example 3 — async data
@@ -164,7 +172,9 @@ Without `within`, `getByText("stable")` might match the wrong row if multiple ro
 **Input:** "My `getByText('loop')` fails — the data loads after render."
 
 **Output:**
+
 ```js
-expect(await screen.findByText("loop")).toBeInTheDocument()
+expect(await screen.findByText("loop")).toBeInTheDocument();
 ```
+
 `findByText` is `getByText` wrapped in `waitFor` and returns a Promise. Always use it (or `waitFor`) when the element appears after a fetch, `setTimeout`, or React state update.

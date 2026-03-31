@@ -1,7 +1,7 @@
-import { readdir, readFile, access } from 'fs/promises';
-import { constants } from 'fs';
-import { join } from 'path';
-import { parse as parseYaml } from 'yaml';
+import { readdir, readFile, access } from "fs/promises";
+import { constants } from "fs";
+import { join } from "path";
+import { parse as parseYaml } from "yaml";
 
 async function loadYamlDirectory({ repoRoot, relativeDir, label }) {
   const dirPath = join(repoRoot, ...relativeDir);
@@ -14,18 +14,25 @@ async function loadYamlDirectory({ repoRoot, relativeDir, label }) {
     return { records, errors };
   }
 
-  const files = (await readdir(dirPath)).filter(file => file.endsWith('.yaml')).sort();
+  const files = (await readdir(dirPath))
+    .filter((file) => file.endsWith(".yaml"))
+    .sort();
 
   const results = await Promise.all(
     files.map(async (file) => {
-      const recordId = file.replace('.yaml', '');
+      const recordId = file.replace(".yaml", "");
       try {
-        const data = parseYaml(await readFile(join(dirPath, file), 'utf8'));
+        const data = parseYaml(await readFile(join(dirPath, file), "utf8"));
         return { file, recordId, data, error: null };
       } catch (err) {
-        return { file, recordId, data: null, error: `${label} ${file}: failed to parse YAML (${err.message})` };
+        return {
+          file,
+          recordId,
+          data: null,
+          error: `${label} ${file}: failed to parse YAML (${err.message})`,
+        };
       }
-    })
+    }),
   );
 
   for (const { file, recordId, data, error } of results) {
@@ -40,7 +47,9 @@ async function loadYamlDirectory({ repoRoot, relativeDir, label }) {
     }
 
     if (data.id !== recordId) {
-      errors.push(`${label} ${file}: id='${data.id}' does not match filename '${recordId}.yaml'`);
+      errors.push(
+        `${label} ${file}: id='${data.id}' does not match filename '${recordId}.yaml'`,
+      );
       continue;
     }
 
@@ -51,9 +60,17 @@ async function loadYamlDirectory({ repoRoot, relativeDir, label }) {
 }
 
 export async function loadRoutes(repoRoot) {
-  return loadYamlDirectory({ repoRoot, relativeDir: ['shared', 'routes'], label: 'route' });
+  return loadYamlDirectory({
+    repoRoot,
+    relativeDir: ["shared", "routes"],
+    label: "route",
+  });
 }
 
 export async function loadOutcomes(repoRoot) {
-  return loadYamlDirectory({ repoRoot, relativeDir: ['shared', 'outcomes'], label: 'outcome' });
+  return loadYamlDirectory({
+    repoRoot,
+    relativeDir: ["shared", "outcomes"],
+    label: "outcome",
+  });
 }

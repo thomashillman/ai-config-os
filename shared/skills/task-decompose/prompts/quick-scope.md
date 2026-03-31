@@ -3,12 +3,14 @@
 Rapid assessment of task scope and minimal decomposition for quick planning.
 
 ## Quick Analysis
+
 1. **Scope**: 3-word summary of what's in vs. out
 2. **Effort**: rough estimate (small/medium/large/epic)
 3. **Top 3 blockers**: most likely obstacles
 4. **Quick breakdown**: 3-5 highest-level subtasks only
 
 ## Output Format
+
 ```
 Task: [title]
 

@@ -4,7 +4,7 @@
  * Pure resolver that computes an EffectiveOutcomeContract before runtime execution.
  */
 
-import { createCachedOutcomeDefinitionsLoader } from './outcome-definition-loader.mjs';
+import { createCachedOutcomeDefinitionsLoader } from "./outcome-definition-loader.mjs";
 
 const EQUIVALENCE_SCORE = {
   exact: 1,
@@ -16,9 +16,8 @@ const EQUIVALENCE_SCORE = {
 const defaultLoader = createCachedOutcomeDefinitionsLoader();
 let outcomeDefinitionsLoader = defaultLoader;
 
-
 function isDictionaryObject(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
 
@@ -26,10 +25,9 @@ function isDictionaryObject(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
-
 export function setOutcomeResolverLoader(loader) {
-  if (typeof loader !== 'function') {
-    throw new TypeError('setOutcomeResolverLoader requires a function loader');
+  if (typeof loader !== "function") {
+    throw new TypeError("setOutcomeResolverLoader requires a function loader");
   }
   outcomeDefinitionsLoader = loader;
 }
@@ -41,7 +39,9 @@ export function resetOutcomeResolverLoader() {
 function loadDefinitions() {
   const definitions = outcomeDefinitionsLoader();
   if (!isDictionaryObject(definitions)) {
-    throw new Error('Outcome resolver loader returned invalid definitions object');
+    throw new Error(
+      "Outcome resolver loader returned invalid definitions object",
+    );
   }
 
   const toolOutcomeMap = definitions.toolOutcomeMap ?? {};
@@ -49,13 +49,19 @@ function loadDefinitions() {
   const routesById = definitions.routesById ?? {};
 
   if (!isDictionaryObject(toolOutcomeMap)) {
-    throw new Error('Outcome resolver definitions invalid: toolOutcomeMap must be an object');
+    throw new Error(
+      "Outcome resolver definitions invalid: toolOutcomeMap must be an object",
+    );
   }
   if (!isDictionaryObject(outcomesById)) {
-    throw new Error('Outcome resolver definitions invalid: outcomesById must be an object');
+    throw new Error(
+      "Outcome resolver definitions invalid: outcomesById must be an object",
+    );
   }
   if (!isDictionaryObject(routesById)) {
-    throw new Error('Outcome resolver definitions invalid: routesById must be an object');
+    throw new Error(
+      "Outcome resolver definitions invalid: routesById must be an object",
+    );
   }
 
   return { toolOutcomeMap, outcomesById, routesById };
@@ -67,7 +73,10 @@ export function identifyOutcome(toolName, definitions = loadDefinitions()) {
   return toolOutcomeMap[toolName] || null;
 }
 
-export function loadOutcomeAndRoutes(outcomeId, definitions = loadDefinitions()) {
+export function loadOutcomeAndRoutes(
+  outcomeId,
+  definitions = loadDefinitions(),
+) {
   if (!outcomeId) return { outcomeId: null, routes: [] };
 
   const { outcomesById, routesById } = definitions;
@@ -97,25 +106,29 @@ export function loadOutcomeAndRoutes(outcomeId, definitions = loadDefinitions())
  * Builds a static profile used only for route scoring heuristics.
  * This is intentionally synthetic and is not runtime-probed capability truth.
  */
-export function buildStaticRouteScoringProfile({ executionChannel = 'mcp' } = {}) {
+export function buildStaticRouteScoringProfile({
+  executionChannel = "mcp",
+} = {}) {
   // Synthetic-by-design defaults for deterministic scoring in pre-execution resolution.
   return {
     executionChannel,
     capabilities: {
-      'shell.exec': 'supported',
-      'json.output': 'supported',
+      "shell.exec": "supported",
+      "json.output": "supported",
     },
   };
 }
 
 function capabilityCoverage(route, capabilityProfile) {
-  const required = Array.isArray(route.requiredCapabilities) ? route.requiredCapabilities : [];
+  const required = Array.isArray(route.requiredCapabilities)
+    ? route.requiredCapabilities
+    : [];
   if (required.length === 0) return 1;
 
   let supported = 0;
   for (const capability of required) {
-    const status = capabilityProfile.capabilities?.[capability] || 'unknown';
-    if (status === 'supported') supported += 1;
+    const status = capabilityProfile.capabilities?.[capability] || "unknown";
+    if (status === "supported") supported += 1;
   }
 
   return supported / required.length;
@@ -137,9 +150,15 @@ export function scoreRoutesByEquivalence(routes, capabilityProfile) {
     .map(({ rank, ...route }) => route);
 }
 
-export function resolveEffectiveOutcomeContract({ toolName, executionChannel = 'mcp', readFlags } = {}) {
-  const routeScoringProfileSynthetic = buildStaticRouteScoringProfile({ executionChannel });
-  const routeScoringProfileSource = 'synthetic-static';
+export function resolveEffectiveOutcomeContract({
+  toolName,
+  executionChannel = "mcp",
+  readFlags,
+} = {}) {
+  const routeScoringProfileSynthetic = buildStaticRouteScoringProfile({
+    executionChannel,
+  });
+  const routeScoringProfileSource = "synthetic-static";
 
   if (readFlags !== undefined && readFlags !== null) {
     const flags = readFlags();
@@ -160,8 +179,14 @@ export function resolveEffectiveOutcomeContract({ toolName, executionChannel = '
 
   const definitions = loadDefinitions();
   const identifiedOutcome = identifyOutcome(toolName, definitions);
-  const { outcomeId, routes } = loadOutcomeAndRoutes(identifiedOutcome, definitions);
-  const scoredRoutes = scoreRoutesByEquivalence(routes, routeScoringProfileSynthetic);
+  const { outcomeId, routes } = loadOutcomeAndRoutes(
+    identifiedOutcome,
+    definitions,
+  );
+  const scoredRoutes = scoreRoutesByEquivalence(
+    routes,
+    routeScoringProfileSynthetic,
+  );
 
   return {
     toolName,

@@ -2,8 +2,8 @@
  * parse-skill.mjs
  * Parses a SKILL.md file: extracts YAML frontmatter and markdown body.
  */
-import { readFileSync } from 'fs';
-import { parse as parseYaml } from 'yaml';
+import { readFileSync } from "fs";
+import { parse as parseYaml } from "yaml";
 
 const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
@@ -13,7 +13,7 @@ const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
  * @returns {{ frontmatter: object, body: string, filePath: string }}
  */
 export function parseSkill(filePath, content = null) {
-  const raw = content ?? readFileSync(filePath, 'utf8');
+  const raw = content ?? readFileSync(filePath, "utf8");
   const match = raw.match(FRONTMATTER_RE);
 
   if (!match) {

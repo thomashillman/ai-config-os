@@ -11,12 +11,10 @@
  */
 export function mapMomentumProgressEvents(progressEvents = []) {
   if (!Array.isArray(progressEvents)) {
-    throw new Error('progressEvents must be an array');
+    throw new Error("progressEvents must be an array");
   }
 
-  return progressEvents
-    .map((event) => mapSingleEvent(event))
-    .filter(Boolean); // Filter out null/undefined from unmapped types
+  return progressEvents.map((event) => mapSingleEvent(event)).filter(Boolean); // Filter out null/undefined from unmapped types
 }
 
 /**
@@ -27,14 +25,14 @@ export function mapMomentumProgressEvents(progressEvents = []) {
  * @returns {object|null} Observation event or null
  */
 function mapSingleEvent(event) {
-  if (!event || typeof event !== 'object') {
+  if (!event || typeof event !== "object") {
     return null;
   }
 
   switch (event.type) {
-    case 'narration_shown':
+    case "narration_shown":
       return mapNarrationEvent(event);
-    case 'user_response':
+    case "user_response":
       return mapResponseEvent(event);
     default:
       return null;
@@ -51,14 +49,15 @@ function mapNarrationEvent(event) {
   return {
     task_id: event.task_id,
     event_id: event.event_id,
-    type: 'narration',
+    type: "narration",
     created_at: event.created_at,
     metadata: {
       narration_point: event.metadata?.narration_point || null,
       template_version: event.metadata?.template_version || null,
       narration_output: event.metadata?.narration_output || null,
       route_at_narration: event.metadata?.route_at_narration || null,
-      findings_count_at_narration: event.metadata?.findings_count_at_narration || 0,
+      findings_count_at_narration:
+        event.metadata?.findings_count_at_narration || 0,
     },
   };
 }
@@ -73,7 +72,7 @@ function mapResponseEvent(event) {
   return {
     task_id: event.task_id,
     event_id: event.event_id,
-    type: 'response',
+    type: "response",
     created_at: event.created_at,
     metadata: {
       narration_event_id: event.metadata?.narration_event_id || null,

@@ -10,25 +10,28 @@
  *
  * Usage: node scripts/build/sync-release-version.mjs
  */
-import { readFileSync, writeFileSync } from 'fs';
-import { join, resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { readReleaseVersion, validateReleaseVersion } from './lib/versioning.mjs';
+import { readFileSync, writeFileSync } from "fs";
+import { join, resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+import {
+  readReleaseVersion,
+  validateReleaseVersion,
+} from "./lib/versioning.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, '..', '..');
+const ROOT = resolve(__dirname, "..", "..");
 
 const version = validateReleaseVersion(readReleaseVersion(ROOT));
 
 const targets = [
-  join(ROOT, 'package.json'),
-  join(ROOT, 'plugins', 'core-skills', '.claude-plugin', 'plugin.json'),
+  join(ROOT, "package.json"),
+  join(ROOT, "plugins", "core-skills", ".claude-plugin", "plugin.json"),
 ];
 
 let changed = 0;
 
 for (const filePath of targets) {
-  const raw = readFileSync(filePath, 'utf8');
+  const raw = readFileSync(filePath, "utf8");
   const json = JSON.parse(raw);
   if (json.version === version) {
     console.log(`  [ok]   ${filePath} already at ${version}`);
@@ -36,7 +39,7 @@ for (const filePath of targets) {
   }
   const oldVersion = json.version;
   json.version = version;
-  writeFileSync(filePath, JSON.stringify(json, null, 2) + '\n');
+  writeFileSync(filePath, JSON.stringify(json, null, 2) + "\n");
   console.log(`  [sync] ${filePath}: ${oldVersion} → ${version}`);
   changed++;
 }

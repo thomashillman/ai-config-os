@@ -2,7 +2,7 @@
 // Extracted to a standalone module so tests can import without
 // pulling in the full MCP server dependency tree.
 
-import { validateContract } from '../../shared/contracts/validate.mjs';
+import { validateContract } from "../../shared/contracts/validate.mjs";
 
 export const SAFE_NAME = /^[a-z0-9][a-z0-9_-]*$/;
 
@@ -20,5 +20,5 @@ export function validateNumber(value, fallback) {
 }
 
 export function validateRouteDefinition(routeDefinition) {
-  return validateContract('routeDefinition', routeDefinition);
+  return validateContract("routeDefinition", routeDefinition);
 }

@@ -1,20 +1,26 @@
-import { accessSync, mkdirSync, readFileSync, writeFileSync, constants } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import {
+  accessSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  constants,
+} from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { execFileSync } from "node:child_process";
 
-const CACHE_DIR = path.join(os.homedir(), '.ai-config-os', 'runtime-cache');
-const CACHE_FILE = path.join(CACHE_DIR, 'capability-profile.json');
+const CACHE_DIR = path.join(os.homedir(), ".ai-config-os", "runtime-cache");
+const CACHE_FILE = path.join(CACHE_DIR, "capability-profile.json");
 
 function boolEnv(name, fallback = false) {
   const value = process.env[name];
   if (value == null) return fallback;
-  return ['1', 'true', 'yes', 'on'].includes(String(value).toLowerCase());
+  return ["1", "true", "yes", "on"].includes(String(value).toLowerCase());
 }
 
 function readCachedProfile() {
   try {
-    const raw = readFileSync(CACHE_FILE, 'utf8');
+    const raw = readFileSync(CACHE_FILE, "utf8");
     return JSON.parse(raw);
   } catch {
     return null;
@@ -24,7 +30,7 @@ function readCachedProfile() {
 function writeCachedProfile(profile) {
   try {
     mkdirSync(CACHE_DIR, { recursive: true });
-    writeFileSync(CACHE_FILE, `${JSON.stringify(profile, null, 2)}\n`, 'utf8');
+    writeFileSync(CACHE_FILE, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
   } catch {
     // Cache failures should not block runtime behavior.
   }
@@ -42,7 +48,10 @@ function hasFilesystemAccess() {
 
 function hasShellAccess() {
   try {
-    execFileSync('bash', ['-lc', 'command -v bash'], { stdio: 'ignore', timeout: 3000 });
+    execFileSync("bash", ["-lc", "command -v bash"], {
+      stdio: "ignore",
+      timeout: 3000,
+    });
     return true;
   } catch {
     return false;
@@ -51,12 +60,12 @@ function hasShellAccess() {
 
 function hasRepoAccess() {
   try {
-    const out = execFileSync('git', ['rev-parse', '--is-inside-work-tree'], {
-      encoding: 'utf8',
+    const out = execFileSync("git", ["rev-parse", "--is-inside-work-tree"], {
+      encoding: "utf8",
       timeout: 3000,
       cwd: process.cwd(),
     }).trim();
-    return out === 'true';
+    return out === "true";
   } catch {
     return false;
   }
@@ -67,15 +76,20 @@ async function probeRemoteExecutor(url) {
     return { configured: false, available: false, checked: false };
   }
 
-  if (!boolEnv('AI_CONFIG_OS_REMOTE_EXECUTOR_PROBE', false)) {
+  if (!boolEnv("AI_CONFIG_OS_REMOTE_EXECUTOR_PROBE", false)) {
     return { configured: true, available: null, checked: false, url };
   }
 
   try {
-    const timeoutMs = Number(process.env.AI_CONFIG_OS_REMOTE_EXECUTOR_TIMEOUT_MS || 1500);
+    const timeoutMs = Number(
+      process.env.AI_CONFIG_OS_REMOTE_EXECUTOR_TIMEOUT_MS || 1500,
+    );
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
-    const response = await fetch(url, { method: 'GET', signal: controller.signal });
+    const response = await fetch(url, {
+      method: "GET",
+      signal: controller.signal,
+    });
     clearTimeout(timer);
     return {
       configured: true,
@@ -96,19 +110,21 @@ async function probeRemoteExecutor(url) {
 }
 
 export function getRuntimeMode() {
-  const mode = String(process.env.AI_CONFIG_OS_RUNTIME_MODE || '').toLowerCase();
-  if (mode === 'web' || mode === 'mobile' || mode === 'connector') return mode;
-  if (process.env.AI_CONFIG_OS_REMOTE_EXECUTOR_URL) return 'connector';
+  const mode = String(
+    process.env.AI_CONFIG_OS_RUNTIME_MODE || "",
+  ).toLowerCase();
+  if (mode === "web" || mode === "mobile" || mode === "connector") return mode;
+  if (process.env.AI_CONFIG_OS_REMOTE_EXECUTOR_URL) return "connector";
   // Auto-detect from CLAUDE_CODE_ENTRYPOINT (set by the Claude Code runtime per surface)
   const entrypoint = process.env.CLAUDE_CODE_ENTRYPOINT;
-  if (entrypoint === 'remote_mobile') return 'mobile';
-  if (entrypoint === 'web') return 'web';
-  return 'local-cli';
+  if (entrypoint === "remote_mobile") return "mobile";
+  if (entrypoint === "web") return "web";
+  return "local-cli";
 }
 
 export async function buildCapabilityProfile() {
   const mode = getRuntimeMode();
-  const localLike = mode === 'local-cli';
+  const localLike = mode === "local-cli";
   const remoteUrl = process.env.AI_CONFIG_OS_REMOTE_EXECUTOR_URL || null;
   const remoteExecutor = await probeRemoteExecutor(remoteUrl);
 

@@ -8,12 +8,12 @@ a browser (desktop or iOS) where local filesystem and shell access are unavailab
 ## Quick start (copy-paste)
 
 ```javascript
-import { CapabilityClient } from './adapters/claude/capabilities-client.mjs';
+import { CapabilityClient } from "./adapters/claude/capabilities-client.mjs";
 
 const client = new CapabilityClient({
-  workerUrl: 'https://ai-config-os-main.tj-hillman.workers.dev',
-  token: SESSION_TOKEN,   // injected by your host app or session hook
-  cache: 'localstorage',  // persist across page reloads
+  workerUrl: "https://ai-config-os-main.tj-hillman.workers.dev",
+  token: SESSION_TOKEN, // injected by your host app or session hook
+  cache: "localstorage", // persist across page reloads
 });
 
 // Get everything for session start in one call
@@ -21,7 +21,9 @@ const { platform, profile, skills } = await client.getSessionStartData();
 
 console.log(`Platform: ${platform}`);
 console.log(`${profile.capabilities.supported.length} capabilities supported`);
-console.log(`${skills.compatible_count} of ${skills.total_skills} skills available`);
+console.log(
+  `${skills.compatible_count} of ${skills.total_skills} skills available`,
+);
 ```
 
 ---
@@ -57,32 +59,48 @@ the assistant initialises:
 // for Claude to reference throughout the session.
 
 (async () => {
-  const WORKER = globalThis.__AI_CONFIG_WORKER__ ?? 'https://ai-config-os-main.tj-hillman.workers.dev';
-  const TOKEN  = globalThis.__AI_CONFIG_TOKEN__;
+  const WORKER =
+    globalThis.__AI_CONFIG_WORKER__ ??
+    "https://ai-config-os-main.tj-hillman.workers.dev";
+  const TOKEN = globalThis.__AI_CONFIG_TOKEN__;
 
   if (!TOKEN) {
-    console.warn('[ai-config] AI_CONFIG_TOKEN not set — skill discovery unavailable');
+    console.warn(
+      "[ai-config] AI_CONFIG_TOKEN not set — skill discovery unavailable",
+    );
     return;
   }
 
   try {
-    const { CapabilityClient } = await import('./adapters/claude/capabilities-client.mjs');
+    const { CapabilityClient } =
+      await import("./adapters/claude/capabilities-client.mjs");
     const client = new CapabilityClient({
       workerUrl: WORKER,
       token: TOKEN,
-      cache: 'localstorage',
+      cache: "localstorage",
     });
 
     const { platform, profile, skills } = await client.getSessionStartData();
 
     // Store for Claude Code to read as context
-    sessionStorage.setItem('ai-config:platform', platform);
-    sessionStorage.setItem('ai-config:capabilities', JSON.stringify(profile.capabilities));
-    sessionStorage.setItem('ai-config:skills', JSON.stringify(skills.skills.map(s => s.id)));
+    sessionStorage.setItem("ai-config:platform", platform);
+    sessionStorage.setItem(
+      "ai-config:capabilities",
+      JSON.stringify(profile.capabilities),
+    );
+    sessionStorage.setItem(
+      "ai-config:skills",
+      JSON.stringify(skills.skills.map((s) => s.id)),
+    );
 
-    console.log(`[ai-config] ${skills.compatible_count} skills available for ${platform}`);
+    console.log(
+      `[ai-config] ${skills.compatible_count} skills available for ${platform}`,
+    );
   } catch (err) {
-    console.warn('[ai-config] Capability discovery failed (non-fatal):', err.message);
+    console.warn(
+      "[ai-config] Capability discovery failed (non-fatal):",
+      err.message,
+    );
   }
 })();
 ```
@@ -118,7 +136,7 @@ On iOS (Claude app or PWA):
 
 ```javascript
 // iOS-optimised fetch — minimal cap set, aggressive caching
-const skills = await client.getCompatibleSkills(['network.http']);
+const skills = await client.getCompatibleSkills(["network.http"]);
 // Returns ~18 skills that work entirely via prompt-input
 ```
 
@@ -133,17 +151,20 @@ For true offline resilience (PWA), add a service worker cache:
 
 ```javascript
 // service-worker.js
-self.addEventListener('fetch', (event) => {
+self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/v1/capabilities/') || url.pathname.startsWith('/v1/skills/compatible')) {
+  if (
+    url.pathname.startsWith("/v1/capabilities/") ||
+    url.pathname.startsWith("/v1/skills/compatible")
+  ) {
     event.respondWith(
-      caches.open('ai-config-v1').then(async (cache) => {
+      caches.open("ai-config-v1").then(async (cache) => {
         const cached = await cache.match(event.request);
         if (cached) return cached;
         const response = await fetch(event.request);
         if (response.ok) cache.put(event.request, response.clone());
         return response;
-      })
+      }),
     );
   }
 });
@@ -160,16 +181,18 @@ degrade gracefully:
 let skills = { skills: [], compatible_count: 0, total_skills: 0 };
 
 try {
-  const data = await client.getCompatibleSkills(['network.http']);
+  const data = await client.getCompatibleSkills(["network.http"]);
   skills = data;
 } catch (err) {
-  if (err.code === 'TIMEOUT' || err.code === 'NETWORK_ERROR') {
+  if (err.code === "TIMEOUT" || err.code === "NETWORK_ERROR") {
     // Worker unreachable — proceed with empty skill list
-    console.warn('[ai-config] Worker unreachable; no skills loaded for this session');
+    console.warn(
+      "[ai-config] Worker unreachable; no skills loaded for this session",
+    );
   } else if (err.status === 401) {
-    console.error('[ai-config] Invalid token — check AI_CONFIG_TOKEN');
+    console.error("[ai-config] Invalid token — check AI_CONFIG_TOKEN");
   } else {
-    console.error('[ai-config] Unexpected error:', err.message);
+    console.error("[ai-config] Unexpected error:", err.message);
   }
 }
 ```

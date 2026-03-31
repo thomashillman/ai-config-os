@@ -62,24 +62,28 @@ for revision.
 For each of these, check if CLAUDE.md covers it. If not, note it as a gap:
 
 **Architecture & Constraints:**
+
 - [ ] Major architectural decisions documented? (Monolith vs. microservices, database choice, etc.)
 - [ ] Non-negotiable technical boundaries stated? (What will break the build? What's forbidden?)
 - [ ] Deprecated patterns called out?
 - [ ] Critical integrations or dependencies explained?
 
 **Code & Testing:**
+
 - [ ] Test framework and command documented?
 - [ ] Coverage target specified?
 - [ ] Linter/formatter linked or described?
 - [ ] Commit format documented (Conventional Commits)?
 
 **Workflows:**
+
 - [ ] Deployment process and ownership clear?
 - [ ] Code review expectations stated?
 - [ ] Release process (versioning, tagging, changelog) documented?
 - [ ] Configuration location specified? (.env, config files, etc.)
 
 **Known Issues:**
+
 - [ ] Slow tests or fragile modules flagged?
 - [ ] Common mistakes documented?
 - [ ] Silent failure modes explained?
@@ -126,18 +130,22 @@ Before signing off on the audit:
 Share findings with the user in this format:
 
 ### Strengths
+
 - [What's working well]
 - [What's clear and specific]
 
 ### Gaps
+
 - [Missing constraints or commands]
 - [Vague language or missing examples]
 - [Stale references]
 
 ### Recommendations (Priority Order)
+
 1. [High impact: e.g., "Add Known Landmines section with 2-3 real footguns"]
 2. [Medium impact: e.g., "Rewrite API Conventions with concrete example responses"]
 3. [Low impact: e.g., "Replace em-dashes with parentheses"]
 
 ### Revised Sections
+
 [Show user the updated CLAUDE.md with all changes highlighted]

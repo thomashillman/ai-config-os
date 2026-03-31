@@ -1,6 +1,7 @@
 ---
 skill: "security-review"
-description: "Perform OWASP-aware security review of code, dependencies, and configuration.
+description:
+  "Perform OWASP-aware security review of code, dependencies, and configuration.
 
   Identifies injection risks, auth/authn flaws, secrets exposure, CVEs.\n"
 type: "prompt"
@@ -12,11 +13,11 @@ inputs:
     required: true
   - name: "context"
     type: "string"
-    description: "\"web\" (HTTP APIs), \"cli\" (command-line tools), \"data\" (databases), \"general\""
+    description: '"web" (HTTP APIs), "cli" (command-line tools), "data" (databases), "general"'
     required: false
   - name: "scope"
     type: "string"
-    description: "\"quick\" (top issues), \"thorough\" (all OWASP categories)"
+    description: '"quick" (top issues), "thorough" (all OWASP categories)'
     required: false
 outputs:
   - name: "findings"
@@ -34,7 +35,7 @@ dependencies:
   models:
     - "sonnet"
 examples:
-  - input: "SQL query: SELECT * FROM users WHERE id = \" + userId"
+  - input: 'SQL query: SELECT * FROM users WHERE id = " + userId'
     output: "CRITICAL: SQL injection vulnerability; use parameterized queries"
     expected_model: "sonnet"
 variants:
@@ -124,13 +125,17 @@ Before deploying to production, reviewing third-party code, or when security is 
 ## Examples
 
 ### Example 1: SQL Injection
+
 **Input:**
+
 ```python
 user_id = request.args.get('id')
 query = f"SELECT * FROM users WHERE id = {user_id}"
 result = db.execute(query)
 ```
+
 **Output:**
+
 ```
 CRITICAL: SQL Injection
 - Issue: User input directly interpolated into SQL query
@@ -141,12 +146,16 @@ CRITICAL: SQL Injection
 ```
 
 ### Example 2: Exposed Secrets
+
 **Input:**
+
 ```javascript
-const apiKey = 'sk-abc123...';
-console.log('API Key:', apiKey);
+const apiKey = "sk-abc123...";
+console.log("API Key:", apiKey);
 ```
+
 **Output:**
+
 ```
 CRITICAL: Hardcoded Secret
 - Issue: API key visible in logs and source code

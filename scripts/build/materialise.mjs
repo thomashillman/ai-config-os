@@ -10,15 +10,18 @@
  *   node scripts/build/materialise.mjs --help
  */
 
-import { resolve } from 'path';
-import { existsSync } from 'fs';
-import { materializePackage, getPackageStats } from './lib/materialise-client.mjs';
+import { resolve } from "path";
+import { existsSync } from "fs";
+import {
+  materializePackage,
+  getPackageStats,
+} from "./lib/materialise-client.mjs";
 
 // ─── Argument parsing ───
 
 const args = process.argv.slice(2);
 
-if (args.includes('--help') || args.includes('-h')) {
+if (args.includes("--help") || args.includes("-h")) {
   console.log(`
 Materialiser CLI — Extract and validate skill packages
 
@@ -45,8 +48,8 @@ Examples:
 const packagePath = args[0];
 
 if (!packagePath) {
-  console.error('Error: <package-path> is required');
-  console.error('Use --help for usage information');
+  console.error("Error: <package-path> is required");
+  console.error("Use --help for usage information");
   process.exit(1);
 }
 
@@ -56,20 +59,20 @@ let dryRun = false;
 let verbose = false;
 
 for (let i = 1; i < args.length; i++) {
-  if (args[i] === '--dest' && args[i + 1]) {
+  if (args[i] === "--dest" && args[i + 1]) {
     destPath = args[i + 1];
     i++;
-  } else if (args[i] === '--dry-run') {
+  } else if (args[i] === "--dry-run") {
     dryRun = true;
-  } else if (args[i] === '--verbose') {
+  } else if (args[i] === "--verbose") {
     verbose = true;
   }
 }
 
 // Default destination: ~/.ai-config-os/cache
 if (!destPath) {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '.';
-  destPath = resolve(homeDir, '.ai-config-os', 'cache');
+  const homeDir = process.env.HOME || process.env.USERPROFILE || ".";
+  destPath = resolve(homeDir, ".ai-config-os", "cache");
 }
 
 // ─── Execute materialization ───
@@ -97,21 +100,26 @@ try {
   }
 
   // Materialize
-  const result = materializePackage(resolvedPackagePath, destPath, { dryRun, verbose });
+  const result = materializePackage(resolvedPackagePath, destPath, {
+    dryRun,
+    verbose,
+  });
 
   if (verbose) {
     console.log(`\nMaterialised ${result.skillsExtracted.length} skills`);
-    result.skillsExtracted.forEach(skill => {
+    result.skillsExtracted.forEach((skill) => {
       console.log(`  ✓ ${skill.name} (${skill.version})`);
     });
   }
 
-  console.log(`${dryRun ? '[dry-run] ' : ''}Materialisation complete: ${destPath}`);
+  console.log(
+    `${dryRun ? "[dry-run] " : ""}Materialisation complete: ${destPath}`,
+  );
   process.exit(0);
 } catch (err) {
   console.error(`Error: ${err.message}`);
   if (err.context && Object.keys(err.context).length > 0) {
-    console.error('Context:', JSON.stringify(err.context, null, 2));
+    console.error("Context:", JSON.stringify(err.context, null, 2));
   }
   process.exit(1);
 }

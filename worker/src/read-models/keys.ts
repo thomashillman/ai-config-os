@@ -1,5 +1,9 @@
 // KV key shape: dashboard:{resource}:{repo_id}:{machine_id}
-export function snapshotKey(resource: string, repoId: string, machineId: string): string {
+export function snapshotKey(
+  resource: string,
+  repoId: string,
+  machineId: string,
+): string {
   return `dashboard:${resource}:${repoId}:${machineId}`;
 }
 

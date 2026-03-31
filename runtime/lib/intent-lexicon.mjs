@@ -2,10 +2,10 @@
 // Pure function: no I/O, no side effects.
 // Deterministic: same input always produces same output.
 
-import { definitions as defaultDefinitions } from './intent-lexicon-definitions.mjs';
+import { definitions as defaultDefinitions } from "./intent-lexicon-definitions.mjs";
 
 function normalise(phrase) {
-  return phrase.toLowerCase().trim().replace(/\s+/g, ' ');
+  return phrase.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
 function levenshtein(a, b) {
@@ -18,9 +18,10 @@ function levenshtein(a, b) {
 
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      dp[i][j] =
+        a[i - 1] === b[j - 1]
+          ? dp[i - 1][j - 1]
+          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
     }
   }
 
@@ -28,24 +29,24 @@ function levenshtein(a, b) {
 }
 
 function matchPattern(phrase, pattern) {
-  const phraseTokens = phrase.split(' ');
-  const patternTokens = pattern.split(' ');
+  const phraseTokens = phrase.split(" ");
+  const patternTokens = pattern.split(" ");
 
   if (phraseTokens.length !== patternTokens.length) return null;
 
   const captures = {};
   for (let i = 0; i < patternTokens.length; i++) {
-    if (patternTokens[i] === '*') {
+    if (patternTokens[i] === "*") {
       // Determine capture name from context
       const prevToken = patternTokens[i - 1]?.toLowerCase();
-      if (prevToken === '#' || prevToken === 'pr') {
+      if (prevToken === "#" || prevToken === "pr") {
         captures.pr_number = phraseTokens[i];
       } else {
         captures[`capture_${i}`] = phraseTokens[i];
       }
-    } else if (patternTokens[i] === '#*') {
+    } else if (patternTokens[i] === "#*") {
       // Pattern "#*" matches "#123" — extract the number after #
-      if (phraseTokens[i].startsWith('#')) {
+      if (phraseTokens[i].startsWith("#")) {
         captures.pr_number = phraseTokens[i].slice(1);
       } else {
         return null;
@@ -61,9 +62,9 @@ function matchPattern(phrase, pattern) {
 // Handle patterns like "review pr #*" where # and * are separate tokens
 function matchPatternWithHash(phrase, pattern) {
   // Special case: pattern has "#*" which should match "#123"
-  const normalPattern = pattern.replace(/#\*/g, '#*');
-  const phraseTokens = phrase.split(' ');
-  const patternTokens = normalPattern.split(' ');
+  const normalPattern = pattern.replace(/#\*/g, "#*");
+  const phraseTokens = phrase.split(" ");
+  const patternTokens = normalPattern.split(" ");
 
   // Try to match where "#*" in pattern matches "#<number>" in phrase
   if (patternTokens.length === phraseTokens.length) {
@@ -74,11 +75,11 @@ function matchPatternWithHash(phrase, pattern) {
   if (patternTokens.length === phraseTokens.length + 1) {
     // Check if pattern has a "#" followed by "*"
     for (let i = 0; i < patternTokens.length - 1; i++) {
-      if (patternTokens[i] === '#' && patternTokens[i + 1] === '*') {
+      if (patternTokens[i] === "#" && patternTokens[i + 1] === "*") {
         // Merge these two pattern tokens and try matching
         const mergedPattern = [
           ...patternTokens.slice(0, i),
-          '#*',
+          "#*",
           ...patternTokens.slice(i + 2),
         ];
         if (mergedPattern.length !== phraseTokens.length) continue;
@@ -86,14 +87,14 @@ function matchPatternWithHash(phrase, pattern) {
         let matched = true;
         const captures = {};
         for (let j = 0; j < mergedPattern.length; j++) {
-          if (mergedPattern[j] === '#*') {
-            if (phraseTokens[j].startsWith('#')) {
+          if (mergedPattern[j] === "#*") {
+            if (phraseTokens[j].startsWith("#")) {
               captures.pr_number = phraseTokens[j].slice(1);
             } else {
               matched = false;
               break;
             }
-          } else if (mergedPattern[j] === '*') {
+          } else if (mergedPattern[j] === "*") {
             captures[`capture_${j}`] = phraseTokens[j];
           } else if (mergedPattern[j] !== phraseTokens[j]) {
             matched = false;
@@ -121,13 +122,13 @@ function matchPatternWithHash(phrase, pattern) {
 export function workTitleForTaskType(taskType, options = {}) {
   const defs = options.definitions || defaultDefinitions;
   const match = defs.find((def) => def.taskType === taskType);
-  return (match?.workTitle) || taskType;
+  return match?.workTitle || taskType;
 }
 
 export function resolveIntent(phrase, options = {}) {
   const defs = options.definitions || defaultDefinitions;
 
-  if (!phrase || typeof phrase !== 'string' || phrase.trim().length === 0) {
+  if (!phrase || typeof phrase !== "string" || phrase.trim().length === 0) {
     return { resolved: false, suggestions: [] };
   }
 
@@ -144,15 +145,20 @@ export function resolveIntent(phrase, options = {}) {
       // Exact match
       if (normalised === normalPattern) {
         if (normalPattern.length > bestMatchLength) {
-          bestMatch = { def, captures: {}, patternLength: normalPattern.length };
+          bestMatch = {
+            def,
+            captures: {},
+            patternLength: normalPattern.length,
+          };
           bestMatchLength = normalPattern.length;
         }
         continue;
       }
 
       // Wildcard match
-      const captures = matchPatternWithHash(normalised, normalPattern)
-        || matchPattern(normalised, normalPattern);
+      const captures =
+        matchPatternWithHash(normalised, normalPattern) ||
+        matchPattern(normalised, normalPattern);
       if (captures && normalPattern.length > bestMatchLength) {
         bestMatch = { def, captures, patternLength: normalPattern.length };
         bestMatchLength = normalPattern.length;
@@ -162,9 +168,10 @@ export function resolveIntent(phrase, options = {}) {
 
   if (bestMatch) {
     const { def, captures } = bestMatch;
-    const routeHints = Object.keys(captures).length > 0
-      ? { ...def.routeHints, captures }
-      : { ...def.routeHints };
+    const routeHints =
+      Object.keys(captures).length > 0
+        ? { ...def.routeHints, captures }
+        : { ...def.routeHints };
 
     return {
       resolved: true,
@@ -179,7 +186,7 @@ export function resolveIntent(phrase, options = {}) {
   // No match — produce suggestions by Levenshtein distance
   const allPatterns = defs.flatMap((def) =>
     def.patterns
-      .filter((p) => !p.includes('*'))
+      .filter((p) => !p.includes("*"))
       .map((p) => ({
         phrase: p,
         taskType: def.taskType,

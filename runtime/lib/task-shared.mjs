@@ -4,8 +4,8 @@
 export class TaskConflictError extends Error {
   constructor(message, details = {}) {
     super(message);
-    this.name = 'TaskConflictError';
-    this.code = 'task_version_conflict';
+    this.name = "TaskConflictError";
+    this.code = "task_version_conflict";
     this.details = details;
   }
 }
@@ -13,31 +13,35 @@ export class TaskConflictError extends Error {
 export class TaskNotFoundError extends Error {
   constructor(taskId) {
     super(`Task not found: ${taskId}`);
-    this.name = 'TaskNotFoundError';
-    this.code = 'task_not_found';
+    this.name = "TaskNotFoundError";
+    this.code = "task_not_found";
     this.details = { taskId };
   }
 }
 
 export function summariseFindingsProvenance(findings = []) {
   return findings.reduce((summary, finding) => {
-    const status = typeof finding?.provenance?.status === 'string'
-      ? finding.provenance.status
-      : 'unknown';
+    const status =
+      typeof finding?.provenance?.status === "string"
+        ? finding.provenance.status
+        : "unknown";
     summary[status] = (summary[status] ?? 0) + 1;
     return summary;
   }, {});
 }
 
 function hasSupportedUpgrade(task, effectiveExecutionContract) {
-  if (!effectiveExecutionContract || typeof effectiveExecutionContract !== 'object') {
+  if (
+    !effectiveExecutionContract ||
+    typeof effectiveExecutionContract !== "object"
+  ) {
     return false;
   }
   const selectedRoute = effectiveExecutionContract.selected_route;
-  if (!selectedRoute || typeof selectedRoute !== 'object') {
+  if (!selectedRoute || typeof selectedRoute !== "object") {
     return false;
   }
-  if (selectedRoute.equivalence_level !== 'equal') {
+  if (selectedRoute.equivalence_level !== "equal") {
     return false;
   }
   const missingCapabilities = Array.isArray(selectedRoute.missing_capabilities)
@@ -49,7 +53,11 @@ function hasSupportedUpgrade(task, effectiveExecutionContract) {
   return selectedRoute.route_id !== task.current_route;
 }
 
-export function createReadinessView(task, progressEvents = [], effectiveExecutionContract = null) {
+export function createReadinessView(
+  task,
+  progressEvents = [],
+  effectiveExecutionContract = null,
+) {
   const totalSteps = task.progress?.total_steps ?? 0;
   const completedSteps = task.progress?.completed_steps ?? 0;
   return {
@@ -60,12 +68,16 @@ export function createReadinessView(task, progressEvents = [], effectiveExecutio
     next_action: task.next_action,
     route_history: task.route_history,
     readiness: {
-      is_ready: task.state === 'active' && completedSteps < totalSteps,
-      stronger_route_available: task.task_type === 'review_repository'
-        && hasSupportedUpgrade(task, effectiveExecutionContract),
-      progress_ratio: totalSteps === 0 ? 1 : Number((completedSteps / totalSteps).toFixed(4)),
+      is_ready: task.state === "active" && completedSteps < totalSteps,
+      stronger_route_available:
+        task.task_type === "review_repository" &&
+        hasSupportedUpgrade(task, effectiveExecutionContract),
+      progress_ratio:
+        totalSteps === 0 ? 1 : Number((completedSteps / totalSteps).toFixed(4)),
     },
-    findings_provenance: summariseFindingsProvenance(Array.isArray(task.findings) ? task.findings : []),
+    findings_provenance: summariseFindingsProvenance(
+      Array.isArray(task.findings) ? task.findings : [],
+    ),
     progress_event_count: progressEvents.length,
   };
 }

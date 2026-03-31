@@ -4,7 +4,10 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import {
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
+} from "@modelcontextprotocol/sdk/types.js";
 import { execFileSync } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -19,22 +22,34 @@ import { toToolResponse, toolError } from "./tool-response.mjs";
 import { assertRuntimePrereqs } from "./runtime-prereqs.mjs";
 import { createCallToolHandler } from "./handlers.mjs";
 import { resolveEffectiveOutcomeContract } from "../lib/outcome-resolver.mjs";
-import { createTunnelPolicy, tunnelGuardMiddleware } from "./tunnel-security.mjs";
+import {
+  createTunnelPolicy,
+  tunnelGuardMiddleware,
+} from "./tunnel-security.mjs";
 import { createDashboardApi } from "./dashboard-api.mjs";
-import { MCP_TOOL_DEFINITIONS } from './tool-definitions.mjs';
+import { MCP_TOOL_DEFINITIONS } from "./tool-definitions.mjs";
 import { TaskStore } from "../lib/task-store.mjs";
 import { createTaskControlPlaneService } from "../lib/task-control-plane-service.mjs";
 import { createMomentumEngine } from "../lib/momentum-engine.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "../..");
-const WORKER_BASE_URL = (process.env.AI_CONFIG_OS_WORKER_URL || process.env.WORKER_URL || '').replace(/\/+$/, '');
-const WORKER_AUTH_TOKEN = process.env.AI_CONFIG_OS_WORKER_TOKEN || process.env.AUTH_TOKEN || '';
+const WORKER_BASE_URL = (
+  process.env.AI_CONFIG_OS_WORKER_URL ||
+  process.env.WORKER_URL ||
+  ""
+).replace(/\/+$/, "");
+const WORKER_AUTH_TOKEN =
+  process.env.AI_CONFIG_OS_WORKER_TOKEN || process.env.AUTH_TOKEN || "";
 
 function runScript(script, args = []) {
   const scriptPath = resolveRepoScriptPath(script, REPO_ROOT);
   if (!scriptPath) {
-    return { success: false, output: "", error: "Script path escapes repository root" };
+    return {
+      success: false,
+      output: "",
+      error: "Script path escapes repository root",
+    };
   }
 
   try {
@@ -60,11 +75,15 @@ const momentumEngine = createMomentumEngine({ taskStore });
 
 async function callWorkerTaskApi({ method, path: routePath, body }) {
   if (!WORKER_BASE_URL) {
-    throw new Error('AI_CONFIG_OS_WORKER_URL (or WORKER_URL) is required for Worker-first task tools');
+    throw new Error(
+      "AI_CONFIG_OS_WORKER_URL (or WORKER_URL) is required for Worker-first task tools",
+    );
   }
   const headers = {
-    'Content-Type': 'application/json',
-    ...(WORKER_AUTH_TOKEN ? { Authorization: `Bearer ${WORKER_AUTH_TOKEN}` } : {}),
+    "Content-Type": "application/json",
+    ...(WORKER_AUTH_TOKEN
+      ? { Authorization: `Bearer ${WORKER_AUTH_TOKEN}` }
+      : {}),
   };
   const response = await fetch(`${WORKER_BASE_URL}${routePath}`, {
     method,
@@ -73,7 +92,9 @@ async function callWorkerTaskApi({ method, path: routePath, body }) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = payload?.error?.message || `Worker request failed with HTTP ${response.status}`;
+    const message =
+      payload?.error?.message ||
+      `Worker request failed with HTTP ${response.status}`;
     throw new Error(message);
   }
   return payload;
@@ -81,7 +102,7 @@ async function callWorkerTaskApi({ method, path: routePath, body }) {
 
 const server = new Server(
   { name: "ai-config-os", version: getReleaseVersion() },
-  { capabilities: { tools: {} } }
+  { capabilities: { tools: {} } },
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -122,7 +143,10 @@ function startDashboardApi() {
     capabilityProfileResolver,
     taskService,
     repoRoot: REPO_ROOT,
-    port: Number.isFinite(dashboardPort) && dashboardPort > 0 ? dashboardPort : 4242,
+    port:
+      Number.isFinite(dashboardPort) && dashboardPort > 0
+        ? dashboardPort
+        : 4242,
   });
   api.start();
 }

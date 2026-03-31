@@ -14,6 +14,7 @@ Brief description of what this PR does.
 ## Pre-Push Checklist (Before Merging)
 
 ### Portability Contract
+
 - [ ] All skills authored in `shared/skills/` (never in plugins/)
 - [ ] Emitted packages in `dist/clients/<platform>/` are self-sufficient (no source refs)
 - [ ] All referenced resources (prompts/, etc.) are copied to dist/
@@ -21,18 +22,21 @@ Brief description of what this PR does.
 - [ ] Materialiser tests pass (packages extract without source access)
 
 ### Delivery Contract
+
 - [ ] All tests pass locally: `npm test`
 - [ ] All tests pass in CI on Linux, macOS, Windows
 - [ ] Verification suite passes: `npm run verify`
 - [ ] New test suites added for contract-breaking changes
 
 ### Code Quality
+
 - [ ] Commit messages follow Conventional Commits (`feat:`, `fix:`, `docs:`, etc.)
 - [ ] No unnecessary file changes (only what's needed for the feature)
 - [ ] Shell scripts are POSIX-compliant (test on bash, sh, and zsh)
 - [ ] New code is Windows-compatible (use `path.join()`, not path concatenation)
 
 ### Documentation
+
 - [ ] CLAUDE.md updated if dev conventions changed
 - [ ] README.md updated if user-facing capability changed
 - [ ] PLAN.md updated if phase completion status changed
@@ -40,6 +44,7 @@ Brief description of what this PR does.
 - [ ] scripts/build/test/README.md updated if new test contracts added
 
 ### Security
+
 - [ ] No hardcoded credentials or API keys
 - [ ] No shell injection vectors (use `execFileSync` not `execSync` with user input)
 - [ ] No path traversal vulnerabilities (use `resolve()` + boundary check)

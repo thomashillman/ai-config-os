@@ -1,6 +1,7 @@
 # Review PR — Detailed Variant (Opus)
 
 Full PR review including:
+
 - Breaking changes impact analysis
 - Security scan (OWASP)
 - Test coverage assessment

@@ -132,6 +132,7 @@ optimization is applied to only one half of a dependency pair.
 - Invoke manually with `/ci-conditional-audit [workflow_path]`
 
 Auto-invoke when user says:
+
 - "check for unpaired conditionals in CI"
 - "why does the verify step fail when nothing changed?"
 - "audit our workflows for broken conditional guards"
@@ -141,6 +142,7 @@ Auto-invoke when user says:
 ### Step 0 — Gather workflow files
 
 **If `shell.exec` is available:**
+
 ```bash
 find .github/workflows -name "*.yml" -o -name "*.yaml" | sort
 ```
@@ -156,10 +158,12 @@ find .github/workflows -name "*.yml" -o -name "*.yaml" | sort
 For each workflow file, for each job, walk the `steps` array in order.
 
 For each step, check if it is **conditional**:
+
 - Has an `if:` key
 - References `steps.<id>.outputs.<key>` or `needs.<id>.outputs.<key>` in its `if:` or `run:`
 
 For each conditional step, extract its **side effects** — what it creates or installs:
+
 - Directories (e.g. `node_modules/`, `dist/`, installed binaries in PATH)
 - Environment variables (`echo "VAR=val" >> $GITHUB_ENV`)
 - Step output variables (`echo "name=value" >> $GITHUB_OUTPUT`)
@@ -167,6 +171,7 @@ For each conditional step, extract its **side effects** — what it creates or i
 - Files explicitly written
 
 Record:
+
 ```
 {step_id, step_name, condition_expression, produces: [list of side effects]}
 ```
@@ -194,11 +199,11 @@ For each step that follows a recorded conditional step in the same job:
 
 ### Step 3 — Classify severity
 
-| Severity | When |
-|----------|------|
-| **BLOCKING** | Consuming step will hard-fail — binary not installed, file not created |
-| **SILENT FAILURE** | Consuming step may succeed vacuously (e.g. test runner finds no tests) |
-| **WARNING** | Consuming step has optional access to the side effect; output may be degraded |
+| Severity           | When                                                                          |
+| ------------------ | ----------------------------------------------------------------------------- |
+| **BLOCKING**       | Consuming step will hard-fail — binary not installed, file not created        |
+| **SILENT FAILURE** | Consuming step may succeed vacuously (e.g. test runner finds no tests)        |
+| **WARNING**        | Consuming step has optional access to the side effect; output may be degraded |
 
 ---
 
@@ -250,6 +255,7 @@ If no findings: `All conditional steps are correctly paired.`
 ### Example 1 — Unpaired install step (the original bug)
 
 **Input:** `.github/workflows/build.yml`:
+
 ```yaml
 - name: Check dashboard changed
   id: dashboard-check
@@ -264,6 +270,7 @@ If no findings: `All conditional steps are correctly paired.`
 ```
 
 **Output:**
+
 ```
 FINDINGS
 
@@ -287,6 +294,7 @@ Files audited: 1  |  Jobs scanned: 1  |  Findings: 1 (BLOCKING: 1)
 ### Example 2 — No issues
 
 **Output:**
+
 ```
 SUMMARY
 Files audited: 2  |  Jobs scanned: 4  |  Findings: 0

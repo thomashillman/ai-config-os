@@ -4,23 +4,23 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 
 ## Skills
 
-| Skill | Description | Path |
-|---|---|---|
-| `session-start-hook` | Validates plugin structure at session start in remote Claude Code environments | `shared/skills/session-start-hook/SKILL.md` |
-| `web-search` | Search the web for current information and synthesize results | `shared/skills/web-search/SKILL.md` |
-| `commit-conventions` | Surfaces Conventional Commits prefix rules and helps draft well-formed commit messages | `shared/skills/commit-conventions/SKILL.md` |
-| `changelog` | Generate structured changelog entries from git history, grouping by conventional prefix and flagging breaking changes | `shared/skills/changelog/SKILL.md` |
-| `code-review` | Perform structured code review with severity levels and actionable feedback | `shared/skills/code-review/SKILL.md` |
-| `context-budget` | Guidelines for managing context window efficiently; when to use subagents and summarization | `shared/skills/context-budget/SKILL.md` |
-| `debug` | Structured debugging loop for symptoms, errors, and stack traces; diagnoses root cause and fix | `shared/skills/debug/SKILL.md` |
-| `explain-code` | Explain code snippets at varying depth (brief, detailed, architectural) | `shared/skills/explain-code/SKILL.md` |
-| `git-ops` | Guards git operations and version bumping; ensures single source of truth for plugin.json | `shared/skills/git-ops/SKILL.md` |
-| `pr-description` | Structured PR template and review guidance for pull request descriptions | `shared/skills/pr-description/SKILL.md` |
-| `principles` | Surfaces the repo's opinionated AI behaviour defaults (communication, code, decision-making) | `shared/skills/principles/SKILL.md` |
-| `plugin-setup` | Step-by-step guidance for creating and registering a new skill in this repo | `shared/skills/plugin-setup/SKILL.md` |
-| `release-checklist` | End-to-end release workflow checklist: version bump, changelog, release commit, tag, push | `shared/skills/release-checklist/SKILL.md` |
-| `skill-audit` | Audit skill library for completeness: check required fields, variants, tests, dependencies | `shared/skills/skill-audit/SKILL.md` |
-| `task-decompose` | Decompose high-level tasks into concrete, measurable subtasks with acceptance criteria | `shared/skills/task-decompose/SKILL.md` |
+| Skill                | Description                                                                                                           | Path                                        |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `session-start-hook` | Validates plugin structure at session start in remote Claude Code environments                                        | `shared/skills/session-start-hook/SKILL.md` |
+| `web-search`         | Search the web for current information and synthesize results                                                         | `shared/skills/web-search/SKILL.md`         |
+| `commit-conventions` | Surfaces Conventional Commits prefix rules and helps draft well-formed commit messages                                | `shared/skills/commit-conventions/SKILL.md` |
+| `changelog`          | Generate structured changelog entries from git history, grouping by conventional prefix and flagging breaking changes | `shared/skills/changelog/SKILL.md`          |
+| `code-review`        | Perform structured code review with severity levels and actionable feedback                                           | `shared/skills/code-review/SKILL.md`        |
+| `context-budget`     | Guidelines for managing context window efficiently; when to use subagents and summarization                           | `shared/skills/context-budget/SKILL.md`     |
+| `debug`              | Structured debugging loop for symptoms, errors, and stack traces; diagnoses root cause and fix                        | `shared/skills/debug/SKILL.md`              |
+| `explain-code`       | Explain code snippets at varying depth (brief, detailed, architectural)                                               | `shared/skills/explain-code/SKILL.md`       |
+| `git-ops`            | Guards git operations and version bumping; ensures single source of truth for plugin.json                             | `shared/skills/git-ops/SKILL.md`            |
+| `pr-description`     | Structured PR template and review guidance for pull request descriptions                                              | `shared/skills/pr-description/SKILL.md`     |
+| `principles`         | Surfaces the repo's opinionated AI behaviour defaults (communication, code, decision-making)                          | `shared/skills/principles/SKILL.md`         |
+| `plugin-setup`       | Step-by-step guidance for creating and registering a new skill in this repo                                           | `shared/skills/plugin-setup/SKILL.md`       |
+| `release-checklist`  | End-to-end release workflow checklist: version bump, changelog, release commit, tag, push                             | `shared/skills/release-checklist/SKILL.md`  |
+| `skill-audit`        | Audit skill library for completeness: check required fields, variants, tests, dependencies                            | `shared/skills/skill-audit/SKILL.md`        |
+| `task-decompose`     | Decompose high-level tasks into concrete, measurable subtasks with acceptance criteria                                | `shared/skills/task-decompose/SKILL.md`     |
 
 | `memory` | Maintain persistent cross-session project context (decisions, patterns, known issues, workarounds) | `shared/skills/memory/SKILL.md` |
 | `test-writer` | Generate comprehensive unit and integration tests from function/module code | `shared/skills/test-writer/SKILL.md` |
@@ -48,18 +48,18 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 
 ## Workflows
 
-| Workflow | File | Format | Composed Skills | Description |
-|---|---|---|---|---|
-| `daily-brief` | `shared/workflows/daily-brief.json` | JSON | git-ops, changelog, memory, task-decompose | Morning standup: synthesize recent changes, open issues, blocked work |
-| `pre-commit` | `shared/workflows/pre-commit.json` | JSON | security-review, code-review, commit-conventions | Quality gate before committing: security + code quality + conventions |
-| `code-quality` | `shared/workflows/code-quality/workflow.json` | JSON | code-review, debug, explain-code | Full code quality loop: review, debug, and explain code changes |
-| `release-agent` | `shared/workflows/release-agent/workflow.json` | JSON | git-ops, commit-conventions, changelog, release-checklist | End-to-end release workflow: version bump, changelog generation, release commit, and quality checklist |
-| `research-mode` | `shared/workflows/research-mode/workflow.json` | JSON | web-search | Deep research persona for comprehensive information synthesis |
+| Workflow        | File                                           | Format | Composed Skills                                           | Description                                                                                            |
+| --------------- | ---------------------------------------------- | ------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `daily-brief`   | `shared/workflows/daily-brief.json`            | JSON   | git-ops, changelog, memory, task-decompose                | Morning standup: synthesize recent changes, open issues, blocked work                                  |
+| `pre-commit`    | `shared/workflows/pre-commit.json`             | JSON   | security-review, code-review, commit-conventions          | Quality gate before committing: security + code quality + conventions                                  |
+| `code-quality`  | `shared/workflows/code-quality/workflow.json`  | JSON   | code-review, debug, explain-code                          | Full code quality loop: review, debug, and explain code changes                                        |
+| `release-agent` | `shared/workflows/release-agent/workflow.json` | JSON   | git-ops, commit-conventions, changelog, release-checklist | End-to-end release workflow: version bump, changelog generation, release commit, and quality checklist |
+| `research-mode` | `shared/workflows/research-mode/workflow.json` | JSON   | web-search                                                | Deep research persona for comprehensive information synthesis                                          |
 
 ## Plugins
 
-| Plugin | Skills | Description |
-|---|---|---|
+| Plugin        | Skills                         | Description                                  |
+| ------------- | ------------------------------ | -------------------------------------------- |
 | `core-skills` | All skills in `shared/skills/` | Foundational skills for Claude Code sessions |
 
 ## Conventions
@@ -72,8 +72,8 @@ Personal AI behaviour layer. This repo provides shared skills, conventions, and 
 
 ## Tools
 
-| Tool ID | Adapter | Description |
-|---|---|---|
-| `claude-code` | cli | Primary AI coding assistant |
-| `cursor` | file | AI code editor (Agent Skills tree under dist/clients/cursor/skills; optional legacy .cursorrules) |
-| `codex` | shell | OpenAI coding assistant |
+| Tool ID       | Adapter | Description                                                                                       |
+| ------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `claude-code` | cli     | Primary AI coding assistant                                                                       |
+| `cursor`      | file    | AI code editor (Agent Skills tree under dist/clients/cursor/skills; optional legacy .cursorrules) |
+| `codex`       | shell   | OpenAI coding assistant                                                                           |

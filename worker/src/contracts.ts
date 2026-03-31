@@ -1,7 +1,11 @@
-import { jsonResponse } from './http';
-import type { ContractCapability, ContractEnvelope, SuggestedAction } from './types/contracts';
+import { jsonResponse } from "./http";
+import type {
+  ContractCapability,
+  ContractEnvelope,
+  SuggestedAction,
+} from "./types/contracts";
 
-export const CONTRACT_VERSION = '1.0.0';
+export const CONTRACT_VERSION = "1.0.0";
 
 export const WORKER_CAPABILITY: ContractCapability = {
   worker_backed: true,
@@ -24,7 +28,9 @@ type ErrorOptions = EnvelopeOptions & {
   error: { code: string; message: string; hint: string };
 };
 
-function capabilityFor(overrides?: Partial<ContractCapability>): ContractCapability {
+function capabilityFor(
+  overrides?: Partial<ContractCapability>,
+): ContractCapability {
   return {
     ...WORKER_CAPABILITY,
     ...overrides,
@@ -32,7 +38,10 @@ function capabilityFor(overrides?: Partial<ContractCapability>): ContractCapabil
 }
 
 export function successEnvelope(options: EnvelopeOptions): ContractEnvelope {
-  const meta = options.meta && Object.keys(options.meta).length > 0 ? options.meta : undefined;
+  const meta =
+    options.meta && Object.keys(options.meta).length > 0
+      ? options.meta
+      : undefined;
   return {
     contract_version: CONTRACT_VERSION,
     resource: options.resource,
@@ -51,10 +60,16 @@ export function errorEnvelope(options: ErrorOptions): ContractEnvelope {
   };
 }
 
-export function contractSuccessResponse(options: EnvelopeOptions, status = 200): Response {
+export function contractSuccessResponse(
+  options: EnvelopeOptions,
+  status = 200,
+): Response {
   return jsonResponse(successEnvelope(options), status);
 }
 
-export function contractErrorResponse(options: ErrorOptions, status = 400): Response {
+export function contractErrorResponse(
+  options: ErrorOptions,
+  status = 400,
+): Response {
   return jsonResponse(errorEnvelope(options), status);
 }

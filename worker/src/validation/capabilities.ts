@@ -6,10 +6,7 @@
  * not hardcoded here, so the list stays in sync with compiled output.
  */
 
-import type {
-  CapabilityError,
-  ValidationResult,
-} from '../types/capabilities';
+import type { CapabilityError, ValidationResult } from "../types/capabilities";
 
 /** Capability IDs must follow the pattern: word.word[.word]* */
 const CAPABILITY_ID_RE = /^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/;
@@ -23,7 +20,7 @@ const MAX_CAPS = 50;
  */
 export function validatePlatform(
   raw: string,
-  knownPlatforms: Set<string>
+  knownPlatforms: Set<string>,
 ): ValidationResult<string> {
   const trimmed = raw.trim().toLowerCase();
 
@@ -32,22 +29,26 @@ export function validatePlatform(
       ok: false,
       status: 404,
       error: {
-        code: 'INVALID_PLATFORM',
-        message: 'Platform identifier is empty.',
-        hint: `Known platforms: ${[...knownPlatforms].join(', ')}`,
+        code: "INVALID_PLATFORM",
+        message: "Platform identifier is empty.",
+        hint: `Known platforms: ${[...knownPlatforms].join(", ")}`,
       },
     };
   }
 
   // Block path traversal and injection attempts
-  if (trimmed.includes('/') || trimmed.includes('..') || trimmed.includes('\0')) {
+  if (
+    trimmed.includes("/") ||
+    trimmed.includes("..") ||
+    trimmed.includes("\0")
+  ) {
     return {
       ok: false,
       status: 404,
       error: {
-        code: 'INVALID_PLATFORM',
+        code: "INVALID_PLATFORM",
         message: `Unknown platform: '${trimmed}'.`,
-        hint: `Known platforms: ${[...knownPlatforms].join(', ')}`,
+        hint: `Known platforms: ${[...knownPlatforms].join(", ")}`,
       },
     };
   }
@@ -57,9 +58,9 @@ export function validatePlatform(
       ok: false,
       status: 404,
       error: {
-        code: 'INVALID_PLATFORM',
+        code: "INVALID_PLATFORM",
         message: `Unknown platform: '${trimmed}'.`,
-        hint: `Known platforms: ${[...knownPlatforms].join(', ')}`,
+        hint: `Known platforms: ${[...knownPlatforms].join(", ")}`,
       },
     };
   }
@@ -72,14 +73,14 @@ export function validatePlatform(
  * Accepts comma-separated capability IDs: fs.read,shell.exec,network.http
  */
 export function validateCapabilitiesParam(
-  raw: string | null
+  raw: string | null,
 ): ValidationResult<string[]> {
   if (raw === null) {
     return {
       ok: false,
       status: 400,
       error: {
-        code: 'MISSING_CAPS_PARAM',
+        code: "MISSING_CAPS_PARAM",
         message: "Missing required query parameter: 'caps'.",
         hint: "Provide a comma-separated list of capability IDs, e.g. ?caps=network.http,fs.read",
       },
@@ -87,7 +88,7 @@ export function validateCapabilitiesParam(
   }
 
   const parts = raw
-    .split(',')
+    .split(",")
     .map((c) => c.trim().toLowerCase())
     .filter(Boolean);
 
@@ -96,8 +97,9 @@ export function validateCapabilitiesParam(
       ok: false,
       status: 400,
       error: {
-        code: 'EMPTY_CAPS_PARAM',
-        message: "Query parameter 'caps' must contain at least one capability ID.",
+        code: "EMPTY_CAPS_PARAM",
+        message:
+          "Query parameter 'caps' must contain at least one capability ID.",
         hint: "Provide a comma-separated list of capability IDs, e.g. ?caps=network.http,fs.read",
       },
     };
@@ -108,7 +110,7 @@ export function validateCapabilitiesParam(
       ok: false,
       status: 400,
       error: {
-        code: 'INVALID_CAPABILITY_FORMAT',
+        code: "INVALID_CAPABILITY_FORMAT",
         message: `Too many capabilities: ${parts.length} provided, maximum is ${MAX_CAPS}.`,
       },
     };
@@ -120,8 +122,8 @@ export function validateCapabilitiesParam(
       ok: false,
       status: 400,
       error: {
-        code: 'INVALID_CAPABILITY_FORMAT',
-        message: `Invalid capability ID format: ${invalid.map((c) => `'${c}'`).join(', ')}.`,
+        code: "INVALID_CAPABILITY_FORMAT",
+        message: `Invalid capability ID format: ${invalid.map((c) => `'${c}'`).join(", ")}.`,
         hint: "Capability IDs must match pattern: word.word (e.g. fs.read, shell.exec, network.http)",
       },
     };
@@ -140,13 +142,13 @@ export function validateCapabilitiesParam(
 
 /** Build a stable cache key from a sorted capability list */
 export function capabilitiesCacheKey(caps: string[]): string {
-  return [...caps].sort().join(',');
+  return [...caps].sort().join(",");
 }
 
 /** Build error detail for a CapabilityError */
 export function makeError(
   error: CapabilityError,
-  status: number
+  status: number,
 ): { body: { error: CapabilityError }; status: number } {
   return { body: { error }, status };
 }

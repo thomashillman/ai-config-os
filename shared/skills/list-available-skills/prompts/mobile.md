@@ -36,14 +36,14 @@ Sort categories alphabetically. Sort skills within each category alphabetically.
 Omit any category that has zero usable skills. If a skill fits no category well,
 create a new one using the same format.
 
-| Category | Tagline | Classify here when the skill… |
-|---|---|---|
-| **Code Quality & Review** | Review, refactor, test, and secure your codebase | reviews, refactors, tests, or audits code quality or security |
-| **Debugging & Explanation** | Diagnose failures, explain code, analyse CI logs | diagnoses errors, explains code behaviour, or analyses failures |
-| **Git & CI/CD** | Commit, review PRs, release, and track changes | involves commits, PRs, changelogs, releases, or CI pipelines |
-| **Planning & Tasks** | Break down, start, save, and resume work sessions | decomposes, starts, saves, resumes, or triages tasks or issues |
-| **Research & Reference** | Search the web, manage context and token budget | searches the web, manages context, or surfaces reference material |
-| **Skills & Configuration** | Discover, audit, and configure your AI skills layer | manages skills, configuration, sessions, or AI tooling itself |
+| Category                    | Tagline                                             | Classify here when the skill…                                     |
+| --------------------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| **Code Quality & Review**   | Review, refactor, test, and secure your codebase    | reviews, refactors, tests, or audits code quality or security     |
+| **Debugging & Explanation** | Diagnose failures, explain code, analyse CI logs    | diagnoses errors, explains code behaviour, or analyses failures   |
+| **Git & CI/CD**             | Commit, review PRs, release, and track changes      | involves commits, PRs, changelogs, releases, or CI pipelines      |
+| **Planning & Tasks**        | Break down, start, save, and resume work sessions   | decomposes, starts, saves, resumes, or triages tasks or issues    |
+| **Research & Reference**    | Search the web, manage context and token budget     | searches the web, manages context, or surfaces reference material |
+| **Skills & Configuration**  | Discover, audit, and configure your AI skills layer | manages skills, configuration, sessions, or AI tooling itself     |
 
 ## Step 4: Present the output
 
@@ -51,11 +51,13 @@ Open with a one-line surface header, then render each category block, then the
 excluded note (if non-zero).
 
 **Surface header:**
+
 ```
 Surface: <surface_hint> (<platform_hint>)
 ```
 
 **Per category:**
+
 ```
 **<Category Name>**
 <Tagline>
@@ -65,6 +67,7 @@ Surface: <surface_hint> (<platform_hint>)
 One blank line between category blocks.
 
 **Trailing excluded note** (omit if count is zero):
+
 ```
 > <N> skill(s) excluded on this surface — require shell or filesystem access not available on iOS.
 ```

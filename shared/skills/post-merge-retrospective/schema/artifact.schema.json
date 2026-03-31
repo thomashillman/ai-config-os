@@ -4,7 +4,15 @@
   "title": "Post-Merge Retrospective Artifact",
   "description": "Machine-readable output from a post-merge session retrospective",
   "type": "object",
-  "required": ["schema_version", "generated_at", "pr_ref", "session_stats", "friction_signals", "skill_recommendations", "summary"],
+  "required": [
+    "schema_version",
+    "generated_at",
+    "pr_ref",
+    "session_stats",
+    "friction_signals",
+    "skill_recommendations",
+    "summary"
+  ],
   "additionalProperties": false,
   "properties": {
     "schema_version": {
@@ -43,12 +51,26 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["type", "turn_index", "description", "impact", "repeatable"],
+        "required": [
+          "type",
+          "turn_index",
+          "description",
+          "impact",
+          "repeatable"
+        ],
         "additionalProperties": false,
         "properties": {
           "type": {
             "type": "string",
-            "enum": ["error", "correction", "loop", "assumption_failure", "missing_context", "inefficiency", "capability_gap"]
+            "enum": [
+              "error",
+              "correction",
+              "loop",
+              "assumption_failure",
+              "missing_context",
+              "inefficiency",
+              "capability_gap"
+            ]
           },
           "turn_index": {
             "type": "integer",
@@ -74,7 +96,14 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "category", "rationale", "trigger_description", "priority", "estimated_reuse"],
+        "required": [
+          "name",
+          "category",
+          "rationale",
+          "trigger_description",
+          "priority",
+          "estimated_reuse"
+        ],
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -84,7 +113,16 @@
           },
           "category": {
             "type": "string",
-            "enum": ["library-api-reference", "product-verification", "data-fetching", "business-automation", "scaffolding", "code-quality", "ci-cd", "runbook"]
+            "enum": [
+              "library-api-reference",
+              "product-verification",
+              "data-fetching",
+              "business-automation",
+              "scaffolding",
+              "code-quality",
+              "ci-cd",
+              "runbook"
+            ]
           },
           "rationale": {
             "type": "string",
@@ -107,7 +145,11 @@
     },
     "summary": {
       "type": "object",
-      "required": ["total_signals", "high_impact_signals", "recommendation_count"],
+      "required": [
+        "total_signals",
+        "high_impact_signals",
+        "recommendation_count"
+      ],
       "additionalProperties": false,
       "properties": {
         "total_signals": {

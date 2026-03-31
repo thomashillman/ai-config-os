@@ -1,10 +1,9 @@
 # session-start-hook
 
-
-
 ## Quick Start
 
 See `SKILL.md` for full skill definition including:
+
 - Input/output specification
 - Multi-model variants (Opus, Sonnet, Haiku)
 - Test definitions
@@ -26,6 +25,7 @@ session-start-hook/
 ## Integration
 
 This skill is available through the core-skills plugin and can be:
+
 - Invoked directly by Claude Code
 - Composed into workflows
 - Used with different model variants
@@ -33,4 +33,4 @@ This skill is available through the core-skills plugin and can be:
 
 ---
 
-*This README was auto-generated from SKILL.md frontmatter. Edit the SKILL.md file, then run `ops/generate-docs.sh` to update.*
+_This README was auto-generated from SKILL.md frontmatter. Edit the SKILL.md file, then run `ops/generate-docs.sh` to update._

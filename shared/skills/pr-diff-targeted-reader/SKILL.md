@@ -125,6 +125,7 @@ Stop at tier 2 unless the task explicitly requires broader coverage. Aim for ≤
 ### 5. Fetch targeted files
 
 For each selected file, call:
+
 ```
 get_file_contents — owner, repo, path, ref: head.sha
 ```
@@ -134,6 +135,7 @@ Group results by tier in your response. Note how many files were skipped.
 ### 6. Report
 
 After reading, summarise:
+
 ```
 Read <N> files (Tier 1: <n>, Tier 2: <n>, Tier 3: <n>). Skipped <M> unrelated files.
 ```
@@ -147,6 +149,7 @@ Then present the file contents in relevance order, starting with the files most 
 **Input:** `/pr-diff-targeted-reader 256 AnalyticsTab dashboard tests`
 
 **Output:**
+
 ```
 PR #256: 28 changed files. Fetching targeted subset.
 
@@ -155,6 +158,7 @@ Tier 2 (same module): workerContractsClient.js, ContextCostTab.jsx, ConfigTab.js
 
 Read 6 files. Skipped 22 unrelated files.
 ```
+
 Then file contents follow in tier order.
 
 ### Example 2 — small PR, read everything
@@ -162,7 +166,9 @@ Then file contents follow in tier order.
 **Input:** `/pr-diff-targeted-reader 254`
 
 **Output:**
+
 ```
 PR #254: 3 changed files. Reading all files directly.
 ```
+
 Uses `get_files` and reads all three.

@@ -1,29 +1,38 @@
-import { join, resolve } from 'node:path';
+import { join, resolve } from "node:path";
 
 function detectProvider(env) {
-  if (env.CLAUDE_CODE_REMOTE === 'true' || env.CLAUDE_PROJECT_DIR || env.CLAUDE_CODE_ENTRYPOINT) {
-    return 'claude';
+  if (
+    env.CLAUDE_CODE_REMOTE === "true" ||
+    env.CLAUDE_PROJECT_DIR ||
+    env.CLAUDE_CODE_ENTRYPOINT
+  ) {
+    return "claude";
   }
 
   if (env.CURSOR_SESSION || env.CURSOR_TRACE_ID) {
-    return 'cursor';
+    return "cursor";
   }
 
   if (env.CODEX_SURFACE || env.CODEX_CLI || env.CODEX_HOME) {
-    return 'codex';
+    return "codex";
   }
 
-  return 'unknown';
+  return "unknown";
 }
 
 function createClaudeContext({ env, cwd, home, repoRoot }) {
   const projectDir = env.CLAUDE_PROJECT_DIR || repoRoot;
-  const materialiseScript = join(repoRoot, 'adapters', 'claude', 'materialise.sh');
+  const materialiseScript = join(
+    repoRoot,
+    "adapters",
+    "claude",
+    "materialise.sh",
+  );
 
   return {
-    provider: 'claude',
+    provider: "claude",
     startup: {
-      shouldInstallOnStart: env.CLAUDE_CODE_REMOTE === 'true',
+      shouldInstallOnStart: env.CLAUDE_CODE_REMOTE === "true",
     },
     capabilities: {
       can_fetch_bundle: Boolean(env.AI_CONFIG_WORKER),
@@ -36,44 +45,66 @@ function createClaudeContext({ env, cwd, home, repoRoot }) {
     },
     paths: {
       repo_root: projectDir,
-      local_bundle: join(projectDir, 'dist', 'clients', 'claude-code'),
-      cache_dir: join(home, '.ai-config-os', 'cache', 'claude-code'),
-      target_path: join(home, '.claude', 'skills'),
+      local_bundle: join(projectDir, "dist", "clients", "claude-code"),
+      cache_dir: join(home, ".ai-config-os", "cache", "claude-code"),
+      target_path: join(home, ".claude", "skills"),
     },
     auth: {
-      strategy: env.AI_CONFIG_TOKEN ? 'bearer' : 'none',
-      headers: env.AI_CONFIG_TOKEN ? ['Authorization: Bearer ${AI_CONFIG_TOKEN}'] : [],
+      strategy: env.AI_CONFIG_TOKEN ? "bearer" : "none",
+      headers: env.AI_CONFIG_TOKEN
+        ? ["Authorization: Bearer ${AI_CONFIG_TOKEN}"]
+        : [],
     },
     commands: {
-      remote_install: ['bash', materialiseScript, 'bootstrap'],
-      acquire_local_bundle: ['node', join(projectDir, 'scripts', 'build', 'compile.mjs')],
-      materialize_local: ['bash', materialiseScript, 'extract'],
-      install_target: ['bash', materialiseScript, 'install'],
+      remote_install: ["bash", materialiseScript, "bootstrap"],
+      acquire_local_bundle: [
+        "node",
+        join(projectDir, "scripts", "build", "compile.mjs"),
+      ],
+      materialize_local: ["bash", materialiseScript, "extract"],
+      install_target: ["bash", materialiseScript, "install"],
       deferred: [
         {
-          phase: 'probe_runtime',
-          required_capability: 'can_probe_runtime',
-          command: ['bash', join(projectDir, 'ops', 'capability-probe.sh'), '--quiet'],
+          phase: "probe_runtime",
+          required_capability: "can_probe_runtime",
+          command: [
+            "bash",
+            join(projectDir, "ops", "capability-probe.sh"),
+            "--quiet",
+          ],
         },
         {
-          phase: 'validate',
-          required_capability: 'can_validate',
-          command: ['bash', join(projectDir, 'ops', 'validate-all.sh')],
+          phase: "validate",
+          required_capability: "can_validate",
+          command: ["bash", join(projectDir, "ops", "validate-all.sh")],
         },
         {
-          phase: 'summarize_skills',
-          required_capability: 'can_validate',
-          command: ['node', join(projectDir, 'adapters', 'claude', 'filter-skills-cli.mjs'), '--summary'],
+          phase: "summarize_skills",
+          required_capability: "can_validate",
+          command: [
+            "node",
+            join(projectDir, "adapters", "claude", "filter-skills-cli.mjs"),
+            "--summary",
+          ],
         },
         {
-          phase: 'generate_commands',
-          required_capability: 'can_validate',
-          command: ['node', join(projectDir, 'adapters', 'claude', 'generate-commands.mjs'), '--project-dir', projectDir],
+          phase: "generate_commands",
+          required_capability: "can_validate",
+          command: [
+            "node",
+            join(projectDir, "adapters", "claude", "generate-commands.mjs"),
+            "--project-dir",
+            projectDir,
+          ],
         },
         {
-          phase: 'sync_runtime',
-          required_capability: 'can_sync_runtime',
-          command: ['bash', join(projectDir, 'runtime', 'sync.sh'), '--dry-run'],
+          phase: "sync_runtime",
+          required_capability: "can_sync_runtime",
+          command: [
+            "bash",
+            join(projectDir, "runtime", "sync.sh"),
+            "--dry-run",
+          ],
         },
       ],
     },
@@ -81,10 +112,15 @@ function createClaudeContext({ env, cwd, home, repoRoot }) {
 }
 
 function createCodexContext({ env, home, repoRoot }) {
-  const materialiseScript = join(repoRoot, 'adapters', 'codex', 'materialise.sh');
+  const materialiseScript = join(
+    repoRoot,
+    "adapters",
+    "codex",
+    "materialise.sh",
+  );
 
   return {
-    provider: 'codex',
+    provider: "codex",
     startup: {
       shouldInstallOnStart: false,
     },
@@ -99,18 +135,23 @@ function createCodexContext({ env, home, repoRoot }) {
     },
     paths: {
       repo_root: repoRoot,
-      local_bundle: join(repoRoot, 'dist', 'clients', 'codex'),
-      cache_dir: join(home, '.ai-config-os', 'cache', 'codex'),
-      target_path: join(home, '.codex', 'AGENTS.md'),
+      local_bundle: join(repoRoot, "dist", "clients", "codex"),
+      cache_dir: join(home, ".ai-config-os", "cache", "codex"),
+      target_path: join(home, ".codex", "AGENTS.md"),
     },
     auth: {
-      strategy: env.AI_CONFIG_TOKEN ? 'bearer' : 'none',
-      headers: env.AI_CONFIG_TOKEN ? ['Authorization: Bearer ${AI_CONFIG_TOKEN}'] : [],
+      strategy: env.AI_CONFIG_TOKEN ? "bearer" : "none",
+      headers: env.AI_CONFIG_TOKEN
+        ? ["Authorization: Bearer ${AI_CONFIG_TOKEN}"]
+        : [],
     },
     commands: {
-      acquire_local_bundle: ['node', join(repoRoot, 'scripts', 'build', 'compile.mjs')],
-      materialize_local: ['bash', materialiseScript, 'extract'],
-      install_target: ['bash', materialiseScript, 'install'],
+      acquire_local_bundle: [
+        "node",
+        join(repoRoot, "scripts", "build", "compile.mjs"),
+      ],
+      materialize_local: ["bash", materialiseScript, "extract"],
+      install_target: ["bash", materialiseScript, "install"],
       deferred: [],
     },
   };
@@ -118,7 +159,7 @@ function createCodexContext({ env, home, repoRoot }) {
 
 function createCursorContext({ home, repoRoot }) {
   return {
-    provider: 'cursor',
+    provider: "cursor",
     startup: {
       shouldInstallOnStart: false,
     },
@@ -133,37 +174,48 @@ function createCursorContext({ home, repoRoot }) {
     },
     paths: {
       repo_root: repoRoot,
-      local_bundle: join(repoRoot, 'dist', 'clients', 'cursor'),
-      cache_dir: join(home, '.ai-config-os', 'cache', 'cursor'),
-      target_path: join(repoRoot, '.cursorrules'),
+      local_bundle: join(repoRoot, "dist", "clients", "cursor"),
+      cache_dir: join(home, ".ai-config-os", "cache", "cursor"),
+      target_path: join(repoRoot, ".cursorrules"),
     },
     auth: {
-      strategy: 'none',
+      strategy: "none",
       headers: [],
     },
     commands: {
-      acquire_local_bundle: ['node', join(repoRoot, 'scripts', 'build', 'compile.mjs')],
-      install_target: ['bash', join(repoRoot, 'adapters', 'cursor', 'install.sh'), repoRoot],
+      acquire_local_bundle: [
+        "node",
+        join(repoRoot, "scripts", "build", "compile.mjs"),
+      ],
+      install_target: [
+        "bash",
+        join(repoRoot, "adapters", "cursor", "install.sh"),
+        repoRoot,
+      ],
       deferred: [],
     },
   };
 }
 
-export function resolveProviderContext({ env = process.env, cwd = process.cwd(), home } = {}) {
+export function resolveProviderContext({
+  env = process.env,
+  cwd = process.cwd(),
+  home,
+} = {}) {
   const resolvedHome = home || env.HOME || env.USERPROFILE || cwd;
   const repoRoot = resolve(cwd);
   const provider = detectProvider(env);
 
   switch (provider) {
-    case 'claude':
+    case "claude":
       return createClaudeContext({ env, cwd, home: resolvedHome, repoRoot });
-    case 'codex':
+    case "codex":
       return createCodexContext({ env, home: resolvedHome, repoRoot });
-    case 'cursor':
+    case "cursor":
       return createCursorContext({ home: resolvedHome, repoRoot });
     default:
       return {
-        provider: 'unknown',
+        provider: "unknown",
         startup: {
           shouldInstallOnStart: false,
         },
@@ -183,7 +235,7 @@ export function resolveProviderContext({ env = process.env, cwd = process.cwd(),
           target_path: null,
         },
         auth: {
-          strategy: 'none',
+          strategy: "none",
           headers: [],
         },
         commands: {

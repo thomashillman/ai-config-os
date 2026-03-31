@@ -64,12 +64,14 @@ export const rule = {
 ```
 
 **Rules must:**
+
 - Be stateless (no global state except reading/writing JSONL files)
 - Handle their own errors gracefully (throw only for assertion failures)
 - Return quickly (< 100ms)
 - Assume the event has been validated already
 
 **Rules may:**
+
 - Append to JSONL files (for analytics)
 - Read/write session state in `/tmp/claude-sessions/`
 - Log to stderr for debugging
@@ -80,6 +82,7 @@ export const rule = {
 See `lib/contracts/hook-event.ts` for the canonical event types. Every rule receives a validated event object with this shape:
 
 ### PreToolUseEvent
+
 ```javascript
 {
   type: 'PreToolUse',
@@ -92,6 +95,7 @@ See `lib/contracts/hook-event.ts` for the canonical event types. Every rule rece
 ```
 
 ### PostToolUseEvent
+
 ```javascript
 {
   type: 'PostToolUse',
@@ -105,6 +109,7 @@ See `lib/contracts/hook-event.ts` for the canonical event types. Every rule rece
 ```
 
 ### SessionStartEvent
+
 ```javascript
 {
   type: 'SessionStart',
@@ -123,20 +128,20 @@ See `lib/contracts/hook-event.ts` for the canonical event types. Every rule rece
 // .claude/hooks/lib/rules/my-rule.mjs
 
 export const rule = {
-  name: 'my-rule',
-  triggers: ['PreToolUse'],
+  name: "my-rule",
+  triggers: ["PreToolUse"],
 
   async execute(event) {
     // Your logic here
-    return { decision: 'allow' };
-  }
+    return { decision: "allow" };
+  },
 };
 ```
 
 2. Register in `lib/rules/index.mjs`:
 
 ```javascript
-import { rule as myRule } from './my-rule.mjs';
+import { rule as myRule } from "./my-rule.mjs";
 
 export const rules = {
   myRule,
@@ -160,6 +165,7 @@ export const rules = {
 8. **Exits** with code 0 (success, regardless of rule results)
 
 **Error handling:**
+
 - Parse errors: log to stderr, exit 0 (allow)
 - Validation errors: log to stderr, exit 0 (allow)
 - Rule errors: log to stderr, continue to next rule (graceful degradation)
@@ -177,6 +183,7 @@ Tests are in `lib/__tests__/`:
 - **fixtures.mjs** — Sample events for testing
 
 Run tests:
+
 ```bash
 npm test -- --grep "hook"
 ```
