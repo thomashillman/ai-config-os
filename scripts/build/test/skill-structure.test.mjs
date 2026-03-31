@@ -8,10 +8,12 @@
  *   1. variants.*.prompt_file paths resolve on disk (relative to skill directory)
  *   2. dependencies.skills[].name references exist in shared/skills/
  *   3. capabilities.required/optional values are valid schema enum entries
+ *   4. ops/test-skills.sh --structure-only (quoted YAML type + prompts/ only when variants reference prompts/)
  */
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'child_process';
 import { readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +22,7 @@ import { parseSkill } from '../lib/parse-skill.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, '../../..');
 const SKILLS_DIR = join(REPO_ROOT, 'shared', 'skills');
+const IS_WINDOWS = process.platform === 'win32';
 
 // Sourced from schemas/skill.schema.json → $defs.capabilityId.enum
 const VALID_CAPABILITY_IDS = new Set([
@@ -91,4 +94,21 @@ describe('skill structure checks', () => {
     }
     assert.equal(failures.length, 0, `Invalid capability IDs:\n${failures.join('\n')}`);
   });
+
+  test(
+    'ops/test-skills.sh --structure-only matches variant prompt_file policy (quoted YAML type)',
+    { skip: IS_WINDOWS ? 'bash test-skills gate runs on Linux/macOS CI' : false },
+    () => {
+      const script = join(REPO_ROOT, 'ops', 'test-skills.sh');
+      const result = spawnSync('bash', [script, '--structure-only'], {
+        encoding: 'utf8',
+        cwd: REPO_ROOT,
+      });
+      assert.equal(
+        result.status,
+        0,
+        `test-skills structure gate failed:\n${result.stdout}\n${result.stderr}`,
+      );
+    },
+  );
 });
