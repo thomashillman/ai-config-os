@@ -16,27 +16,27 @@ const mod = await import("../../../worker/src/task-runtime.ts").catch(
 
     src = src
       .replace(
-        "import { TaskConflictError, TaskNotFoundError, TaskStore } from '../../runtime/lib/task-store-worker.mjs';",
+        /import\s*\{\s*TaskConflictError,\s*TaskNotFoundError,\s*TaskStore,\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-store-worker\.mjs["'];/,
         `import { TaskConflictError, TaskNotFoundError, TaskStore } from '${new URL("../../../runtime/lib/task-store-worker.mjs", import.meta.url).href}';`,
       )
       .replace(
-        "import { KvTaskStore } from '../../runtime/lib/task-store-kv.mjs';",
+        /import\s*\{\s*KvTaskStore\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-store-kv\.mjs["'];/,
         `import { KvTaskStore } from '${new URL("../../../runtime/lib/task-store-kv.mjs", import.meta.url).href}';`,
       )
       .replace(
-        "import { createTaskControlPlaneService } from '../../runtime/lib/task-control-plane-service-worker.mjs';",
+        /import\s*\{\s*createTaskControlPlaneService\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-control-plane-service-worker\.mjs["'];/,
         `import { createTaskControlPlaneService } from '${new URL("../../../runtime/lib/task-control-plane-service-worker.mjs", import.meta.url).href}';`,
       )
       .replace(
-        "import { createHandoffTokenService } from '../../runtime/lib/handoff-token-service-worker.mjs';",
+        /import\s*\{\s*createHandoffTokenService\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/handoff-token-service-worker\.mjs["'];/,
         `import { createHandoffTokenService } from '${new URL("../../../runtime/lib/handoff-token-service-worker.mjs", import.meta.url).href}';`,
       )
       .replace(
-        "import { jsonResponse } from './http';",
+        /import\s*\{\s*jsonResponse\s*\}\s*from\s*["']\.\/http["'];/,
         "const jsonResponse = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });",
       )
       .replace(
-        "import { contractErrorResponse, WORKER_CAPABILITY } from './contracts';",
+        /import\s*\{\s*contractErrorResponse,\s*WORKER_CAPABILITY\s*\}\s*from\s*["']\.\/contracts["'];/,
         `
 const WORKER_CAPABILITY = { worker_backed: true, local_only: false, remote_safe: true, tunnel_required: false, unavailable_on_surface: false };
 function contractErrorResponse({ resource, data, summary, capability, error }, status = 500) {
@@ -44,10 +44,13 @@ function contractErrorResponse({ resource, data, summary, capability, error }, s
 }`,
       )
       .replace(
-        "import { DualWriteTaskStore } from './dual-write-task-store';\n",
+        /import\s*\{\s*DualWriteTaskStore\s*\}\s*from\s*["']\.\/dual-write-task-store["'];\s*\n/,
         "class DualWriteTaskStore { constructor(kv, ns) { this.kv = kv; this.ns = ns; } }\n",
       )
-      .replace("import type { Env } from './types';\n", "");
+      .replace(
+        /import\s+type\s+\{\s*Env\s*\}\s*from\s*["']\.\/types["'];\s*\n/,
+        "",
+      );
 
     const out = ts.transpileModule(src, {
       compilerOptions: {

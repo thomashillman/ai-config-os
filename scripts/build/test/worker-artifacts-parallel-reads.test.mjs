@@ -33,8 +33,8 @@ function transpileWorkerModule(relativePath, outPath) {
   }).outputText;
 
   code = code
-    .replace("from '../http';", "from '../http.mjs';")
-    .replace("from '../types';", "from '../types.mjs';");
+    .replace(/from ["']\.\.\/http["'];?/g, 'from "../http.mjs";')
+    .replace(/from ["']\.\.\/types["'];?/g, 'from "../types.mjs";');
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, code, "utf8");
