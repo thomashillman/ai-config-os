@@ -1,0 +1,33 @@
+---
+description: Structured pull-request review (opt-in)
+alwaysApply: false
+---
+
+# When to use
+
+Mention this rule (for example `@300-pr-review`) when you want a **structured critique** of an incoming PR: paste the diff, list changed files, or point at the PR branch.
+
+Full skill contract, inputs, and model variants: `shared/skills/review-pr/SKILL.md` (also uses `code-review`).
+
+## Output shape
+
+Produce markdown with these sections (omit if nothing to say):
+
+1. **BREAKING CHANGES** — API/behaviour compatibility
+2. **SECURITY** — auth, secrets, injection, data handling
+3. **TEST COVERAGE** — gaps, edge cases, determinism
+4. **API DESIGN** — shape, errors, extensibility (when relevant)
+
+For each finding use a severity: **critical**, **warning**, or **nit**.
+
+End with **Recommendation:** `approve` | `request changes` | `needs human judgement` plus one sentence.
+
+## Trigger pattern
+
+```text
+@300-pr-review
+Task: Review this PR
+Context: <diff, files, or link to branch>
+```
+
+Optional focus (same as `review-pr`): breaking-changes, security, test-coverage, api-design, or all. Prefer **thorough** unless the user asks for **quick** (critical only).

@@ -1,0 +1,9 @@
+---
+description: Testing and validation
+alwaysApply: true
+---
+
+- Add or update tests for non-trivial changes
+- Cover happy path and edge cases
+- Prefer deterministic tests
+- Highlight untested risks if tests cannot be added

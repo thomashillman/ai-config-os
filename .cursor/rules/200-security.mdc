@@ -1,0 +1,10 @@
+---
+description: Security constraints
+alwaysApply: true
+---
+
+- Validate all external inputs
+- Avoid injection risks (SQL, command, template)
+- Do not expose secrets or credentials
+- Use secure defaults for auth and storage
+- Flag security risks explicitly

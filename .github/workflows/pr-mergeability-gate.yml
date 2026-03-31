@@ -54,6 +54,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Cursor project rules
+        run: npm run check:cursor-rules
+
       - name: Check if dashboard changed
         id: dashboard-check
         run: |

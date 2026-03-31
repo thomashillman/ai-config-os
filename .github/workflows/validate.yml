@@ -10,6 +10,8 @@ on:
       - 'shared/lib/**'
       - 'ops/**'
       - 'scripts/ci/**'
+      - '.cursor/rules/**'
+      - '.github/workflows/pr-ai-review.yml'
       - 'PLAN.md'
       - 'README.md'
       - 'package.json'
@@ -23,6 +25,8 @@ on:
       - 'shared/lib/**'
       - 'ops/**'
       - 'scripts/ci/**'
+      - '.cursor/rules/**'
+      - '.github/workflows/pr-ai-review.yml'
       - 'PLAN.md'
       - 'README.md'
       - 'package.json'
@@ -62,6 +66,9 @@ jobs:
 
       - name: Install Node dependencies
         run: npm ci
+
+      - name: Validate Cursor project rules
+        run: npm run check:cursor-rules
 
       - name: Check documented skill count drift
         run: npm run check:skill-count-drift

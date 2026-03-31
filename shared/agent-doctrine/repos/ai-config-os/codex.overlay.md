@@ -34,6 +34,7 @@ Run applicable checks before completion:
 ```bash
 node scripts/build/compile.mjs
 npm test
+npm run check:cursor-rules
 ops/validate-all.sh
 ```
 

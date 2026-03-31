@@ -1,0 +1,10 @@
+---
+description: Workspace-level constraints
+alwaysApply: true
+---
+
+- Follow existing repository structure and patterns
+- Prefer minimal, safe changes
+- Do not introduce breaking changes unless explicitly requested
+- Do not invent APIs, files, config, or environment variables
+- For repo-specific commands, structure, and verification, follow AGENTS.md (and CLAUDE.md for Claude-oriented work).

@@ -1,0 +1,10 @@
+---
+description: Baseline coding behaviour
+alwaysApply: true
+---
+
+- Read relevant files before coding when possible
+- Prefer consistency with existing code over generic best practice
+- Keep implementations simple and maintainable
+- Handle edge cases: null, empty, invalid inputs
+- Include imports and required wiring

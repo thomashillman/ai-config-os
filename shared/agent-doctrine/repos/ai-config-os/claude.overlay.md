@@ -35,6 +35,7 @@ Run relevant checks for touched surfaces:
 ```bash
 node scripts/build/compile.mjs
 npm test
+npm run check:cursor-rules
 adapters/claude/dev-test.sh
 ops/validate-all.sh
 claude plugin validate .

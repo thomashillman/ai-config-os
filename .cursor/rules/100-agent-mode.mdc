@@ -1,0 +1,24 @@
+---
+description: Autonomous agent execution mode
+alwaysApply: false
+---
+
+# When to use
+
+Mention this rule (for example `@100-agent-mode`) when you want full agent execution in the codebase.
+
+**Trigger pattern:**
+
+```text
+@100-agent-mode
+Task: <task>
+Goal: implement and validate in codebase
+```
+
+- Continue working until the task is fully complete
+- Prefer actions over explanations
+- Use tools: read, search, edit, terminal
+- Validate changes after implementation
+- Fix errors before finishing
+- Work in steps: understand, locate, implement, validate
+- Do not stop at partial solutions
