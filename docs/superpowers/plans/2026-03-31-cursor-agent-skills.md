@@ -4,7 +4,7 @@
 
 **Goal:** Emit `dist/clients/cursor/skills/<name>/SKILL.md` (plus optional `prompts/`, `scripts/`, `references/`, `assets/`) with Cursor-safe frontmatter, refactor Claude Code emission to share one tree copier, and keep monolithic `.cursorrules` **opt-in** via `AI_CONFIG_OS_EMIT_CURSORRULES=1`.
 
-**Architecture:** Add `scripts/build/lib/emit-skill-tree.mjs` to own “write one skill folder to dist” (transformed `SKILL.md` + best-effort recursive copy of optional dirs). Add `scripts/build/lib/cursor-skill-md.mjs` (or split strip + transform) that uses the `yaml` package to parse frontmatter, strip Claude/repo-only keys via a single exported list, enforce `name`/`description`, and re-serialize. Refactor `emit-claude-code.mjs` to call the tree helper with the existing `readSkillMd` behavior. Refactor `emit-cursor.mjs` to call the tree helper plus Cursor transform; call legacy concatenation only when env is set.
+**Architecture:** Add `scripts/build/lib/emit-skill-tree.mjs` to own “write one skill folder to dist” (transformed `SKILL.md` + best-effort recursive copy of optional dirs). Add `scripts/build/lib/cursor-frontmatter.mjs` using the `yaml` package to parse frontmatter, strip Claude/repo-only keys via a single exported list, enforce `name`/`description`, and re-serialize. Refactor `emit-claude-code.mjs` to call the tree helper with `(raw, skill) => readSkillMdTransform(raw, skill)`. Refactor `emit-cursor.mjs` to call the tree helper with `(raw, skill) => transformSkillMdForCursor(raw, skill, compatInfo)`; call legacy concatenation only when env is set.
 
 **Tech Stack:** Node.js (ESM), `yaml` (already in `package.json`), existing compiler pipeline in `scripts/build/compile.mjs`, tests in `scripts/build/test/*.test.mjs` via `npm test`.
 
@@ -24,11 +24,15 @@
 | `scripts/build/test/emit-skill-tree.test.mjs` | **Create** — temp dir fixtures |
 | `scripts/build/test/cursor-frontmatter.test.mjs` | **Create** — golden strip + name/description |
 | `scripts/build/test/emitter-contract.test.mjs` | **Modify** — assert `dist/clients/cursor/skills/*/SKILL.md` |
+| `scripts/build/test/delivery-contract.test.mjs` | **Modify** — assertions on `clients/cursor/.cursorrules` must match new default (skills tree primary; legacy gated) |
+| `scripts/build/test/limitation-messaging-contract.test.mjs` | **Modify** — if it reads `.cursorrules` directly, switch to reading a representative `skills/<id>/SKILL.md` or gate legacy env |
+| `scripts/build/test/reproducibility.test.mjs` | **Modify** — include a stable path under `clients/cursor/skills/` in hashes when `.cursorrules` absent |
 | `scripts/build/test/scaffold-and-provenance.test.mjs` | **Modify** — cursor paths if they assert only `.cursorrules` |
 | `README.md` | **Modify** — Cursor section: install `skills/` into `~/.cursor/skills` |
 | `docs/SUPPORTED_TODAY.md` | **Modify** — Cursor emitter row |
 | `shared/targets/platforms/cursor.yaml` | **Modify** — `notes` aligned with Agent Skills |
 | `PLAN.md` | **Modify** — platform maturity row when shipped |
+| `shared/manifest.md` | **Modify** — Cursor row if it still says “.cursorrules only” |
 
 ---
 
@@ -39,7 +43,7 @@
 
 - [ ] **Step 1:** Define a **frozen list** of top-level YAML keys to remove for Cursor emit, derived from [`docs/SKILLS.md`](../../../docs/SKILLS.md): at minimum `hooks`, `context`, `agent`, `user-invocable`, `argument-hint`, `model`, and repo-extended keys `skill` (superseded by emitted `name`), `type`, `status`, `capabilities`, `platforms`, `variants`, `inputs`, `outputs`, `dependencies`, `tests`, `monitoring`, `version`. (Strip `version` from Cursor emit per lean frontmatter; use `metadata` in source if a version hint must survive—rare.)
 
-- [ ] **Step 2:** Export `ALLOWED_CURSOR_TOP_KEYS` as the complement: `name`, `description`, `license`, `compatibility`, `metadata`, `disable-model-invocation`, `allowed-tools` (optional standard).
+- [ ] **Step 2:** Document **pass-through** keys that remain after strip (open-standard + Cursor optional): `name`, `description`, `license`, `compatibility`, `metadata`, `disable-model-invocation`, `allowed-tools`. Unknown keys not in the strip list may remain **or** be removed by policy—pick one in implementation and test it; do not use an automatic “complement of strip list” unless you intend a strict whitelist.
 
 - [ ] **Step 3:** Commit `feat(build): add cursor frontmatter key lists`
 
@@ -75,7 +79,7 @@
 
 - [ ] **Step 2:** `mkdirSync(join(distSkillsDir, skill.skillName), { recursive: true })`.
 
-- [ ] **Step 3:** Read raw `SKILL.md` from source path; `writeFileSync(dest, transformSkillMd(raw))`.
+- [ ] **Step 3:** Read raw `SKILL.md` from source path; `writeFileSync(dest, transformSkillMd(raw, skill))` (signature must match Claude and Cursor callbacks).
 
 - [ ] **Step 4:** For each optional subdir in `['prompts', 'scripts', 'references', 'assets']`, `cpSync` if exists; catch `ENOENT` only.
 
@@ -114,7 +118,7 @@
 
 - [ ] **Step 4:** In `compile.mjs`, set `emitLegacyCursorrules = process.env.AI_CONFIG_OS_EMIT_CURSORRULES === '1'`.
 
-- [ ] **Step 5:** Update contract tests to expect `skills/` layout; gate legacy tests on env.
+- [ ] **Step 5:** Update tests: `emitter-contract`, `scaffold-and-provenance`, **`delivery-contract`**, **`limitation-messaging-contract`**, **`reproducibility`** — expect `skills/` as primary; gate or update any `.cursorrules`-only assertions unless `AI_CONFIG_OS_EMIT_CURSORRULES=1`.
 
 - [ ] **Step 6:** Run `node scripts/build/compile.mjs` and `npm test`.
 
@@ -125,7 +129,7 @@
 ### Task 6: Documentation and platform YAML
 
 **Files:**
-- Modify: `README.md`, `docs/SUPPORTED_TODAY.md`, `shared/targets/platforms/cursor.yaml`, optionally `PLAN.md`
+- Modify: `README.md`, `docs/SUPPORTED_TODAY.md`, `shared/targets/platforms/cursor.yaml`, `PLAN.md`, `shared/manifest.md`
 
 - [ ] **Step 1:** README Cursor section: build → copy `dist/clients/cursor/skills/*` → `~/.cursor/skills/`; mention opt-in legacy env.
 
@@ -133,7 +137,11 @@
 
 - [ ] **Step 3:** `cursor.yaml` notes — reference Agent Skills discovery, not “only .cursorrules”.
 
-- [ ] **Step 4:** Commit `docs: align Cursor docs with Agent Skills emitter`
+- [ ] **Step 4:** `PLAN.md` — update **Platform maturity** table row for Cursor when behaviour ships.
+
+- [ ] **Step 5:** `shared/manifest.md` — align any Cursor/.cursorrules-only wording with the new emitter.
+
+- [ ] **Step 6:** Commit `docs: align Cursor docs with Agent Skills emitter`
 
 ---
 
