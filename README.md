@@ -104,6 +104,16 @@ Before you begin, ensure you have:
 - **yq** (required by config merger: `brew install yq` / `snap install yq`)
 - **git** (for cloning and version control)
 
+### Develop from source (Node tooling)
+
+If you clone the repository and run `npm run build`, `node scripts/build/compile.mjs`, `npm test`, or other Node scripts, install dependencies at the **repository root** first:
+
+```bash
+cd /path/to/ai-config-os
+npm ci
+# or: npm install
+```
+
 ### Step 1: Install the plugin
 
 The quickest way to add AI Config OS to your Claude Code setup:
@@ -146,7 +156,10 @@ The optional visual dashboard shows your tool configuration, skills, and perform
 bash runtime/mcp/start.sh &
 
 # In a new terminal, start the dashboard dev server
-cd dashboard && npm run dev
+cd dashboard
+npm install
+# or: npm ci
+npm run dev
 
 # Open http://localhost:5173 in your browser
 ```
@@ -748,10 +761,16 @@ We welcome improvements, bug reports, and new skills.
 **To contribute:**
 1. Fork the repository
 2. Create a feature branch: `git checkout -b claude/my-feature`
-3. Make your changes
-4. Run validation: `bash adapters/claude/dev-test.sh`
-5. Commit with [conventional commit](https://www.conventionalcommits.org/) messages (e.g., `feat: add new skill`, `fix: resolve symlink issue`)
-6. Push to your fork and create a pull request
+3. Install root dependencies (`npm ci` or `npm install`) if you have not already
+4. Make your changes
+5. Run checks before opening a PR:
+   - **Core:** `npm run validate` or `npm run build`, then `npm test`
+   - **If you changed** `.cursor/rules/**`: also `npm run check:cursor-rules`
+   - **If you changed** `shared/agent-doctrine/**`: also `npm run doctrine:check` (and regenerate entrypoints if needed)
+   - **Full matrix:** see **[AGENTS.md](AGENTS.md)** for Codex-oriented agents and **[CLAUDE.md](CLAUDE.md)** for Claude-oriented workflows
+   - **Claude plugin / packaging surfaces:** `bash adapters/claude/dev-test.sh` and related commands from AGENTS.md / CLAUDE.md when those paths change
+6. Commit with [conventional commit](https://www.conventionalcommits.org/) messages (e.g., `feat: add new skill`, `fix: resolve symlink issue`)
+7. Push to your fork and create a pull request
 
 **For skill contributions:** Please include multi-model variants (Opus, Sonnet, Haiku), at least one test case, and update `shared/manifest.md`.
 
@@ -759,7 +778,7 @@ We welcome improvements, bug reports, and new skills.
 
 ## License
 
-This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
+No license is granted by default. All rights are reserved unless stated elsewhere. This repository is **not** published under an open-source license unless the maintainers explicitly say so.
 
 ---
 
