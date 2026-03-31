@@ -765,6 +765,7 @@ We welcome improvements, bug reports, and new skills.
 4. Make your changes
 5. Run checks before opening a PR:
    - **Core:** `npm run validate` or `npm run build`, then `npm test`
+   - **Narrow tests:** `npm run test:file -- scripts/build/test/<name>.test.mjs` runs only those files and does **not** run the full compile pre-step—run `npm run build` first if you need a fresh `dist/`
    - **If you changed** `.cursor/rules/**`: also `npm run check:cursor-rules`
    - **If you changed** `shared/agent-doctrine/**`: also `npm run doctrine:check` (and regenerate entrypoints if needed)
    - **Full matrix:** see **[AGENTS.md](AGENTS.md)** for Codex-oriented agents and **[CLAUDE.md](CLAUDE.md)** for Claude-oriented workflows

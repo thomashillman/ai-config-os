@@ -12,6 +12,7 @@
     "validate": "node scripts/build/compile.mjs --validate-only",
     "pretest": "node scripts/build/compile.mjs",
     "test": "node scripts/build/test/run-tests.mjs",
+    "test:file": "node scripts/build/test/run-tests.mjs",
     "version:sync": "node scripts/build/sync-release-version.mjs",
     "version:check": "node scripts/build/check-version-parity.mjs",
     "verify": "node scripts/build/verify.mjs",

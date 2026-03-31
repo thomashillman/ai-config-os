@@ -72,7 +72,19 @@ test('generation sync (root files stale check)', () => {
   runCompile();
   const changed = gitChangedFiles(trackedEntrypoints);
 
-  assert.deepEqual(changed, [], 'generator run should not leave stale tracked entrypoints');
+  const staleMsg =
+    changed.length === 0
+      ? 'generator run should not leave stale tracked entrypoints'
+      : [
+          'Tracked generator outputs are stale after compile:',
+          ...changed.map(f => `  - ${f}`),
+          '',
+          'Remediation:',
+          '  - dist/clients/codex/AGENTS.md and dist/clients/claude-code/.claude-plugin/plugin.json: npm run build',
+          '  - CLAUDE.md: npm run doctrine:build (compile.mjs does not emit CLAUDE.md)',
+          'Then commit regenerated files or revert local edits.',
+        ].join('\n');
+  assert.deepEqual(changed, [], staleMsg);
 
   const { claude, version, agents, plugin } = readArtifacts();
   assert.match(claude, /^> Generated file\. Edit doctrine fragments, not this file\./m);
