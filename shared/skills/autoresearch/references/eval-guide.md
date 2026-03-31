@@ -17,11 +17,13 @@ Why: Scales compound variability. If you have 4 evals scored 1-7, your total sco
 ### Text/copy skills (newsletters, tweets, emails, landing pages)
 
 **Bad evals:**
+
 - "Is the writing good?" (too vague -- what's "good"?)
 - "Rate the engagement potential 1-10" (scale = unreliable)
 - "Does it sound like a human?" (subjective, inconsistent scoring)
 
 **Good evals:**
+
 - "Does the output contain zero phrases from this banned list: [game-changer, here's the kicker, the best part, level up]?" (binary, specific)
 - "Does the opening sentence reference a specific time, place, or sensory detail?" (binary, checkable)
 - "Is the output between 150-400 words?" (binary, measurable)
@@ -30,11 +32,13 @@ Why: Scales compound variability. If you have 4 evals scored 1-7, your total sco
 ### Visual/design skills (diagrams, images, slides)
 
 **Bad evals:**
+
 - "Does it look professional?" (subjective)
 - "Rate the visual quality 1-5" (scale)
 - "Is the layout good?" (vague)
 
 **Good evals:**
+
 - "Is all text in the image legible with no truncated or overlapping words?" (binary, specific)
 - "Does the color palette use only soft/pastel tones with no neon, bright red, or high-saturation colors?" (binary, checkable)
 - "Is the layout linear -- flowing either left-to-right or top-to-bottom with no scattered elements?" (binary, structural)
@@ -43,10 +47,12 @@ Why: Scales compound variability. If you have 4 evals scored 1-7, your total sco
 ### Code/technical skills (code generation, configs, scripts)
 
 **Bad evals:**
+
 - "Is the code clean?" (subjective)
 - "Does it follow best practices?" (vague, which best practices?)
 
 **Good evals:**
+
 - "Does the code run without errors?" (binary, testable -- actually execute it)
 - "Does the output contain zero TODO or placeholder comments?" (binary, greppable)
 - "Are all function and variable names descriptive (no single-letter names except loop counters)?" (binary, checkable)
@@ -55,10 +61,12 @@ Why: Scales compound variability. If you have 4 evals scored 1-7, your total sco
 ### Document skills (proposals, reports, decks)
 
 **Bad evals:**
+
 - "Is it comprehensive?" (compared to what?)
 - "Does it address the client's needs?" (too open-ended)
 
 **Good evals:**
+
 - "Does the document contain all required sections: [list them]?" (binary, structural)
 - "Is every claim backed by a specific number, date, or source?" (binary, checkable)
 - "Is the document under [X] pages/words?" (binary, measurable)

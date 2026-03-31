@@ -12,23 +12,24 @@ The **product thesis is excellent**: momentum, not storage. The four visible con
 
 The codebase already has 80% of the "engineering plan" built:
 
-| Plan slice | Already exists | What's missing |
-|---|---|---|
-| Schemas (Slice 1) | 16 contract schemas in `shared/contracts/schemas/v1/` — PortableTaskObject, FindingsLedgerEntry, ProvenanceMarker, EffectiveExecutionContract, ContinuationPackage, HandoffToken, etc. | MomentumView schema only |
-| Route definitions (Slice 1) | `runtime/task-route-definitions.yaml` — 4 routes for `review_repository` with equivalence levels and required capabilities | None |
-| Intent vocabulary (Slice 2) | Not built | Everything |
-| Capability profiles (Slice 3) | `runtime/lib/capability-profile.mjs` — runtime detection. `task-route-resolver.mjs` — capability-based scoring. | Strength labels mapping |
-| EffectiveExecutionContract (Slice 4) | `runtime/lib/effective-execution-contract.mjs` — builds contract with `stronger_host_guidance` string | Structured upgrade explanation |
-| Checkpoints (Slice 5) | `runtime/lib/task-store.mjs` — versioned persistence with optimistic concurrency, snapshots | Momentum projection function |
-| Findings (Slice 6) | `runtime/lib/findings-ledger.mjs` — provenance markers (verified/reused/hypothesis), route upgrade transitions | Confidence level + confidence basis |
-| Continuation (Slice 7) | `runtime/lib/continuation-package.mjs` + `handoff-token-service.mjs` — HMAC signing, replay protection | Derived UX fields (resumeHeadline, etc.) |
-| Journey (Slice 9) | `runtime/lib/review-repository-journey.mjs` — start, resume, readiness view with route upgrade | Momentum-specific acceptance tests |
+| Plan slice                           | Already exists                                                                                                                                                                         | What's missing                           |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Schemas (Slice 1)                    | 16 contract schemas in `shared/contracts/schemas/v1/` — PortableTaskObject, FindingsLedgerEntry, ProvenanceMarker, EffectiveExecutionContract, ContinuationPackage, HandoffToken, etc. | MomentumView schema only                 |
+| Route definitions (Slice 1)          | `runtime/task-route-definitions.yaml` — 4 routes for `review_repository` with equivalence levels and required capabilities                                                             | None                                     |
+| Intent vocabulary (Slice 2)          | Not built                                                                                                                                                                              | Everything                               |
+| Capability profiles (Slice 3)        | `runtime/lib/capability-profile.mjs` — runtime detection. `task-route-resolver.mjs` — capability-based scoring.                                                                        | Strength labels mapping                  |
+| EffectiveExecutionContract (Slice 4) | `runtime/lib/effective-execution-contract.mjs` — builds contract with `stronger_host_guidance` string                                                                                  | Structured upgrade explanation           |
+| Checkpoints (Slice 5)                | `runtime/lib/task-store.mjs` — versioned persistence with optimistic concurrency, snapshots                                                                                            | Momentum projection function             |
+| Findings (Slice 6)                   | `runtime/lib/findings-ledger.mjs` — provenance markers (verified/reused/hypothesis), route upgrade transitions                                                                         | Confidence level + confidence basis      |
+| Continuation (Slice 7)               | `runtime/lib/continuation-package.mjs` + `handoff-token-service.mjs` — HMAC signing, replay protection                                                                                 | Derived UX fields (resumeHeadline, etc.) |
+| Journey (Slice 9)                    | `runtime/lib/review-repository-journey.mjs` — start, resume, readiness view with route upgrade                                                                                         | Momentum-specific acceptance tests       |
 
 The plan proposes to "create" schemas and modules that already exist. **Rebuilding them wastes tokens and risks breaking 55 existing test files.**
 
 **Problem 2: Too many slices for the actual net-new work.**
 
 9 slices + 3 sprints is over-structured for what amounts to 5 genuinely new concerns:
+
 1. Intent lexicon (small lookup table)
 2. Strength labels (small lookup table)
 3. Confidence on findings (schema extension + one function)
@@ -56,18 +57,21 @@ The MomentumView should be a **data contract** that any UI can consume — not a
 Given the existing codebase, here is the **net-new work** required to deliver the momentum engine promise:
 
 ### A. Intent Lexicon (`runtime/lib/intent-lexicon.mjs`)
+
 A deterministic lookup that maps natural language phrases to task types and user-facing titles.
 
 **New files:** 1 module + 1 test
 **Touches:** nothing existing
 
 ### B. Strength Labels (`runtime/lib/strength-labels.mjs`)
+
 A lookup that maps route IDs to user-facing strength descriptors.
 
 **New files:** 1 module + 1 test
 **Touches:** nothing existing
 
 ### C. Confidence on Findings (schema extension + function)
+
 Extend `FindingsLedgerEntry` and `ProvenanceMarker` schemas to include `confidence` (low/medium/high) and `confidence_basis`. Add a function to compute confidence evolution on route upgrade.
 
 **Modified files:** 2 schemas, 1 module
@@ -75,6 +79,7 @@ Extend `FindingsLedgerEntry` and `ProvenanceMarker` schemas to include `confiden
 **Risk:** Schema change affects existing tests — must be additive (optional fields)
 
 ### D. Structured Upgrade Explanation
+
 Replace the `stronger_host_guidance` string with a structured object: `{ before, now, unlocks }`. Expose this from the effective execution contract builder.
 
 **Modified files:** 1 schema, 1 module
@@ -82,17 +87,20 @@ Replace the `stronger_host_guidance` string with a structured object: `{ before,
 **Risk:** Schema change — must keep backward compat or update all consumers
 
 ### E. MomentumView Projection (`runtime/lib/momentum-view.mjs`)
+
 A pure function that takes a task + contract + strength labels and produces the user-facing MomentumView object. This is the **only new schema**.
 
 **New files:** 1 schema, 1 module, 1 test
 
 ### F. Momentum-Aware Continuation
+
 Extend `createContinuationPackage` to include derived UX fields: `resume_headline`, `best_next_step`, `upgrade_value_statement`.
 
 **Modified files:** 1 schema, 1 module
 **New files:** 0
 
 ### G. Acceptance Test: Full Momentum Journey
+
 One end-to-end test that validates the complete weak-start → strong-resume → confidence-growth → momentum-view journey.
 
 **New files:** 1 test
@@ -175,6 +183,7 @@ Tests:
 **Schema changes (additive — new optional fields):**
 
 `shared/contracts/schemas/v1/provenance-marker.schema.json`:
+
 ```json
 // Add optional fields:
 "confidence": { "type": "string", "enum": ["low", "medium", "high"] }
@@ -182,6 +191,7 @@ Tests:
 ```
 
 `shared/contracts/schemas/v1/findings-ledger-entry.schema.json`:
+
 ```json
 // Add optional field:
 "verification_status": { "type": "string", "enum": ["unverified", "partially_verified", "verified", "ruled_out"] }
@@ -239,6 +249,7 @@ New tests:
 **Schema change:**
 
 `shared/contracts/schemas/v1/effective-execution-contract.schema.json`:
+
 ```json
 // Add optional field alongside existing stronger_host_guidance:
 "upgrade_explanation": {
@@ -301,7 +312,15 @@ New tests:
 {
   "title": "MomentumView",
   "type": "object",
-  "required": ["schema_version", "task_id", "work_title", "progress_summary", "top_findings", "current_strength", "best_next_action"],
+  "required": [
+    "schema_version",
+    "task_id",
+    "work_title",
+    "progress_summary",
+    "top_findings",
+    "current_strength",
+    "best_next_action"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "task_id": { "type": "string" },
@@ -494,32 +513,32 @@ Slice 7 depends on all.
 
 ### New files (9)
 
-| File | Slice | Type |
-|---|---|---|
-| `runtime/lib/intent-lexicon.mjs` | 1 | Module |
-| `scripts/build/test/intent-lexicon.test.mjs` | 1 | Test |
-| `runtime/lib/strength-labels.mjs` | 2 | Module |
-| `scripts/build/test/strength-labels.test.mjs` | 2 | Test |
-| `runtime/lib/confidence-rules.mjs` | 3 | Module |
-| `runtime/lib/upgrade-explanations.mjs` | 4 | Data |
-| `shared/contracts/schemas/v1/momentum-view.schema.json` | 5 | Schema |
-| `runtime/lib/momentum-view.mjs` | 5 | Module |
-| `scripts/build/test/momentum-view.test.mjs` | 5 | Test |
-| `runtime/lib/momentum-shelf.mjs` | 7 | Module |
-| `scripts/build/test/momentum-journey.test.mjs` | 7 | Test |
+| File                                                    | Slice | Type   |
+| ------------------------------------------------------- | ----- | ------ |
+| `runtime/lib/intent-lexicon.mjs`                        | 1     | Module |
+| `scripts/build/test/intent-lexicon.test.mjs`            | 1     | Test   |
+| `runtime/lib/strength-labels.mjs`                       | 2     | Module |
+| `scripts/build/test/strength-labels.test.mjs`           | 2     | Test   |
+| `runtime/lib/confidence-rules.mjs`                      | 3     | Module |
+| `runtime/lib/upgrade-explanations.mjs`                  | 4     | Data   |
+| `shared/contracts/schemas/v1/momentum-view.schema.json` | 5     | Schema |
+| `runtime/lib/momentum-view.mjs`                         | 5     | Module |
+| `scripts/build/test/momentum-view.test.mjs`             | 5     | Test   |
+| `runtime/lib/momentum-shelf.mjs`                        | 7     | Module |
+| `scripts/build/test/momentum-journey.test.mjs`          | 7     | Test   |
 
 ### Modified files (7)
 
-| File | Slice | Change |
-|---|---|---|
-| `shared/contracts/schemas/v1/provenance-marker.schema.json` | 3 | Add optional `confidence`, `confidence_basis` |
-| `shared/contracts/schemas/v1/findings-ledger-entry.schema.json` | 3 | Add optional `verification_status` |
-| `runtime/lib/findings-ledger.mjs` | 3 | Support confidence fields, derive from route |
-| `shared/contracts/schemas/v1/effective-execution-contract.schema.json` | 4 | Add optional `upgrade_explanation` object |
-| `runtime/lib/effective-execution-contract.mjs` | 4 | Build upgrade explanation |
-| `shared/contracts/schemas/v1/continuation-package.schema.json` | 6 | Add optional UX fields |
-| `runtime/lib/continuation-package.mjs` | 6 | Derive UX fields |
-| `shared/contracts/validate.mjs` | 5 | Register MomentumView schema |
+| File                                                                   | Slice | Change                                        |
+| ---------------------------------------------------------------------- | ----- | --------------------------------------------- |
+| `shared/contracts/schemas/v1/provenance-marker.schema.json`            | 3     | Add optional `confidence`, `confidence_basis` |
+| `shared/contracts/schemas/v1/findings-ledger-entry.schema.json`        | 3     | Add optional `verification_status`            |
+| `runtime/lib/findings-ledger.mjs`                                      | 3     | Support confidence fields, derive from route  |
+| `shared/contracts/schemas/v1/effective-execution-contract.schema.json` | 4     | Add optional `upgrade_explanation` object     |
+| `runtime/lib/effective-execution-contract.mjs`                         | 4     | Build upgrade explanation                     |
+| `shared/contracts/schemas/v1/continuation-package.schema.json`         | 6     | Add optional UX fields                        |
+| `runtime/lib/continuation-package.mjs`                                 | 6     | Derive UX fields                              |
+| `shared/contracts/validate.mjs`                                        | 5     | Register MomentumView schema                  |
 
 ### Untouched (preserved as-is)
 
@@ -529,30 +548,30 @@ All 55 existing test files, all 16 existing schemas (modified ones get additive 
 
 ## 6. What this plan does NOT include (and why)
 
-| Excluded | Reason |
-|---|---|
-| New `spec/` directory with outcome/route YAML | Already exists as `runtime/task-route-definitions.yaml` and `runtime/task-route-input-definitions.yaml` |
-| New OutcomeDefinition/RouteDefinition schemas | Already exist in `shared/contracts/schemas/v1/` |
-| BehaviourStateObject schema | Not needed — PortableTaskObject already captures all task state |
-| Finding.schema.json | Already exists as `findings-ledger-entry.schema.json` |
-| HandoffToken.schema.json | Already exists and is fully implemented with HMAC + replay protection |
-| `github_repo` route | Does not exist in route definitions. The plan's intent is covered by `github_pr` |
-| UI components / React views | Engine layer only. MomentumView is a data contract, not a component |
-| Momentum Shelf as a UI | `buildMomentumShelf` returns ranked data. Rendering is out of scope |
-| Sprint/week structure | Unnecessary. Slices are atomic commits. Ship when green |
-| Connected capabilities (Slack, issue creation) | Out of scope for engine. These are skill-level concerns |
+| Excluded                                       | Reason                                                                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| New `spec/` directory with outcome/route YAML  | Already exists as `runtime/task-route-definitions.yaml` and `runtime/task-route-input-definitions.yaml` |
+| New OutcomeDefinition/RouteDefinition schemas  | Already exist in `shared/contracts/schemas/v1/`                                                         |
+| BehaviourStateObject schema                    | Not needed — PortableTaskObject already captures all task state                                         |
+| Finding.schema.json                            | Already exists as `findings-ledger-entry.schema.json`                                                   |
+| HandoffToken.schema.json                       | Already exists and is fully implemented with HMAC + replay protection                                   |
+| `github_repo` route                            | Does not exist in route definitions. The plan's intent is covered by `github_pr`                        |
+| UI components / React views                    | Engine layer only. MomentumView is a data contract, not a component                                     |
+| Momentum Shelf as a UI                         | `buildMomentumShelf` returns ranked data. Rendering is out of scope                                     |
+| Sprint/week structure                          | Unnecessary. Slices are atomic commits. Ship when green                                                 |
+| Connected capabilities (Slack, issue creation) | Out of scope for engine. These are skill-level concerns                                                 |
 
 ---
 
 ## 7. Risk register
 
-| Risk | Mitigation |
-|---|---|
-| Schema changes break existing tests | All changes are additive (optional fields). Run full suite after each slice. |
-| MomentumView becomes a kitchen sink | Schema is strict: 7 required fields, 1 optional. No extensibility in v1. |
+| Risk                                | Mitigation                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------ |
+| Schema changes break existing tests | All changes are additive (optional fields). Run full suite after each slice.         |
+| MomentumView becomes a kitchen sink | Schema is strict: 7 required fields, 1 optional. No extensibility in v1.             |
 | Intent lexicon becomes a classifier | Keep it as a static lookup table. No NLP. If phrase isn't in the table, return null. |
-| Strength labels become opinion | Labels are factual descriptions of what the route can access, not quality judgments. |
-| Confidence rules become complex | Three levels only. One rule: confidence = f(route). No scoring, no weighting. |
+| Strength labels become opinion      | Labels are factual descriptions of what the route can access, not quality judgments. |
+| Confidence rules become complex     | Three levels only. One rule: confidence = f(route). No scoring, no weighting.        |
 
 ---
 

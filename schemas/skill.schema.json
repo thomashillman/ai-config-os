@@ -4,7 +4,14 @@
   "title": "Skill Package Manifest",
   "description": "Canonical package manifest for an ai-config-os skill. Describes identity, dependencies, platform mappings, and adapter hints.",
   "type": "object",
-  "required": ["skill", "description", "type", "status", "version", "capabilities"],
+  "required": [
+    "skill",
+    "description",
+    "type",
+    "status",
+    "version",
+    "capabilities"
+  ],
   "additionalProperties": false,
   "properties": {
     "skill": {
@@ -255,14 +262,33 @@
           "id": { "type": "string" },
           "type": {
             "type": "string",
-            "enum": ["prompt-validation", "structure-check", "integration", "performance"]
+            "enum": [
+              "prompt-validation",
+              "structure-check",
+              "integration",
+              "performance"
+            ]
           },
           "input": { "type": "string" },
           "expected_substring": { "type": "string" },
-          "expected_not_null": { "type": "boolean", "description": "Assert the skill produces non-empty output" },
-          "max_latency_ms": { "type": "number", "minimum": 0, "description": "Maximum acceptable latency for performance tests" },
-          "iterations": { "type": "integer", "minimum": 1, "description": "Number of iterations for performance tests" },
-          "model": { "type": "string", "description": "Single model to test against (alternative to models_to_test)" },
+          "expected_not_null": {
+            "type": "boolean",
+            "description": "Assert the skill produces non-empty output"
+          },
+          "max_latency_ms": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Maximum acceptable latency for performance tests"
+          },
+          "iterations": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Number of iterations for performance tests"
+          },
+          "model": {
+            "type": "string",
+            "description": "Single model to test against (alternative to models_to_test)"
+          },
           "models_to_test": {
             "type": "array",
             "items": { "type": "string" }
@@ -286,9 +312,19 @@
       "additionalProperties": false,
       "properties": {
         "auto_generate_readme": { "type": "boolean" },
-        "sections_to_include": { "type": "array", "items": { "type": "string" } },
-        "help_text": { "type": "string", "description": "Template string for contextual help (may include {placeholders})" },
-        "keywords": { "type": "array", "items": { "type": "string" }, "description": "Search keywords for discoverability" }
+        "sections_to_include": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "help_text": {
+          "type": "string",
+          "description": "Template string for contextual help (may include {placeholders})"
+        },
+        "keywords": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Search keywords for discoverability"
+        }
       }
     },
 
@@ -301,8 +337,15 @@
           "type": "array",
           "items": { "type": "string" }
         },
-        "alert_threshold_latency_ms": { "type": "number", "minimum": 0, "description": "Latency threshold that triggers an alert" },
-        "public_metrics": { "type": "boolean", "description": "Whether metrics are exposed publicly" }
+        "alert_threshold_latency_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Latency threshold that triggers an alert"
+        },
+        "public_metrics": {
+          "type": "boolean",
+          "description": "Whether metrics are exposed publicly"
+        }
       }
     },
 

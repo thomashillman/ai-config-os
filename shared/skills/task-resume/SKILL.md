@@ -1,6 +1,7 @@
 ---
 skill: "task-resume"
-description: "Resume a portable task from any prior environment. Presents findings as a narrative, upgrades route transparently, and requires exactly one user action ('yes') to continue.
+description:
+  "Resume a portable task from any prior environment. Presents findings as a narrative, upgrades route transparently, and requires exactly one user action ('yes') to continue.
 
   Invoked by the session-start hook when an active task is detected, or when the user says 'resume', 'continue', or 'yes' in response to a continuation offer."
 type: "prompt"
@@ -97,6 +98,7 @@ Resumes a portable task. Presents prior findings as a story, detects the new cap
 ## Protocol
 
 ### Trigger conditions (any of):
+
 - Session-start hook injects `RESUME_AVAILABLE: <goal> (task: <short_code>)`
 - User says "resume", "continue", "pick up where we left off", "yes" (in context)
 - User types `resume <short_code>` or `resume <name fragment>`
@@ -108,9 +110,10 @@ Resumes a portable task. Presents prior findings as a story, detects the new cap
 2. **Detect current capabilities** — same as task-start. Map to route.
 
 3. **If same or weaker route than original** — acknowledge limitations, present findings, ask how to continue:
-   - *"I'm picking up your [goal] review. I have [N] things flagged — I'm still in Cloud mode, so I can't verify them here. Want me to summarise what I found?"*
+   - _"I'm picking up your [goal] review. I have [N] things flagged — I'm still in Cloud mode, so I can't verify them here. Want me to summarise what I found?"_
 
 4. **If stronger route available** — present one plain-language upgrade offer:
+
    ```
    You were reviewing [goal] on [prior device/mode].
 
@@ -122,34 +125,36 @@ Resumes a portable task. Presents prior findings as a story, detects the new cap
    Here I can [describe new capability: trace full call graph / check git history / run tests].
    Continue and I'll verify these properly?
    ```
+
    Wait for "yes" or equivalent. **One user action.**
 
 5. **After "yes"** — upgrade route:
    - Call `POST /v1/tasks/{id}/route-selection` with new route
    - Call findings transition endpoint to update provenance from `hypothesis`/`reused` to tracking
    - Begin verification work
-   - *"Your [prior mode] review gave me a head start. Let me pick up where we left off..."*
+   - _"Your [prior mode] review gave me a head start. Let me pick up where we left off..."_
 
 6. **After verification of each prior finding**:
-   - Confirmed: *"The [issue] is real — I traced it back [evidence]."*
-   - Cleared: *"The [issue] isn't a problem — I was working from incomplete context [prior mode]."*
+   - Confirmed: _"The [issue] is real — I traced it back [evidence]."_
+   - Cleared: _"The [issue] isn't a problem — I was working from incomplete context [prior mode]."_
    - New findings: add normally
 
-7. **Checkpoint at end**: *"Updated. [N] confirmed, [M] cleared, [K] new findings. Saved."*
+7. **Checkpoint at end**: _"Updated. [N] confirmed, [M] cleared, [K] new findings. Saved."_
 
 ## Provenance translation (user-facing)
 
-| Status | Say to user |
-|---|---|
-| `hypothesis` | "I noticed something — needs checking" |
-| `reused` | "I flagged this [prior mode], now I can verify it" |
-| `verified` | "Confirmed" |
+| Status        | Say to user                                          |
+| ------------- | ---------------------------------------------------- |
+| `hypothesis`  | "I noticed something — needs checking"               |
+| `reused`      | "I flagged this [prior mode], now I can verify it"   |
+| `verified`    | "Confirmed"                                          |
 | `invalidated` | "Not an issue — was working from incomplete context" |
 
 ## Finding summary format
 
 Keep each finding to one line. No JSON. No UUIDs.
-- ✓ Good: *"Token rotation looks missing in auth middleware"*
+
+- ✓ Good: _"Token rotation looks missing in auth middleware"_
 - ✗ Bad: `{ finding_id: "f_abc123", provenance: { status: "hypothesis" } }`
 
 ## Route upgrade logic

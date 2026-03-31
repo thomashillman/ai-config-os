@@ -4,40 +4,40 @@
  * Contract gate: emitted platform selection must be deterministic and include
  * only platforms that both (a) have compatible skills and (b) have an emitter.
  */
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-import { selectEmittedPlatforms } from '../lib/select-emitted-platforms.mjs';
+import { selectEmittedPlatforms } from "../lib/select-emitted-platforms.mjs";
 
-test('resolver selection contract: excludes platforms without emitters', () => {
+test("resolver selection contract: excludes platforms without emitters", () => {
   const platformSkills = {
-    'claude-code': [{}],
+    "claude-code": [{}],
     cursor: [{}],
-    'future-platform': [{}],
+    "future-platform": [{}],
   };
 
   const emitterRegistry = {
-    'claude-code': () => {},
+    "claude-code": () => {},
     cursor: () => {},
   };
 
   const selected = selectEmittedPlatforms(platformSkills, emitterRegistry);
 
-  assert.deepEqual(selected, ['claude-code', 'cursor']);
+  assert.deepEqual(selected, ["claude-code", "cursor"]);
 });
 
-test('resolver selection contract: preserves deterministic insertion order', () => {
+test("resolver selection contract: preserves deterministic insertion order", () => {
   const platformSkills = {
     cursor: [{}],
-    'claude-code': [{}],
+    "claude-code": [{}],
   };
 
   const emitterRegistry = {
-    'claude-code': () => {},
+    "claude-code": () => {},
     cursor: () => {},
   };
 
   const selected = selectEmittedPlatforms(platformSkills, emitterRegistry);
 
-  assert.deepEqual(selected, ['cursor', 'claude-code']);
+  assert.deepEqual(selected, ["cursor", "claude-code"]);
 });

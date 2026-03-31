@@ -4,65 +4,65 @@ Every response from a contract surface (Worker, dashboard API, or MCP tool) must
 
 ## Required fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `contract_version` | `"1.0.0"` | Fixed constant. Bump only when the envelope shape changes in a breaking way. |
-| `resource` | `string` | Dot-separated resource name, e.g. `tasks.list`, `runtime.capabilities`. Pattern: `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`. |
-| `data` | `any` | The primary payload. `null` on error responses. Never omit. |
-| `summary` | `string` | One human-readable sentence describing the result. Must be useful on its own to an LLM or a card render. |
-| `capability` | `object` | Locality and safety flags (see Capability object). |
-| `suggested_actions` | `array` | Ordered list of next actions. May be empty. |
+| Field               | Type      | Description                                                                                                               |
+| ------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `contract_version`  | `"1.0.0"` | Fixed constant. Bump only when the envelope shape changes in a breaking way.                                              |
+| `resource`          | `string`  | Dot-separated resource name, e.g. `tasks.list`, `runtime.capabilities`. Pattern: `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`. |
+| `data`              | `any`     | The primary payload. `null` on error responses. Never omit.                                                               |
+| `summary`           | `string`  | One human-readable sentence describing the result. Must be useful on its own to an LLM or a card render.                  |
+| `capability`        | `object`  | Locality and safety flags (see Capability object).                                                                        |
+| `suggested_actions` | `array`   | Ordered list of next actions. May be empty.                                                                               |
 
 ## Optional fields
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `meta` | `object` | Structured interpretation for agents and card UIs (urgency, blocker counts, best route, etc.). Omit when empty. |
-| `error` | `object` | Present only on error responses (see Error object). |
+| Field   | Type     | Description                                                                                                     |
+| ------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| `meta`  | `object` | Structured interpretation for agents and card UIs (urgency, blocker counts, best route, etc.). Omit when empty. |
+| `error` | `object` | Present only on error responses (see Error object).                                                             |
 
 ## Capability object
 
 All five boolean fields are required.
 
-| Field | Meaning |
-|-------|---------|
-| `worker_backed` | Response comes from the Cloudflare Worker (durable, remotely accessible). |
-| `local_only` | Response can only be produced in a local runtime environment. |
-| `remote_safe` | Safe to call over the public internet without a tunnel. |
-| `tunnel_required` | Requires a tunnel (e.g. Cloudflare Tunnel) to reach the backing service. |
-| `unavailable_on_surface` | This resource cannot be served on the current surface at all. |
+| Field                    | Meaning                                                                   |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `worker_backed`          | Response comes from the Cloudflare Worker (durable, remotely accessible). |
+| `local_only`             | Response can only be produced in a local runtime environment.             |
+| `remote_safe`            | Safe to call over the public internet without a tunnel.                   |
+| `tunnel_required`        | Requires a tunnel (e.g. Cloudflare Tunnel) to reach the backing service.  |
+| `unavailable_on_surface` | This resource cannot be served on the current surface at all.             |
 
 ## Suggested actions array
 
 Each element must have these fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string` | Stable machine identifier, e.g. `list_tasks`. |
-| `label` | `string` | Short human label, e.g. `List tasks`. |
-| `reason` | `string` | Why this action is suggested in this context. |
+| Field             | Type     | Description                                                       |
+| ----------------- | -------- | ----------------------------------------------------------------- |
+| `id`              | `string` | Stable machine identifier, e.g. `list_tasks`.                     |
+| `label`           | `string` | Short human label, e.g. `List tasks`.                             |
+| `reason`          | `string` | Why this action is suggested in this context.                     |
 | `runnable_target` | `string` | How to invoke: HTTP method + path, MCP tool name, or CLI command. |
 
 ## Error object (error responses only)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `code` | `string` | Snake_case stable error code, e.g. `not_found`, `version_conflict`. |
-| `message` | `string` | Human-readable description of what went wrong. |
-| `hint` | `string` | Concrete recovery guidance for the caller. |
+| Field     | Type     | Description                                                         |
+| --------- | -------- | ------------------------------------------------------------------- |
+| `code`    | `string` | Snake_case stable error code, e.g. `not_found`, `version_conflict`. |
+| `message` | `string` | Human-readable description of what went wrong.                      |
+| `hint`    | `string` | Concrete recovery guidance for the caller.                          |
 
 ### Canonical error codes
 
-| Code | HTTP status | When to use |
-|------|-------------|-------------|
-| `auth_required` | 401 | Missing or invalid bearer token. |
-| `validation_error` | 400 | Request body failed schema validation. |
-| `not_found` | 404 | The requested resource does not exist. |
-| `version_conflict` | 409 | Optimistic-concurrency mismatch on `expected_version`. |
-| `handoff_token_forbidden` | 403 | Token is expired or replay nonce mismatch. |
-| `handoff_token_invalid` | 401 | Token structure or signature is invalid. |
-| `handoff_signing_key_missing` | 500 | `HANDOFF_TOKEN_SIGNING_KEY` is not configured. |
-| `internal_error` | 500 | Unexpected server-side failure. |
+| Code                          | HTTP status | When to use                                            |
+| ----------------------------- | ----------- | ------------------------------------------------------ |
+| `auth_required`               | 401         | Missing or invalid bearer token.                       |
+| `validation_error`            | 400         | Request body failed schema validation.                 |
+| `not_found`                   | 404         | The requested resource does not exist.                 |
+| `version_conflict`            | 409         | Optimistic-concurrency mismatch on `expected_version`. |
+| `handoff_token_forbidden`     | 403         | Token is expired or replay nonce mismatch.             |
+| `handoff_token_invalid`       | 401         | Token structure or signature is invalid.               |
+| `handoff_signing_key_missing` | 500         | `HANDOFF_TOKEN_SIGNING_KEY` is not configured.         |
+| `internal_error`              | 500         | Unexpected server-side failure.                        |
 
 ## Rules
 

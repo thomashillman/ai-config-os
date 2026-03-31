@@ -6,11 +6,11 @@ status: "stable"
 inputs:
   - name: "since_ref"
     type: "string"
-    description: "Git reference (tag or commit hash) to start changelog from, e.g. \"v0.3.0\""
+    description: 'Git reference (tag or commit hash) to start changelog from, e.g. "v0.3.0"'
     required: true
   - name: "version"
     type: "string"
-    description: "Target version string for the changelog entry (e.g. \"1.0.0\")"
+    description: 'Target version string for the changelog entry (e.g. "1.0.0")'
     required: true
 outputs:
   - name: "changelog_entry"
@@ -49,13 +49,13 @@ variants:
 tests:
   - id: "test-basic-entry"
     type: "prompt-validation"
-    input: "{\"since_ref\": \"v0.2.0\", \"version\": \"0.3.0\"}"
+    input: '{"since_ref": "v0.2.0", "version": "0.3.0"}'
     expected_substring: "feat:"
     models_to_test:
       - "sonnet"
   - id: "test-breaking-change"
     type: "prompt-validation"
-    input: "{\"since_ref\": \"v0.3.0\", \"version\": \"1.0.0\"}"
+    input: '{"since_ref": "v0.3.0", "version": "1.0.0"}'
     expected_substring: "BREAKING CHANGE"
     models_to_test:
       - "sonnet"
@@ -98,6 +98,7 @@ platforms:
 ## When to use
 
 Use `changelog` when:
+
 - Preparing a new release and need structured commit history
 - Generating release notes with grouped features, fixes, and breaking changes
 - Automating changelog generation across versions
@@ -115,6 +116,7 @@ Use `changelog` when:
 ## Examples
 
 ### Input
+
 ```json
 {
   "since_ref": "v0.3.0",
@@ -123,37 +125,46 @@ Use `changelog` when:
 ```
 
 ### Output (sonnet)
+
 ```markdown
 ## [0.4.0] - 2026-02-28
 
 ### Features
+
 - skill-audit: initial experimental release
 - explain-code: architectural depth variant
 - task-decompose: dependency graph ordering
 
 ### Fixes
+
 - changelog: handle missing conventional prefixes
 
 ### Documentation
+
 - CLAUDE.md: update Phase 2 skill format
 ```
 
 ### Output (opus variant with breaking changes)
+
 ```markdown
 ## [1.0.0] - 2026-02-28
 
 ### Breaking Changes
+
 - **manifest.md**: Now requires `dependencies.skills` array with semver constraints
   - **Migration**: Update all skill references to include version pinning (e.g. `"^1.0"`)
   - **Timeline**: Must be completed before next minor version release
 
 ### Features
+
 - changelog: workflow-blueprint skill for structured commit history
 - release-checklist: automated validation and tagging workflow
 
 ### Fixes
+
 - explain-code: correct depth-to-model tier mapping
 
 ### Documentation
+
 - README.md: add skill registry table
 ```

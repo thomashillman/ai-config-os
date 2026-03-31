@@ -96,6 +96,7 @@ capabilities:
 ## When to use
 
 Use `explain-code` when:
+
 - Onboarding to unfamiliar code
 - Documenting business logic for future maintainers
 - Debugging and need to understand call chain or control flow
@@ -104,7 +105,7 @@ Use `explain-code` when:
 
 ## Instructions
 
-1. **Map depth to model tier**: 
+1. **Map depth to model tier**:
    - `brief` → haiku (one-liner)
    - `detailed` (default) → sonnet (functional explanation)
    - `architectural` → opus (intent, patterns, trade-offs)
@@ -124,6 +125,7 @@ Use `explain-code` when:
 ## Examples
 
 ### Input
+
 ```json
 {
   "code": "async function fetchWithRetry(url, maxRetries = 3) {\n  let lastError;\n  for (let i = 0; i < maxRetries; i++) {\n    try {\n      return await fetch(url);\n    } catch (err) {\n      lastError = err;\n      await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));\n    }\n  }\n  throw lastError;\n}",
@@ -132,6 +134,7 @@ Use `explain-code` when:
 ```
 
 ### Output (sonnet)
+
 ```
 This function fetches a URL with exponential backoff retry logic.
 
@@ -153,6 +156,7 @@ This function fetches a URL with exponential backoff retry logic.
 ```
 
 ### Output (opus)
+
 ```
 This function implements the **Retry with Exponential Backoff** pattern for network resilience.
 
@@ -182,6 +186,7 @@ Typically used in API clients (REST, gRPC, database connections). Pairs well wit
 ```
 
 ### Input (brief variant)
+
 ```json
 {
   "code": "def fibonacci(n):\n  return fibonacci(n-1) + fibonacci(n-2) if n > 1 else n",
@@ -190,6 +195,7 @@ Typically used in API clients (REST, gRPC, database connections). Pairs well wit
 ```
 
 ### Output (haiku)
+
 ```
 Recursive Fibonacci: slow (O(2^n)) but elegant. Use memoization or DP for production.
 ```

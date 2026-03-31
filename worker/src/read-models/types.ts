@@ -1,4 +1,4 @@
-export type FreshnessState = 'fresh' | 'stale' | 'missing' | 'pending';
+export type FreshnessState = "fresh" | "stale" | "missing" | "pending";
 
 export interface SnapshotScope {
   repo_id: string;

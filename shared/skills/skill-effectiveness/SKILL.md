@@ -1,6 +1,7 @@
 ---
 skill: "skill-effectiveness"
-description: "Reports which skills are most effective by analysing outcome data from the skill-outcome-tracker hook.
+description:
+  "Reports which skills are most effective by analysing outcome data from the skill-outcome-tracker hook.
 
   Reads ~/.claude/skill-analytics/skill-outcomes.jsonl and summarises per-skill
   output-used rates, helping identify which skills deliver value and which are
@@ -82,10 +83,10 @@ Reports which skills are most effective by analysing outcome data collected by t
 
 The hook records two outcome types per skill invocation:
 
-| Outcome | Meaning |
-|---|---|
-| `output_used` | Skill output was followed by an Edit or Write within 10 minutes |
-| `output_replaced` | Another skill was invoked before any edit - output discarded |
+| Outcome           | Meaning                                                         |
+| ----------------- | --------------------------------------------------------------- |
+| `output_used`     | Skill output was followed by an Edit or Write within 10 minutes |
+| `output_replaced` | Another skill was invoked before any edit - output discarded    |
 
 This skill reads `~/.claude/skill-analytics/skill-outcomes.jsonl`, aggregates
 per-skill counts, and produces a ranked report.

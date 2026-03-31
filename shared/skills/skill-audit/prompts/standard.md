@@ -3,6 +3,7 @@
 Assess skill completeness against Phase 2 schema: frontmatter, variants, tests, and dependencies.
 
 ## Audit Checklist
+
 - [ ] Frontmatter: skill, description, type, status all present
 - [ ] Inputs & Outputs: documented with types and descriptions
 - [ ] Dependencies: skills array, apis array, models array defined
@@ -13,6 +14,7 @@ Assess skill completeness against Phase 2 schema: frontmatter, variants, tests, 
 - [ ] Tags: skill categorization tags
 
 ## Output Format
+
 ```
 Skill: [name]
 Status: [Complete/Incomplete]

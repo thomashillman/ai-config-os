@@ -9,8 +9,8 @@
  * - Cross-platform path handling
  */
 
-import { resolve, join, isAbsolute, sep, relative } from 'node:path';
-import { existsSync, lstatSync } from 'node:fs';
+import { resolve, join, isAbsolute, sep, relative } from "node:path";
+import { existsSync, lstatSync } from "node:fs";
 
 /**
  * Check if a resolved absolute path is contained within a boundary directory.
@@ -38,12 +38,12 @@ function isContainedIn(resolved, resolvedBoundary) {
  * @returns {string} Escaped string safe for shell
  */
 export function shellEscape(str) {
-  if (typeof str !== 'string') {
-    return '';
+  if (typeof str !== "string") {
+    return "";
   }
 
   // Remove null bytes (cannot be escaped in shell)
-  str = str.replace(/\x00/g, '');
+  str = str.replace(/\x00/g, "");
 
   // Wrap in single quotes and escape single quotes inside
   return "'" + str.replace(/'/g, "'\\''") + "'";
@@ -57,10 +57,10 @@ export function shellEscape(str) {
  */
 export function shellEscapeArgs(args) {
   if (!Array.isArray(args)) {
-    return '';
+    return "";
   }
 
-  return args.map((arg) => shellEscape(String(arg))).join(' ');
+  return args.map((arg) => shellEscape(String(arg))).join(" ");
 }
 
 /**
@@ -72,23 +72,23 @@ export function shellEscapeArgs(args) {
  * @returns {string} Sanitized path
  */
 export function sanitizePath(path) {
-  if (typeof path !== 'string') {
-    return '';
+  if (typeof path !== "string") {
+    return "";
   }
 
   // Remove null bytes
-  path = path.replace(/\x00/g, '');
+  path = path.replace(/\x00/g, "");
 
   // Remove leading traversal sequences (both Unix / and Windows \)
-  while (path.startsWith('../') || path.startsWith('..\\')) {
+  while (path.startsWith("../") || path.startsWith("..\\")) {
     path = path.slice(3);
   }
 
   // Also remove mixed separators that could escape after normalization
   // e.g., ..\\../ or ../ embedded in the path at unsafe positions
   // This is a defense-in-depth: paths should be normalized elsewhere
-  if (path.includes('\x00')) {
-    path = path.replace(/\x00/g, '');
+  if (path.includes("\x00")) {
+    path = path.replace(/\x00/g, "");
   }
 
   return path;
@@ -104,12 +104,12 @@ export function sanitizePath(path) {
  * @returns {boolean} True if path is within boundary
  */
 export function validatePathBoundary(untrustedPath, boundary) {
-  if (typeof untrustedPath !== 'string' || typeof boundary !== 'string') {
+  if (typeof untrustedPath !== "string" || typeof boundary !== "string") {
     return false;
   }
 
   // Reject paths with null bytes
-  if (untrustedPath.includes('\x00') || boundary.includes('\x00')) {
+  if (untrustedPath.includes("\x00") || boundary.includes("\x00")) {
     return false;
   }
 
@@ -137,7 +137,7 @@ export function validatePathBoundary(untrustedPath, boundary) {
  */
 export function resolveSafePath(relPath, boundary) {
   if (!isAbsolute(boundary)) {
-    throw new Error('Boundary directory must be absolute');
+    throw new Error("Boundary directory must be absolute");
   }
 
   if (!validatePathBoundary(relPath, boundary)) {
@@ -178,12 +178,12 @@ export function resolveSafePath(relPath, boundary) {
  * @returns {boolean} True only if path is within boundary and contains no symlinks
  */
 export function isPathSafe(fullPath, boundary) {
-  if (typeof fullPath !== 'string' || typeof boundary !== 'string') {
+  if (typeof fullPath !== "string" || typeof boundary !== "string") {
     return false;
   }
 
   // Reject paths with null bytes
-  if (fullPath.includes('\x00') || boundary.includes('\x00')) {
+  if (fullPath.includes("\x00") || boundary.includes("\x00")) {
     return false;
   }
 
@@ -213,9 +213,10 @@ export function isPathSafe(fullPath, boundary) {
   // would cause false negatives on legitimate child paths. Only symlinks
   // introduced by user-controlled path segments inside the boundary matter.
   const relFromBoundary = relative(resolvedBoundary, resolvedFullPath);
-  const parts = relFromBoundary === ''
-    ? []
-    : relFromBoundary.split(/[\\/]/).filter(Boolean);
+  const parts =
+    relFromBoundary === ""
+      ? []
+      : relFromBoundary.split(/[\\/]/).filter(Boolean);
   let current = resolvedBoundary;
 
   for (const part of parts) {
@@ -246,7 +247,7 @@ export function isPathSafe(fullPath, boundary) {
  * @returns {boolean} True if command name is safe
  */
 export function isCommandNameSafe(cmd) {
-  if (typeof cmd !== 'string' || cmd.length === 0) {
+  if (typeof cmd !== "string" || cmd.length === 0) {
     return false;
   }
 
@@ -263,7 +264,7 @@ export function isCommandNameSafe(cmd) {
  * @returns {object} { command, args } or null if invalid
  */
 export function parseCommandSafely(cmdLine) {
-  if (typeof cmdLine !== 'string') {
+  if (typeof cmdLine !== "string") {
     return null;
   }
 
@@ -291,11 +292,11 @@ export function parseCommandSafely(cmdLine) {
  * @returns {string} Normalized path
  */
 export function normalizePath(path) {
-  if (typeof path !== 'string') {
-    return '';
+  if (typeof path !== "string") {
+    return "";
   }
 
-  return path.replace(/\\/g, '/');
+  return path.replace(/\\/g, "/");
 }
 
 /**
@@ -306,11 +307,11 @@ export function normalizePath(path) {
  * @returns {string} Text with normalized line endings
  */
 export function normalizeLineEndings(text) {
-  if (typeof text !== 'string') {
-    return '';
+  if (typeof text !== "string") {
+    return "";
   }
 
-  return text.replace(/\r\n/g, '\n');
+  return text.replace(/\r\n/g, "\n");
 }
 
 /**
@@ -321,15 +322,15 @@ export function normalizeLineEndings(text) {
  * @returns {string} Escaped for use in double quotes
  */
 export function escapeForDoubleQuotes(str) {
-  if (typeof str !== 'string') {
-    return '';
+  if (typeof str !== "string") {
+    return "";
   }
 
   // Remove null bytes
-  str = str.replace(/\x00/g, '');
+  str = str.replace(/\x00/g, "");
 
   // Escape special characters in double-quoted strings
-  return str.replace(/[\\"$`!]/g, '\\$&');
+  return str.replace(/[\\"$`!]/g, "\\$&");
 }
 
 /**
@@ -339,7 +340,7 @@ export function escapeForDoubleQuotes(str) {
  * @returns {boolean} True if string needs escaping
  */
 export function needsEscaping(str) {
-  if (typeof str !== 'string') {
+  if (typeof str !== "string") {
     return false;
   }
 

@@ -6,6 +6,7 @@ This catalog lists each named resource, its locality, purpose, and how a consume
 ## How to read this catalog
 
 Each entry shows:
+
 - **Path** — HTTP endpoint or MCP tool name
 - **Locality** — `worker` (public, remote-safe) or `local` (tunnel required)
 - **Five-second answer** — what the response tells a human or agent in one sentence
@@ -24,6 +25,7 @@ Each entry shows:
 **Five-second answer:** What this surface can do and which resources are reachable right now.
 
 **data shape:**
+
 ```json
 {
   "surface": "worker",
@@ -32,12 +34,18 @@ Each entry shows:
   "remote_safe": true,
   "tunnel_required": false,
   "environment": "production",
-  "available_resources": ["tasks.list", "tasks.get", "runtime.capabilities", "..."],
+  "available_resources": [
+    "tasks.list",
+    "tasks.get",
+    "runtime.capabilities",
+    "..."
+  ],
   "unavailable_resources": []
 }
 ```
 
 **Render hints:**
+
 - **LLM answer:** "This surface is Worker-backed and remote-safe. No tunnel is required. All task and runtime resources are available."
 - **Compact card:** Surface badge (Worker), green dot, resource count
 - **Richer UI:** Capability grid showing each flag with tooltip; available_resources as chip list
@@ -52,6 +60,7 @@ Each entry shows:
 **Five-second answer:** Which tasks exist and what state each is in.
 
 **data shape:**
+
 ```json
 {
   "tasks": [
@@ -69,6 +78,7 @@ Each entry shows:
 ```
 
 **Render hints:**
+
 - **LLM answer:** Use `summary` field directly: "3 task(s) found. 2 active, 1 complete."
 - **Compact card:** Task name + state dot + time-ago
 - **Richer UI:** HubTab task list with status summary, Continue button on hover
@@ -83,6 +93,7 @@ Each entry shows:
 **Five-second answer:** Full detail on one task: findings, questions, current route, readiness.
 
 **data shape:**
+
 ```json
 {
   "task": { "task_id": "...", "goal": "...", "state": "active", "findings": [...], "version": 3 }
@@ -90,6 +101,7 @@ Each entry shows:
 ```
 
 **meta shape (task-bearing responses):**
+
 ```json
 {
   "urgency": "blocked",
@@ -101,6 +113,7 @@ Each entry shows:
 ```
 
 **Render hints:**
+
 - **LLM answer:** "Task 'Review auth module' is active. 1 blocker, 2 open questions. Best next route: local_repo."
 - **Compact card:** Title + urgency badge + question/blocker counts
 - **Richer UI:** TaskDetailTab — findings by provenance status, open questions, event story
@@ -115,15 +128,21 @@ Each entry shows:
 **Five-second answer:** What happened during this task, in order.
 
 **data shape:**
+
 ```json
 {
   "events": [
-    { "type": "state_change", "metadata": { "next_state": "active" }, "created_at": "..." }
+    {
+      "type": "state_change",
+      "metadata": { "next_state": "active" },
+      "created_at": "..."
+    }
   ]
 }
 ```
 
 **Render hints:**
+
 - **LLM answer:** "5 events recorded. Last: 'Handoff saved' at 10:05."
 - **Compact card:** Event count + last event type
 - **Richer UI:** EventStory timeline in TaskDetailTab
@@ -138,6 +157,7 @@ Each entry shows:
 **Five-second answer:** Which execution routes are available and which is strongest for the current environment.
 
 **data shape:**
+
 ```json
 {
   "best_next_route": "local_repo",
@@ -149,6 +169,7 @@ Each entry shows:
 ```
 
 **Render hints:**
+
 - **LLM answer:** "Best route: local_repo (Full mode). 2 routes available."
 - **Compact card:** Best route badge + route count
 - **Richer UI:** Route picker in ResumeSheet
@@ -163,6 +184,7 @@ Each entry shows:
 **Five-second answer:** A signed continuation package ready to resume the task in a new session.
 
 **data shape:**
+
 ```json
 {
   "continuation_package": {
@@ -176,6 +198,7 @@ Each entry shows:
 ```
 
 **Render hints:**
+
 - **LLM answer:** Paste `continuation_package` into session context. Route and open questions are pre-loaded.
 - **Compact card:** "Ready to continue — route: local_repo"
 - **Richer UI:** ResumeSheet confirmation step
@@ -215,18 +238,27 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `skills.list`
 
-**Path:** `GET /v1/skills` (Worker, target)  |  `GET /api/contracts/skills.list` (local, current)  |  **MCP tool:** `skills.list`
+**Path:** `GET /v1/skills` (Worker, target) | `GET /api/contracts/skills.list` (local, current) | **MCP tool:** `skills.list`
 **Locality:** local → Worker (pending migration) — `local_only: true`, `tunnel_required: true` until migrated
 
 **Five-second answer:** All skills installed in this repository with type, status, and variant coverage.
 
 **data shape:**
+
 ```json
 {
   "contract": "skills.list",
   "generated_at": "2026-03-28T10:00:00.000Z",
   "skills": [
-    { "name": "commit-conventions", "type": "invocable", "status": "stable", "opus": true, "sonnet": true, "haiku": false, "tests": 3 }
+    {
+      "name": "commit-conventions",
+      "type": "invocable",
+      "status": "stable",
+      "opus": true,
+      "sonnet": true,
+      "haiku": false,
+      "tests": 3
+    }
   ],
   "total_skills": 42,
   "interpretation": {
@@ -238,6 +270,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 ```
 
 **Render hints:**
+
 - **LLM answer:** Use `summary`: "Loaded skills.list contract." + `interpretation.why_it_matters_now` for context.
 - **Compact card:** Skill count + experimental count badge
 - **Richer UI:** SkillsTab table — name, type, status, model variant columns
@@ -246,7 +279,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `tooling.status`
 
-**Path:** `GET /v1/tooling/status` (Worker, target)  |  `GET /api/contracts/tooling.status` (local, current)  |  **MCP tool:** `tooling.status`
+**Path:** `GET /v1/tooling/status` (Worker, target) | `GET /api/contracts/tooling.status` (local, current) | **MCP tool:** `tooling.status`
 **Locality:** local → Worker (pending migration) — `local_only: true`, `tunnel_required: true` until migrated
 
 **Five-second answer:** Which tools are installed, missing, or degraded in the local environment.
@@ -254,6 +287,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 **data shape:** Parsed `list_tools` output — tool entries with name, version, status, and sync state.
 
 **Render hints:**
+
 - **LLM answer:** Use `summary` + `data` for installed/missing split.
 - **Compact card:** Installed count + warning count
 - **Richer UI:** ToolsTab — structured tool list with Sync button
@@ -262,7 +296,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `config.summary`
 
-**Path:** `GET /v1/config/summary` (Worker, target)  |  `GET /api/contracts/config.summary` (local, current)  |  **MCP tool:** `config.summary`
+**Path:** `GET /v1/config/summary` (Worker, target) | `GET /api/contracts/config.summary` (local, current) | **MCP tool:** `config.summary`
 **Locality:** local → Worker (pending migration) — `local_only: true`, `tunnel_required: true` until migrated
 
 **Five-second answer:** The merged runtime configuration (global + machine + project layers) in effect right now.
@@ -270,6 +304,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 **data shape:** Parsed `get_config` output — config sections with key-value pairs and source layer labels.
 
 **Render hints:**
+
 - **LLM answer:** Use `summary` + top-level config sections for a quick answer.
 - **Compact card:** Active profile + warning count
 - **Richer UI:** ConfigTab — section headers with source badge, expandable raw view
@@ -278,12 +313,13 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `runtime.context_cost`
 
-**Path:** `GET /v1/runtime/context-cost` (Worker, target)  |  `GET /api/context-cost` (local, current)
+**Path:** `GET /v1/runtime/context-cost` (Worker, target) | `GET /api/context-cost` (local, current)
 **Locality:** local → Worker (pending migration)
 
 **Five-second answer:** How much context window has been consumed across active sessions.
 
 **Render hints:**
+
 - **Compact card:** Tokens used + % of budget + cost estimate
 - **Richer UI:** ContextCostTab — bar chart of usage over time, refresh button
 
@@ -291,12 +327,13 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `audit.validate_all`
 
-**Path:** `GET /v1/audit/validate-all` (Worker, target)  |  `GET /api/validate-all` (local, current, on-demand)
+**Path:** `GET /v1/audit/validate-all` (Worker, target) | `GET /api/validate-all` (local, current, on-demand)
 **Locality:** local → Worker (pending migration)
 
 **Five-second answer:** Whether the repository passes all validation gates right now.
 
 **Render hints:**
+
 - **Compact card:** Pass/fail badge + failure count
 - **Richer UI:** AuditTab — per-check result list with hint text, Validate button
 
@@ -304,7 +341,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `analytics.tool_usage`
 
-**Path:** `GET /v1/analytics/tool-usage` (Worker, target)  |  `GET /api/contracts/analytics.tool_usage` (local, current)
+**Path:** `GET /v1/analytics/tool-usage` (Worker, target) | `GET /api/contracts/analytics.tool_usage` (local, current)
 **Locality:** local → Worker (pending migration)
 
 **Five-second answer:** Which tools are used most and how their usage trends over time.
@@ -313,7 +350,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `analytics.skill_effectiveness`
 
-**Path:** `GET /v1/analytics/skill-effectiveness` (Worker, target)  |  `GET /api/contracts/analytics.skill_effectiveness` (local, current)
+**Path:** `GET /v1/analytics/skill-effectiveness` (Worker, target) | `GET /api/contracts/analytics.skill_effectiveness` (local, current)
 **Locality:** local → Worker (pending migration)
 
 **Five-second answer:** Which skills are producing accepted outputs and which are being discarded.
@@ -322,7 +359,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `analytics.autoresearch_runs`
 
-**Path:** `GET /v1/analytics/autoresearch-runs` (Worker, target)  |  `GET /api/contracts/analytics.autoresearch_runs` (local, current)
+**Path:** `GET /v1/analytics/autoresearch-runs` (Worker, target) | `GET /api/contracts/analytics.autoresearch_runs` (local, current)
 **Locality:** local → Worker (pending migration)
 
 **Five-second answer:** Recent autoresearch sessions — what was researched, outcome, and any friction.
@@ -331,7 +368,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `analytics.friction_signals`
 
-**Path:** `GET /v1/analytics/friction-signals` (Worker, target)  |  `GET /api/contracts/analytics.friction_signals` (local, current)
+**Path:** `GET /v1/analytics/friction-signals` (Worker, target) | `GET /api/contracts/analytics.friction_signals` (local, current)
 **Locality:** local → Worker (pending migration)
 
 **Five-second answer:** Patterns of repeated failures or inefficiencies detected from retrospectives.
@@ -340,12 +377,13 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `observability.runs.list` / `observability.runs.get`
 
-**Path:** `GET /v1/observability/runs`  |  `GET /v1/observability/runs/:runId`
+**Path:** `GET /v1/observability/runs` | `GET /v1/observability/runs/:runId`
 **Locality:** worker — `worker_backed: true`, `remote_safe: true` (migrating from `canonical_v2` to main envelope)
 
 **Five-second answer:** Bootstrap run history with per-run signal interpretation.
 
 **meta.interpretation shape (target):**
+
 ```json
 {
   "attention_required": false,
@@ -356,6 +394,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 ```
 
 **Render hints:**
+
 - **LLM answer:** Use `summary` + `meta.interpretation.failure_reason_summary` if `attention_required` is true.
 - **Compact card:** Status dot + phase count + last run time
 - **Richer UI:** ObservabilityTab — run list, per-run drill-down, settings panel
@@ -364,7 +403,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 
 ### `observability.settings.get` / `observability.settings.put`
 
-**Path:** `GET /v1/observability/settings`  |  `PUT /v1/observability/settings`
+**Path:** `GET /v1/observability/settings` | `PUT /v1/observability/settings`
 **Locality:** worker — `worker_backed: true`, `remote_safe: true`
 
 **Five-second answer:** Retention and filtering settings for observability runs.
@@ -374,6 +413,7 @@ Worker publish/read route is live and the dashboard tab is updated.
 ## Error response
 
 Any resource can return an error envelope. The shape is identical to success except:
+
 - `data` is `null`
 - `error` object is present with `code`, `message`, `hint`
 
@@ -384,6 +424,7 @@ See `docs/CONTRACT_SPEC.md` for the full error code list.
 ## Living docs protocol
 
 Update this file when:
+
 - A new resource is added or renamed
 - A resource's locality changes (local → worker or vice versa)
 - The `data` shape of an existing resource changes in a breaking way

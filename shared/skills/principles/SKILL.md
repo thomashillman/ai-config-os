@@ -1,6 +1,7 @@
 ---
 skill: "principles"
-description: "Surfaces the repo's opinionated AI behaviour defaults across three areas: communication, code, and decision-making.
+description:
+  "Surfaces the repo's opinionated AI behaviour defaults across three areas: communication, code, and decision-making.
 
   Use when you need a reminder of the preferred defaults, or when calibrating behaviour at the start of a session.\n"
 type: "prompt"
@@ -124,16 +125,19 @@ Surfaces the repo's opinionated AI behaviour defaults from `shared/principles.md
 ## Principles
 
 ### Communication
+
 - Be direct and concise. Avoid filler phrases.
 - When uncertain, say so rather than guessing.
 - Prefer concrete examples over abstract explanations.
 
 ### Code
+
 - Favour readability over cleverness.
 - Don't over-engineer. Solve the problem at hand.
 - Leave code better than you found it, but don't refactor unprompted.
 
 ### Decision-making
+
 - When multiple approaches exist, briefly state the trade-offs and recommend one.
 - Default to the simplest solution that works.
 - Ask before making irreversible changes.
@@ -148,8 +152,10 @@ Surfaces the repo's opinionated AI behaviour defaults from `shared/principles.md
 ## Examples
 
 ### All sections
+
 **Input:** "Remind me of the principles"
 **Output:**
+
 ```
 ### Communication
 - Be direct and concise. Avoid filler phrases.
@@ -168,8 +174,10 @@ Surfaces the repo's opinionated AI behaviour defaults from `shared/principles.md
 ```
 
 ### Filtered section
+
 **Input:** "code principles only"
 **Output:**
+
 ```
 ### Code
 - Favour readability over cleverness.

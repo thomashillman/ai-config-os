@@ -51,6 +51,7 @@ ops/new-skill.sh <skill-name>
 ```
 
 This single command:
+
 - Creates `shared/skills/<skill-name>/` with SKILL.md from Phase 2 template
 - Creates the symlink `plugins/core-skills/skills/<skill-name>` → `../../../shared/skills/<skill-name>`
 - Bumps the patch version in `plugins/core-skills/.claude-plugin/plugin.json`
@@ -60,6 +61,7 @@ This single command:
 Fill in the YAML frontmatter (between `---` markers):
 
 **Required fields:**
+
 - `skill:` — kebab-case name (e.g., "web-search", "commit-conventions")
 - `description:` — one sentence; one paragraph context max
 - `type:` — "prompt", "hook", "agent", or "workflow-blueprint"
@@ -71,6 +73,7 @@ Fill in the YAML frontmatter (between `---` markers):
 - `changelog:` — object mapping versions to descriptions
 
 **Optional but recommended:**
+
 - `variants:` — multi-model variant definitions (opus/sonnet/haiku)
 - `tests:` — array of test definitions
 - `examples:` — array of input/output examples
@@ -79,6 +82,7 @@ Fill in the YAML frontmatter (between `---` markers):
 - `tags:` — array of category tags
 
 **Body content (after closing `---`):**
+
 - `# [skill-name]` — title matching the skill name
 - `## When to use` — use cases
 - `## Instructions` — detailed guidance or reference material
@@ -98,11 +102,13 @@ shared/skills/<skill-name>/prompts/
 ```
 
 **Variant guidance:**
+
 - **Opus (detailed.md)**: Comprehensive, includes rationale and edge cases. 3x cost, ~800ms latency.
 - **Sonnet (balanced.md)**: Standard; balanced depth and speed. 1x cost, ~300ms latency. (default fallback)
 - **Haiku (brief.md)**: Minimal, bullet points only. 0.3x cost, ~150ms latency.
 
 **Fallback chain** (recommended):
+
 ```yaml
 fallback_chain:
   - sonnet
@@ -121,6 +127,7 @@ Add a row to the Skills table:
 ```
 
 Example:
+
 ```markdown
 | `web-search` | Search the web for current information and synthesize results | `shared/skills/web-search/SKILL.md` |
 ```
@@ -142,6 +149,7 @@ adapters/claude/dev-test.sh
 ```
 
 This runs:
+
 1. `ops/validate-dependencies.sh` — checks skill dependencies
 2. `ops/validate-variants.sh` — validates variant definitions
 3. `claude plugin validate .` — checks plugin marketplace structure
@@ -173,6 +181,7 @@ plugins/core-skills/skills/<name>
 **Problem:** `ls -la plugins/core-skills/skills/` shows red or "cannot access"
 
 **Solution:**
+
 ```bash
 # Remove and recreate
 rm plugins/core-skills/skills/<name>
@@ -186,6 +195,7 @@ ln -s ../../../shared/skills/<name> plugins/core-skills/skills/<name>
 **Problem:** `claude plugin validate .` exits non-zero
 
 **Checklist:**
+
 1. Check SKILL.md has `---` delimiters and valid YAML frontmatter
 2. Check `variant.prompt_file` paths exist (if variants declared)
 3. Check skill name in frontmatter matches directory name
@@ -199,6 +209,7 @@ ln -s ../../../shared/skills/<name> plugins/core-skills/skills/<name>
 **Cause:** Plugin structure is valid but the Claude CLI can't communicate with the plugin.
 
 **Troubleshooting:**
+
 1. Ensure Claude Code is up-to-date: `claude --version`
 2. Check if the plugin loads: `claude plugin list`
 3. Try again with a fresh session
@@ -208,6 +219,7 @@ ln -s ../../../shared/skills/<name> plugins/core-skills/skills/<name>
 **Problem:** Created the skill on one device; another device doesn't see it
 
 **Solution:**
+
 1. Ensure you committed and pushed the branch
 2. On the other device: `git fetch origin <branch>` then `git checkout <branch>`
 3. Verify symlinks resolved: `ls -la plugins/core-skills/skills/`
@@ -217,12 +229,12 @@ ln -s ../../../shared/skills/<name> plugins/core-skills/skills/<name>
 
 **When to bump:**
 
-| Trigger | Bump | Example |
-|---------|------|---------|
-| New skill added | Minor | 0.2.3 → 0.3.0 |
+| Trigger                           | Bump  | Example       |
+| --------------------------------- | ----- | ------------- |
+| New skill added                   | Minor | 0.2.3 → 0.3.0 |
 | Skill content/frontmatter changed | Patch | 0.3.0 → 0.3.1 |
-| Variant prompt files updated | Patch | 0.3.1 → 0.3.2 |
-| Bug fix (symlink, manifest) | Patch | 0.3.2 → 0.3.3 |
-| Breaking change (rare) | Major | 0.3.3 → 1.0.0 |
+| Variant prompt files updated      | Patch | 0.3.1 → 0.3.2 |
+| Bug fix (symlink, manifest)       | Patch | 0.3.2 → 0.3.3 |
+| Breaking change (rare)            | Major | 0.3.3 → 1.0.0 |
 
 **Always update `plugins/core-skills/.claude-plugin/plugin.json` before committing.**

@@ -1,10 +1,10 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { createRemoteExecutorServer } from './server.mjs';
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createRemoteExecutorServer } from "./server.mjs";
 
 const BASE_ENV = {
-  sharedSecret: 'test-secret',
-  signaturePublicKey: '',
+  sharedSecret: "test-secret",
+  signaturePublicKey: "",
   requireSignature: false,
   timeoutMs: 5000,
   port: 0,
@@ -22,15 +22,16 @@ const FLAGS_ENABLED = () => ({
   effective_contract_required: false,
 });
 
-test('createRemoteExecutorServer throws when remote_executor_enabled=false', () => {
+test("createRemoteExecutorServer throws when remote_executor_enabled=false", () => {
   assert.throws(
-    () => createRemoteExecutorServer({ env: BASE_ENV, readFlags: FLAGS_DISABLED }),
+    () =>
+      createRemoteExecutorServer({ env: BASE_ENV, readFlags: FLAGS_DISABLED }),
     /remote_executor_enabled/,
-    'should throw with message mentioning remote_executor_enabled'
+    "should throw with message mentioning remote_executor_enabled",
   );
 });
 
-test('createRemoteExecutorServer succeeds when remote_executor_enabled=true', () => {
+test("createRemoteExecutorServer succeeds when remote_executor_enabled=true", () => {
   let server;
   assert.doesNotThrow(() => {
     server = createRemoteExecutorServer({
@@ -42,17 +43,21 @@ test('createRemoteExecutorServer succeeds when remote_executor_enabled=true', ()
   server?.close();
 });
 
-test('readFlags is called at server creation time', () => {
+test("readFlags is called at server creation time", () => {
   let callCount = 0;
   const readFlags = () => {
     callCount += 1;
     return FLAGS_DISABLED();
   };
   assert.throws(() => createRemoteExecutorServer({ env: BASE_ENV, readFlags }));
-  assert.equal(callCount, 1, 'readFlags should be called exactly once during creation');
+  assert.equal(
+    callCount,
+    1,
+    "readFlags should be called exactly once during creation",
+  );
 });
 
-test('createRemoteExecutorServer behaves normally when readFlags is not provided', () => {
+test("createRemoteExecutorServer behaves normally when readFlags is not provided", () => {
   // No readFlags passed — existing behavior unchanged (no flag check)
   let server;
   assert.doesNotThrow(() => {

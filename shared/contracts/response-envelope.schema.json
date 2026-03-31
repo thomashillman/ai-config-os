@@ -5,7 +5,14 @@
   "description": "Canonical success response envelope. Every contract surface response must conform to this shape.",
   "type": "object",
   "additionalProperties": true,
-  "required": ["contract_version", "resource", "data", "summary", "capability", "suggested_actions"],
+  "required": [
+    "contract_version",
+    "resource",
+    "data",
+    "summary",
+    "capability",
+    "suggested_actions"
+  ],
   "properties": {
     "contract_version": {
       "type": "string",

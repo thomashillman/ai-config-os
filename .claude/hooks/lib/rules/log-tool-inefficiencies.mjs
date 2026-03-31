@@ -10,17 +10,27 @@
  *   type: 'tool_error' | 'loop_suspected'
  */
 
-import { appendFileSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  appendFileSync,
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+} from "node:fs";
+import { join } from "node:path";
 
 export const rule = {
-  name: 'log-tool-inefficiencies',
-  triggers: ['PostToolUse'],
+  name: "log-tool-inefficiencies",
+  triggers: ["PostToolUse"],
 
   async execute(event) {
     try {
       // Ensure analytics directory exists
-      const analyticsDir = join(process.env.HOME || '/tmp', '.claude', 'skill-analytics');
+      const analyticsDir = join(
+        process.env.HOME || "/tmp",
+        ".claude",
+        "skill-analytics",
+      );
       mkdirSync(analyticsDir, { recursive: true });
 
       // 1. Log tool errors
@@ -29,11 +39,14 @@ export const rule = {
         const errorLine = JSON.stringify({
           timestamp: event.timestamp,
           session_id: event.session_id,
-          type: 'tool_error',
+          type: "tool_error",
           tool: event.tool_name,
-          snippet
+          snippet,
         });
-        appendFileSync(join(analyticsDir, 'inefficiencies.jsonl'), errorLine + '\n');
+        appendFileSync(
+          join(analyticsDir, "inefficiencies.jsonl"),
+          errorLine + "\n",
+        );
       }
 
       // 2. Detect loops
@@ -42,26 +55,26 @@ export const rule = {
       console.error(`Failed to log tool inefficiencies: ${err.message}`);
     }
 
-    return { decision: 'allow' };
-  }
+    return { decision: "allow" };
+  },
 };
 
 /**
  * Extracts a snippet from tool response content.
  */
 function extractSnippet(content, maxLen = 300) {
-  if (!content) return '';
+  if (!content) return "";
 
-  let text = '';
+  let text = "";
   if (Array.isArray(content)) {
     // Content is an array of objects with 'text' field
-    text = content[0]?.text || '';
+    text = content[0]?.text || "";
   } else {
     // Content is a string
     text = String(content);
   }
 
-  return (typeof text === 'string' ? text : String(text)).slice(0, maxLen);
+  return (typeof text === "string" ? text : String(text)).slice(0, maxLen);
 }
 
 /**
@@ -75,11 +88,11 @@ async function detectAndLogLoop(event, analyticsDir) {
     Write: 10,
     Read: 15,
     Grep: 12,
-    Glob: 12
+    Glob: 12,
   };
   const threshold = thresholds[event.tool_name] || 8;
 
-  const counterDir = '/tmp/claude-sessions';
+  const counterDir = "/tmp/claude-sessions";
   mkdirSync(counterDir, { recursive: true });
   const counterFile = join(counterDir, `${event.session_id}.json`);
 
@@ -87,7 +100,7 @@ async function detectAndLogLoop(event, analyticsDir) {
   let counts = {};
   if (existsSync(counterFile)) {
     try {
-      const content = readFileSync(counterFile, 'utf8');
+      const content = readFileSync(counterFile, "utf8");
       counts = JSON.parse(content);
     } catch (err) {
       // If file is malformed, start fresh
@@ -112,10 +125,10 @@ async function detectAndLogLoop(event, analyticsDir) {
     const loopLine = JSON.stringify({
       timestamp: event.timestamp,
       session_id: event.session_id,
-      type: 'loop_suspected',
+      type: "loop_suspected",
       tool: event.tool_name,
-      call_count: newCount
+      call_count: newCount,
     });
-    appendFileSync(join(analyticsDir, 'inefficiencies.jsonl'), loopLine + '\n');
+    appendFileSync(join(analyticsDir, "inefficiencies.jsonl"), loopLine + "\n");
   }
 }

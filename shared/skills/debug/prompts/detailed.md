@@ -14,6 +14,7 @@ For concurrency issues: trace promise chains, callbacks, timing, race conditions
 For data issues: trace data flow, transformations, edge cases that expose assumptions.
 
 Output format:
+
 - **Hypothesis list**: [5+ plausible causes with likelihood]
 - **System trace**: [Execution path from entry to error]
 - **Root cause**: [Definitive explanation with evidence]

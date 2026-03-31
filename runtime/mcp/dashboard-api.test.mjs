@@ -1,10 +1,10 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { createDashboardApi } from './dashboard-api.mjs';
-import { createTunnelPolicy } from './tunnel-security.mjs';
+import test from "node:test";
+import assert from "node:assert/strict";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { createDashboardApi } from "./dashboard-api.mjs";
+import { createTunnelPolicy } from "./tunnel-security.mjs";
 
 function createFakeApp() {
   const middlewares = [];
@@ -24,7 +24,7 @@ function createFakeApp() {
     listen(...args) {
       listenArgs = args;
       const callback = args[2];
-      if (typeof callback === 'function') {
+      if (typeof callback === "function") {
         callback();
       }
       return { close() {} };
@@ -41,25 +41,36 @@ function createApi(app) {
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: {
-      startReviewRepositoryTask: () => ({ task: { task_id: 'task_1' }, upgraded: false }),
-      resumeReviewRepositoryTask: () => ({ task: { task_id: 'task_1' }, upgraded: true }),
-      getReadiness: () => ({ task_id: 'task_1', readiness: { is_ready: true } }),
+      startReviewRepositoryTask: () => ({
+        task: { task_id: "task_1" },
+        upgraded: false,
+      }),
+      resumeReviewRepositoryTask: () => ({
+        task: { task_id: "task_1" },
+        upgraded: true,
+      }),
+      getReadiness: () => ({
+        task_id: "task_1",
+        readiness: { is_ready: true },
+      }),
     },
-    repoRoot: '/repo',
+    repoRoot: "/repo",
     port: 4242,
   });
 }
 
-test('dashboard API binds to tunnel policy host and installs tunnel guard middleware', () => {
+test("dashboard API binds to tunnel policy host and installs tunnel guard middleware", () => {
   const app = createFakeApp();
-  const tunnelPolicy = { host: '127.0.0.1', isOriginAllowed: () => true };
+  const tunnelPolicy = { host: "127.0.0.1", isOriginAllowed: () => true };
   const markerMiddleware = () => {};
 
   const api = createDashboardApi({
@@ -71,59 +82,65 @@ test('dashboard API binds to tunnel policy host and installs tunnel guard middle
       assert.equal(policy, tunnelPolicy);
       return markerMiddleware;
     },
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: () => ({ outcomeId: 'runtime.list-tools' }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: () => ({
+      outcomeId: "runtime.list-tools",
+    }),
     validateNumber: (value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
-    repoRoot: 'C:/repo',
+    repoRoot: "C:/repo",
     port: 4242,
   });
 
-  assert.equal(api.host, '127.0.0.1');
+  assert.equal(api.host, "127.0.0.1");
   assert.equal(app._middlewares.includes(markerMiddleware), true);
 
   api.start();
   const [port, host] = app._listenArgs();
   assert.equal(port, 4242);
-  assert.equal(host, '127.0.0.1');
+  assert.equal(host, "127.0.0.1");
 });
 
-test('dashboard API registers task and outcome contract routes', () => {
+test("dashboard API registers task and outcome contract routes", () => {
   const app = createFakeApp();
   createApi(app);
 
   const getPaths = app._gets.map((route) => route.path);
   const postPaths = app._posts.map((route) => route.path);
 
-  assert.ok(getPaths.includes('/api/outcome-contract'));
-  assert.ok(getPaths.includes('/api/contracts/skills.list'));
-  assert.ok(getPaths.includes('/api/contracts/tooling.status'));
-  assert.ok(getPaths.includes('/api/contracts/config.summary'));
-  assert.ok(getPaths.includes('/api/contracts/analytics.tool_usage'));
-  assert.ok(getPaths.includes('/api/tasks/:taskId/readiness'));
-  assert.ok(postPaths.includes('/api/tasks/review/start'));
-  assert.ok(postPaths.includes('/api/tasks/:taskId/review/resume'));
+  assert.ok(getPaths.includes("/api/outcome-contract"));
+  assert.ok(getPaths.includes("/api/contracts/skills.list"));
+  assert.ok(getPaths.includes("/api/contracts/tooling.status"));
+  assert.ok(getPaths.includes("/api/contracts/config.summary"));
+  assert.ok(getPaths.includes("/api/contracts/analytics.tool_usage"));
+  assert.ok(getPaths.includes("/api/tasks/:taskId/readiness"));
+  assert.ok(postPaths.includes("/api/tasks/review/start"));
+  assert.ok(postPaths.includes("/api/tasks/:taskId/review/resume"));
 });
 
-test('dashboard task endpoints fail gracefully when task service is unavailable', () => {
+test("dashboard task endpoints fail gracefully when task service is unavailable", () => {
   const app = createFakeApp();
   createDashboardApi({
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
-    repoRoot: '/repo',
+    repoRoot: "/repo",
     port: 4242,
   });
 
-  const startRoute = app._posts.find((route) => route.path === '/api/tasks/review/start');
+  const startRoute = app._posts.find(
+    (route) => route.path === "/api/tasks/review/start",
+  );
   let statusCode = 200;
   let jsonPayload = null;
   const res = {
@@ -139,64 +156,84 @@ test('dashboard task endpoints fail gracefully when task service is unavailable'
 
   startRoute.handler({ body: {} }, res);
   assert.equal(statusCode, 503);
-  assert.equal(jsonPayload.error.code, 'task_service_unavailable');
+  assert.equal(jsonPayload.error.code, "task_service_unavailable");
   assert.match(jsonPayload.error.message, /task service unavailable/);
 });
 
-test('dashboard script-wrapper routes use shared dispatcher mapping', () => {
+test("dashboard script-wrapper routes use shared dispatcher mapping", () => {
   const app = createFakeApp();
   const calls = [];
   createDashboardApi({
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1' },
+    tunnelPolicy: { host: "127.0.0.1" },
     tunnelGuardFactory: () => () => {},
     runScript: (command, args = []) => {
       calls.push({ command, args });
-      return { success: true, output: 'ok' };
+      return { success: true, output: "ok" };
     },
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (value, fallback) => value ?? fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
-    repoRoot: '/repo',
+    repoRoot: "/repo",
     port: 4242,
   });
 
-  const contextCostRoute = app._gets.find((route) => route.path === '/api/context-cost');
+  const contextCostRoute = app._gets.find(
+    (route) => route.path === "/api/context-cost",
+  );
   let payload = null;
-  contextCostRoute.handler({ query: { threshold: 3001 } }, { json(value) { payload = value; } });
+  contextCostRoute.handler(
+    { query: { threshold: 3001 } },
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
   assert.equal(payload.data.success, true);
-  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.context_cost');
-  assert.deepEqual(calls, [{ command: 'ops/context-cost.sh', args: ['--threshold', '3001'] }]);
+  assert.equal(
+    payload.meta.effective_outcome_contract.outcomeId,
+    "runtime.context_cost",
+  );
+  assert.deepEqual(calls, [
+    { command: "ops/context-cost.sh", args: ["--threshold", "3001"] },
+  ]);
 });
 
-test('dashboard context-cost returns 400 for invalid threshold', () => {
+test("dashboard context-cost returns 400 for invalid threshold", () => {
   const app = createFakeApp();
   createDashboardApi({
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1' },
+    tunnelPolicy: { host: "127.0.0.1" },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: 'ok' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "ok" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: () => {
-      throw new Error('threshold must be numeric');
+      throw new Error("threshold must be numeric");
     },
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
-    repoRoot: '/repo',
+    repoRoot: "/repo",
     port: 4242,
   });
 
-  const contextCostRoute = app._gets.find((route) => route.path === '/api/context-cost');
+  const contextCostRoute = app._gets.find(
+    (route) => route.path === "/api/context-cost",
+  );
   let statusCode = 200;
   let payload = null;
   contextCostRoute.handler(
-    { query: { threshold: 'oops' } },
+    { query: { threshold: "oops" } },
     {
       status(code) {
         statusCode = code;
@@ -206,25 +243,38 @@ test('dashboard context-cost returns 400 for invalid threshold', () => {
         payload = value;
         return this;
       },
-    }
+    },
   );
 
   assert.equal(statusCode, 400);
-  assert.equal(payload.error.code, 'invalid_arguments');
+  assert.equal(payload.error.code, "invalid_arguments");
   assert.match(payload.error.message, /threshold must be numeric/);
-  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.context_cost');
+  assert.equal(
+    payload.meta.effective_outcome_contract.outcomeId,
+    "runtime.context_cost",
+  );
 });
 
-test('/api/analytics returns tool_usage events from observation snapshot', async () => {
+test("/api/analytics returns tool_usage events from observation snapshot", async () => {
   const repoRoot = join(tmpdir(), `dash-api-analytics-test-${process.pid}`);
-  const claudeDir = join(repoRoot, '.claude');
+  const claudeDir = join(repoRoot, ".claude");
   mkdirSync(claudeDir, { recursive: true });
   writeFileSync(
-    join(claudeDir, 'metrics.jsonl'),
+    join(claudeDir, "metrics.jsonl"),
     [
-      JSON.stringify({ type: 'tool_usage', tool_name: 'Read', status: 'success', duration_ms: 10 }),
-      JSON.stringify({ type: 'tool_usage', tool_name: 'Edit', status: 'error', duration_ms: 5 }),
-    ].join('\n') + '\n'
+      JSON.stringify({
+        type: "tool_usage",
+        tool_name: "Read",
+        status: "success",
+        duration_ms: 10,
+      }),
+      JSON.stringify({
+        type: "tool_usage",
+        tool_name: "Edit",
+        status: "error",
+        duration_ms: 5,
+      }),
+    ].join("\n") + "\n",
   );
 
   const app = createFakeApp();
@@ -232,10 +282,12 @@ test('/api/analytics returns tool_usage events from observation snapshot', async
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
@@ -243,31 +295,60 @@ test('/api/analytics returns tool_usage events from observation snapshot', async
     port: 4242,
   });
 
-  const analyticsRoute = app._gets.find((r) => r.path === '/api/analytics');
+  const analyticsRoute = app._gets.find((r) => r.path === "/api/analytics");
   let payload = null;
-  await analyticsRoute.handler({}, { json(value) { payload = value; } });
+  await analyticsRoute.handler(
+    {},
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
   rmSync(repoRoot, { recursive: true, force: true });
 
   assert.equal(payload.data.success, true);
   assert.ok(Array.isArray(payload.data.metrics));
-  assert.ok(payload.data.metrics.every((m) => m.type === 'tool_usage'));
+  assert.ok(payload.data.metrics.every((m) => m.type === "tool_usage"));
   assert.equal(payload.data.metrics.length, 2);
-  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.skill_stats');
+  assert.equal(
+    payload.meta.effective_outcome_contract.outcomeId,
+    "runtime.skill_stats",
+  );
 });
 
-test('/api/skill-analytics aggregates skill_outcome events via observation snapshot', async () => {
-  const tempHome = join(tmpdir(), `dash-api-skill-analytics-test-${process.pid}`);
-  const analyticsDir = join(tempHome, '.claude', 'skill-analytics');
+test("/api/skill-analytics aggregates skill_outcome events via observation snapshot", async () => {
+  const tempHome = join(
+    tmpdir(),
+    `dash-api-skill-analytics-test-${process.pid}`,
+  );
+  const analyticsDir = join(tempHome, ".claude", "skill-analytics");
   mkdirSync(analyticsDir, { recursive: true });
   writeFileSync(
-    join(analyticsDir, 'skill-outcomes.jsonl'),
+    join(analyticsDir, "skill-outcomes.jsonl"),
     [
-      JSON.stringify({ skill: 'commit-conventions', outcome: 'output_used', timestamp: '2026-01-01T00:00:00Z' }),
-      JSON.stringify({ skill: 'commit-conventions', outcome: 'output_used', timestamp: '2026-01-01T00:01:00Z' }),
-      JSON.stringify({ skill: 'commit-conventions', outcome: 'output_replaced', timestamp: '2026-01-01T00:02:00Z' }),
-      JSON.stringify({ skill: 'debug', outcome: 'output_used', timestamp: '2026-01-01T00:03:00Z' }),
-    ].join('\n') + '\n'
+      JSON.stringify({
+        skill: "commit-conventions",
+        outcome: "output_used",
+        timestamp: "2026-01-01T00:00:00Z",
+      }),
+      JSON.stringify({
+        skill: "commit-conventions",
+        outcome: "output_used",
+        timestamp: "2026-01-01T00:01:00Z",
+      }),
+      JSON.stringify({
+        skill: "commit-conventions",
+        outcome: "output_replaced",
+        timestamp: "2026-01-01T00:02:00Z",
+      }),
+      JSON.stringify({
+        skill: "debug",
+        outcome: "output_used",
+        timestamp: "2026-01-01T00:03:00Z",
+      }),
+    ].join("\n") + "\n",
   );
 
   const origHome = process.env.HOME;
@@ -278,10 +359,12 @@ test('/api/skill-analytics aggregates skill_outcome events via observation snaps
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
@@ -289,37 +372,57 @@ test('/api/skill-analytics aggregates skill_outcome events via observation snaps
     port: 4242,
   });
 
-  const skillRoute = app._gets.find((r) => r.path === '/api/skill-analytics');
+  const skillRoute = app._gets.find((r) => r.path === "/api/skill-analytics");
   let payload = null;
-  await skillRoute.handler({}, { json(value) { payload = value; } });
+  await skillRoute.handler(
+    {},
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
   process.env.HOME = origHome;
   rmSync(tempHome, { recursive: true, force: true });
 
   assert.equal(payload.data.success, true);
   assert.ok(Array.isArray(payload.data.skills));
-  const cc = payload.data.skills.find((s) => s.skill === 'commit-conventions');
-  assert.ok(cc, 'commit-conventions skill should be present');
+  const cc = payload.data.skills.find((s) => s.skill === "commit-conventions");
+  assert.ok(cc, "commit-conventions skill should be present");
   assert.equal(cc.used, 2);
   assert.equal(cc.replaced, 1);
   assert.equal(cc.total, 3);
   assert.equal(cc.use_rate, 67);
-  const dbg = payload.data.skills.find((s) => s.skill === 'debug');
+  const dbg = payload.data.skills.find((s) => s.skill === "debug");
   assert.ok(dbg);
   assert.equal(dbg.use_rate, 100);
-  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.skill_stats');
+  assert.equal(
+    payload.meta.effective_outcome_contract.outcomeId,
+    "runtime.skill_stats",
+  );
 });
 
-test('/api/retrospectives-summary returns parsed cache when file exists', async () => {
+test("/api/retrospectives-summary returns parsed cache when file exists", async () => {
   const tempHome = join(tmpdir(), `dash-api-retro-test-${process.pid}`);
-  const cacheDir = join(tempHome, '.ai-config-os', 'cache', 'claude-code');
+  const cacheDir = join(tempHome, ".ai-config-os", "cache", "claude-code");
   mkdirSync(cacheDir, { recursive: true });
-  writeFileSync(join(cacheDir, 'retrospectives-aggregate.json'), JSON.stringify({
-    period_days: 60,
-    artifact_count: 3,
-    signal_breakdown: { loop: 4, error: 2 },
-    top_recommendations: [{ name: 'git-ops', category: 'code-quality', occurrences: 2, priority_distribution: { high: 1 } }],
-  }));
+  writeFileSync(
+    join(cacheDir, "retrospectives-aggregate.json"),
+    JSON.stringify({
+      period_days: 60,
+      artifact_count: 3,
+      signal_breakdown: { loop: 4, error: 2 },
+      top_recommendations: [
+        {
+          name: "git-ops",
+          category: "code-quality",
+          occurrences: 2,
+          priority_distribution: { high: 1 },
+        },
+      ],
+    }),
+  );
 
   const origHome = process.env.HOME;
   process.env.HOME = tempHome;
@@ -329,10 +432,12 @@ test('/api/retrospectives-summary returns parsed cache when file exists', async 
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
@@ -340,9 +445,16 @@ test('/api/retrospectives-summary returns parsed cache when file exists', async 
     port: 4242,
   });
 
-  const route = app._gets.find((r) => r.path === '/api/retrospectives-summary');
+  const route = app._gets.find((r) => r.path === "/api/retrospectives-summary");
   let payload = null;
-  route.handler({}, { json(value) { payload = value; } });
+  route.handler(
+    {},
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
   process.env.HOME = origHome;
   rmSync(tempHome, { recursive: true, force: true });
@@ -350,10 +462,10 @@ test('/api/retrospectives-summary returns parsed cache when file exists', async 
   assert.equal(payload.data.success, true);
   assert.equal(payload.data.artifact_count, 3);
   assert.deepEqual(payload.data.signal_breakdown, { loop: 4, error: 2 });
-  assert.equal(payload.data.top_recommendations[0].name, 'git-ops');
+  assert.equal(payload.data.top_recommendations[0].name, "git-ops");
 });
 
-test('/api/retrospectives-summary returns empty fallback when cache file is absent', () => {
+test("/api/retrospectives-summary returns empty fallback when cache file is absent", () => {
   const tempHome = join(tmpdir(), `dash-api-retro-missing-${process.pid}`);
   mkdirSync(tempHome, { recursive: true });
 
@@ -365,10 +477,12 @@ test('/api/retrospectives-summary returns empty fallback when cache file is abse
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
@@ -376,9 +490,16 @@ test('/api/retrospectives-summary returns empty fallback when cache file is abse
     port: 4242,
   });
 
-  const route = app._gets.find((r) => r.path === '/api/retrospectives-summary');
+  const route = app._gets.find((r) => r.path === "/api/retrospectives-summary");
   let payload = null;
-  route.handler({}, { json(value) { payload = value; } });
+  route.handler(
+    {},
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
   process.env.HOME = origHome;
   rmSync(tempHome, { recursive: true, force: true });
@@ -389,18 +510,35 @@ test('/api/retrospectives-summary returns empty fallback when cache file is abse
   assert.deepEqual(payload.data.top_recommendations, []);
 });
 
-
-test('/api/contracts/analytics.tool_usage returns normalized tool usage contract', async () => {
-  const repoRoot = join(tmpdir(), `dash-api-contract-tool-usage-${process.pid}`);
-  const claudeDir = join(repoRoot, '.claude');
+test("/api/contracts/analytics.tool_usage returns normalized tool usage contract", async () => {
+  const repoRoot = join(
+    tmpdir(),
+    `dash-api-contract-tool-usage-${process.pid}`,
+  );
+  const claudeDir = join(repoRoot, ".claude");
   mkdirSync(claudeDir, { recursive: true });
   writeFileSync(
-    join(claudeDir, 'metrics.jsonl'),
+    join(claudeDir, "metrics.jsonl"),
     [
-      JSON.stringify({ type: 'tool_usage', tool: 'Read', status: 'success', duration_ms: 10 }),
-      JSON.stringify({ type: 'tool_usage', tool: 'Edit', status: 'success', duration_ms: 15 }),
-      JSON.stringify({ type: 'tool_usage', tool: 'Read', status: 'success', duration_ms: 12 }),
-    ].join('\n') + '\n'
+      JSON.stringify({
+        type: "tool_usage",
+        tool: "Read",
+        status: "success",
+        duration_ms: 10,
+      }),
+      JSON.stringify({
+        type: "tool_usage",
+        tool: "Edit",
+        status: "success",
+        duration_ms: 15,
+      }),
+      JSON.stringify({
+        type: "tool_usage",
+        tool: "Read",
+        status: "success",
+        duration_ms: 12,
+      }),
+    ].join("\n") + "\n",
   );
 
   const app = createFakeApp();
@@ -408,10 +546,12 @@ test('/api/contracts/analytics.tool_usage returns normalized tool usage contract
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
@@ -419,22 +559,31 @@ test('/api/contracts/analytics.tool_usage returns normalized tool usage contract
     port: 4242,
   });
 
-  const route = app._gets.find((r) => r.path === '/api/contracts/analytics.tool_usage');
+  const route = app._gets.find(
+    (r) => r.path === "/api/contracts/analytics.tool_usage",
+  );
   let payload = null;
-  await route.handler({}, { json(value) { payload = value; } });
+  await route.handler(
+    {},
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
   rmSync(repoRoot, { recursive: true, force: true });
 
   assert.equal(payload.data.success, true);
-  assert.equal(payload.data.contract, 'analytics.tool_usage');
+  assert.equal(payload.data.contract, "analytics.tool_usage");
   assert.equal(payload.data.total_events, 3);
-  const readEntry = payload.data.tools.find((entry) => entry.tool === 'Read');
+  const readEntry = payload.data.tools.find((entry) => entry.tool === "Read");
   assert.ok(readEntry);
   assert.equal(readEntry.count, 2);
-  assert.equal(typeof payload.data.interpretation.why_it_matters_now, 'string');
+  assert.equal(typeof payload.data.interpretation.why_it_matters_now, "string");
 });
 
-test('dashboard API CORS uses tunnel policy origin allowlisting for local and configured tunnel origins', async () => {
+test("dashboard API CORS uses tunnel policy origin allowlisting for local and configured tunnel origins", async () => {
   const app = createFakeApp();
   let corsOptions = null;
 
@@ -446,20 +595,22 @@ test('dashboard API CORS uses tunnel policy origin allowlisting for local and co
     },
     jsonMiddleware: () => {},
     tunnelPolicy: createTunnelPolicy({
-      DASHBOARD_HOST: '127.0.0.1',
-      DASHBOARD_PUBLIC_ORIGINS: 'https://dashboard.example.com',
+      DASHBOARD_HOST: "127.0.0.1",
+      DASHBOARD_PUBLIC_ORIGINS: "https://dashboard.example.com",
     }),
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
-    repoRoot: '/repo',
+    repoRoot: "/repo",
     port: 4242,
   });
 
-  assert.equal(typeof corsOptions?.origin, 'function');
+  assert.equal(typeof corsOptions?.origin, "function");
 
   const isOriginAllowed = (origin) =>
     new Promise((resolve, reject) => {
@@ -473,92 +624,136 @@ test('dashboard API CORS uses tunnel policy origin allowlisting for local and co
       });
     });
 
-  assert.equal(await isOriginAllowed('https://dashboard.example.com'), true);
-  assert.equal(await isOriginAllowed('https://evil.example.com'), false);
-  assert.equal(await isOriginAllowed('http://localhost:5173'), true);
+  assert.equal(await isOriginAllowed("https://dashboard.example.com"), true);
+  assert.equal(await isOriginAllowed("https://evil.example.com"), false);
+  assert.equal(await isOriginAllowed("http://localhost:5173"), true);
 });
 
-test('/api/contracts/skills.list uses canonical resource name and puts effectiveOutcomeContract in meta', () => {
+test("/api/contracts/skills.list uses canonical resource name and puts effectiveOutcomeContract in meta", () => {
   const app = createFakeApp();
   createDashboardApi({
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
-    repoRoot: '/repo',
+    repoRoot: "/repo",
     port: 4242,
   });
 
-  const route = app._gets.find((r) => r.path === '/api/contracts/skills.list');
+  const route = app._gets.find((r) => r.path === "/api/contracts/skills.list");
   let payload = null;
-  route.handler({}, { json(value) { payload = value; } });
+  route.handler(
+    {},
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
-  assert.equal(payload.resource, 'skills.list');
-  assert.ok(payload.meta, 'meta should be present');
-  assert.ok('effective_outcome_contract' in payload.meta, 'effectiveOutcomeContract should be in meta');
-  assert.equal('effectiveOutcomeContract' in (payload.data ?? {}), false, 'effectiveOutcomeContract must not leak into data');
-  assert.equal(payload.data.contract, 'skills.list');
+  assert.equal(payload.resource, "skills.list");
+  assert.ok(payload.meta, "meta should be present");
+  assert.ok(
+    "effective_outcome_contract" in payload.meta,
+    "effectiveOutcomeContract should be in meta",
+  );
+  assert.equal(
+    "effectiveOutcomeContract" in (payload.data ?? {}),
+    false,
+    "effectiveOutcomeContract must not leak into data",
+  );
+  assert.equal(payload.data.contract, "skills.list");
   assert.ok(Array.isArray(payload.data.skills));
 });
 
-test('/api/contracts/tooling.status returns canonical tooling.status resource', () => {
+test("/api/contracts/tooling.status returns canonical tooling.status resource", () => {
   const app = createFakeApp();
   createDashboardApi({
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
-    repoRoot: '/repo',
+    repoRoot: "/repo",
     port: 4242,
   });
 
-  const route = app._gets.find((r) => r.path === '/api/contracts/tooling.status');
+  const route = app._gets.find(
+    (r) => r.path === "/api/contracts/tooling.status",
+  );
   let payload = null;
-  route.handler({}, { json(value) { payload = value; } });
+  route.handler(
+    {},
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
-  assert.equal(payload.resource, 'tooling.status');
-  assert.ok(payload.meta, 'meta should be present');
-  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.list_tools');
+  assert.equal(payload.resource, "tooling.status");
+  assert.ok(payload.meta, "meta should be present");
+  assert.equal(
+    payload.meta.effective_outcome_contract.outcomeId,
+    "runtime.list_tools",
+  );
   assert.equal(payload.capability.local_only, true);
   assert.equal(payload.capability.worker_backed, false);
 });
 
-test('/api/contracts/config.summary returns canonical config.summary resource', () => {
+test("/api/contracts/config.summary returns canonical config.summary resource", () => {
   const app = createFakeApp();
   createDashboardApi({
     app,
     corsMiddleware: () => () => {},
     jsonMiddleware: () => {},
-    tunnelPolicy: { host: '127.0.0.1', isOriginAllowed: () => true },
+    tunnelPolicy: { host: "127.0.0.1", isOriginAllowed: () => true },
     tunnelGuardFactory: () => () => {},
-    runScript: () => ({ success: true, output: '' }),
-    resolveEffectiveOutcomeContract: ({ toolName }) => ({ outcomeId: `runtime.${toolName}` }),
+    runScript: () => ({ success: true, output: "" }),
+    resolveEffectiveOutcomeContract: ({ toolName }) => ({
+      outcomeId: `runtime.${toolName}`,
+    }),
     validateNumber: (_value, fallback) => fallback,
     capabilityProfileResolver: { getCachedProfile: () => null },
     taskService: null,
-    repoRoot: '/repo',
+    repoRoot: "/repo",
     port: 4242,
   });
 
-  const route = app._gets.find((r) => r.path === '/api/contracts/config.summary');
+  const route = app._gets.find(
+    (r) => r.path === "/api/contracts/config.summary",
+  );
   let payload = null;
-  route.handler({}, { json(value) { payload = value; } });
+  route.handler(
+    {},
+    {
+      json(value) {
+        payload = value;
+      },
+    },
+  );
 
-  assert.equal(payload.resource, 'config.summary');
-  assert.ok(payload.meta, 'meta should be present');
-  assert.equal(payload.meta.effective_outcome_contract.outcomeId, 'runtime.get_config');
+  assert.equal(payload.resource, "config.summary");
+  assert.ok(payload.meta, "meta should be present");
+  assert.equal(
+    payload.meta.effective_outcome_contract.outcomeId,
+    "runtime.get_config",
+  );
   assert.equal(payload.capability.local_only, true);
   assert.equal(payload.capability.worker_backed, false);
 });

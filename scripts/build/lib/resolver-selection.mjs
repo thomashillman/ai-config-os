@@ -27,11 +27,11 @@ export function scoreRoute(route) {
 export function routeTieBreakKey(route) {
   return String(
     route?.tieBreakKey ??
-    route?.equivalenceKey ??
-    route?.id ??
-    route?.route ??
-    route?.path ??
-    ''
+      route?.equivalenceKey ??
+      route?.id ??
+      route?.route ??
+      route?.path ??
+      "",
   );
 }
 
@@ -82,5 +82,11 @@ export function selectBestRoute(routes) {
 export function selectRouteOutcome(routes) {
   const selected = selectBestRoute(routes);
   if (!selected) return null;
-  return String(selected.equivalenceKey ?? selected.id ?? selected.route ?? selected.path ?? '');
+  return String(
+    selected.equivalenceKey ??
+      selected.id ??
+      selected.route ??
+      selected.path ??
+      "",
+  );
 }

@@ -4,14 +4,32 @@
   "title": "PortableTaskObject",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "task_id", "task_type", "goal", "current_route", "state", "progress", "findings", "unresolved_questions", "approvals", "route_history", "next_action", "version", "updated_at"],
+  "required": [
+    "schema_version",
+    "task_id",
+    "task_type",
+    "goal",
+    "current_route",
+    "state",
+    "progress",
+    "findings",
+    "unresolved_questions",
+    "approvals",
+    "route_history",
+    "next_action",
+    "version",
+    "updated_at"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "task_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
     "task_type": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
     "goal": { "type": "string", "minLength": 1 },
     "current_route": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-    "state": { "type": "string", "enum": ["pending", "active", "blocked", "completed", "failed"] },
+    "state": {
+      "type": "string",
+      "enum": ["pending", "active", "blocked", "completed", "failed"]
+    },
     "progress": {
       "type": "object",
       "additionalProperties": false,
@@ -21,9 +39,18 @@
         "total_steps": { "type": "integer", "minimum": 0 }
       }
     },
-    "findings": { "type": "array", "items": { "$ref": "findings-ledger-entry.schema.json" } },
-    "unresolved_questions": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-    "approvals": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "findings-ledger-entry.schema.json" }
+    },
+    "unresolved_questions": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "approvals": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "route_history": {
       "type": "array",
       "items": {

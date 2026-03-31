@@ -2,10 +2,10 @@
  * emit-skill-tree.mjs
  * Copy one skill folder to dist: transformed SKILL.md + optional subdirs.
  */
-import { mkdirSync, writeFileSync, readFileSync, cpSync } from 'fs';
-import { join } from 'path';
+import { mkdirSync, writeFileSync, readFileSync, cpSync } from "fs";
+import { join } from "path";
 
-const OPTIONAL_DIRS = ['prompts', 'scripts', 'references', 'assets'];
+const OPTIONAL_DIRS = ["prompts", "scripts", "references", "assets"];
 
 /**
  * @param {object} opts
@@ -17,8 +17,8 @@ export function emitSkillFolder({ skill, distSkillsDir, transformSkillMd }) {
   const skillOutDir = join(distSkillsDir, skill.skillName);
   mkdirSync(skillOutDir, { recursive: true });
 
-  const raw = readFileSync(skill.filePath, 'utf8');
-  writeFileSync(join(skillOutDir, 'SKILL.md'), transformSkillMd(raw, skill));
+  const raw = readFileSync(skill.filePath, "utf8");
+  writeFileSync(join(skillOutDir, "SKILL.md"), transformSkillMd(raw, skill));
 
   for (const dir of OPTIONAL_DIRS) {
     const src = join(skill.skillDir, dir);
@@ -26,7 +26,7 @@ export function emitSkillFolder({ skill, distSkillsDir, transformSkillMd }) {
     try {
       cpSync(src, dest, { recursive: true });
     } catch (err) {
-      if (err.code !== 'ENOENT') throw err;
+      if (err.code !== "ENOENT") throw err;
     }
   }
 }

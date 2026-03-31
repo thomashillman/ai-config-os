@@ -8,13 +8,13 @@
  * Usage: node scripts/build/verify.mjs
  *        npm run verify
  */
-import { readdirSync, existsSync } from 'fs';
-import { join, resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { spawnSync } from 'child_process';
+import { readdirSync, existsSync } from "fs";
+import { join, resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+import { spawnSync } from "child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..', '..');
+const REPO_ROOT = resolve(__dirname, "..", "..");
 
 let failed = false;
 
@@ -22,8 +22,8 @@ function run(label, command, args) {
   console.log(`\n==> ${label}`);
   const result = spawnSync(command, args, {
     cwd: REPO_ROOT,
-    stdio: 'inherit',
-    encoding: 'utf8',
+    stdio: "inherit",
+    encoding: "utf8",
   });
   if (result.status !== 0) {
     console.error(`FAIL: ${label} (exit ${result.status})`);
@@ -38,8 +38,8 @@ function runShell(label, command) {
   console.log(`\n==> ${label}`);
   const result = spawnSync(command, {
     cwd: REPO_ROOT,
-    stdio: 'inherit',
-    encoding: 'utf8',
+    stdio: "inherit",
+    encoding: "utf8",
     shell: true,
   });
   if (result.status !== 0) {
@@ -52,50 +52,63 @@ function runShell(label, command) {
 }
 
 // 1. Version parity
-run('Version parity check', process.execPath, [join(REPO_ROOT, 'scripts', 'build', 'check-version-parity.mjs')]);
+run("Version parity check", process.execPath, [
+  join(REPO_ROOT, "scripts", "build", "check-version-parity.mjs"),
+]);
 
 // 2. Lint skills (discover via Node.js, not shell glob)
-const skillsDir = join(REPO_ROOT, 'shared', 'skills');
+const skillsDir = join(REPO_ROOT, "shared", "skills");
 const skillFiles = readdirSync(skillsDir, { withFileTypes: true })
-  .filter(d => d.isDirectory() && !d.name.startsWith('_'))
-  .map(d => join(skillsDir, d.name, 'SKILL.md'))
-  .filter(f => existsSync(f));
+  .filter((d) => d.isDirectory() && !d.name.startsWith("_"))
+  .map((d) => join(skillsDir, d.name, "SKILL.md"))
+  .filter((f) => existsSync(f));
 
 if (skillFiles.length > 0) {
-  run('Lint skills', process.execPath, [join(REPO_ROOT, 'scripts', 'lint', 'skill.mjs'), ...skillFiles]);
+  run("Lint skills", process.execPath, [
+    join(REPO_ROOT, "scripts", "lint", "skill.mjs"),
+    ...skillFiles,
+  ]);
 }
 
 // 3. Lint platforms (discover via Node.js)
-const platformsDir = join(REPO_ROOT, 'shared', 'targets', 'platforms');
+const platformsDir = join(REPO_ROOT, "shared", "targets", "platforms");
 if (existsSync(platformsDir)) {
   const platformFiles = readdirSync(platformsDir)
-    .filter(f => f.endsWith('.yaml'))
-    .map(f => join(platformsDir, f));
+    .filter((f) => f.endsWith(".yaml"))
+    .map((f) => join(platformsDir, f));
 
   if (platformFiles.length > 0) {
-    run('Lint platforms', process.execPath, [join(REPO_ROOT, 'scripts', 'lint', 'platform.mjs'), ...platformFiles]);
+    run("Lint platforms", process.execPath, [
+      join(REPO_ROOT, "scripts", "lint", "platform.mjs"),
+      ...platformFiles,
+    ]);
   }
 }
 
 // 4. Full test suite
 // Includes: canonical source contract, portability contract, materialisation contract, delivery contract
-run('Test suite (portability & delivery contracts)', process.execPath, [join(REPO_ROOT, 'scripts', 'build', 'test', 'run-tests.mjs')]);
+run("Test suite (portability & delivery contracts)", process.execPath, [
+  join(REPO_ROOT, "scripts", "build", "test", "run-tests.mjs"),
+]);
 
 // 5. Dashboard gate (skipped when --skip-dashboard passed, e.g. in CI when dashboard/ unchanged)
-const skipDashboard = process.argv.includes('--skip-dashboard');
+const skipDashboard = process.argv.includes("--skip-dashboard");
 if (skipDashboard) {
-  console.log('\n==> Dashboard test suite [SKIPPED — --skip-dashboard]');
-  console.log('==> Dashboard production build [SKIPPED — --skip-dashboard]');
+  console.log("\n==> Dashboard test suite [SKIPPED — --skip-dashboard]");
+  console.log("==> Dashboard production build [SKIPPED — --skip-dashboard]");
 } else {
-  runShell('Dashboard test suite', 'npm --prefix dashboard run --silent test');
-  runShell('Dashboard production build', 'npm --prefix dashboard run --silent build');
+  runShell("Dashboard test suite", "npm --prefix dashboard run --silent test");
+  runShell(
+    "Dashboard production build",
+    "npm --prefix dashboard run --silent build",
+  );
 }
 
 // Result
-console.log('');
+console.log("");
 if (failed) {
-  console.error('VERIFICATION FAILED - do not push.');
+  console.error("VERIFICATION FAILED - do not push.");
   process.exit(1);
 } else {
-  console.log('ALL CHECKS PASSED - safe to push.');
+  console.log("ALL CHECKS PASSED - safe to push.");
 }

@@ -5,9 +5,9 @@
  * No I/O, no side effects. Deterministic.
  */
 
-import { validateContract } from '../../shared/contracts/validate.mjs';
-import { workTitleForTaskType } from './intent-lexicon.mjs';
-import { getStrengthLabel } from './strength-labels.mjs';
+import { validateContract } from "../../shared/contracts/validate.mjs";
+import { workTitleForTaskType } from "./intent-lexicon.mjs";
+import { getStrengthLabel } from "./strength-labels.mjs";
 
 /**
  * Builds a user-facing MomentumView from task state and execution contract.
@@ -25,11 +25,14 @@ export function buildMomentumView({
   workTitleFn = workTitleForTaskType,
   getStrengthLabelFn = getStrengthLabel,
 } = {}) {
-  if (!task || typeof task !== 'object') {
-    throw new Error('buildMomentumView requires task');
+  if (!task || typeof task !== "object") {
+    throw new Error("buildMomentumView requires task");
   }
-  if (!effectiveExecutionContract || typeof effectiveExecutionContract !== 'object') {
-    throw new Error('buildMomentumView requires effectiveExecutionContract');
+  if (
+    !effectiveExecutionContract ||
+    typeof effectiveExecutionContract !== "object"
+  ) {
+    throw new Error("buildMomentumView requires effectiveExecutionContract");
   }
 
   // work_title: task type → work title (direct lookup, not phrase resolution)
@@ -63,7 +66,7 @@ export function buildMomentumView({
   };
 
   // best_next_action
-  const bestNextAction = task.next_action || '';
+  const bestNextAction = task.next_action || "";
 
   // upgrade_opportunity: present when contract has upgrade_explanation
   const upgradeExplanation = effectiveExecutionContract.upgrade_explanation;
@@ -79,7 +82,7 @@ export function buildMomentumView({
   }
 
   const view = {
-    schema_version: '1.0.0',
+    schema_version: "1.0.0",
     task_id: task.task_id,
     work_title: workTitle,
     progress_summary: progressSummary,
@@ -89,5 +92,5 @@ export function buildMomentumView({
     ...(upgradeOpportunity ? { upgrade_opportunity: upgradeOpportunity } : {}),
   };
 
-  return validateContract('momentumView', view);
+  return validateContract("momentumView", view);
 }

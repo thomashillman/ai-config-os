@@ -27,12 +27,29 @@ export interface Env {
 
   MANIFEST_KV?: {
     get(key: string): Promise<string | null> | string | null;
-    put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
-    list(options?: { prefix?: string; limit?: number; cursor?: string }): Promise<{ keys: { name: string }[]; list_complete: boolean; cursor?: string }>;
+    put(
+      key: string,
+      value: string,
+      options?: { expirationTtl?: number },
+    ): Promise<void>;
+    list(options?: {
+      prefix?: string;
+      limit?: number;
+      cursor?: string;
+    }): Promise<{
+      keys: { name: string }[];
+      list_complete: boolean;
+      cursor?: string;
+    }>;
     delete(key: string): Promise<void>;
   };
   ARTEFACTS_R2?: {
-    get(key: string): Promise<{ text(): Promise<string> } | null> | { text(): Promise<string> } | null;
+    get(
+      key: string,
+    ):
+      | Promise<{ text(): Promise<string> } | null>
+      | { text(): Promise<string> }
+      | null;
     put(key: string, value: string): Promise<void>;
     delete(key: string): Promise<void>;
   };

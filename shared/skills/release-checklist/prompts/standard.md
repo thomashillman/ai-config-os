@@ -3,10 +3,12 @@
 Validate release readiness and provide a structured checklist of all pre-release steps.
 
 ## Input Format
+
 - `version`: Target semantic version (e.g., "1.0.0")
 - `release_notes`: Optional supplementary notes
 
 ## Checklist Steps
+
 1. ✓ Branch is clean (no uncommitted changes)
 2. ✓ All tests passing (run full test suite)
 3. ✓ Version number bumped in all config files
@@ -19,6 +21,7 @@ Validate release readiness and provide a structured checklist of all pre-release
 10. ✓ Rollback criteria documented and tested (manifest-only flag rollback path confirmed)
 
 ## Output Format
+
 ```
 Ready to Release: [YES/NO]
 ✓ Completed Steps: [count]

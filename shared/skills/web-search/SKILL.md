@@ -134,6 +134,7 @@ Search the web for current information using available APIs and synthesize resul
 ## When to use
 
 When the user needs:
+
 - Current information or recent news
 - Factual data not in your training data
 - Sources for specific claims
@@ -151,8 +152,10 @@ When the user needs:
 ## Examples
 
 ### Example 1: Recent News
+
 **Input:** "What are the latest developments in AI?"
 **Output:**
+
 ```
 Recent AI developments include:
 - Claude 4.6 released with improved reasoning capabilities
@@ -165,8 +168,10 @@ Sources:
 ```
 
 ### Example 2: Technical Information
+
 **Input:** "How do transformers work in machine learning?"
 **Output:**
+
 ```
 Transformers are neural network architectures that:
 1. Use self-attention mechanisms to process sequences in parallel

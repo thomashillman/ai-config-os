@@ -6,16 +6,16 @@ import type {
   RouteDefinition,
   SkillDefinition,
   ToolDefinition,
-} from './types';
+} from "./types";
 
 export type ContractKind =
-  | 'manifest'
-  | 'capabilityProfile'
-  | 'toolDefinition'
-  | 'skillDefinition'
-  | 'outcomeDefinition'
-  | 'routeDefinition'
-  | 'effectiveOutcomeContract';
+  | "manifest"
+  | "capabilityProfile"
+  | "toolDefinition"
+  | "skillDefinition"
+  | "outcomeDefinition"
+  | "routeDefinition"
+  | "effectiveOutcomeContract";
 
 export interface ContractByKind {
   manifest: Manifest;
@@ -27,4 +27,7 @@ export interface ContractByKind {
   effectiveOutcomeContract: EffectiveOutcomeContract;
 }
 
-export function validateContract<K extends ContractKind>(kind: K, payload: ContractByKind[K]): ContractByKind[K];
+export function validateContract<K extends ContractKind>(
+  kind: K,
+  payload: ContractByKind[K],
+): ContractByKind[K];

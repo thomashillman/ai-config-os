@@ -56,4 +56,3 @@ This preserves the same base/surface/overlay mechanics while allowing per-repo o
 1. **Edit fragment** (base/surface/overlay source).
 2. **Run doctrine build** (materialise/generate root outputs).
 3. **Commit generated root files** along with the source fragment change.
-

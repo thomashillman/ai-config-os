@@ -14,31 +14,32 @@
 
 ## File map
 
-| File | Role |
-| --- | --- |
-| `scripts/build/lib/emit-skill-tree.mjs` | **Create** — copy one skill’s optional dirs + write transformed `SKILL.md` |
-| `scripts/build/lib/cursor-frontmatter.mjs` | **Create** — strip list, `transformSkillMdForCursor(raw, { skill, compat })` |
-| `scripts/build/lib/emit-claude-code.mjs` | **Modify** — delegate folder emission to `emit-skill-tree` |
-| `scripts/build/lib/emit-cursor.mjs` | **Modify** — primary: skill tree; optional legacy `.cursorrules` |
-| `scripts/build/compile.mjs` | **Modify** — pass `emitLegacyCursorrules` boolean from env into `emitCursor` |
-| `scripts/build/test/emit-skill-tree.test.mjs` | **Create** — temp dir fixtures |
-| `scripts/build/test/cursor-frontmatter.test.mjs` | **Create** — golden strip + name/description |
-| `scripts/build/test/emitter-contract.test.mjs` | **Modify** — assert `dist/clients/cursor/skills/*/SKILL.md` |
-| `scripts/build/test/delivery-contract.test.mjs` | **Modify** — assertions on `clients/cursor/.cursorrules` must match new default (skills tree primary; legacy gated) |
+| File                                                        | Role                                                                                                                           |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `scripts/build/lib/emit-skill-tree.mjs`                     | **Create** — copy one skill’s optional dirs + write transformed `SKILL.md`                                                     |
+| `scripts/build/lib/cursor-frontmatter.mjs`                  | **Create** — strip list, `transformSkillMdForCursor(raw, { skill, compat })`                                                   |
+| `scripts/build/lib/emit-claude-code.mjs`                    | **Modify** — delegate folder emission to `emit-skill-tree`                                                                     |
+| `scripts/build/lib/emit-cursor.mjs`                         | **Modify** — primary: skill tree; optional legacy `.cursorrules`                                                               |
+| `scripts/build/compile.mjs`                                 | **Modify** — pass `emitLegacyCursorrules` boolean from env into `emitCursor`                                                   |
+| `scripts/build/test/emit-skill-tree.test.mjs`               | **Create** — temp dir fixtures                                                                                                 |
+| `scripts/build/test/cursor-frontmatter.test.mjs`            | **Create** — golden strip + name/description                                                                                   |
+| `scripts/build/test/emitter-contract.test.mjs`              | **Modify** — assert `dist/clients/cursor/skills/*/SKILL.md`                                                                    |
+| `scripts/build/test/delivery-contract.test.mjs`             | **Modify** — assertions on `clients/cursor/.cursorrules` must match new default (skills tree primary; legacy gated)            |
 | `scripts/build/test/limitation-messaging-contract.test.mjs` | **Modify** — if it reads `.cursorrules` directly, switch to reading a representative `skills/<id>/SKILL.md` or gate legacy env |
-| `scripts/build/test/reproducibility.test.mjs` | **Modify** — include a stable path under `clients/cursor/skills/` in hashes when `.cursorrules` absent |
-| `scripts/build/test/scaffold-and-provenance.test.mjs` | **Modify** — cursor paths if they assert only `.cursorrules` |
-| `README.md` | **Modify** — Cursor section: install `skills/` into `~/.cursor/skills` |
-| `docs/SUPPORTED_TODAY.md` | **Modify** — Cursor emitter row |
-| `shared/targets/platforms/cursor.yaml` | **Modify** — `notes` aligned with Agent Skills |
-| `PLAN.md` | **Modify** — platform maturity row when shipped |
-| `shared/manifest.md` | **Modify** — Cursor row if it still says “.cursorrules only” |
+| `scripts/build/test/reproducibility.test.mjs`               | **Modify** — include a stable path under `clients/cursor/skills/` in hashes when `.cursorrules` absent                         |
+| `scripts/build/test/scaffold-and-provenance.test.mjs`       | **Modify** — cursor paths if they assert only `.cursorrules`                                                                   |
+| `README.md`                                                 | **Modify** — Cursor section: install `skills/` into `~/.cursor/skills`                                                         |
+| `docs/SUPPORTED_TODAY.md`                                   | **Modify** — Cursor emitter row                                                                                                |
+| `shared/targets/platforms/cursor.yaml`                      | **Modify** — `notes` aligned with Agent Skills                                                                                 |
+| `PLAN.md`                                                   | **Modify** — platform maturity row when shipped                                                                                |
+| `shared/manifest.md`                                        | **Modify** — Cursor row if it still says “.cursorrules only”                                                                   |
 
 ---
 
 ### Task 1: Enumerate Claude/repo-only frontmatter keys
 
 **Files:**
+
 - Create: `scripts/build/lib/cursor-frontmatter.mjs` (stub exports strip list + allowed list; code is source of truth)
 
 - [ ] **Step 1:** Define a **frozen list** of top-level YAML keys to remove for Cursor emit, derived from [`docs/SKILLS.md`](../../../docs/SKILLS.md): at minimum `hooks`, `context`, `agent`, `user-invocable`, `argument-hint`, `model`, and repo-extended keys `skill` (superseded by emitted `name`), `type`, `status`, `capabilities`, `platforms`, `variants`, `inputs`, `outputs`, `dependencies`, `tests`, `monitoring`, `version`. (Strip `version` from Cursor emit per lean frontmatter; use `metadata` in source if a version hint must survive—rare.)
@@ -52,6 +53,7 @@
 ### Task 2: Implement `transformSkillMdForCursor`
 
 **Files:**
+
 - Modify: `scripts/build/lib/cursor-frontmatter.mjs`
 
 - [ ] **Step 1:** Parse `SKILL.md` by splitting first `---\n` … `\n---\n` frontmatter; use `YAML.parse` / `YAML.stringify` from `yaml` package.
@@ -73,6 +75,7 @@
 ### Task 3: Implement `emit-skill-tree.mjs`
 
 **Files:**
+
 - Create: `scripts/build/lib/emit-skill-tree.mjs`
 
 - [ ] **Step 1:** Export `emitSkillFolder({ skill, distSkillsDir, transformSkillMd })` where `skill` has `skillName`, `skillDir`, `filePath` (or `skillMdPath`), `frontmatter` as today.
@@ -92,6 +95,7 @@
 ### Task 4: Refactor `emit-claude-code.mjs` to use helper
 
 **Files:**
+
 - Modify: `scripts/build/lib/emit-claude-code.mjs`
 
 - [ ] **Step 1:** Move `readSkillMd` logic into a callback passed to `emitSkillFolder` (keep byte-for-byte behavior: inject `name:` after `---` when missing).
@@ -107,6 +111,7 @@
 ### Task 5: Refactor `emit-cursor.mjs`
 
 **Files:**
+
 - Modify: `scripts/build/lib/emit-cursor.mjs`
 - Modify: `scripts/build/compile.mjs`
 
@@ -129,6 +134,7 @@
 ### Task 6: Documentation and platform YAML
 
 **Files:**
+
 - Modify: `README.md`, `docs/SUPPORTED_TODAY.md`, `shared/targets/platforms/cursor.yaml`, `PLAN.md`, `shared/manifest.md`
 
 - [ ] **Step 1:** README Cursor section: build → copy `dist/clients/cursor/skills/*` → `~/.cursor/skills/`; mention opt-in legacy env.

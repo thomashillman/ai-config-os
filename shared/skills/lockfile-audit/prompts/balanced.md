@@ -7,6 +7,7 @@ deployment configuration to determine whether a missing lockfile will break a de
 ## Input: $ARGUMENTS
 
 If shell access is available, gather data:
+
 ```bash
 # Find all package.json files outside node_modules
 find . -name "package.json" -not -path "*/node_modules/*"
@@ -35,24 +36,25 @@ Otherwise work from pasted content.
 
 ## Severity classification
 
-| Severity | Condition |
-|----------|-----------|
+| Severity | Condition                                                                              |
+| -------- | -------------------------------------------------------------------------------------- |
 | BLOCKING | Missing lockfile + `npm ci` in CI/deploy referencing that directory → deploy will fail |
-| WARNING | Missing lockfile + `npm install` only, or no deploy reference found |
-| INFO | Missing lockfile in dev-only directory with no CI/deploy reference |
+| WARNING  | Missing lockfile + `npm install` only, or no deploy reference found                    |
+| INFO     | Missing lockfile in dev-only directory with no CI/deploy reference                     |
 
 ## Output format
 
 ### FINDINGS
 
-| Severity | Directory | Missing lockfile | Referenced by |
-|----------|-----------|-----------------|---------------|
-| BLOCKING | `worker/` | `package-lock.json` | `.github/workflows/deploy.yml` (npm ci) |
-| WARNING | `dashboard/` | `package-lock.json` | None found |
+| Severity | Directory    | Missing lockfile    | Referenced by                           |
+| -------- | ------------ | ------------------- | --------------------------------------- |
+| BLOCKING | `worker/`    | `package-lock.json` | `.github/workflows/deploy.yml` (npm ci) |
+| WARNING  | `dashboard/` | `package-lock.json` | None found                              |
 
 ### REMEDIATION
 
 For each BLOCKING item:
+
 ```bash
 cd <directory>
 npm install --package-lock-only   # generates lockfile without installing

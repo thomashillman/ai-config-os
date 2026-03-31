@@ -7,31 +7,31 @@
 
 const STRENGTH_MAP = {
   pasted_diff: {
-    level: 'limited',
-    label: 'Diff-only review',
-    description: 'Can inspect changed lines only',
+    level: "limited",
+    label: "Diff-only review",
+    description: "Can inspect changed lines only",
   },
   uploaded_bundle: {
-    level: 'partial',
-    label: 'Bundle review',
-    description: 'Can inspect included files',
+    level: "partial",
+    label: "Bundle review",
+    description: "Can inspect included files",
   },
   github_pr: {
-    level: 'guided',
-    label: 'GitHub-level inspection',
-    description: 'Can inspect PR metadata, changed files, and related context',
+    level: "guided",
+    label: "GitHub-level inspection",
+    description: "Can inspect PR metadata, changed files, and related context",
   },
   local_repo: {
-    level: 'full',
-    label: 'Full repository analysis',
-    description: 'Can inspect all files, dependencies, tests, and history',
+    level: "full",
+    label: "Full repository analysis",
+    description: "Can inspect all files, dependencies, tests, and history",
   },
 };
 
 /**
  * Ordinal ordering of strength levels (weakest → strongest).
  */
-export const STRENGTH_ORDER = ['limited', 'partial', 'guided', 'full'];
+export const STRENGTH_ORDER = ["limited", "partial", "guided", "full"];
 
 /**
  * Returns the strength descriptor for a route ID.
@@ -42,7 +42,9 @@ export const STRENGTH_ORDER = ['limited', 'partial', 'guided', 'full'];
 export function getStrengthLabel(routeId) {
   const entry = STRENGTH_MAP[routeId];
   if (!entry) {
-    throw new Error(`Unknown route ID: "${routeId}". Expected one of: ${Object.keys(STRENGTH_MAP).join(', ')}`);
+    throw new Error(
+      `Unknown route ID: "${routeId}". Expected one of: ${Object.keys(STRENGTH_MAP).join(", ")}`,
+    );
   }
   return { ...entry };
 }

@@ -188,6 +188,7 @@ or live `gh` CLI calls (Claude Code, Cursor with terminal).
 ## When to use
 
 Auto-invoke when the user says any of:
+
 - "the build is failing", "CI is red", "checks aren't passing"
 - "fix the broken PR", "why is the pipeline failing"
 - "build errors on #<number>", "failed jobs on my PR"
@@ -228,6 +229,7 @@ gh run view $RUN_ID --log
 
 **If only `network.http` is available:**
 Use GitHub Actions REST API:
+
 - `GET /repos/{owner}/{repo}/actions/runs?head_sha={SHA}&status=failure`
 - `GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs`
 
@@ -240,6 +242,7 @@ pasted content — no tooling required.
 ### Step 1 — Identify and classify failures
 
 For each failed job extract:
+
 1. **Job name** and **workflow**
 2. **Error type** — one of: `lint`, `type-check`, `test`, `build`, `deploy`, `infra`
 3. **Error message** — exact text, file path, and line number when available
@@ -274,6 +277,7 @@ For each unique failure group:
 Produce a numbered, ordered plan. Each step is atomic and independently verifiable.
 
 **Format each step as:**
+
 ```
 N. [CATEGORY] What to do
    - Why: reason this step is needed
@@ -283,12 +287,14 @@ N. [CATEGORY] What to do
 ```
 
 **KISS principles to enforce:**
+
 - Fix only what the log proves is broken — do not refactor adjacent code
 - Prefer the smallest diff that makes the test green
 - One step = one logical change = one commit
 - No speculative "while we're here" improvements
 
 **TDD order for every fix:**
+
 1. Reproduce the failure with a focused test (red — confirms root cause)
 2. Apply the minimal code change (green — smallest passing diff)
 3. Run full suite to confirm no regressions
@@ -308,6 +314,7 @@ Root cause: <one sentence>
 Affected: <N files / N tests>
 Log excerpt: "<exact error line>"
 ```
+
 One block per unique failure group.
 
 #### FIX PLAN
@@ -331,6 +338,7 @@ One block per unique failure group.
 ```
 
 End with:
+
 - **Confidence:** High / Medium / Low
 - **Flakiness note** (if any failure looks non-deterministic)
 - **Env note** (if any failure requires a secret or env var that may not be set locally)
@@ -340,6 +348,7 @@ End with:
 ### Example 1 — Jest mock missing
 
 **Input:** PR #142 failing; job: `test / unit`
+
 ```
 TypeError: Cannot read properties of undefined (reading 'send')
   at UserService.notifyUser (src/services/user.service.ts:34)
@@ -347,6 +356,7 @@ TypeError: Cannot read properties of undefined (reading 'send')
 ```
 
 **Output:**
+
 ```
 FAILURE SUMMARY
 Job: test / unit  |  Workflow: CI  |  Type: test
@@ -379,12 +389,14 @@ Confidence: High
 ### Example 2 — TypeScript type error
 
 **Input:** Pasted log:
+
 ```
 error TS2345: Argument of type 'string' is not assignable to
 parameter of type 'number' at src/utils/format.ts:18
 ```
 
 **Output:**
+
 ```
 FAILURE SUMMARY
 Job: build / tsc  |  Workflow: CI  |  Type: type-check

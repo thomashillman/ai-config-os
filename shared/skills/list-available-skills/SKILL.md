@@ -84,12 +84,12 @@ Invoke when the user asks: "what skills can I use here?", "list available skills
 
 ## Capability buckets
 
-| Bucket | Meaning |
-|---|---|
-| **available** | All required + optional capabilities supported |
-| **degraded** | All required caps supported; ≥1 optional cap missing (works with reduced fidelity) |
-| **excluded** | Required capability unsupported, but a fallback mode exists (e.g. prompt-only) |
-| **unavailable** | Required capability unsupported; no fallback |
+| Bucket          | Meaning                                                                            |
+| --------------- | ---------------------------------------------------------------------------------- |
+| **available**   | All required + optional capabilities supported                                     |
+| **degraded**    | All required caps supported; ≥1 optional cap missing (works with reduced fidelity) |
+| **excluded**    | Required capability unsupported, but a fallback mode exists (e.g. prompt-only)     |
+| **unavailable** | Required capability unsupported; no fallback                                       |
 
 ## Instructions
 

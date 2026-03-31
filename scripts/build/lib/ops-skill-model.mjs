@@ -1,48 +1,55 @@
-import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { parseSkill } from './parse-skill.mjs';
+import { existsSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { parseSkill } from "./parse-skill.mjs";
 
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
 function normalizeDependency(entry) {
-  if (typeof entry === 'string') {
+  if (typeof entry === "string") {
     return entry.trim();
   }
 
-  if (entry && typeof entry === 'object' && typeof entry.name === 'string') {
+  if (entry && typeof entry === "object" && typeof entry.name === "string") {
     return entry.name.trim();
   }
 
-  return '';
+  return "";
 }
 
 function normalizeVariants(frontmatter) {
   const variants = frontmatter?.variants;
-  if (!variants || typeof variants !== 'object' || Array.isArray(variants)) {
+  if (!variants || typeof variants !== "object" || Array.isArray(variants)) {
     return [];
   }
 
   return Object.entries(variants)
-    .filter(([name]) => name !== 'fallback_chain')
+    .filter(([name]) => name !== "fallback_chain")
     .map(([name, config]) => ({
       name,
-      config: config && typeof config === 'object' ? config : {},
+      config: config && typeof config === "object" ? config : {},
       promptFile:
-        config && typeof config === 'object' && typeof config.prompt_file === 'string'
+        config &&
+        typeof config === "object" &&
+        typeof config.prompt_file === "string"
           ? config.prompt_file.trim()
-          : '',
+          : "",
     }));
 }
 
 function normalizeSkillModel({ skillDir, filePath, frontmatter }) {
-  const name = typeof frontmatter?.skill === 'string' ? frontmatter.skill.trim() : '';
+  const name =
+    typeof frontmatter?.skill === "string" ? frontmatter.skill.trim() : "";
   const dependencies = asArray(frontmatter?.dependencies?.skills)
     .map(normalizeDependency)
     .filter(Boolean);
-  const description = typeof frontmatter?.description === 'string' ? frontmatter.description.trim() : '';
-  const type = typeof frontmatter?.type === 'string' ? frontmatter.type.trim() : '';
+  const description =
+    typeof frontmatter?.description === "string"
+      ? frontmatter.description.trim()
+      : "";
+  const type =
+    typeof frontmatter?.type === "string" ? frontmatter.type.trim() : "";
 
   return {
     name,
@@ -57,7 +64,7 @@ function normalizeSkillModel({ skillDir, filePath, frontmatter }) {
 }
 
 export function loadSkillModels(repoRoot) {
-  const skillsDir = join(repoRoot, 'shared', 'skills');
+  const skillsDir = join(repoRoot, "shared", "skills");
   const models = [];
   const errors = [];
 
@@ -66,12 +73,12 @@ export function loadSkillModels(repoRoot) {
   }
 
   const entries = readdirSync(skillsDir, { withFileTypes: true })
-    .filter(entry => entry.isDirectory() && entry.name !== '_template')
+    .filter((entry) => entry.isDirectory() && entry.name !== "_template")
     .sort((a, b) => a.name.localeCompare(b.name));
 
   for (const entry of entries) {
     const skillDir = join(skillsDir, entry.name);
-    const filePath = join(skillDir, 'SKILL.md');
+    const filePath = join(skillDir, "SKILL.md");
     if (!existsSync(filePath)) {
       errors.push(`Skill ${entry.name}: missing SKILL.md`);
       continue;
@@ -79,7 +86,13 @@ export function loadSkillModels(repoRoot) {
 
     try {
       const parsed = parseSkill(filePath);
-      models.push(normalizeSkillModel({ skillDir, filePath, frontmatter: parsed.frontmatter }));
+      models.push(
+        normalizeSkillModel({
+          skillDir,
+          filePath,
+          frontmatter: parsed.frontmatter,
+        }),
+      );
     } catch (error) {
       errors.push(`Skill ${entry.name}: ${error.message}`);
     }
@@ -90,12 +103,16 @@ export function loadSkillModels(repoRoot) {
 
 export function validateDependencies(models) {
   const errors = [];
-  const knownSkills = new Set(models.map(model => model.name).filter(Boolean));
+  const knownSkills = new Set(
+    models.map((model) => model.name).filter(Boolean),
+  );
 
   for (const model of models) {
     for (const dependency of model.dependencies) {
       if (!knownSkills.has(dependency)) {
-        errors.push(`Skill ${model.name || '(unknown)'}: dependency '${dependency}' not found`);
+        errors.push(
+          `Skill ${model.name || "(unknown)"}: dependency '${dependency}' not found`,
+        );
       }
     }
   }
@@ -110,14 +127,16 @@ export function validateVariants(models) {
     for (const variant of model.variants) {
       const promptFile = variant.promptFile;
       if (!promptFile) {
-        errors.push(`Skill ${model.name || '(unknown)'}: variant '${variant.name}' missing prompt_file`);
+        errors.push(
+          `Skill ${model.name || "(unknown)"}: variant '${variant.name}' missing prompt_file`,
+        );
         continue;
       }
 
       const absolutePromptPath = join(model.skillDir, promptFile);
       if (!existsSync(absolutePromptPath)) {
         errors.push(
-          `Skill ${model.name || '(unknown)'}: variant '${variant.name}' references missing file '${promptFile}'`
+          `Skill ${model.name || "(unknown)"}: variant '${variant.name}' references missing file '${promptFile}'`,
         );
       }
     }
@@ -131,13 +150,19 @@ export function validateDocsMetadata(models) {
 
   for (const model of models) {
     if (!model.name) {
-      errors.push(`Skill file ${model.filePath}: missing required metadata field 'skill'`);
+      errors.push(
+        `Skill file ${model.filePath}: missing required metadata field 'skill'`,
+      );
     }
     if (!model.description) {
-      errors.push(`Skill ${model.name || '(unknown)'}: missing required metadata field 'description'`);
+      errors.push(
+        `Skill ${model.name || "(unknown)"}: missing required metadata field 'description'`,
+      );
     }
     if (!model.type) {
-      errors.push(`Skill ${model.name || '(unknown)'}: missing required metadata field 'type'`);
+      errors.push(
+        `Skill ${model.name || "(unknown)"}: missing required metadata field 'type'`,
+      );
     }
   }
 

@@ -7,9 +7,11 @@ behind an `if:` guard whose side effects are consumed downstream without a match
 ## Input: $ARGUMENTS
 
 If shell access is available, read workflow files directly:
+
 ```bash
 cat .github/workflows/*.yml
 ```
+
 Otherwise work from pasted workflow YAML.
 
 ## What to look for
@@ -33,17 +35,18 @@ a shared environment variable) without a matching `if:` guard.
 
 ## Severity classification
 
-| Severity | Meaning |
-|----------|---------|
-| BLOCKING | The step will hard-fail when the guard condition is false (missing binary, missing output) |
-| SILENT FAILURE | The step runs but produces wrong results or skips silently |
-| WARNING | Best-practice gap; unlikely to fail in practice but could regress |
+| Severity       | Meaning                                                                                    |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| BLOCKING       | The step will hard-fail when the guard condition is false (missing binary, missing output) |
+| SILENT FAILURE | The step runs but produces wrong results or skips silently                                 |
+| WARNING        | Best-practice gap; unlikely to fail in practice but could regress                          |
 
 ## Output format
 
 ### FINDINGS
 
 For each unpaired reference:
+
 ```
 [SEVERITY] Job: <job-id> | Step: "<step-name>"
 Consumes: <side effect description>

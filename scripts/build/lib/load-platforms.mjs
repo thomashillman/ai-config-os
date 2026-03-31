@@ -5,10 +5,10 @@
  * Returns both successfully loaded platforms and any parse/validation errors.
  * Caller (compiler) decides whether to treat errors as fatal.
  */
-import { readdir, readFile, access } from 'fs/promises';
-import { constants } from 'fs';
-import { join } from 'path';
-import { parse as parseYaml } from 'yaml';
+import { readdir, readFile, access } from "fs/promises";
+import { constants } from "fs";
+import { join } from "path";
+import { parse as parseYaml } from "yaml";
 
 /**
  * @param {string} repoRoot - Path to repository root
@@ -17,7 +17,7 @@ import { parse as parseYaml } from 'yaml';
  *   errors: list of load/validation failures (parse errors, missing id)
  */
 export async function loadPlatforms(repoRoot) {
-  const platformDir = join(repoRoot, 'shared', 'targets', 'platforms');
+  const platformDir = join(repoRoot, "shared", "targets", "platforms");
   const platforms = new Map();
   const errors = [];
 
@@ -25,25 +25,32 @@ export async function loadPlatforms(repoRoot) {
     await access(platformDir, constants.F_OK);
   } catch {
     errors.push(
-      'Platform directory not found: shared/targets/platforms/ ' +
-      '— this is a fatal configuration error, not a soft condition.'
+      "Platform directory not found: shared/targets/platforms/ " +
+        "— this is a fatal configuration error, not a soft condition.",
     );
     return { platforms, errors };
   }
 
   // Deterministic ordering keeps downstream compatibility and emission stable.
-  const files = (await readdir(platformDir)).filter(f => f.endsWith('.yaml')).sort();
+  const files = (await readdir(platformDir))
+    .filter((f) => f.endsWith(".yaml"))
+    .sort();
 
   const results = await Promise.all(
     files.map(async (file) => {
-      const platformId = file.replace('.yaml', '');
+      const platformId = file.replace(".yaml", "");
       try {
-        const raw = await readFile(join(platformDir, file), 'utf8');
+        const raw = await readFile(join(platformDir, file), "utf8");
         return { file, platformId, data: parseYaml(raw), error: null };
       } catch (err) {
-        return { file, platformId, data: null, error: `Failed to parse ${file}: ${err.message}` };
+        return {
+          file,
+          platformId,
+          data: null,
+          error: `Failed to parse ${file}: ${err.message}`,
+        };
       }
-    })
+    }),
   );
 
   for (const { file, platformId, data, error } of results) {
@@ -59,7 +66,9 @@ export async function loadPlatforms(repoRoot) {
 
     // Validate filename matches data.id
     if (data.id !== platformId) {
-      errors.push(`${file}: id='${data.id}' does not match filename '${platformId}.yaml'`);
+      errors.push(
+        `${file}: id='${data.id}' does not match filename '${platformId}.yaml'`,
+      );
       continue;
     }
 

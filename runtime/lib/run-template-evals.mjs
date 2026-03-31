@@ -9,10 +9,10 @@
  */
 export async function runTemplateProposalEvals(proposal) {
   if (!proposal) {
-    throw new Error('proposal is required');
+    throw new Error("proposal is required");
   }
   if (!proposal.id) {
-    throw new Error('proposal.id is required');
+    throw new Error("proposal.id is required");
   }
 
   const errors = [];
@@ -22,13 +22,15 @@ export async function runTemplateProposalEvals(proposal) {
   try {
     // Check that proposed template exists and is not null
     if (!proposal.proposed) {
-      errors.push('proposed template content is required and must be non-empty');
+      errors.push(
+        "proposed template content is required and must be non-empty",
+      );
       success = false;
-    } else if (typeof proposal.proposed !== 'string') {
-      errors.push('proposed template must be a string');
+    } else if (typeof proposal.proposed !== "string") {
+      errors.push("proposed template must be a string");
       success = false;
     } else if (proposal.proposed.trim().length === 0) {
-      errors.push('proposed template cannot be empty');
+      errors.push("proposed template cannot be empty");
       success = false;
     } else {
       // Template is valid — extract output

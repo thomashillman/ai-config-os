@@ -4,38 +4,44 @@ on:
   push:
     branches: [main]
     paths:
-      - 'VERSION'
-      - 'shared/skills/**'
-      - 'shared/targets/**'
-      - 'schemas/**'
-      - 'scripts/build/**'
-      - 'scripts/ci/**'
-      - '.cursor/rules/**'
-      - '.github/workflows/pr-ai-review.yml'
-      - 'scripts/lint/**'
-      - 'dashboard/src/App.jsx'
-      - 'README.md'
-      - 'PLAN.md'
-      - 'package.json'
-      - 'runtime/adapters/**'
-      - '.github/workflows/build.yml'
+      - "VERSION"
+      - "shared/skills/**"
+      - "shared/targets/**"
+      - "schemas/**"
+      - "scripts/build/**"
+      - "scripts/ci/**"
+      - ".cursor/rules/**"
+      - ".github/workflows/pr-ai-review.yml"
+      - "scripts/lint/**"
+      - "dashboard/src/App.jsx"
+      - "README.md"
+      - "PLAN.md"
+      - "package.json"
+      - "runtime/adapters/**"
+      - ".github/workflows/build.yml"
+      - ".prettierrc"
+      - ".prettierignore"
+      - ".github/workflows/pr-mergeability-gate.yml"
   pull_request:
     paths:
-      - 'VERSION'
-      - 'shared/skills/**'
-      - 'shared/targets/**'
-      - 'schemas/**'
-      - 'scripts/build/**'
-      - 'scripts/ci/**'
-      - '.cursor/rules/**'
-      - '.github/workflows/pr-ai-review.yml'
-      - 'scripts/lint/**'
-      - 'dashboard/src/App.jsx'
-      - 'README.md'
-      - 'PLAN.md'
-      - 'package.json'
-      - 'runtime/adapters/**'
-      - '.github/workflows/build.yml'
+      - "VERSION"
+      - "shared/skills/**"
+      - "shared/targets/**"
+      - "schemas/**"
+      - "scripts/build/**"
+      - "scripts/ci/**"
+      - ".cursor/rules/**"
+      - ".github/workflows/pr-ai-review.yml"
+      - "scripts/lint/**"
+      - "dashboard/src/App.jsx"
+      - "README.md"
+      - "PLAN.md"
+      - "package.json"
+      - "runtime/adapters/**"
+      - ".github/workflows/build.yml"
+      - ".prettierrc"
+      - ".prettierignore"
+      - ".github/workflows/pr-mergeability-gate.yml"
 
 jobs:
   build:
@@ -53,8 +59,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci

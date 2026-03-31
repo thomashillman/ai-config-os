@@ -8,15 +8,15 @@
  *   GET  /v1/retrospectives/:id          — get full artifact from R2
  */
 
-import { badRequest, jsonResponse, notFound, readJsonBody } from '../http';
-import type { Env } from '../types';
-import { validateRetrospectiveArtifact } from '../retrospectives/schema';
+import { badRequest, jsonResponse, notFound, readJsonBody } from "../http";
+import type { Env } from "../types";
+import { validateRetrospectiveArtifact } from "../retrospectives/schema";
 import {
   writeRetrospectiveArtifact,
   listRetrospectives,
   getRetrospectiveArtifact,
   aggregateRetrospectives,
-} from '../retrospectives/storage';
+} from "../retrospectives/storage";
 
 // ── POST /v1/retrospectives ───────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ export async function handleRetrospectiveCreate(
   }
 
   if (!env.MANIFEST_KV || !env.ARTEFACTS_R2) {
-    return jsonResponse({ error: 'Retrospective storage not configured' }, 503);
+    return jsonResponse({ error: "Retrospective storage not configured" }, 503);
   }
 
   try {
@@ -44,7 +44,7 @@ export async function handleRetrospectiveCreate(
     );
     return jsonResponse({ ok: true, id: result.id }, 201);
   } catch {
-    return jsonResponse({ error: 'Failed to persist retrospective' }, 500);
+    return jsonResponse({ error: "Failed to persist retrospective" }, 500);
   }
 }
 
@@ -59,10 +59,16 @@ export async function handleRetrospectiveList(
   }
 
   const url = new URL(request.url);
-  const limitParam = url.searchParams.get('limit');
-  const limit = limitParam ? Math.max(1, Math.min(100, parseInt(limitParam, 10) || 20)) : 20;
+  const limitParam = url.searchParams.get("limit");
+  const limit = limitParam
+    ? Math.max(1, Math.min(100, parseInt(limitParam, 10) || 20))
+    : 20;
 
-  const retrospectives = await listRetrospectives(env.MANIFEST_KV, env.ARTEFACTS_R2, limit);
+  const retrospectives = await listRetrospectives(
+    env.MANIFEST_KV,
+    env.ARTEFACTS_R2,
+    limit,
+  );
   return jsonResponse({ retrospectives, count: retrospectives.length });
 }
 
@@ -82,10 +88,16 @@ export async function handleRetrospectiveAggregate(
   }
 
   const url = new URL(request.url);
-  const limitParam = url.searchParams.get('limit');
-  const limit = limitParam ? Math.max(1, Math.min(100, parseInt(limitParam, 10) || 100)) : 100;
+  const limitParam = url.searchParams.get("limit");
+  const limit = limitParam
+    ? Math.max(1, Math.min(100, parseInt(limitParam, 10) || 100))
+    : 100;
 
-  const aggregate = await aggregateRetrospectives(env.MANIFEST_KV, env.ARTEFACTS_R2, limit);
+  const aggregate = await aggregateRetrospectives(
+    env.MANIFEST_KV,
+    env.ARTEFACTS_R2,
+    limit,
+  );
   return jsonResponse({ period_days: 60, ...aggregate });
 }
 
@@ -96,7 +108,7 @@ export async function handleRetrospectiveGet(
   env: Env,
 ): Promise<Response> {
   if (!env.ARTEFACTS_R2) {
-    return jsonResponse({ error: 'Retrospective storage not configured' }, 503);
+    return jsonResponse({ error: "Retrospective storage not configured" }, 503);
   }
 
   const artifact = await getRetrospectiveArtifact(id, env.ARTEFACTS_R2);

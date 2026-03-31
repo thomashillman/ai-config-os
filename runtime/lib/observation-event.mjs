@@ -11,41 +11,51 @@
  * @throws {Error} if event is invalid
  */
 export function validateObservationEvent(event) {
-  if (!event || typeof event !== 'object' || Array.isArray(event)) {
-    throw new Error('Event must be an object');
+  if (!event || typeof event !== "object" || Array.isArray(event)) {
+    throw new Error("Event must be an object");
   }
 
   // Validate required fields
-  if (typeof event.type !== 'string' || event.type.trim().length === 0) {
-    throw new Error('Event type is required and must be a non-empty string');
+  if (typeof event.type !== "string" || event.type.trim().length === 0) {
+    throw new Error("Event type is required and must be a non-empty string");
   }
 
-  if (typeof event.taskId !== 'string' || event.taskId.trim().length === 0) {
-    throw new Error('Event taskId is required and must be a non-empty string');
+  if (typeof event.taskId !== "string" || event.taskId.trim().length === 0) {
+    throw new Error("Event taskId is required and must be a non-empty string");
   }
 
-  if (typeof event.createdAt !== 'string' || event.createdAt.trim().length === 0) {
-    throw new Error('Event createdAt is required and must be a non-empty string');
+  if (
+    typeof event.createdAt !== "string" ||
+    event.createdAt.trim().length === 0
+  ) {
+    throw new Error(
+      "Event createdAt is required and must be a non-empty string",
+    );
   }
 
   // Validate createdAt is ISO 8601 format
   const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
   if (!isoRegex.test(event.createdAt)) {
-    throw new Error('Event createdAt must be an ISO 8601 timestamp');
+    throw new Error("Event createdAt must be an ISO 8601 timestamp");
   }
 
   // Validate optional metadata is an object if present
-  if (event.metadata !== undefined && (typeof event.metadata !== 'object' || event.metadata === null || Array.isArray(event.metadata))) {
-    throw new Error('Event metadata, if provided, must be a plain object');
+  if (
+    event.metadata !== undefined &&
+    (typeof event.metadata !== "object" ||
+      event.metadata === null ||
+      Array.isArray(event.metadata))
+  ) {
+    throw new Error("Event metadata, if provided, must be a plain object");
   }
 
   // eventId and message are strings but optional — no validation if absent
-  if (event.eventId !== undefined && typeof event.eventId !== 'string') {
-    throw new Error('Event eventId, if provided, must be a string');
+  if (event.eventId !== undefined && typeof event.eventId !== "string") {
+    throw new Error("Event eventId, if provided, must be a string");
   }
 
-  if (event.message !== undefined && typeof event.message !== 'string') {
-    throw new Error('Event message, if provided, must be a string');
+  if (event.message !== undefined && typeof event.message !== "string") {
+    throw new Error("Event message, if provided, must be a string");
   }
 }
 
@@ -65,12 +75,12 @@ export function createObservationEvent({
   message,
 } = {}) {
   // Validate inputs
-  if (typeof type !== 'string' || type.trim().length === 0) {
-    throw new Error('type is required and must be a non-empty string');
+  if (typeof type !== "string" || type.trim().length === 0) {
+    throw new Error("type is required and must be a non-empty string");
   }
 
-  if (typeof taskId !== 'string' || taskId.trim().length === 0) {
-    throw new Error('taskId is required and must be a non-empty string');
+  if (typeof taskId !== "string" || taskId.trim().length === 0) {
+    throw new Error("taskId is required and must be a non-empty string");
   }
 
   // Build the event with required fields

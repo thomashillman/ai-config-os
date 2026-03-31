@@ -7,6 +7,7 @@ If the file is missing or empty, report: "No outcome data yet - the skill-outcom
 hook has not recorded any events."
 
 Steps:
+
 1. Aggregate per skill: count `output_used` and `output_replaced` events.
 2. Filter skills with fewer than $ARGUMENTS total events (default: 1).
 3. Compute `use_rate = used / (used + replaced) * 100`.

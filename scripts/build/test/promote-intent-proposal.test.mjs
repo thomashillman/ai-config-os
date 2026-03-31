@@ -1,24 +1,27 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { mkdirSync, rmSync, readFileSync } from 'node:fs';
-import { promoteIntentProposal } from '../../../runtime/lib/promote-intent-proposal.mjs';
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { mkdirSync, rmSync, readFileSync } from "node:fs";
+import { promoteIntentProposal } from "../../../runtime/lib/promote-intent-proposal.mjs";
 
 function intentProposal(overrides = {}) {
   return {
-    id: 'proposal_intent_001',
-    type: 'intent_definition',
-    target: 'definitions',
-    status: 'pending_review',
-    insight_id: 'insight_intent_001',
+    id: "proposal_intent_001",
+    type: "intent_definition",
+    target: "definitions",
+    status: "pending_review",
+    insight_id: "insight_intent_001",
     current: null,
     proposed: {
-      phrases: ['How should I handle this error?', 'What about error recovery?'],
-      taskType: 'error_handling',
+      phrases: [
+        "How should I handle this error?",
+        "What about error recovery?",
+      ],
+      taskType: "error_handling",
     },
     evidence: {
-      phrases: ['phrase1', 'phrase2', 'phrase3'],
+      phrases: ["phrase1", "phrase2", "phrase3"],
     },
     confidence: 0.7,
     created_at: new Date().toISOString(),
@@ -26,14 +29,14 @@ function intentProposal(overrides = {}) {
   };
 }
 
-test('promoteIntentProposal succeeds when eval passes', async () => {
+test("promoteIntentProposal succeeds when eval passes", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `promote-intent-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
 
   try {
     const proposal = intentProposal();
-    const definitionsPath = join(testDir, 'definitions.json');
+    const definitionsPath = join(testDir, "definitions.json");
 
     const result = await promoteIntentProposal({
       proposal,
@@ -43,13 +46,13 @@ test('promoteIntentProposal succeeds when eval passes', async () => {
     assert.equal(result.success, true);
     assert.ok(result.eval_result);
     assert.equal(result.eval_result.success, true);
-    assert.equal(result.proposed_status, 'promoted');
+    assert.equal(result.proposed_status, "promoted");
   } finally {
     rmSync(testDir, { recursive: true });
   }
 });
 
-test('promoteIntentProposal fails when eval fails', async () => {
+test("promoteIntentProposal fails when eval fails", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `promote-intent-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -58,10 +61,10 @@ test('promoteIntentProposal fails when eval fails', async () => {
     const proposal = intentProposal({
       proposed: {
         phrases: [],
-        taskType: 'error_handling',
+        taskType: "error_handling",
       },
     });
-    const definitionsPath = join(testDir, 'definitions.json');
+    const definitionsPath = join(testDir, "definitions.json");
 
     const result = await promoteIntentProposal({
       proposal,
@@ -71,20 +74,20 @@ test('promoteIntentProposal fails when eval fails', async () => {
     assert.equal(result.success, false);
     assert.ok(result.eval_result);
     assert.equal(result.eval_result.success, false);
-    assert.equal(result.proposed_status, 'eval_failed');
+    assert.equal(result.proposed_status, "eval_failed");
   } finally {
     rmSync(testDir, { recursive: true });
   }
 });
 
-test('promoteIntentProposal appends to existing definitions', async () => {
+test("promoteIntentProposal appends to existing definitions", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `promote-intent-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
 
   try {
     const proposal = intentProposal();
-    const definitionsPath = join(testDir, 'definitions.json');
+    const definitionsPath = join(testDir, "definitions.json");
 
     const result = await promoteIntentProposal({
       proposal,
@@ -93,20 +96,20 @@ test('promoteIntentProposal appends to existing definitions', async () => {
 
     assert.equal(result.success, true);
     assert.ok(result.updated_proposal);
-    assert.equal(result.updated_proposal.status, 'promoted');
+    assert.equal(result.updated_proposal.status, "promoted");
   } finally {
     rmSync(testDir, { recursive: true });
   }
 });
 
-test('promoteIntentProposal creates definitions file if not exists', async () => {
+test("promoteIntentProposal creates definitions file if not exists", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `promote-intent-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
 
   try {
     const proposal = intentProposal();
-    const definitionsPath = join(testDir, 'definitions.json');
+    const definitionsPath = join(testDir, "definitions.json");
 
     const result = await promoteIntentProposal({
       proposal,
@@ -121,14 +124,14 @@ test('promoteIntentProposal creates definitions file if not exists', async () =>
   }
 });
 
-test('promoteIntentProposal includes eval details in result', async () => {
+test("promoteIntentProposal includes eval details in result", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `promote-intent-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
 
   try {
     const proposal = intentProposal();
-    const definitionsPath = join(testDir, 'definitions.json');
+    const definitionsPath = join(testDir, "definitions.json");
 
     const result = await promoteIntentProposal({
       proposal,
@@ -143,40 +146,42 @@ test('promoteIntentProposal includes eval details in result', async () => {
   }
 });
 
-test('promoteIntentProposal requires proposal', async () => {
+test("promoteIntentProposal requires proposal", async () => {
   assert.rejects(
-    () => promoteIntentProposal({
-      definitionsFilePath: '/tmp/test.json',
-    }),
+    () =>
+      promoteIntentProposal({
+        definitionsFilePath: "/tmp/test.json",
+      }),
     /proposal is required/,
   );
 });
 
-test('promoteIntentProposal requires definitionsFilePath', async () => {
+test("promoteIntentProposal requires definitionsFilePath", async () => {
   const proposal = intentProposal();
   assert.rejects(
-    () => promoteIntentProposal({
-      proposal,
-    }),
+    () =>
+      promoteIntentProposal({
+        proposal,
+      }),
     /definitionsFilePath is required/,
   );
 });
 
-test('promoteIntentProposal returns stable result shape', async () => {
+test("promoteIntentProposal returns stable result shape", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `promote-intent-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
 
   try {
     const proposal = intentProposal();
-    const definitionsPath = join(testDir, 'definitions.json');
+    const definitionsPath = join(testDir, "definitions.json");
 
     const result = await promoteIntentProposal({
       proposal,
       definitionsFilePath: definitionsPath,
     });
 
-    assert.ok(typeof result.success === 'boolean');
+    assert.ok(typeof result.success === "boolean");
     assert.ok(result.eval_result);
     assert.ok(result.proposed_status);
     assert.ok(result.updated_proposal);

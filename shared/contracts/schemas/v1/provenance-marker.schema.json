@@ -7,11 +7,22 @@
   "required": ["schema_version", "status", "recorded_at", "recorded_by_route"],
   "properties": {
     "schema_version": { "const": "1.0.0" },
-    "status": { "type": "string", "enum": ["verified", "reused", "hypothesis"] },
+    "status": {
+      "type": "string",
+      "enum": ["verified", "reused", "hypothesis"]
+    },
     "recorded_at": { "type": "string", "format": "date-time" },
     "recorded_by_route": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
     "note": { "type": "string", "minLength": 1 },
     "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
-    "confidence_basis": { "type": "string", "enum": ["diff_only", "bundle_context", "github_context", "full_repo_verification"] }
+    "confidence_basis": {
+      "type": "string",
+      "enum": [
+        "diff_only",
+        "bundle_context",
+        "github_context",
+        "full_repo_verification"
+      ]
+    }
   }
 }

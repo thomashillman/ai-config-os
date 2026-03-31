@@ -10,7 +10,7 @@ export class RuleExecutor {
     this.rulesRegistry = rulesRegistry || {};
     this.rules = Object.entries(rulesRegistry).map(([name, rule]) => ({
       name,
-      rule
+      rule,
     }));
   }
 
@@ -22,12 +22,12 @@ export class RuleExecutor {
    */
   async dispatch(event) {
     if (!event) {
-      throw new Error('Event is required');
+      throw new Error("Event is required");
     }
 
     const eventType = event.type;
     if (!eventType) {
-      throw new Error('Event must have a type field');
+      throw new Error("Event must have a type field");
     }
 
     const results = [];
@@ -42,7 +42,7 @@ export class RuleExecutor {
         const result = await rule.execute(event);
         results.push({
           ruleName: name,
-          ...result
+          ...result,
         });
 
         // If any rule blocks, we still continue executing other rules
@@ -52,8 +52,8 @@ export class RuleExecutor {
         console.error(`Rule "${name}" failed:`, err.message);
         results.push({
           ruleName: name,
-          decision: 'allow',
-          error: err.message
+          decision: "allow",
+          error: err.message,
         });
       }
     }
@@ -68,6 +68,6 @@ export class RuleExecutor {
    * @returns {Object|null} First blocking result, or null if no blocks
    */
   static getBlockingResult(results) {
-    return results.find(r => r.decision === 'block') || null;
+    return results.find((r) => r.decision === "block") || null;
   }
 }

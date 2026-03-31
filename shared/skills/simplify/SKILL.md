@@ -1,6 +1,7 @@
 ---
 skill: "simplify"
-description: "Review code for opportunities to reduce complexity, remove duplication, eliminate overengineering.
+description:
+  "Review code for opportunities to reduce complexity, remove duplication, eliminate overengineering.
 
   Repo-native skill that complements the built-in simplify review.\n"
 type: "prompt"
@@ -12,7 +13,7 @@ inputs:
     required: true
   - name: "focus"
     type: "string"
-    description: "\"logic\" (algorithm complexity), \"structure\" (OOP design), \"duplication\", \"overengineering\""
+    description: '"logic" (algorithm complexity), "structure" (OOP design), "duplication", "overengineering"'
     required: false
 outputs:
   - name: "suggestions"
@@ -102,7 +103,9 @@ Follows CLAUDE.md principle: "Don't over-engineer. Avoid premature abstractions.
 ## Examples
 
 ### Example 1: Conditional chains
+
 **Input:**
+
 ```javascript
 function getUserRole(user) {
   if (user.isAdmin) {
@@ -116,7 +119,9 @@ function getUserRole(user) {
   }
 }
 ```
+
 **Output:**
+
 ```javascript
 // SIMPLER: Early returns (flatter structure)
 function getUserRole(user) {

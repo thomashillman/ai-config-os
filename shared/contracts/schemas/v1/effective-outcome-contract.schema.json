@@ -11,7 +11,10 @@
     "outcome": { "$ref": "outcome-definition.schema.json" },
     "resolved_capabilities": {
       "type": "object",
-      "additionalProperties": { "type": "string", "enum": ["supported", "unsupported", "unknown"] }
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["supported", "unsupported", "unknown"]
+      }
     },
     "degraded": { "type": "boolean" }
   }

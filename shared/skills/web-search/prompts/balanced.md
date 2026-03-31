@@ -23,6 +23,7 @@ Keep responses concise but complete (2-3 main points, under 200 tokens):
 - **[Key point 3]**: [Brief explanation if relevant]
 
 **Sources**:
+
 - [Most important source 1](URL)
 - [Most important source 2](URL)
 

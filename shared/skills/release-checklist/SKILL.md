@@ -6,7 +6,7 @@ status: "stable"
 inputs:
   - name: "version"
     type: "string"
-    description: "Target release version in semver format (e.g. \"1.0.0\")"
+    description: 'Target release version in semver format (e.g. "1.0.0")'
     required: true
   - name: "release_notes"
     type: "string"
@@ -48,13 +48,13 @@ variants:
 tests:
   - id: "test-clean-state"
     type: "integration"
-    input: "{\"version\": \"1.0.0\"}"
+    input: '{"version": "1.0.0"}'
     expected_substring: "ready_to_release"
     models_to_test:
       - "sonnet"
   - id: "test-dirty-state"
     type: "integration"
-    input: "{\"version\": \"1.0.1\"}"
+    input: '{"version": "1.0.1"}'
     expected_substring: "steps_failed"
     models_to_test:
       - "sonnet"
@@ -100,6 +100,7 @@ platforms:
 ## When to use
 
 Use `release-checklist` when:
+
 - Preparing a new version for release
 - Validating that all pre-release steps are complete
 - Automating tagging and push workflows
@@ -119,6 +120,7 @@ Use `release-checklist` when:
 ## Examples
 
 ### Input
+
 ```json
 {
   "version": "1.0.0",
@@ -127,6 +129,7 @@ Use `release-checklist` when:
 ```
 
 ### Output (sonnet)
+
 ```json
 {
   "version": "1.0.0",
@@ -181,6 +184,7 @@ Use `release-checklist` when:
 ```
 
 ### Output (opus with risk assessment)
+
 ```json
 {
   "version": "1.0.0",
@@ -263,6 +267,7 @@ Use `release-checklist` when:
 ```
 
 ### Input (with dirty repo state)
+
 ```json
 {
   "version": "1.0.1"
@@ -270,6 +275,7 @@ Use `release-checklist` when:
 ```
 
 ### Output (failure case)
+
 ```json
 {
   "version": "1.0.1",

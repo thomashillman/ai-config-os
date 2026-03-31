@@ -1,6 +1,7 @@
 ---
 skill: "task-start"
-description: "Silently create and persist a portable task when the user asks for a review, audit, or analysis. Works in any environment — cloud or local.
+description:
+  "Silently create and persist a portable task when the user asks for a review, audit, or analysis. Works in any environment — cloud or local.
 
   Auto-invoked when the user begins substantive review/analysis work. Claude detects capability profile, selects route deterministically, creates a PortableTaskObject in the runtime, and works normally. Users see mode acknowledgement ('Cloud mode' or 'Full mode') and a short save confirmation — never JSON or task IDs."
 type: "prompt"
@@ -106,10 +107,11 @@ When the user asks for a review, audit, analysis, or security check:
    - Never ask the user to choose a route.
 
 2. **Acknowledge mode honestly** (first message, one sentence):
-   - Cloud mode: *"I'm reviewing this in Cloud mode — I can see structure and patterns here. Once you switch to a machine with your full codebase, I'll be able to verify these findings properly."*
-   - Full mode: *"Full mode — using your local codebase. I can trace the full call graph and check git history."*
+   - Cloud mode: _"I'm reviewing this in Cloud mode — I can see structure and patterns here. Once you switch to a machine with your full codebase, I'll be able to verify these findings properly."_
+   - Full mode: _"Full mode — using your local codebase. I can trace the full call graph and check git history."_
 
 3. **Create PortableTaskObject** — call `POST /v1/tasks` with:
+
    ```json
    {
      "task_id": "<uuid>",
@@ -118,7 +120,9 @@ When the user asks for a review, audit, analysis, or security check:
      "state": "active",
      "next_action": "review",
      "current_route": "<detected_route>",
-     "route_history": [{ "route_id": "<detected_route>", "selected_at": "<now>" }],
+     "route_history": [
+       { "route_id": "<detected_route>", "selected_at": "<now>" }
+     ],
      "findings": [],
      "progress": { "completed_steps": 0, "total_steps": 0 },
      "version": 1,
@@ -126,6 +130,7 @@ When the user asks for a review, audit, analysis, or security check:
      "updated_at": "<now>"
    }
    ```
+
    Do this silently — no "creating task" message.
 
 4. **Do the work** — review, analyse, think, find issues.
@@ -135,12 +140,12 @@ When the user asks for a review, audit, analysis, or security check:
    - `verified` — confirmed with local tools
 
 6. **Auto-checkpoint** at natural stopping points (every 3–5 findings or when switching focus):
-   - *"Saved 3 findings. Continue on any device with full code access."*
+   - _"Saved 3 findings. Continue on any device with full code access."_
    - Show the short code only if asked, or if this is the final checkpoint.
    - Never show UUIDs, JSON, or API call details.
 
 7. **Final message** when pausing or if session may end:
-   - *"Saved. [N] findings, [M] open questions. Continue on any device: say 'resume [short-code]' or open ai-config-os.workers.dev/hub/latest"*
+   - _"Saved. [N] findings, [M] open questions. Continue on any device: say 'resume [short-code]' or open ai-config-os.workers.dev/hub/latest"_
 
 ## Mode detection (priority order)
 
@@ -153,11 +158,11 @@ description only                 →  pasted_diff  (Cloud mode)
 
 ## User-facing language
 
-| Internal | Say to user |
-|---|---|
-| `local_repo` | "Full mode — using your local codebase" |
-| `pasted_diff` / `github_pr` | "Cloud mode" |
-| `hypothesis` finding | "I noticed something — needs checking when I have full access" |
-| `verified` finding | "Confirmed" |
-| task created | (silent) |
-| finding saved | (silent, or brief summary at checkpoints) |
+| Internal                    | Say to user                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `local_repo`                | "Full mode — using your local codebase"                        |
+| `pasted_diff` / `github_pr` | "Cloud mode"                                                   |
+| `hypothesis` finding        | "I noticed something — needs checking when I have full access" |
+| `verified` finding          | "Confirmed"                                                    |
+| task created                | (silent)                                                       |
+| finding saved               | (silent, or brief summary at checkpoints)                      |

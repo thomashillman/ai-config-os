@@ -9,17 +9,21 @@
  *   GET /v1/skills/compatible?caps=cap1,cap2,...
  */
 
-import { versionedCachedResponse } from '../http';
-import { errorResponse } from '../http';
-import { validatePlatform, validateCapabilitiesParam, capabilitiesCacheKey } from '../validation/capabilities';
-import type { RegistryLike } from './artifacts';
+import { versionedCachedResponse } from "../http";
+import { errorResponse } from "../http";
+import {
+  validatePlatform,
+  validateCapabilitiesParam,
+  capabilitiesCacheKey,
+} from "../validation/capabilities";
+import type { RegistryLike } from "./artifacts";
 import type {
   PlatformProfile,
   CapabilityPlatformResponse,
   CompatibleSkillEntry,
   CompatibleSkillsResponse,
   RegistrySkill,
-} from '../types/capabilities';
+} from "../types/capabilities";
 
 // ─── Registry shape extensions ────────────────────────────────────────────────
 
@@ -57,8 +61,8 @@ function buildIndex(registry: RegistryWithPlatforms): CapabilityIndex {
           platformProfiles.set(pid, {
             id: pid,
             name: pid,
-            surface: 'unknown',
-            default_package: 'api',
+            surface: "unknown",
+            default_package: "api",
             capabilities: {},
           });
         }
@@ -88,7 +92,7 @@ function getIndex(registry: RegistryWithPlatforms): CapabilityIndex {
 
 export function handleCapabilitiesForPlatform(
   platform: string,
-  registry: RegistryWithPlatforms
+  registry: RegistryWithPlatforms,
 ): Response {
   const index = getIndex(registry);
 
@@ -101,11 +105,11 @@ export function handleCapabilitiesForPlatform(
   if (!profile) {
     return errorResponse(
       {
-        code: 'PLATFORM_DATA_UNAVAILABLE',
+        code: "PLATFORM_DATA_UNAVAILABLE",
         message: `Platform '${platformResult.value}' is known but has no capability data.`,
-        hint: 'This may indicate a build configuration issue. Please report it.',
+        hint: "This may indicate a build configuration issue. Please report it.",
       },
-      503
+      503,
     );
   }
 
@@ -115,8 +119,8 @@ export function handleCapabilitiesForPlatform(
   const unknown: string[] = [];
 
   for (const [capId, entry] of Object.entries(profile.capabilities)) {
-    if (entry.status === 'supported') supported.push(capId);
-    else if (entry.status === 'unsupported') unsupported.push(capId);
+    if (entry.status === "supported") supported.push(capId);
+    else if (entry.status === "unsupported") unsupported.push(capId);
     else unknown.push(capId);
   }
 
@@ -142,7 +146,7 @@ export function handleCapabilitiesForPlatform(
 
 export function handleSkillsCompatible(
   registry: RegistryWithPlatforms,
-  capsParam: string | null
+  capsParam: string | null,
 ): Response {
   const capsResult = validateCapabilitiesParam(capsParam);
   if (!capsResult.ok) {

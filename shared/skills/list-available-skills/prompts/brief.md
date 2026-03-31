@@ -3,6 +3,7 @@
 Read `~/.ai-config-os/probe-report.json` and `~/.ai-config-os/cache/claude-code/latest.json`.
 
 Classify each skill:
+
 - **available**: all required + optional caps supported
 - **degraded**: required caps met; ≥1 optional missing
 - **excluded**: required cap missing but fallback exists
@@ -11,6 +12,7 @@ Classify each skill:
 Output one line per skill, grouped by bucket. Include surface and counts.
 
 Format:
+
 ```
 Surface: <surface_hint> (<platform_hint>) | Skills: <N> available, <N> degraded, <N> excluded, <N> unavailable
 

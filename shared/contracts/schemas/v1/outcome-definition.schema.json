@@ -8,7 +8,10 @@
   "properties": {
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "summary": { "type": "string" },
-    "status": { "type": "string", "enum": ["planned", "in_progress", "completed", "failed"] },
+    "status": {
+      "type": "string",
+      "enum": ["planned", "in_progress", "completed", "failed"]
+    },
     "artifacts": { "type": "array", "items": { "type": "string" } },
     "metadata": { "type": "object", "additionalProperties": true }
   }

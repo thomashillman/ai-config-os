@@ -1,30 +1,30 @@
 function assertObject(name, value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${name} must be an object`);
   }
 }
 
 function assertString(name, value) {
-  if (typeof value !== 'string' || value.trim().length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${name} must be a non-empty string`);
   }
 }
 
 function assertTaskStore(taskStore) {
   const requiredMethods = [
-    'create',
-    'load',
-    'transitionState',
-    'selectRoute',
-    'createContinuationPackage',
-    'listProgressEvents',
-    'getReadinessView',
-    'listSnapshots',
-    'getSnapshot',
+    "create",
+    "load",
+    "transitionState",
+    "selectRoute",
+    "createContinuationPackage",
+    "listProgressEvents",
+    "getReadinessView",
+    "listSnapshots",
+    "getSnapshot",
   ];
 
   for (const methodName of requiredMethods) {
-    if (typeof taskStore?.[methodName] !== 'function') {
+    if (typeof taskStore?.[methodName] !== "function") {
       throw new Error(`taskStore must implement method '${methodName}'`);
     }
   }
@@ -42,12 +42,12 @@ export function createTaskControlPlaneServiceCore({
       return taskStore.create(task);
     },
     getTask(taskId) {
-      assertString('taskId', taskId);
+      assertString("taskId", taskId);
       return taskStore.load(taskId);
     },
     transitionState(taskId, transition) {
-      assertString('taskId', taskId);
-      assertObject('transition', transition);
+      assertString("taskId", taskId);
+      assertObject("transition", transition);
       return taskStore.transitionState(taskId, {
         expectedVersion: transition.expected_version,
         nextState: transition.next_state,
@@ -57,8 +57,8 @@ export function createTaskControlPlaneServiceCore({
       });
     },
     selectRoute(taskId, payload) {
-      assertString('taskId', taskId);
-      assertObject('payload', payload);
+      assertString("taskId", taskId);
+      assertObject("payload", payload);
       return taskStore.selectRoute(taskId, {
         expectedVersion: payload.expected_version,
         routeId: payload.route_id,
@@ -66,8 +66,8 @@ export function createTaskControlPlaneServiceCore({
       });
     },
     createContinuation(taskId, payload) {
-      assertString('taskId', taskId);
-      assertObject('payload', payload);
+      assertString("taskId", taskId);
+      assertObject("payload", payload);
       return taskStore.createContinuationPackage(taskId, {
         handoffToken: payload.handoff_token,
         effectiveExecutionContract: payload.effective_execution_contract,
@@ -75,24 +75,24 @@ export function createTaskControlPlaneServiceCore({
       });
     },
     listProgressEvents(taskId) {
-      assertString('taskId', taskId);
+      assertString("taskId", taskId);
       return taskStore.listProgressEvents(taskId);
     },
     getReadiness(taskId) {
-      assertString('taskId', taskId);
+      assertString("taskId", taskId);
       return taskStore.getReadinessView(taskId);
     },
     listSnapshots(taskId) {
-      assertString('taskId', taskId);
+      assertString("taskId", taskId);
       return taskStore.listSnapshots(taskId);
     },
     getSnapshot(taskId, version) {
-      assertString('taskId', taskId);
+      assertString("taskId", taskId);
       return taskStore.getSnapshot(taskId, version);
     },
     appendFinding(taskId, payload) {
-      assertString('taskId', taskId);
-      assertObject('payload', payload);
+      assertString("taskId", taskId);
+      assertObject("payload", payload);
       return taskStore.appendFinding(taskId, {
         expectedVersion: payload.expected_version,
         finding: payload.finding,
@@ -100,8 +100,8 @@ export function createTaskControlPlaneServiceCore({
       });
     },
     transitionFindingsForRouteUpgrade(taskId, payload) {
-      assertString('taskId', taskId);
-      assertObject('payload', payload);
+      assertString("taskId", taskId);
+      assertObject("payload", payload);
       return taskStore.transitionFindingsForRouteUpgrade(taskId, {
         expectedVersion: payload.expected_version,
         toRouteId: payload.to_route_id,
@@ -110,38 +110,49 @@ export function createTaskControlPlaneServiceCore({
       });
     },
     listRecentTasks(options = {}) {
-      if (typeof taskStore.listRecentTasks !== 'function') {
+      if (typeof taskStore.listRecentTasks !== "function") {
         return Promise.resolve([]);
       }
       return taskStore.listRecentTasks(options);
     },
     getLatestActiveTask() {
-      if (typeof taskStore.getLatestActiveTask !== 'function') {
+      if (typeof taskStore.getLatestActiveTask !== "function") {
         return Promise.resolve(null);
       }
       return taskStore.getLatestActiveTask();
     },
     getTaskByCode(shortCode) {
-      assertString('shortCode', shortCode);
-      if (typeof taskStore.loadByCode !== 'function') {
-        return Promise.reject(new Error('loadByCode not supported by current task store'));
+      assertString("shortCode", shortCode);
+      if (typeof taskStore.loadByCode !== "function") {
+        return Promise.reject(
+          new Error("loadByCode not supported by current task store"),
+        );
       }
       return taskStore.loadByCode(shortCode);
     },
     getTaskByName(nameOrSlug) {
-      assertString('nameOrSlug', nameOrSlug);
-      if (typeof taskStore.loadByName !== 'function') {
-        return Promise.reject(new Error('loadByName not supported by current task store'));
+      assertString("nameOrSlug", nameOrSlug);
+      if (typeof taskStore.loadByName !== "function") {
+        return Promise.reject(
+          new Error("loadByName not supported by current task store"),
+        );
       }
       return taskStore.loadByName(nameOrSlug);
     },
   };
 
-  if (typeof startReviewRepositoryTask === 'function') {
-    service.startReviewRepositoryTask = ({ taskId, goal, routeInputs, capabilityProfile, narrator, observer } = {}) => {
-      assertString('taskId', taskId);
-      assertString('goal', goal);
-      assertObject('routeInputs', routeInputs);
+  if (typeof startReviewRepositoryTask === "function") {
+    service.startReviewRepositoryTask = ({
+      taskId,
+      goal,
+      routeInputs,
+      capabilityProfile,
+      narrator,
+      observer,
+    } = {}) => {
+      assertString("taskId", taskId);
+      assertString("goal", goal);
+      assertObject("routeInputs", routeInputs);
       return startReviewRepositoryTask({
         taskStore,
         taskId,
@@ -154,9 +165,15 @@ export function createTaskControlPlaneServiceCore({
     };
   }
 
-  if (typeof resumeReviewRepositoryTask === 'function') {
-    service.resumeReviewRepositoryTask = ({ taskId, capabilityProfile, narrator, observer, previousContract } = {}) => {
-      assertString('taskId', taskId);
+  if (typeof resumeReviewRepositoryTask === "function") {
+    service.resumeReviewRepositoryTask = ({
+      taskId,
+      capabilityProfile,
+      narrator,
+      observer,
+      previousContract,
+    } = {}) => {
+      assertString("taskId", taskId);
       return resumeReviewRepositoryTask({
         taskStore,
         taskId,

@@ -19,6 +19,7 @@ Analyze the provided observation data (narration + user response pairs) and prod
 ## Output format
 
 Produce a structured report with:
+
 - Period covered and engagement statistics
 - Numbered insights with evidence and confidence scores
 - Specific improvement suggestions where confidence >= 0.6

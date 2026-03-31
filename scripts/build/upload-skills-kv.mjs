@@ -21,22 +21,23 @@
  *     - claude-code-package:latest (pointer to latest)
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { join, posix, resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { readFileSync, readdirSync } from "node:fs";
+import { join, posix, resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(__dirname, '..', '..');
-const DEFAULT_DIST_DIR = process.env.AI_CONFIG_OS_DIST_CLAUDE_CODE_DIR
-  ?? join(REPO_ROOT, 'dist', 'clients', 'claude-code');
-const PACKAGE_KEY_PREFIX = 'claude-code-package';
+const REPO_ROOT = resolve(__dirname, "..", "..");
+const DEFAULT_DIST_DIR =
+  process.env.AI_CONFIG_OS_DIST_CLAUDE_CODE_DIR ??
+  join(REPO_ROOT, "dist", "clients", "claude-code");
+const PACKAGE_KEY_PREFIX = "claude-code-package";
 
 // ─────────────────────────────────────────────────────────────────
 // Core Logic: Build Skills Package
 // ─────────────────────────────────────────────────────────────────
 
-function readAllFiles(dirPath, basePath = '') {
+function readAllFiles(dirPath, basePath = "") {
   const files = {};
 
   try {
@@ -55,7 +56,7 @@ function readAllFiles(dirPath, basePath = '') {
       } else if (entry.isFile()) {
         // Read file content
         try {
-          const content = readFileSync(fullPath, 'utf8');
+          const content = readFileSync(fullPath, "utf8");
           files[relativePath] = content;
         } catch (err) {
           console.error(`Warning: Failed to read ${fullPath}: ${err.message}`);
@@ -63,27 +64,26 @@ function readAllFiles(dirPath, basePath = '') {
       }
     }
   } catch (err) {
-    console.error(`Warning: Failed to read directory ${dirPath}: ${err.message}`);
+    console.error(
+      `Warning: Failed to read directory ${dirPath}: ${err.message}`,
+    );
   }
 
   return files;
 }
 
 function getPackageKeys(version) {
-  return [
-    `${PACKAGE_KEY_PREFIX}:${version}`,
-    `${PACKAGE_KEY_PREFIX}:latest`,
-  ];
+  return [`${PACKAGE_KEY_PREFIX}:${version}`, `${PACKAGE_KEY_PREFIX}:latest`];
 }
 
 function describeCloudflareFailure(outputText, fallback) {
-  if (typeof outputText === 'string' && outputText.trim().length > 0) {
+  if (typeof outputText === "string" && outputText.trim().length > 0) {
     try {
       const parsed = JSON.parse(outputText);
       if (Array.isArray(parsed?.errors) && parsed.errors.length > 0) {
         return parsed.errors[0]?.message || fallback;
       }
-      if (typeof parsed?.message === 'string' && parsed.message.length > 0) {
+      if (typeof parsed?.message === "string" && parsed.message.length > 0) {
         return parsed.message;
       }
     } catch {
@@ -98,9 +98,9 @@ function assertCloudflareUploadSucceeded(result, key) {
   if (result.status !== 0) {
     const failureDetail = describeCloudflareFailure(
       result.stdout,
-      typeof result.stderr === 'string' && result.stderr.trim().length > 0
+      typeof result.stderr === "string" && result.stderr.trim().length > 0
         ? result.stderr.trim()
-        : `curl exited with status ${result.status}`
+        : `curl exited with status ${result.status}`,
     );
     throw new Error(`Failed to upload ${key}: ${failureDetail}`);
   }
@@ -117,7 +117,7 @@ function assertCloudflareUploadSucceeded(result, key) {
   if (!response?.success) {
     const failureDetail = describeCloudflareFailure(
       result.stdout,
-      'Unknown Cloudflare API error'
+      "Unknown Cloudflare API error",
     );
     throw new Error(`Failed to upload ${key}: ${failureDetail}`);
   }
@@ -132,22 +132,22 @@ function uploadPackageKey({
   runner,
 }) {
   const curlCmd = [
-    '-s',
-    '-S',
-    '--fail-with-body',
-    '-X',
-    'PUT',
+    "-s",
+    "-S",
+    "--fail-with-body",
+    "-X",
+    "PUT",
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/storage/kv/namespaces/${kvNamespaceId}/values/${encodeURIComponent(key)}`,
-    '-H',
+    "-H",
     `Authorization: Bearer ${apiToken}`,
-    '-H',
-    'Content-Type: application/octet-stream',
-    '--data-binary',
-    '@-',
+    "-H",
+    "Content-Type: application/octet-stream",
+    "--data-binary",
+    "@-",
   ];
 
-  const result = runner('curl', curlCmd, {
-    encoding: 'utf8',
+  const result = runner("curl", curlCmd, {
+    encoding: "utf8",
     input: jsonStr,
     maxBuffer: 50 * 1024 * 1024,
   });
@@ -155,28 +155,28 @@ function uploadPackageKey({
   assertCloudflareUploadSucceeded(result, key);
 }
 
-
-export function buildSkillsPackage({ distDir = DEFAULT_DIST_DIR, logger = console.log } = {}) {
-  const pluginPath = join(distDir, '.claude-plugin', 'plugin.json');
+export function buildSkillsPackage({
+  distDir = DEFAULT_DIST_DIR,
+  logger = console.log,
+} = {}) {
+  const pluginPath = join(distDir, ".claude-plugin", "plugin.json");
 
   // 1. Read plugin.json
   let plugin;
   try {
-    plugin = JSON.parse(readFileSync(pluginPath, 'utf8'));
+    plugin = JSON.parse(readFileSync(pluginPath, "utf8"));
   } catch (err) {
     throw new Error(
-      `Failed to read plugin.json from ${pluginPath}: ${err.message}`
+      `Failed to read plugin.json from ${pluginPath}: ${err.message}`,
     );
   }
 
   if (!plugin.version) {
-    throw new Error('plugin.json missing version field');
+    throw new Error("plugin.json missing version field");
   }
 
   if (!Array.isArray(plugin.skills) || plugin.skills.length === 0) {
-    throw new Error(
-      'plugin.json missing or empty skills array'
-    );
+    throw new Error("plugin.json missing or empty skills array");
   }
 
   // 2. Build skills object
@@ -184,7 +184,7 @@ export function buildSkillsPackage({ distDir = DEFAULT_DIST_DIR, logger = consol
 
   for (const skillEntry of plugin.skills) {
     const skillName = skillEntry.name;
-    const skillPath = skillEntry.path.replace(/\/SKILL\.md$/, '');
+    const skillPath = skillEntry.path.replace(/\/SKILL\.md$/, "");
     const skillDir = join(distDir, skillPath);
 
     logger(`  Reading skill: ${skillName}...`);
@@ -196,7 +196,7 @@ export function buildSkillsPackage({ distDir = DEFAULT_DIST_DIR, logger = consol
       throw new Error(`Skill ${skillName} has no files at ${skillDir}`);
     }
 
-    if (!skillFiles['SKILL.md']) {
+    if (!skillFiles["SKILL.md"]) {
       throw new Error(`Skill ${skillName} missing SKILL.md`);
     }
 
@@ -211,19 +211,20 @@ export function buildSkillsPackage({ distDir = DEFAULT_DIST_DIR, logger = consol
 
   // 4. Validate size
   const jsonStr = JSON.stringify(pkg);
-  const sizeBytes = Buffer.byteLength(jsonStr, 'utf8');
+  const sizeBytes = Buffer.byteLength(jsonStr, "utf8");
   const sizeMB = (sizeBytes / (1024 * 1024)).toFixed(2);
 
   if (sizeBytes > 25 * 1024 * 1024) {
-    throw new Error(
-      `Package too large: ${sizeMB}MB exceeds 25MB KV limit`
-    );
+    throw new Error(`Package too large: ${sizeMB}MB exceeds 25MB KV limit`);
   }
 
   return { package: pkg, size: sizeBytes, sizeMB };
 }
 
-export function uploadToKV(pkg, { env = process.env, runner = spawnSync, logger = console.log } = {}) {
+export function uploadToKV(
+  pkg,
+  { env = process.env, runner = spawnSync, logger = console.log } = {},
+) {
   const version = pkg.version;
   const jsonStr = JSON.stringify(pkg);
 
@@ -234,7 +235,7 @@ export function uploadToKV(pkg, { env = process.env, runner = spawnSync, logger 
 
   if (!accountId || !apiToken || !kvNamespaceId) {
     throw new Error(
-      'Missing required env vars: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, MANIFEST_KV_NAMESPACE_ID'
+      "Missing required env vars: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN, MANIFEST_KV_NAMESPACE_ID",
     );
   }
 
@@ -281,16 +282,14 @@ export async function main({
   errorLogger = console.error,
   upload = uploadToKV,
 } = {}) {
-  const dryRun = argv.includes('--dry-run');
+  const dryRun = argv.includes("--dry-run");
 
   try {
     logger(`Building skills package from ${distDir}...\n`);
 
     const { package: pkg, sizeMB } = buildSkillsPackage({ distDir, logger });
 
-    logger(
-      `\nPackage Summary:`
-    );
+    logger(`\nPackage Summary:`);
     logger(`  Version: ${pkg.version}`);
     logger(`  Skills: ${Object.keys(pkg.skills).length}`);
     logger(`  Size: ${sizeMB}MB`);
@@ -311,6 +310,9 @@ export async function main({
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   await main();
 }

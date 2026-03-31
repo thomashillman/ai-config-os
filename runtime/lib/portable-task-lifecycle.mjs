@@ -1,9 +1,9 @@
-import { validateContract } from '../../shared/contracts/validate.mjs';
+import { validateContract } from "../../shared/contracts/validate.mjs";
 
 export const TRANSITIONS = Object.freeze({
-  pending: Object.freeze(['active', 'failed']),
-  active: Object.freeze(['blocked', 'completed', 'failed']),
-  blocked: Object.freeze(['active', 'failed']),
+  pending: Object.freeze(["active", "failed"]),
+  active: Object.freeze(["blocked", "completed", "failed"]),
+  blocked: Object.freeze(["active", "failed"]),
   completed: Object.freeze([]),
   failed: Object.freeze([]),
 });
@@ -13,7 +13,7 @@ function clone(value) {
 }
 
 function assertNonEmptyString(name, value) {
-  if (typeof value !== 'string' || value.trim().length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${name} is required`);
   }
 }
@@ -24,16 +24,20 @@ function assertTransitionAllowed(currentState, nextState) {
     throw new Error(`Unknown task state '${currentState}'`);
   }
   if (!allowed.includes(nextState)) {
-    throw new Error(`Invalid task state transition '${currentState}' -> '${nextState}'`);
+    throw new Error(
+      `Invalid task state transition '${currentState}' -> '${nextState}'`,
+    );
   }
 }
 
 function assertMonotonicProgress(currentProgress, nextProgress) {
   if (nextProgress.completed_steps < currentProgress.completed_steps) {
-    throw new Error('Task lifecycle update cannot reduce completed_steps');
+    throw new Error("Task lifecycle update cannot reduce completed_steps");
   }
   if (nextProgress.total_steps < nextProgress.completed_steps) {
-    throw new Error('Task lifecycle update requires total_steps >= completed_steps');
+    throw new Error(
+      "Task lifecycle update requires total_steps >= completed_steps",
+    );
   }
 }
 
@@ -46,23 +50,23 @@ export function createPortableTask({
   totalSteps,
   now = new Date().toISOString(),
 } = {}) {
-  assertNonEmptyString('taskId', taskId);
-  assertNonEmptyString('taskType', taskType);
-  assertNonEmptyString('goal', goal);
-  assertNonEmptyString('routeId', routeId);
-  assertNonEmptyString('nextAction', nextAction);
+  assertNonEmptyString("taskId", taskId);
+  assertNonEmptyString("taskType", taskType);
+  assertNonEmptyString("goal", goal);
+  assertNonEmptyString("routeId", routeId);
+  assertNonEmptyString("nextAction", nextAction);
 
   if (!Number.isInteger(totalSteps) || totalSteps < 0) {
-    throw new Error('totalSteps must be an integer >= 0');
+    throw new Error("totalSteps must be an integer >= 0");
   }
 
-  return validateContract('portableTaskObject', {
-    schema_version: '1.0.0',
+  return validateContract("portableTaskObject", {
+    schema_version: "1.0.0",
     task_id: taskId,
     task_type: taskType,
     goal,
     current_route: routeId,
-    state: 'pending',
+    state: "pending",
     progress: { completed_steps: 0, total_steps: totalSteps },
     findings: [],
     unresolved_questions: [],
@@ -80,28 +84,33 @@ export function appendRouteSelection({
   expectedVersion,
   selectedAt = new Date().toISOString(),
 } = {}) {
-  if (!task || typeof task !== 'object') {
-    throw new Error('appendRouteSelection requires task object');
+  if (!task || typeof task !== "object") {
+    throw new Error("appendRouteSelection requires task object");
   }
-  assertNonEmptyString('routeId', routeId);
-  assertNonEmptyString('selectedAt', selectedAt);
+  assertNonEmptyString("routeId", routeId);
+  assertNonEmptyString("selectedAt", selectedAt);
 
   if (!Number.isInteger(expectedVersion)) {
-    throw new Error('expectedVersion must be an integer');
+    throw new Error("expectedVersion must be an integer");
   }
   if (task.version !== expectedVersion) {
-    throw new Error(`Task lifecycle expectedVersion ${expectedVersion} does not match task version ${task.version}`);
+    throw new Error(
+      `Task lifecycle expectedVersion ${expectedVersion} does not match task version ${task.version}`,
+    );
   }
 
   const next = {
     ...clone(task),
     current_route: routeId,
-    route_history: [...task.route_history, { route: routeId, selected_at: selectedAt }],
+    route_history: [
+      ...task.route_history,
+      { route: routeId, selected_at: selectedAt },
+    ],
     version: task.version + 1,
     updated_at: selectedAt,
   };
 
-  return validateContract('portableTaskObject', next);
+  return validateContract("portableTaskObject", next);
 }
 
 export function transitionPortableTaskState({
@@ -112,18 +121,20 @@ export function transitionPortableTaskState({
   nextAction,
   progress,
 } = {}) {
-  if (!task || typeof task !== 'object') {
-    throw new Error('transitionPortableTaskState requires task object');
+  if (!task || typeof task !== "object") {
+    throw new Error("transitionPortableTaskState requires task object");
   }
-  assertNonEmptyString('nextState', nextState);
-  assertNonEmptyString('updatedAt', updatedAt);
-  assertNonEmptyString('nextAction', nextAction);
+  assertNonEmptyString("nextState", nextState);
+  assertNonEmptyString("updatedAt", updatedAt);
+  assertNonEmptyString("nextAction", nextAction);
 
   if (!Number.isInteger(expectedVersion)) {
-    throw new Error('expectedVersion must be an integer');
+    throw new Error("expectedVersion must be an integer");
   }
   if (task.version !== expectedVersion) {
-    throw new Error(`Task lifecycle expectedVersion ${expectedVersion} does not match task version ${task.version}`);
+    throw new Error(
+      `Task lifecycle expectedVersion ${expectedVersion} does not match task version ${task.version}`,
+    );
   }
 
   assertTransitionAllowed(task.state, nextState);
@@ -140,5 +151,5 @@ export function transitionPortableTaskState({
     updated_at: updatedAt,
   };
 
-  return validateContract('portableTaskObject', next);
+  return validateContract("portableTaskObject", next);
 }

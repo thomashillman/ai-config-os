@@ -1,6 +1,7 @@
 ---
 skill: "task-save"
-description: "Explicitly checkpoint the current task state and emit a short URL for recovery. Used when auto-save hasn't fired or user wants to ensure state is persisted before closing a session.
+description:
+  "Explicitly checkpoint the current task state and emit a short URL for recovery. Used when auto-save hasn't fired or user wants to ensure state is persisted before closing a session.
 
   Companion to task-start (which auto-saves at natural pauses). Use task-save when the user explicitly asks to save, checkpoint, or pause — or when about to end a long session."
 type: "prompt"
@@ -106,11 +107,13 @@ Explicitly saves the current task state. Outputs a short URL — no JSON, no UUI
 2. **Append checkpoint log entry** — include timestamp, note (if given), current finding count.
 
 3. **Output** (two lines max):
+
    ```
    Saved. [N] findings[, note if given].
    Continue: ai-config-os.workers.dev/hub/latest
    ```
-   If short code is available: *"auth1 · 3 findings saved."*
+
+   If short code is available: _"auth1 · 3 findings saved."_
 
 4. **No JSON blocks** — never emit raw API responses, task IDs, or internal state in the conversation.
 

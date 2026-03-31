@@ -35,13 +35,13 @@ variants:
 tests:
   - id: "test-full-audit"
     type: "integration"
-    input: "{\"scope\": \"all\"}"
+    input: '{"scope": "all"}'
     expected_substring: "health_scores"
     models_to_test:
       - "sonnet"
   - id: "test-single-skill"
     type: "integration"
-    input: "{\"scope\": \"explain-code\"}"
+    input: '{"scope": "explain-code"}'
     expected_substring: "gaps"
     models_to_test:
       - "sonnet"
@@ -79,6 +79,7 @@ capabilities:
 ## When to use
 
 Use `skill-audit` when:
+
 - Reviewing skill health across the registry
 - Validating Phase 2 frontmatter compliance
 - Planning skill lifecycle (deprecation, graduation from experimental)
@@ -111,6 +112,7 @@ Use `skill-audit` when:
 ## Examples
 
 ### Input
+
 ```json
 {
   "scope": "all"
@@ -118,6 +120,7 @@ Use `skill-audit` when:
 ```
 
 ### Output (sonnet)
+
 ```json
 {
   "audit_timestamp": "2026-02-28T10:30:00Z",
@@ -213,6 +216,7 @@ Use `skill-audit` when:
 ```
 
 ### Output (opus with deep analysis)
+
 ```json
 {
   "audit_timestamp": "2026-02-28T10:30:00Z",

@@ -9,7 +9,10 @@
     "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
     "name": { "type": "string" },
     "surface": { "type": "string" },
-    "default_package": { "type": "string", "enum": ["skill", "plugin", "rules", "file", "api"] },
+    "default_package": {
+      "type": "string",
+      "enum": ["skill", "plugin", "rules", "file", "api"]
+    },
     "capabilities": {
       "type": "object",
       "additionalProperties": {
@@ -17,10 +20,16 @@
         "additionalProperties": false,
         "required": ["status"],
         "properties": {
-          "status": { "type": "string", "enum": ["supported", "unsupported", "unknown"] },
+          "status": {
+            "type": "string",
+            "enum": ["supported", "unsupported", "unknown"]
+          },
           "verified_at": { "type": "string", "format": "date" },
           "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
-          "source": { "type": "string", "enum": ["vendor-doc", "manual-test", "probe", "inference"] }
+          "source": {
+            "type": "string",
+            "enum": ["vendor-doc", "manual-test", "probe", "inference"]
+          }
         }
       }
     },

@@ -1,6 +1,6 @@
-import { validateContract } from '../../shared/contracts/validate.mjs';
-import { createCapabilityProfileResolver } from './capability-profile.mjs';
-import { createCachedTaskRouteDefinitionsLoader } from './task-route-definition-loader.mjs';
+import { validateContract } from "../../shared/contracts/validate.mjs";
+import { createCapabilityProfileResolver } from "./capability-profile.mjs";
+import { createCachedTaskRouteDefinitionsLoader } from "./task-route-definition-loader.mjs";
 
 const EQUIVALENCE_WEIGHT = {
   equal: 1,
@@ -15,8 +15,10 @@ const defaultCapabilityProfileResolver = createCapabilityProfileResolver();
 let capabilityProfileResolver = defaultCapabilityProfileResolver;
 
 export function setTaskRouteResolverLoader(loader) {
-  if (typeof loader !== 'function') {
-    throw new TypeError('setTaskRouteResolverLoader requires a function loader');
+  if (typeof loader !== "function") {
+    throw new TypeError(
+      "setTaskRouteResolverLoader requires a function loader",
+    );
   }
   definitionsLoader = loader;
 }
@@ -26,8 +28,10 @@ export function resetTaskRouteResolverLoader() {
 }
 
 export function setTaskRouteCapabilityProfileResolver(resolver) {
-  if (!resolver || typeof resolver.getProfile !== 'function') {
-    throw new TypeError('setTaskRouteCapabilityProfileResolver requires resolver.getProfile()');
+  if (!resolver || typeof resolver.getProfile !== "function") {
+    throw new TypeError(
+      "setTaskRouteCapabilityProfileResolver requires resolver.getProfile()",
+    );
   }
   capabilityProfileResolver = resolver;
 }
@@ -37,29 +41,37 @@ export function resetTaskRouteCapabilityProfileResolver() {
 }
 
 function normaliseCapabilityStatus(value) {
-  if (value === true || value === 'supported') return 'supported';
-  if (value === false || value === 'unsupported') return 'unsupported';
-  return 'unknown';
+  if (value === true || value === "supported") return "supported";
+  if (value === false || value === "unsupported") return "unsupported";
+  return "unknown";
 }
 
 function collectMissing(requiredCapabilities, capabilityProfile) {
   return requiredCapabilities.filter((capability) => {
     const raw = capabilityProfile?.capabilities?.[capability];
-    const status = typeof raw === 'object' && raw !== null ? raw.status : raw;
-    return normaliseCapabilityStatus(status) !== 'supported';
+    const status = typeof raw === "object" && raw !== null ? raw.status : raw;
+    return normaliseCapabilityStatus(status) !== "supported";
   });
 }
 
 function scoreRoute(route, capabilityProfile, order) {
-  const requiredCapabilities = Array.isArray(route.required_capabilities) ? route.required_capabilities : [];
-  const missingCapabilities = collectMissing(requiredCapabilities, capabilityProfile);
+  const requiredCapabilities = Array.isArray(route.required_capabilities)
+    ? route.required_capabilities
+    : [];
+  const missingCapabilities = collectMissing(
+    requiredCapabilities,
+    capabilityProfile,
+  );
   const covered = requiredCapabilities.length - missingCapabilities.length;
-  const coverage = requiredCapabilities.length === 0 ? 1 : covered / requiredCapabilities.length;
+  const coverage =
+    requiredCapabilities.length === 0
+      ? 1
+      : covered / requiredCapabilities.length;
   const equivalenceWeight = EQUIVALENCE_WEIGHT[route.equivalence_level] ?? 0;
 
   return {
-    route: validateContract('taskRouteDefinition', {
-      schema_version: '1.0.0',
+    route: validateContract("taskRouteDefinition", {
+      schema_version: "1.0.0",
       route_id: route.route_id,
       equivalence_level: route.equivalence_level,
       required_capabilities: requiredCapabilities,
@@ -72,7 +84,7 @@ function scoreRoute(route, capabilityProfile, order) {
 
 export function resolveTaskRoute({ taskType, capabilityProfile } = {}) {
   if (!taskType) {
-    throw new Error('resolveTaskRoute requires taskType');
+    throw new Error("resolveTaskRoute requires taskType");
   }
 
   const { taskTypes } = definitionsLoader();
@@ -81,7 +93,10 @@ export function resolveTaskRoute({ taskType, capabilityProfile } = {}) {
     throw new Error(`Unknown task type: ${taskType}`);
   }
 
-  if (!Array.isArray(taskDefinition.routes) || taskDefinition.routes.length === 0) {
+  if (
+    !Array.isArray(taskDefinition.routes) ||
+    taskDefinition.routes.length === 0
+  ) {
     throw new Error(`Task type '${taskType}' has no route definitions`);
   }
 

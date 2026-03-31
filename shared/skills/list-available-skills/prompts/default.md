@@ -18,12 +18,12 @@ Read these two files:
 
 For each skill in the manifest, classify it into one of four buckets:
 
-| Bucket | Condition |
-|---|---|
-| **available** | All `required` caps supported AND all `optional` caps supported |
-| **degraded** | All `required` caps supported; ≥1 `optional` cap not supported |
-| **excluded** | ≥1 `required` cap not supported; `fallback_mode` is set (`prompt-only` or `manual`) |
-| **unavailable** | ≥1 `required` cap not supported; no `fallback_mode` |
+| Bucket          | Condition                                                                           |
+| --------------- | ----------------------------------------------------------------------------------- |
+| **available**   | All `required` caps supported AND all `optional` caps supported                     |
+| **degraded**    | All `required` caps supported; ≥1 `optional` cap not supported                      |
+| **excluded**    | ≥1 `required` cap not supported; `fallback_mode` is set (`prompt-only` or `manual`) |
+| **unavailable** | ≥1 `required` cap not supported; no `fallback_mode`                                 |
 
 A capability is "supported" only if `probe.results[cap].status === "supported"`. Absent or "error" status = not supported.
 
@@ -79,14 +79,14 @@ Format skill names as backtick code spans.
 Omit any category that has zero usable skills. If a skill fits no category well,
 create a new one using the same format.
 
-| Category | Tagline | Classify here when the skill… |
-|---|---|---|
-| **Code Quality & Review** | Review, refactor, test, and secure your codebase | reviews, refactors, tests, or audits code quality or security |
-| **Debugging & Explanation** | Diagnose failures, explain code, analyse CI logs | diagnoses errors, explains code behaviour, or analyses failures |
-| **Git & CI/CD** | Commit, review PRs, release, and track changes | involves commits, PRs, changelogs, releases, or CI pipelines |
-| **Planning & Tasks** | Break down, start, save, and resume work sessions | decomposes, starts, saves, resumes, or triages tasks or issues |
-| **Research & Reference** | Search the web, manage context and token budget | searches the web, manages context, or surfaces reference material |
-| **Skills & Configuration** | Discover, audit, and configure your AI skills layer | manages skills, configuration, sessions, or AI tooling itself |
+| Category                    | Tagline                                             | Classify here when the skill…                                     |
+| --------------------------- | --------------------------------------------------- | ----------------------------------------------------------------- |
+| **Code Quality & Review**   | Review, refactor, test, and secure your codebase    | reviews, refactors, tests, or audits code quality or security     |
+| **Debugging & Explanation** | Diagnose failures, explain code, analyse CI logs    | diagnoses errors, explains code behaviour, or analyses failures   |
+| **Git & CI/CD**             | Commit, review PRs, release, and track changes      | involves commits, PRs, changelogs, releases, or CI pipelines      |
+| **Planning & Tasks**        | Break down, start, save, and resume work sessions   | decomposes, starts, saves, resumes, or triages tasks or issues    |
+| **Research & Reference**    | Search the web, manage context and token budget     | searches the web, manages context, or surfaces reference material |
+| **Skills & Configuration**  | Discover, audit, and configure your AI skills layer | manages skills, configuration, sessions, or AI tooling itself     |
 
 Output format:
 
@@ -102,6 +102,7 @@ Surface: <surface_hint> (<platform_hint>)
 ```
 
 Trailing note (omit if zero excluded):
+
 ```
 > <N> skill(s) excluded on this surface — require shell or filesystem access not available on iOS.
 ```

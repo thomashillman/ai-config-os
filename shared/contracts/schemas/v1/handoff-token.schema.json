@@ -4,7 +4,15 @@
   "title": "HandoffToken",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "token_id", "task_id", "issued_at", "expires_at", "signature", "replay_nonce"],
+  "required": [
+    "schema_version",
+    "token_id",
+    "task_id",
+    "issued_at",
+    "expires_at",
+    "signature",
+    "replay_nonce"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "token_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },

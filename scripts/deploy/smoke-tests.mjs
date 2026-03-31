@@ -16,7 +16,7 @@
 export function getWorkerUrl() {
   const url = process.env.AI_CONFIG_WORKER_URL;
   if (!url) {
-    throw new Error('AI_CONFIG_WORKER_URL environment variable is required');
+    throw new Error("AI_CONFIG_WORKER_URL environment variable is required");
   }
   return url;
 }
@@ -29,7 +29,7 @@ export function getWorkerUrl() {
 export function getWorkerToken() {
   const token = process.env.AI_CONFIG_WORKER_TOKEN;
   if (!token) {
-    throw new Error('AI_CONFIG_WORKER_TOKEN environment variable is required');
+    throw new Error("AI_CONFIG_WORKER_TOKEN environment variable is required");
   }
   return token;
 }
@@ -56,11 +56,11 @@ export function buildRequest(url, method, token, body) {
     method,
     headers: {
       Authorization: buildAuthHeader(token),
-      'Content-Type': 'application/json'
-    }
+      "Content-Type": "application/json",
+    },
   };
 
-  if (body && (method === 'POST' || method === 'PATCH')) {
+  if (body && (method === "POST" || method === "PATCH")) {
     options.body = JSON.stringify(body);
   }
 
@@ -88,7 +88,7 @@ export function formatResult(endpoint, method, status, data, error) {
   if (error) {
     msg += ` (${error})`;
   } else if (data && status < 300) {
-    msg += ' - OK';
+    msg += " - OK";
   }
 
   return msg;
@@ -108,7 +108,7 @@ async function runTest(name, endpoint, method, body, options = {}) {
     expectStatus = 200,
     expectStatusRange = [200, 299], // Accept any 2xx by default
     expectError = false,
-    allowedStatuses = [] // Additional acceptable statuses (e.g., [503] for optional KV)
+    allowedStatuses = [], // Additional acceptable statuses (e.g., [503] for optional KV)
   } = options;
 
   try {
@@ -127,20 +127,27 @@ async function runTest(name, endpoint, method, body, options = {}) {
       isAcceptable = status >= 400 && status < 600;
     } else {
       // Success expected; check 2xx range
-      isAcceptable = status >= expectStatusRange[0] && status <= expectStatusRange[1];
+      isAcceptable =
+        status >= expectStatusRange[0] && status <= expectStatusRange[1];
     }
 
     if (!isAcceptable && expectStatus !== null) {
       return {
         passed: false,
-        message: formatResult(endpoint, method, status, null, `Expected ${expectStatusRange[0]}-${expectStatusRange[1]}, got ${status}`)
+        message: formatResult(
+          endpoint,
+          method,
+          status,
+          null,
+          `Expected ${expectStatusRange[0]}-${expectStatusRange[1]}, got ${status}`,
+        ),
       };
     }
 
     // Try to parse response
     let data = null;
-    const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
       try {
         data = await response.json();
       } catch (e) {
@@ -150,12 +157,12 @@ async function runTest(name, endpoint, method, body, options = {}) {
 
     return {
       passed: isAcceptable,
-      message: formatResult(endpoint, method, status, data)
+      message: formatResult(endpoint, method, status, data),
     };
   } catch (error) {
     return {
       passed: false,
-      message: `${method} /${endpoint} ✗ (${error.message})`
+      message: `${method} /${endpoint} ✗ (${error.message})`,
     };
   }
 }
@@ -165,44 +172,44 @@ async function runTest(name, endpoint, method, body, options = {}) {
  * @returns {Promise<{passed: number, failed: number, tests: Array}>}
  */
 export async function runAllTests() {
-  console.log('\nSmoke Tests — Deployment Readiness Check\n');
-  console.log('------------------------------------------\n');
+  console.log("\nSmoke Tests — Deployment Readiness Check\n");
+  console.log("------------------------------------------\n");
 
   const tests = [
     {
-      name: 'Health check',
-      endpoint: 'health',
-      method: 'GET'
+      name: "Health check",
+      endpoint: "health",
+      method: "GET",
     },
     {
-      name: 'Latest manifest (or fallback)',
-      endpoint: 'manifest/latest',
-      method: 'GET',
-      allowedStatuses: [503] // KV namespace might not be configured
+      name: "Latest manifest (or fallback)",
+      endpoint: "manifest/latest",
+      method: "GET",
+      allowedStatuses: [503], // KV namespace might not be configured
     },
     {
-      name: 'Claude Code client info',
-      endpoint: 'client/claude-code/latest',
-      method: 'GET'
+      name: "Claude Code client info",
+      endpoint: "client/claude-code/latest",
+      method: "GET",
     },
     {
-      name: 'Create task (minimal payload)',
-      endpoint: 'tasks',
-      method: 'POST',
+      name: "Create task (minimal payload)",
+      endpoint: "tasks",
+      method: "POST",
       body: {}, // Empty object is valid
-      expectStatusRange: [200, 201]
+      expectStatusRange: [200, 201],
     },
     {
-      name: 'Execute (with valid auth, expect executor unavailable)',
-      endpoint: 'execute',
-      method: 'POST',
+      name: "Execute (with valid auth, expect executor unavailable)",
+      endpoint: "execute",
+      method: "POST",
       body: {
-        tool: 'test-tool',
+        tool: "test-tool",
         args: [],
-        request_id: 'test-req-123'
+        request_id: "test-req-123",
       },
-      allowedStatuses: [502, 504, 500] // Executor might not be reachable or configured
-    }
+      allowedStatuses: [502, 504, 500], // Executor might not be reachable or configured
+    },
   ];
 
   const results = [];
@@ -214,8 +221,8 @@ export async function runAllTests() {
       test.body,
       {
         expectStatusRange: test.expectStatusRange || [200, 299],
-        allowedStatuses: test.allowedStatuses || []
-      }
+        allowedStatuses: test.allowedStatuses || [],
+      },
     );
     results.push(result);
     console.log(result.message);
@@ -224,32 +231,38 @@ export async function runAllTests() {
   console.log();
 
   // Test auth requirement
-  console.log('Auth Requirement Tests\n');
+  console.log("Auth Requirement Tests\n");
 
   try {
     const url = getWorkerUrl();
     const response = await fetch(`${url}/health`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
       // No Authorization header
     });
 
     if (response.status === 401) {
-      console.log('GET /health (no auth) ✓ 401 - Auth required');
-      results.push({ passed: true, message: 'Auth requirement validated' });
+      console.log("GET /health (no auth) ✓ 401 - Auth required");
+      results.push({ passed: true, message: "Auth requirement validated" });
     } else {
       console.log(`GET /health (no auth) ✗ ${response.status} - Expected 401`);
-      results.push({ passed: false, message: 'Auth requirement not validated' });
+      results.push({
+        passed: false,
+        message: "Auth requirement not validated",
+      });
     }
   } catch (error) {
     console.log(`Auth check ✗ (${error.message})`);
-    results.push({ passed: false, message: 'Auth check failed: ' + error.message });
+    results.push({
+      passed: false,
+      message: "Auth check failed: " + error.message,
+    });
   }
 
   console.log();
 
-  const passed = results.filter(r => r.passed).length;
-  const failed = results.filter(r => !r.passed).length;
+  const passed = results.filter((r) => r.passed).length;
+  const failed = results.filter((r) => !r.passed).length;
 
   return { passed, failed, tests: results };
 }
@@ -257,18 +270,18 @@ export async function runAllTests() {
 // CLI invocation
 if (import.meta.url === `file://${process.argv[1]}`) {
   runAllTests()
-    .then(result => {
+    .then((result) => {
       console.log(`\n${result.passed} passed, ${result.failed} failed\n`);
 
       if (result.failed === 0) {
-        console.log('✓ All smoke tests passed. Deployment is ready.');
+        console.log("✓ All smoke tests passed. Deployment is ready.");
         process.exit(0);
       } else {
-        console.log('✗ Some tests failed. Check configuration and try again.');
+        console.log("✗ Some tests failed. Check configuration and try again.");
         process.exit(1);
       }
     })
-    .catch(error => {
+    .catch((error) => {
       console.error(`Fatal error: ${error.message}`);
       process.exit(1);
     });

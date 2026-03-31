@@ -1,4 +1,4 @@
-import { handleExecutePhase1 } from './handler';
+import { handleExecutePhase1 } from "./handler";
 
 /**
  * Phase 1 Executor Worker Environment
@@ -15,10 +15,10 @@ export default {
   async fetch(request: Request, env: ExecutorEnv): Promise<Response> {
     const { pathname } = new URL(request.url);
 
-    if (pathname === '/v1/execute' && request.method === 'POST') {
+    if (pathname === "/v1/execute" && request.method === "POST") {
       return handleExecutePhase1(request, env);
     }
 
-    return new Response('Not Found', { status: 404 });
+    return new Response("Not Found", { status: 404 });
   },
 } satisfies ExportedHandler<ExecutorEnv>;

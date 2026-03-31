@@ -7,7 +7,7 @@
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type PhaseResult = 'ok' | 'error' | 'skipped';
+export type PhaseResult = "ok" | "error" | "skipped";
 
 export interface BootstrapPhase {
   phase: string;
@@ -20,7 +20,7 @@ export interface BootstrapRun {
   run_id: string;
   started_at: string;
   finished_at?: string;
-  status: 'success' | 'failure' | 'partial';
+  status: "success" | "failure" | "partial";
   project_dir?: string;
   install_root?: string;
   repo_revision?: string;
@@ -35,19 +35,19 @@ export interface BootstrapRun {
 // ── Deny-list: field names that must never appear in a run record ─────────────
 
 const FORBIDDEN_FIELD_NAMES = new Set([
-  'authorization',
-  'token',
-  'cookie',
-  'secret',
-  'password',
-  'passwd',
-  'credential',
-  'credentials',
-  'api_key',
-  'apikey',
-  'private_key',
-  'privatekey',
-  'auth',
+  "authorization",
+  "token",
+  "cookie",
+  "secret",
+  "password",
+  "passwd",
+  "credential",
+  "credentials",
+  "api_key",
+  "apikey",
+  "private_key",
+  "privatekey",
+  "auth",
 ]);
 
 // Maximum safe length for free-text string fields
@@ -56,11 +56,11 @@ const MAX_MESSAGE_LENGTH = 2048;
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function isObject(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null && !Array.isArray(v);
+  return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
 function isIsoDateTime(v: unknown): v is string {
-  return typeof v === 'string' && Number.isFinite(Date.parse(v));
+  return typeof v === "string" && Number.isFinite(Date.parse(v));
 }
 
 function hasForbiddenField(obj: Record<string, unknown>): string | null {
@@ -72,28 +72,45 @@ function hasForbiddenField(obj: Record<string, unknown>): string | null {
   return null;
 }
 
-function validatePhase(p: unknown): { ok: true; value: BootstrapPhase } | { ok: false; error: string } {
-  if (!isObject(p)) return { ok: false, error: 'Each phase must be an object' };
+function validatePhase(
+  p: unknown,
+): { ok: true; value: BootstrapPhase } | { ok: false; error: string } {
+  if (!isObject(p)) return { ok: false, error: "Each phase must be an object" };
 
-  if (typeof p.phase !== 'string' || p.phase.length === 0) {
-    return { ok: false, error: "Phase field 'phase' must be a non-empty string" };
+  if (typeof p.phase !== "string" || p.phase.length === 0) {
+    return {
+      ok: false,
+      error: "Phase field 'phase' must be a non-empty string",
+    };
   }
   if (p.phase.length > 128) {
     return { ok: false, error: "Phase field 'phase' exceeds 128 characters" };
   }
 
-  const VALID_RESULTS: PhaseResult[] = ['ok', 'error', 'skipped'];
+  const VALID_RESULTS: PhaseResult[] = ["ok", "error", "skipped"];
   if (!VALID_RESULTS.includes(p.result as PhaseResult)) {
-    return { ok: false, error: `Phase field 'result' must be one of: ${VALID_RESULTS.join(', ')}` };
+    return {
+      ok: false,
+      error: `Phase field 'result' must be one of: ${VALID_RESULTS.join(", ")}`,
+    };
   }
 
-  if (typeof p.duration_ms !== 'number' || p.duration_ms < 0) {
-    return { ok: false, error: "Phase field 'duration_ms' must be a non-negative number" };
+  if (typeof p.duration_ms !== "number" || p.duration_ms < 0) {
+    return {
+      ok: false,
+      error: "Phase field 'duration_ms' must be a non-negative number",
+    };
   }
 
   if (p.error_code !== undefined) {
-    if (typeof p.error_code !== 'string' || p.error_code.length > MAX_MESSAGE_LENGTH) {
-      return { ok: false, error: "Phase field 'error_code' must be a string within length limit" };
+    if (
+      typeof p.error_code !== "string" ||
+      p.error_code.length > MAX_MESSAGE_LENGTH
+    ) {
+      return {
+        ok: false,
+        error: "Phase field 'error_code' must be a string within length limit",
+      };
     }
   }
 
@@ -103,7 +120,9 @@ function validatePhase(p: unknown): { ok: true; value: BootstrapPhase } | { ok: 
       phase: p.phase,
       result: p.result as PhaseResult,
       duration_ms: p.duration_ms,
-      ...(p.error_code !== undefined ? { error_code: p.error_code as string } : {}),
+      ...(p.error_code !== undefined
+        ? { error_code: p.error_code as string }
+        : {}),
     },
   };
 }
@@ -121,17 +140,20 @@ export type ValidationResult =
  */
 export function validateBootstrapRun(payload: unknown): ValidationResult {
   if (!isObject(payload)) {
-    return { ok: false, error: 'Payload must be a JSON object' };
+    return { ok: false, error: "Payload must be a JSON object" };
   }
 
   // Check for forbidden field names at top level
   const forbidden = hasForbiddenField(payload);
   if (forbidden !== null) {
-    return { ok: false, error: `Field '${forbidden}' is not permitted in a run record` };
+    return {
+      ok: false,
+      error: `Field '${forbidden}' is not permitted in a run record`,
+    };
   }
 
   // Required: run_id
-  if (typeof payload.run_id !== 'string' || payload.run_id.length === 0) {
+  if (typeof payload.run_id !== "string" || payload.run_id.length === 0) {
     return { ok: false, error: "Field 'run_id' must be a non-empty string" };
   }
   if (payload.run_id.length > 128) {
@@ -140,38 +162,53 @@ export function validateBootstrapRun(payload: unknown): ValidationResult {
 
   // Required: started_at
   if (!isIsoDateTime(payload.started_at)) {
-    return { ok: false, error: "Field 'started_at' must be a valid ISO 8601 timestamp" };
+    return {
+      ok: false,
+      error: "Field 'started_at' must be a valid ISO 8601 timestamp",
+    };
   }
 
   // Optional: finished_at
-  if (payload.finished_at !== undefined && !isIsoDateTime(payload.finished_at)) {
-    return { ok: false, error: "Field 'finished_at' must be a valid ISO 8601 timestamp" };
+  if (
+    payload.finished_at !== undefined &&
+    !isIsoDateTime(payload.finished_at)
+  ) {
+    return {
+      ok: false,
+      error: "Field 'finished_at' must be a valid ISO 8601 timestamp",
+    };
   }
 
   // Required: status
-  const VALID_STATUSES = ['success', 'failure', 'partial'];
+  const VALID_STATUSES = ["success", "failure", "partial"];
   if (!VALID_STATUSES.includes(payload.status as string)) {
-    return { ok: false, error: `Field 'status' must be one of: ${VALID_STATUSES.join(', ')}` };
+    return {
+      ok: false,
+      error: `Field 'status' must be one of: ${VALID_STATUSES.join(", ")}`,
+    };
   }
 
   // Optional string fields with length limits
   const optionalStrings: Array<keyof BootstrapRun> = [
-    'project_dir',
-    'install_root',
-    'repo_revision',
-    'expected_version',
-    'observed_version',
-    'first_failed_phase',
-    'error_code',
+    "project_dir",
+    "install_root",
+    "repo_revision",
+    "expected_version",
+    "observed_version",
+    "first_failed_phase",
+    "error_code",
   ];
   for (const field of optionalStrings) {
     const v = payload[field];
     if (v !== undefined) {
-      if (typeof v !== 'string') {
+      if (typeof v !== "string") {
         return { ok: false, error: `Field '${field}' must be a string` };
       }
       if (v.length > MAX_MESSAGE_LENGTH) {
-        return { ok: false, error: `Field '${field}' exceeds ${MAX_MESSAGE_LENGTH} characters` };
+        return {
+          ok: false,
+          error: `Field '${field}' exceeds ${MAX_MESSAGE_LENGTH} characters`,
+        };
       }
     }
   }
@@ -196,7 +233,7 @@ export function validateBootstrapRun(payload: unknown): ValidationResult {
       return { ok: false, error: "Field 'evidence_refs' must be an array" };
     }
     for (let i = 0; i < payload.evidence_refs.length; i++) {
-      if (typeof payload.evidence_refs[i] !== 'string') {
+      if (typeof payload.evidence_refs[i] !== "string") {
         return { ok: false, error: `evidence_refs[${i}] must be a string` };
       }
     }
@@ -205,20 +242,29 @@ export function validateBootstrapRun(payload: unknown): ValidationResult {
   const run: BootstrapRun = {
     run_id: payload.run_id,
     started_at: payload.started_at as string,
-    status: payload.status as BootstrapRun['status'],
+    status: payload.status as BootstrapRun["status"],
     phases,
   };
 
   // Assign optional fields only when present
-  if (typeof payload.finished_at === 'string') run.finished_at = payload.finished_at;
-  if (typeof payload.project_dir === 'string') run.project_dir = payload.project_dir;
-  if (typeof payload.install_root === 'string') run.install_root = payload.install_root;
-  if (typeof payload.repo_revision === 'string') run.repo_revision = payload.repo_revision;
-  if (typeof payload.expected_version === 'string') run.expected_version = payload.expected_version;
-  if (typeof payload.observed_version === 'string') run.observed_version = payload.observed_version;
-  if (typeof payload.first_failed_phase === 'string') run.first_failed_phase = payload.first_failed_phase;
-  if (typeof payload.error_code === 'string') run.error_code = payload.error_code;
-  if (Array.isArray(payload.evidence_refs)) run.evidence_refs = payload.evidence_refs as string[];
+  if (typeof payload.finished_at === "string")
+    run.finished_at = payload.finished_at;
+  if (typeof payload.project_dir === "string")
+    run.project_dir = payload.project_dir;
+  if (typeof payload.install_root === "string")
+    run.install_root = payload.install_root;
+  if (typeof payload.repo_revision === "string")
+    run.repo_revision = payload.repo_revision;
+  if (typeof payload.expected_version === "string")
+    run.expected_version = payload.expected_version;
+  if (typeof payload.observed_version === "string")
+    run.observed_version = payload.observed_version;
+  if (typeof payload.first_failed_phase === "string")
+    run.first_failed_phase = payload.first_failed_phase;
+  if (typeof payload.error_code === "string")
+    run.error_code = payload.error_code;
+  if (Array.isArray(payload.evidence_refs))
+    run.evidence_refs = payload.evidence_refs as string[];
 
   return { ok: true, value: run };
 }

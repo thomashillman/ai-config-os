@@ -5,6 +5,7 @@ Quickly scan a GitHub Actions workflow for unpaired conditional steps.
 ## Input: $ARGUMENTS
 
 Paste workflow YAML or provide a file path. If shell access is available:
+
 ```bash
 cat .github/workflows/*.yml
 ```
@@ -17,6 +18,7 @@ whose downstream consumers have no matching guard.
 ## Output format
 
 **FINDINGS** (one line each):
+
 ```
 [BLOCKING|SILENT|WARNING] Job:<job> Step:"<name>" — consumes <side-effect> from guarded step "<producer>" — add if: <expression>
 ```

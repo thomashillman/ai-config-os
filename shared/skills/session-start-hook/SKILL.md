@@ -1,6 +1,7 @@
 ---
 skill: "session-start-hook"
-description: "Validates Claude Code plugin structure at session start in remote environments.
+description:
+  "Validates Claude Code plugin structure at session start in remote environments.
 
   Catches broken symlinks or missing version bumps before any agent work begins.\n"
 type: "hook"
@@ -77,14 +78,17 @@ The hook is registered in `.claude/settings.json` under `hooks.SessionStart` and
 ## Examples
 
 Normal session open (remote):
+
 ```
 Validating plugin structure...
 Plugin structure OK.
 ```
 
 Broken symlink detected:
+
 ```
 Validating plugin structure...
 Error: broken symlink at plugins/core-skills/skills/my-skill
 ```
+
 In this case: fix the symlink, commit, push, and re-open the session.

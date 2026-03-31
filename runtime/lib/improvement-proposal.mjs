@@ -13,24 +13,29 @@ let proposalCounter = 0;
  * @param {*} deps.proposed - Proposed value (string for templates, object for intents)
  * @returns {object} Proposal artifact with stable shape and required fields
  */
-export function createImprovementProposal({ insight, target, current, proposed } = {}) {
+export function createImprovementProposal({
+  insight,
+  target,
+  current,
+  proposed,
+} = {}) {
   if (!insight) {
-    throw new Error('insight is required');
+    throw new Error("insight is required");
   }
   if (!target) {
-    throw new Error('target is required');
+    throw new Error("target is required");
   }
 
   // Determine proposal type from target
-  let proposalType = 'template_change';
-  if (target === 'definitions' || target.startsWith('definitions.')) {
-    proposalType = 'intent_definition';
+  let proposalType = "template_change";
+  if (target === "definitions" || target.startsWith("definitions.")) {
+    proposalType = "intent_definition";
   }
 
   const proposal = {
-    id: `proposal_${String(proposalCounter++).padStart(6, '0')}`,
+    id: `proposal_${String(proposalCounter++).padStart(6, "0")}`,
     type: proposalType,
-    status: 'pending_review',
+    status: "pending_review",
     insight_id: insight.id,
     finding: insight.finding,
     target,

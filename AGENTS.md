@@ -6,11 +6,11 @@ This base fragment is intentionally repository-agnostic.
 
 ## Engineering Principles
 
-mindset:  prioritise high-value problems; take ownership end-to-end; success = user outcomes not lines of code
-design:   KISS/YAGNI | DRY | high-cohesion/low-coupling | SOLID-as-refactoring-lens
-quality:  readability>cleverness | TDD-by-default | conform-to-conventions | tight-error-handling/no-broad-catch | search-before-adding
+mindset: prioritise high-value problems; take ownership end-to-end; success = user outcomes not lines of code
+design: KISS/YAGNI | DRY | high-cohesion/low-coupling | SOLID-as-refactoring-lens
+quality: readability>cleverness | TDD-by-default | conform-to-conventions | tight-error-handling/no-broad-catch | search-before-adding
 delivery: small-increments | instrument-observability | quality-built-in
-process:  source-control-is-truth | done=production-value-not-QA | fix-systems-not-people
+process: source-control-is-truth | done=production-value-not-QA | fix-systems-not-people
 
 ## Autonomy and Persistence
 
@@ -127,6 +127,7 @@ Use this overlay with the base doctrine fragments when operating as a Codex-orie
 - Build and emit logic lives in `scripts/build/`; supporting lint scripts live in `scripts/lint/`.
 - Platform capability definitions are in `shared/targets/platforms/`.
 - Canonical release version is stored in `VERSION` and synced into derived files via scripts.
+- Cursor project rules live under `.cursor/rules/*.mdc`; validate with `npm run check:cursor-rules` when you change them. Prefer committing rule files without committing local `.cursor/settings.json` unless the team explicitly shares editor settings.
 
 ## Repository-specific workflows
 
@@ -147,8 +148,11 @@ Run applicable checks before completion:
 node scripts/build/compile.mjs
 npm test
 npm run check:cursor-rules
+npm run doctrine:check
 ops/validate-all.sh
 ```
+
+Run `npm run doctrine:check` whenever you change `shared/agent-doctrine/**` (regenerate with `npm run doctrine:build` if the check fails).
 
 If Claude packaging surfaces are touched, additionally run:
 
@@ -156,6 +160,15 @@ If Claude packaging surfaces are touched, additionally run:
 adapters/claude/dev-test.sh
 claude plugin validate .
 ```
+
+### Generated entrypoints and full `npm test`
+
+- **`npm run build`** runs the skill compiler only (`compile.mjs`). It emits under `dist/` and does **not** emit root `CLAUDE.md` or root `AGENTS.md`.
+- **`npm run doctrine:build`** emits doctrine-driven root entrypoints (root `CLAUDE.md`, root `AGENTS.md`).
+- Full **`npm test`** includes a contract that, after compile, certain **tracked** files stay in sync with generator output, including root **`CLAUDE.md`**, **`dist/clients/codex/AGENTS.md`**, and **`dist/clients/claude-code/.claude-plugin/plugin.json`**. Root **`AGENTS.md`** is doctrine output; the Codex package file under **`dist/`** is compile output—keep both in mind when debugging stale instructions.
+- If that contract fails, run **`npm run doctrine:build`** for doctrine-owned roots and **`npm run build`** for compile-owned `dist/` outputs, then commit or revert local edits.
+
+Codex-oriented agents follow **AGENTS.md**; Claude-oriented workflows also use **CLAUDE.md**—use the checklist that matches your surface.
 
 ## Repository-specific rules
 
@@ -182,7 +195,7 @@ bash ops/pre-pr-mergeability-gate.sh
 This repository may use a local proxy remote (`http://local_proxy@127.0.0.1:41590/git/...`).
 
 - Expected to work: `git add`, `git commit`, `git push -u origin <branch>`.
-- Expected not to work in this environment: `gh pr create`, direct push to protected `main`, proxy REST API calls.
+- Expected not to work in some environments: `gh pr create` (even when `git push` works), direct push to protected `main`, proxy REST API calls. When `gh` is missing or unauthenticated, open a PR from GitHub’s compare URL instead.
 - Do not repoint the remote unless explicitly instructed.
 
 ## Living docs protocol

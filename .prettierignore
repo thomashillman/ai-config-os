@@ -1,0 +1,14 @@
+dist/
+AGENTS.md
+CLAUDE.md
+shared/skills/_template/
+scripts/build/test/fixtures/skill-count-drift/
+**/node_modules/
+package-lock.json
+dashboard/
+.cursor/plugins/
+**/.cursor/plugins/**
+coverage/
+*.min.js
+yarn.lock
+pnpm-lock.yaml

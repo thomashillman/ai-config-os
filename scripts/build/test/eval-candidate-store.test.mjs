@@ -1,29 +1,32 @@
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs';
-import { persistCandidate, determineCandidateFilename } from '../../../runtime/lib/eval-candidate-store.mjs';
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { mkdirSync, rmSync, existsSync, readFileSync } from "node:fs";
+import {
+  persistCandidate,
+  determineCandidateFilename,
+} from "../../../runtime/lib/eval-candidate-store.mjs";
 
 function mockCandidate(overrides = {}) {
   return {
-    id: 'candidate_loop_12345',
-    signal_type: 'loop',
+    id: "candidate_loop_12345",
+    signal_type: "loop",
     count: 4,
-    severity: 'high',
+    severity: "high",
     evidence: {
       turns: [3, 7, 12, 15],
-      impacts: ['high'],
-      examples: ['Tool called twice'],
+      impacts: ["high"],
+      examples: ["Tool called twice"],
       repeatable: true,
     },
-    recommendation: 'Consider creating an eval or template adjustment',
-    created_at: '2026-03-23T10:00:00.000Z',
+    recommendation: "Consider creating an eval or template adjustment",
+    created_at: "2026-03-23T10:00:00.000Z",
     ...overrides,
   };
 }
 
-test('persistCandidate writes candidate to file', async () => {
+test("persistCandidate writes candidate to file", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `candidate-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -40,18 +43,18 @@ test('persistCandidate writes candidate to file', async () => {
     assert.ok(existsSync(filepath), `File should exist at ${filepath}`);
 
     // Verify file contents
-    const content = readFileSync(filepath, 'utf8');
+    const content = readFileSync(filepath, "utf8");
     const saved = JSON.parse(content);
 
     assert.equal(saved.id, candidate.id);
-    assert.equal(saved.signal_type, 'loop');
+    assert.equal(saved.signal_type, "loop");
     assert.equal(saved.count, 4);
   } finally {
     rmSync(testDir, { recursive: true });
   }
 });
 
-test('persistCandidate generates deterministic filename', async () => {
+test("persistCandidate generates deterministic filename", async () => {
   const tempDir = tmpdir();
   const testDir1 = join(tempDir, `candidate-test-${Date.now()}-1`);
   const testDir2 = join(tempDir, `candidate-test-${Date.now()}-2`);
@@ -79,7 +82,7 @@ test('persistCandidate generates deterministic filename', async () => {
   }
 });
 
-test('persistCandidate prevents overwrite without allowOverwrite', async () => {
+test("persistCandidate prevents overwrite without allowOverwrite", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `candidate-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -109,7 +112,7 @@ test('persistCandidate prevents overwrite without allowOverwrite', async () => {
   }
 });
 
-test('persistCandidate allows explicit overwrite', async () => {
+test("persistCandidate allows explicit overwrite", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `candidate-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -136,19 +139,19 @@ test('persistCandidate allows explicit overwrite', async () => {
   }
 });
 
-test('determineCandidateFilename generates filename from signal type', () => {
+test("determineCandidateFilename generates filename from signal type", () => {
   const candidate = mockCandidate({
-    signal_type: 'capability_gap',
+    signal_type: "capability_gap",
   });
 
   const filename = determineCandidateFilename({ candidate });
 
-  assert.ok(filename.startsWith('candidate_'));
-  assert.ok(filename.includes('capability_gap'));
-  assert.ok(filename.endsWith('.json'));
+  assert.ok(filename.startsWith("candidate_"));
+  assert.ok(filename.includes("capability_gap"));
+  assert.ok(filename.endsWith(".json"));
 });
 
-test('persistCandidate preserves candidate schema', async () => {
+test("persistCandidate preserves candidate schema", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `candidate-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -156,11 +159,11 @@ test('persistCandidate preserves candidate schema', async () => {
   try {
     const candidate = mockCandidate({
       count: 5,
-      severity: 'medium',
+      severity: "medium",
       evidence: {
         turns: [1, 5, 10],
-        impacts: ['medium', 'low'],
-        examples: ['example1', 'example2'],
+        impacts: ["medium", "low"],
+        examples: ["example1", "example2"],
       },
     });
 
@@ -169,38 +172,40 @@ test('persistCandidate preserves candidate schema', async () => {
       outputDir: testDir,
     });
 
-    const content = readFileSync(join(testDir, filename), 'utf8');
+    const content = readFileSync(join(testDir, filename), "utf8");
     const saved = JSON.parse(content);
 
     assert.equal(saved.count, 5);
-    assert.equal(saved.severity, 'medium');
+    assert.equal(saved.severity, "medium");
     assert.deepEqual(saved.evidence.turns, [1, 5, 10]);
-    assert.deepEqual(saved.evidence.impacts, ['medium', 'low']);
+    assert.deepEqual(saved.evidence.impacts, ["medium", "low"]);
   } finally {
     rmSync(testDir, { recursive: true });
   }
 });
 
-test('persistCandidate requires candidate', async () => {
+test("persistCandidate requires candidate", async () => {
   assert.rejects(
-    () => persistCandidate({
-      outputDir: '/tmp/test',
-    }),
+    () =>
+      persistCandidate({
+        outputDir: "/tmp/test",
+      }),
     /candidate is required/,
   );
 });
 
-test('persistCandidate requires outputDir', async () => {
+test("persistCandidate requires outputDir", async () => {
   const candidate = mockCandidate();
   assert.rejects(
-    () => persistCandidate({
-      candidate,
-    }),
+    () =>
+      persistCandidate({
+        candidate,
+      }),
     /outputDir is required/,
   );
 });
 
-test('persistCandidate creates pretty-printed JSON', async () => {
+test("persistCandidate creates pretty-printed JSON", async () => {
   const tempDir = tmpdir();
   const testDir = join(tempDir, `candidate-test-${Date.now()}`);
   mkdirSync(testDir, { recursive: true });
@@ -212,10 +217,10 @@ test('persistCandidate creates pretty-printed JSON', async () => {
       outputDir: testDir,
     });
 
-    const content = readFileSync(join(testDir, filename), 'utf8');
+    const content = readFileSync(join(testDir, filename), "utf8");
     // Pretty-printed JSON should have newlines and indentation
-    assert.ok(content.includes('\n'));
-    assert.ok(content.includes('  '));
+    assert.ok(content.includes("\n"));
+    assert.ok(content.includes("  "));
   } finally {
     rmSync(testDir, { recursive: true });
   }

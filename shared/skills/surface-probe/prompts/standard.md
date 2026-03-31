@@ -15,6 +15,7 @@ env | grep -iE 'claude|cursor|codex|term|surface|platform|entrypoint|remote|mobi
 ```
 
 Also check:
+
 - `echo $CLAUDE_CODE_ENTRYPOINT` — the primary surface signal (known values: `remote_mobile`, `web`, `sdk-py`)
 - `echo $CLAUDE_CODE_REMOTE` — true for all remote sessions
 - `echo $CLAUDE_CODE_REMOTE_ENVIRONMENT_TYPE` — may indicate cloud vs local
@@ -22,6 +23,7 @@ Also check:
 - `echo $CURSOR_SESSION`, `echo $CODEX_CLI` — IDE/tool signals
 
 **If `shell.exec` is NOT available** (mobile/web platform), investigate from observable context:
+
 - What does the session-start output show for `platform_hint` and `surface_hint`?
 - Are there any other session metadata clues visible?
 - Note that from a cloud execution environment, many signals are unavailable — document this as a gap.
@@ -54,11 +56,13 @@ workaround:
 ## Step 4: Flag for future improvement
 
 If a new reliable signal is found:
+
 - State exactly which lines in `ops/capability-probe.sh` would change
 - Note which `CLAUDE_CODE_ENTRYPOINT` value (or other var) was observed
 - Confirm this should be filed as a probe improvement
 
 If no signal is found:
+
 - State this clearly: the mobile browser vs desktop browser distinction is not detectable from within the remote shell
 - Recommend the `CLAUDE_SURFACE` workaround
 - Recommend opening an issue if this gap affects workflow

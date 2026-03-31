@@ -7,6 +7,7 @@ Quick decision framework:
 **<25% available**: Use subagents aggressively
 
 **When to use subagents**:
+
 - Task is independent (research, analysis)
 - Results can be summarized
 - Output likely <500 tokens

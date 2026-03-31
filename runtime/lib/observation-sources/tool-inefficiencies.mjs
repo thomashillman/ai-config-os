@@ -2,7 +2,7 @@
 // Reads ~/.claude/skill-analytics/inefficiencies.jsonl (tool errors and loop events)
 // Maps to observation format with source_type preserved in metadata
 
-import { readFileSync } from 'node:fs';
+import { readFileSync } from "node:fs";
 
 /**
  * Read tool inefficiencies from inefficiencies.jsonl
@@ -17,8 +17,8 @@ export async function readToolInefficiencies({ filePath } = {}) {
   const observations = [];
 
   try {
-    const content = readFileSync(path, 'utf8');
-    const lines = content.split('\n').filter((line) => line.trim().length > 0);
+    const content = readFileSync(path, "utf8");
+    const lines = content.split("\n").filter((line) => line.trim().length > 0);
 
     for (const line of lines) {
       try {
@@ -28,15 +28,15 @@ export async function readToolInefficiencies({ filePath } = {}) {
           type: event.type,
           tool_name: event.tool,
           metadata: {
-            source_type: 'tool_inefficiencies',
+            source_type: "tool_inefficiencies",
             session_id: event.session_id,
           },
         };
 
         // Add type-specific metadata
-        if (event.type === 'tool_error') {
+        if (event.type === "tool_error") {
           observation.metadata.snippet = event.snippet;
-        } else if (event.type === 'loop_suspected') {
+        } else if (event.type === "loop_suspected") {
           observation.metadata.call_count = event.call_count;
         }
 

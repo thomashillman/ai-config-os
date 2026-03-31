@@ -100,6 +100,7 @@ git diff --name-only HEAD~1
 ```
 
 Look for files matching `*client*`, `*api*`, `*fetch*`, `*contracts*`. Read the identified file and extract:
+
 - **Exported function names** (e.g. `fetchAnalyticsToolUsage`)
 - **URL paths** built inside each function (e.g. `/v1/analytics/tool-usage`)
 - **Response handling** — does it return raw JSON, unwrap `.data`, return a wrapped envelope?
@@ -114,6 +115,7 @@ grep -r "from.*<module-name>" src/ --include="*.jsx" --include="*.tsx" --include
 ```
 
 For each component, note:
+
 - Imported function names used
 - Props at the export signature (e.g. `{ workerUrl, token }` vs `{ api }`)
 - Response envelope unpacking (e.g. `envelope.data`, `payload?.data ?? payload`)
@@ -127,6 +129,7 @@ grep -r "fetch\|vi\.fn\|spyOn\|mockImplementation" src/__tests__/ --include="*.j
 ```
 
 For each test file, extract:
+
 - URL strings/patterns in mock dispatch logic (`url.includes(...)`)
 - JSON shape returned by each mock branch (`json: () => Promise.resolve({...})`)
 - Component render calls and props passed (`render(<Component prop=... />)`)
@@ -184,6 +187,7 @@ If no mismatches found: "No drift detected — test mocks align with current abs
 **Input:** "The dashboard was refactored to use workerContractsClient — check for test drift"
 
 **Output:**
+
 ```
 [URL] src/__tests__/AnalyticsTab.test.jsx:15
   Current:  url.includes("/contracts/analytics.friction_signals")
@@ -209,6 +213,7 @@ Drift summary: 3 mismatches across 1 test file
 **Input:** "I added a new endpoint to the API client — are the tests still aligned?"
 
 **Output:**
+
 ```
 No drift detected — test mocks align with current abstraction contract.
 New endpoint fetchAuditHistory is not yet exercised by any component or test.

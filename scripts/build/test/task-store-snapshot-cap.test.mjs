@@ -8,29 +8,29 @@
  * RED: snapshots grow unbounded → length assertion fails
  * GREEN: cap applied after each push → length bounded
  */
-import { test, describe } from 'node:test';
-import assert from 'node:assert/strict';
-import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { test, describe } from "node:test";
+import assert from "node:assert/strict";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, '../../..');
+const ROOT = resolve(__dirname, "../../..");
 
 const { safeImport } = await import(
-  new URL('../lib/windows-safe-import.mjs', import.meta.url).href
+  new URL("../lib/windows-safe-import.mjs", import.meta.url).href
 );
 
 // Minimal valid portableTaskObject (matches schema v1.0.0)
 function minimalTask(overrides = {}) {
   return {
-    schema_version: '1.0.0',
+    schema_version: "1.0.0",
     task_id: `test-task-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    task_type: 'review_repository',
-    goal: 'Test snapshot cap',
-    state: 'active',
-    current_route: 'local_repo',
+    task_type: "review_repository",
+    goal: "Test snapshot cap",
+    state: "active",
+    current_route: "local_repo",
     version: 1,
-    next_action: 'analyse',
+    next_action: "analyse",
     updated_at: new Date().toISOString(),
     progress: {
       completed_steps: 0,
@@ -44,9 +44,12 @@ function minimalTask(overrides = {}) {
   };
 }
 
-describe('task-store snapshot cap', () => {
-  test('snapshots are bounded after many update() calls', async () => {
-    const { TaskStore } = await safeImport('../../../runtime/lib/task-store.mjs', import.meta.url);
+describe("task-store snapshot cap", () => {
+  test("snapshots are bounded after many update() calls", async () => {
+    const { TaskStore } = await safeImport(
+      "../../../runtime/lib/task-store.mjs",
+      import.meta.url,
+    );
 
     const store = new TaskStore();
     const task = store.create(minimalTask());
@@ -67,12 +70,15 @@ describe('task-store snapshot cap', () => {
     // Must not retain all 61 snapshots (create + 60 updates)
     assert.ok(
       snapshots.length <= 50,
-      `Expected ≤50 snapshots after ${MUTATION_COUNT} mutations, got ${snapshots.length}`
+      `Expected ≤50 snapshots after ${MUTATION_COUNT} mutations, got ${snapshots.length}`,
     );
   });
 
-  test('snapshot cap preserves most recent entry', async () => {
-    const { TaskStore } = await safeImport('../../../runtime/lib/task-store.mjs', import.meta.url);
+  test("snapshot cap preserves most recent entry", async () => {
+    const { TaskStore } = await safeImport(
+      "../../../runtime/lib/task-store.mjs",
+      import.meta.url,
+    );
 
     const store = new TaskStore();
     const task = store.create(minimalTask());
@@ -80,7 +86,7 @@ describe('task-store snapshot cap', () => {
 
     // Apply 60 updates, recording the final timestamp
     let current = task;
-    let lastTimestamp = '';
+    let lastTimestamp = "";
     for (let i = 0; i < 60; i++) {
       lastTimestamp = new Date(Date.now() + i * 1000).toISOString();
       current = store.update(taskId, {
@@ -96,7 +102,7 @@ describe('task-store snapshot cap', () => {
     assert.equal(
       lastSnapshot.task.updated_at,
       lastTimestamp,
-      'Last snapshot should reflect the most recent mutation'
+      "Last snapshot should reflect the most recent mutation",
     );
   });
 });
@@ -106,13 +112,17 @@ describe('task-store snapshot cap', () => {
 // Wall-clock benchmarks are NOT asserted here — CI runners are too variable.
 // To run the timing benchmark locally: RUN_PERF_TESTS=1 npm test
 
-describe('task-store clone correctness', () => {
-  test('structuredClone produces a deep independent copy', () => {
+describe("task-store clone correctness", () => {
+  test("structuredClone produces a deep independent copy", () => {
     const original = {
-      schema_version: '1.0.0',
-      task_id: 'clone-test',
+      schema_version: "1.0.0",
+      task_id: "clone-test",
       findings: [
-        { finding_id: 'f1', type: 'observation', provenance: { status: 'hypothesis' } },
+        {
+          finding_id: "f1",
+          type: "observation",
+          provenance: { status: "hypothesis" },
+        },
       ],
     };
 
@@ -122,25 +132,32 @@ describe('task-store clone correctness', () => {
     assert.deepEqual(copy, original);
 
     // Mutating the copy must not affect the original
-    copy.findings[0].provenance.status = 'invalidated';
-    assert.equal(original.findings[0].provenance.status, 'hypothesis',
-      'structuredClone must produce an independent deep copy');
+    copy.findings[0].provenance.status = "invalidated";
+    assert.equal(
+      original.findings[0].provenance.status,
+      "hypothesis",
+      "structuredClone must produce an independent deep copy",
+    );
   });
 
-  test('structuredClone benchmark (skipped in CI unless RUN_PERF_TESTS=1)', (t) => {
+  test("structuredClone benchmark (skipped in CI unless RUN_PERF_TESTS=1)", (t) => {
     if (!process.env.RUN_PERF_TESTS) {
-      t.skip('set RUN_PERF_TESTS=1 to run timing benchmark');
+      t.skip("set RUN_PERF_TESTS=1 to run timing benchmark");
       return;
     }
 
     const largeObj = {
-      schema_version: '1.0.0',
-      task_id: 'perf-test',
+      schema_version: "1.0.0",
+      task_id: "perf-test",
       findings: Array.from({ length: 200 }, (_, i) => ({
         finding_id: `f${i}`,
-        type: 'observation',
-        summary: 'x'.repeat(500),
-        provenance: { status: 'hypothesis', recorded_by_route: 'local_repo', recorded_at: new Date().toISOString() },
+        type: "observation",
+        summary: "x".repeat(500),
+        provenance: {
+          status: "hypothesis",
+          recorded_by_route: "local_repo",
+          recorded_at: new Date().toISOString(),
+        },
       })),
     };
 
@@ -152,7 +169,9 @@ describe('task-store clone correctness', () => {
     const elapsed = performance.now() - start;
 
     // Loose guard: only fails if something has gone catastrophically wrong
-    assert.ok(elapsed < 5000,
-      `structuredClone: ${ITERATIONS} clones took ${elapsed.toFixed(1)}ms (expected <5000ms)`);
+    assert.ok(
+      elapsed < 5000,
+      `structuredClone: ${ITERATIONS} clones took ${elapsed.toFixed(1)}ms (expected <5000ms)`,
+    );
   });
 });

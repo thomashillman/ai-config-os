@@ -15,8 +15,8 @@
  * A weekly cron via cleanupExpiredRetrospectives provides belt-and-suspenders R2 cleanup.
  */
 
-import type { RetrospectiveArtifact } from './schema';
-import { sanitizeRecord } from '../observability/sanitize';
+import type { RetrospectiveArtifact } from "./schema";
+import { sanitizeRecord } from "../observability/sanitize";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,7 +32,11 @@ export interface RetroMeta {
   /** Deduplicated signal types for filtering without R2 access. */
   signal_types: string[];
   /** Compact recommendation data for aggregate queries without R2 access. */
-  recommendations_compact: Array<{ name: string; category: string; priority: string }>;
+  recommendations_compact: Array<{
+    name: string;
+    category: string;
+    priority: string;
+  }>;
 }
 
 /** Aggregated view across all recent retrospectives for skill-signal discovery. */
@@ -58,13 +62,22 @@ export interface WriteRetroResult {
 
 type KvStore = {
   get(key: string): Promise<string | null> | string | null;
-  put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>;
+  put(
+    key: string,
+    value: string,
+    options?: { expirationTtl?: number },
+  ): Promise<void>;
   delete(key: string): Promise<void>;
 };
 
 type R2Bucket = {
   put(key: string, value: string): Promise<void>;
-  get(key: string): Promise<{ text(): Promise<string> } | null> | { text(): Promise<string> } | null;
+  get(
+    key: string,
+  ):
+    | Promise<{ text(): Promise<string> } | null>
+    | { text(): Promise<string> }
+    | null;
   delete(key: string): Promise<void>;
 };
 
@@ -85,7 +98,7 @@ export function artifactMetaKvKey(id: string): string {
   return `retrospective:${id}:meta`;
 }
 
-export const RETRO_INDEX_KV_KEY = 'retrospective:index';
+export const RETRO_INDEX_KV_KEY = "retrospective:index";
 
 // ── ID derivation ─────────────────────────────────────────────────────────────
 
@@ -97,21 +110,29 @@ export const RETRO_INDEX_KV_KEY = 'retrospective:index';
  *   "42", "2026-03-23T10:00:00Z" → "2026-03-23-42"
  *   "feat/my-branch", "2026-03-23T..."  → "2026-03-23-feat-my-branch"
  */
-export function deriveRetrospectiveId(prRef: string, generatedAt: string): string {
+export function deriveRetrospectiveId(
+  prRef: string,
+  generatedAt: string,
+): string {
   const date = generatedAt.slice(0, 10); // 'YYYY-MM-DD'
   const normalized = prRef
     .toLowerCase()
-    .replace(/[^a-z0-9-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
   return `${date}-${normalized}`;
 }
 
 // ── Meta builder ──────────────────────────────────────────────────────────────
 
-function buildRetroMeta(id: string, artifact: RetrospectiveArtifact): RetroMeta {
-  const signalTypes = [...new Set(artifact.friction_signals.map(s => s.type))];
-  const recommendationsCompact = artifact.skill_recommendations.map(r => ({
+function buildRetroMeta(
+  id: string,
+  artifact: RetrospectiveArtifact,
+): RetroMeta {
+  const signalTypes = [
+    ...new Set(artifact.friction_signals.map((s) => s.type)),
+  ];
+  const recommendationsCompact = artifact.skill_recommendations.map((r) => ({
     name: r.name,
     category: r.category,
     priority: r.priority,
@@ -154,7 +175,9 @@ export async function writeRetrospectiveArtifact(
 
   // Write enriched meta to KV with 60-day TTL
   const meta = buildRetroMeta(id, sanitized);
-  await kv.put(metaKey, JSON.stringify(meta), { expirationTtl: RETENTION_TTL_SECONDS });
+  await kv.put(metaKey, JSON.stringify(meta), {
+    expirationTtl: RETENTION_TTL_SECONDS,
+  });
 
   // Update index (prepend, deduplicate, cap at MAX_INDEX_SIZE)
   await updateRetroIndex(kv, id);
@@ -173,7 +196,10 @@ async function updateRetroIndex(kv: KvStore, id: string): Promise<void> {
       index = [];
     }
   }
-  index = [id, ...index.filter(existing => existing !== id)].slice(0, MAX_INDEX_SIZE);
+  index = [id, ...index.filter((existing) => existing !== id)].slice(
+    0,
+    MAX_INDEX_SIZE,
+  );
   await kv.put(RETRO_INDEX_KV_KEY, JSON.stringify(index));
 }
 
@@ -214,7 +240,11 @@ export async function listRetrospectives(
     if (!metaRaw) {
       // KV TTL expired — clean up R2 object too
       staleIds.push(id);
-      try { await r2.delete(artifactR2Key(id)); } catch { /* best-effort */ }
+      try {
+        await r2.delete(artifactR2Key(id));
+      } catch {
+        /* best-effort */
+      }
       continue;
     }
     try {
@@ -228,7 +258,7 @@ export async function listRetrospectives(
   // Prune stale entries from index
   if (staleIds.length > 0) {
     const staleSet = new Set(staleIds);
-    const pruned = index.filter(id => !staleSet.has(id));
+    const pruned = index.filter((id) => !staleSet.has(id));
     await kv.put(RETRO_INDEX_KV_KEY, JSON.stringify(pruned));
   }
 
@@ -269,7 +299,14 @@ export async function aggregateRetrospectives(
   const metas = await listRetrospectives(kv, r2, limit);
 
   const signalBreakdown: Record<string, number> = {};
-  const recMap: Map<string, { category: string; occurrences: number; priority_distribution: Record<string, number> }> = new Map();
+  const recMap: Map<
+    string,
+    {
+      category: string;
+      occurrences: number;
+      priority_distribution: Record<string, number>;
+    }
+  > = new Map();
 
   for (const meta of metas) {
     for (const signalType of meta.signal_types) {
@@ -279,7 +316,8 @@ export async function aggregateRetrospectives(
       const existing = recMap.get(rec.name);
       if (existing) {
         existing.occurrences += 1;
-        existing.priority_distribution[rec.priority] = (existing.priority_distribution[rec.priority] ?? 0) + 1;
+        existing.priority_distribution[rec.priority] =
+          (existing.priority_distribution[rec.priority] ?? 0) + 1;
       } else {
         recMap.set(rec.name, {
           category: rec.category,

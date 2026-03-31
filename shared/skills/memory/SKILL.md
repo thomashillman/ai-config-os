@@ -8,15 +8,15 @@ status: "stable"
 inputs:
   - name: "action"
     type: "string"
-    description: "\"read\" (fetch context), \"update\" (add/modify), or \"summarize\" (periodic refresh)"
+    description: '"read" (fetch context), "update" (add/modify), or "summarize" (periodic refresh)'
     required: true
   - name: "content"
     type: "string"
-    description: "Context to store or update (for \"update\" action)"
+    description: 'Context to store or update (for "update" action)'
     required: false
   - name: "key"
     type: "string"
-    description: "Namespace within memory (e.g., \"architecture\", \"known-bugs\", \"team-conventions\")"
+    description: 'Namespace within memory (e.g., "architecture", "known-bugs", "team-conventions")'
     required: false
 outputs:
   - name: "memory_content"
@@ -31,7 +31,7 @@ dependencies:
   models:
     - "sonnet"
 examples:
-  - input: "read action, key=\"architecture\""
+  - input: 'read action, key="architecture"'
     output: "Fetches prior architectural decisions from .memory/<project>.md"
     expected_model: "sonnet"
 variants:
@@ -51,13 +51,13 @@ variants:
 tests:
   - id: "test-read-memory"
     type: "prompt-validation"
-    input: "read action for \"architecture\" key"
+    input: 'read action for "architecture" key'
     expected_substring: "memory"
     models_to_test:
       - "sonnet"
   - id: "test-update-memory"
     type: "prompt-validation"
-    input: "update action to store \"Known issue: race condition in async module\""
+    input: 'update action to store "Known issue: race condition in async module"'
     expected_substring: "updated"
     models_to_test:
       - "sonnet"
@@ -119,8 +119,10 @@ The memory file uses simple markdown sections keyed by domain (e.g., `## Archite
 ## Examples
 
 ### Example 1: Load project context at session start
+
 **Input:** `action: read` (no key specified)
 **Output:**
+
 ```
 # Project Memory: my-api-service
 
@@ -141,16 +143,20 @@ The memory file uses simple markdown sections keyed by domain (e.g., `## Archite
 ```
 
 ### Example 2: Update memory after debugging
+
 **Input:** `action: update; key: "known-bugs"; content: "Fixed race condition in async module via mutex lock (Commit: abc123)"`
 **Output:**
+
 ```
 Updated memory at 2026-02-28T14:32:00Z
 Entry added to "Known Bugs" section
 ```
 
 ### Example 3: Load a specific section
+
 **Input:** `action: read; key: "architecture"`
 **Output:**
+
 ```
 ## Architecture
 - Database: PostgreSQL on RDS

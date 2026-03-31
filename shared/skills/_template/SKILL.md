@@ -8,16 +8,16 @@ description: |
   Additional context (one paragraph max).
 
 # Type & Status
-type: prompt  # or: hook, agent, workflow-blueprint
-status: stable  # or: experimental, deprecated
+type: prompt # or: hook, agent, workflow-blueprint
+status: stable # or: experimental, deprecated
 
 # Capability Contract
 # Declare the MINIMUM capabilities this skill needs to be useful.
 # Do not list a capability as required if the skill can work from pasted input.
 capabilities:
-  required: []          # Capabilities the skill cannot function without
-  optional: []          # Capabilities that improve fidelity but aren't essential
-  fallback_mode: prompt-only  # none | manual | prompt-only
+  required: [] # Capabilities the skill cannot function without
+  optional: [] # Capabilities that improve fidelity but aren't essential
+  fallback_mode: prompt-only # none | manual | prompt-only
   fallback_notes: This skill can operate from pasted input when local tools are unavailable.
 
 # Platform Overrides (optional — only add if needed)
@@ -44,24 +44,24 @@ outputs:
 dependencies:
   skills:
     - name: dependency-skill
-      version: "^1.0"  # semver; means >= 1.0, < 2.0
+      version: "^1.0" # semver; means >= 1.0, < 2.0
       optional: false
   apis:
-    - external-api-name  # Name of external API if any
+    - external-api-name # Name of external API if any
   models:
-    - opus  # Required model capability (or sonnet/haiku)
+    - opus # Required model capability (or sonnet/haiku)
 
 examples:
   - input: "Example user input"
     output: "Example output from skill"
-    expected_model: sonnet  # Hint for variant testing
+    expected_model: sonnet # Hint for variant testing
 
 # Feature 2: Multi-Model Variants
 variants:
   opus:
     prompt_file: prompts/detailed.md
     description: Longer, more nuanced responses for complex topics
-    cost_factor: 3.0  # Relative to baseline (Sonnet)
+    cost_factor: 3.0 # Relative to baseline (Sonnet)
     latency_baseline_ms: 800
 
   sonnet:
@@ -79,12 +79,12 @@ variants:
   fallback_chain:
     - opus
     - sonnet
-    - haiku  # If all else fails, use Haiku
+    - haiku # If all else fails, use Haiku
 
 # Feature 3: Skill Testing
 tests:
   - id: test-basic
-    type: prompt-validation  # or: structure-check, integration, performance
+    type: prompt-validation # or: structure-check, integration, performance
     input: "Example input to test"
     expected_substring: "expected text"
     max_latency_ms: 1000
@@ -94,7 +94,7 @@ tests:
 
   - id: test-edge-case
     type: prompt-validation
-    input: ""  # Test edge case
+    input: "" # Test edge case
     expected_not_null: true
 
 # Feature 4: Skill Composition (Optional)
@@ -132,10 +132,10 @@ monitoring:
     - cost
     - variant_selected
   alert_threshold_latency_ms: 2000
-  public_metrics: false  # Include in shared analytics
+  public_metrics: false # Include in shared analytics
 
 # Versioning
-version: "1.0.0"  # semver for skill definition
+version: "1.0.0" # semver for skill definition
 changelog:
   "1.0.0": "Initial release"
 
@@ -171,9 +171,11 @@ The actual instructions Claude should follow when this skill is invoked.
 ## Examples
 
 ### Example 1
+
 **Input:** Example user input
 **Output:** Example output from skill
 
 ### Example 2
+
 **Input:** Another example
 **Output:** Another example output

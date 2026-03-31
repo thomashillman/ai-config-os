@@ -1,10 +1,11 @@
-import { createCachedTaskRouteDefinitionsLoader } from './task-route-definition-loader.mjs';
-import { createCachedTaskRouteInputDefinitionsLoader } from './task-route-input-loader.mjs';
+import { createCachedTaskRouteDefinitionsLoader } from "./task-route-definition-loader.mjs";
+import { createCachedTaskRouteInputDefinitionsLoader } from "./task-route-input-loader.mjs";
 
-const TASK_TYPE = 'review_repository';
+const TASK_TYPE = "review_repository";
 
 const defaultRouteDefinitionsLoader = createCachedTaskRouteDefinitionsLoader();
-const defaultRouteInputDefinitionsLoader = createCachedTaskRouteInputDefinitionsLoader();
+const defaultRouteInputDefinitionsLoader =
+  createCachedTaskRouteInputDefinitionsLoader();
 
 let routeDefinitionsLoader = defaultRouteDefinitionsLoader;
 let routeInputDefinitionsLoader = defaultRouteInputDefinitionsLoader;
@@ -14,15 +15,19 @@ export function setReviewRepositoryRouteRuntimeLoaders({
   routeInputDefinitionsLoader: nextRouteInputDefinitionsLoader,
 } = {}) {
   if (nextRouteDefinitionsLoader !== undefined) {
-    if (typeof nextRouteDefinitionsLoader !== 'function') {
-      throw new TypeError('setReviewRepositoryRouteRuntimeLoaders requires routeDefinitionsLoader function');
+    if (typeof nextRouteDefinitionsLoader !== "function") {
+      throw new TypeError(
+        "setReviewRepositoryRouteRuntimeLoaders requires routeDefinitionsLoader function",
+      );
     }
     routeDefinitionsLoader = nextRouteDefinitionsLoader;
   }
 
   if (nextRouteInputDefinitionsLoader !== undefined) {
-    if (typeof nextRouteInputDefinitionsLoader !== 'function') {
-      throw new TypeError('setReviewRepositoryRouteRuntimeLoaders requires routeInputDefinitionsLoader function');
+    if (typeof nextRouteInputDefinitionsLoader !== "function") {
+      throw new TypeError(
+        "setReviewRepositoryRouteRuntimeLoaders requires routeInputDefinitionsLoader function",
+      );
     }
     routeInputDefinitionsLoader = nextRouteInputDefinitionsLoader;
   }
@@ -45,8 +50,10 @@ function getTaskDefinition() {
 function getRouteInputMap() {
   const inputDefinitions = routeInputDefinitionsLoader();
   const routeMap = inputDefinitions.taskTypes?.[TASK_TYPE]?.routes;
-  if (!routeMap || typeof routeMap !== 'object') {
-    throw new Error(`Task type '${TASK_TYPE}' is missing route input definitions`);
+  if (!routeMap || typeof routeMap !== "object") {
+    throw new Error(
+      `Task type '${TASK_TYPE}' is missing route input definitions`,
+    );
   }
   return routeMap;
 }
@@ -61,7 +68,9 @@ export function getReviewRepositoryRoutes() {
 
 export function getRequiredInputsForReviewRepositoryRoute(routeId) {
   if (!routeId) {
-    throw new Error('getRequiredInputsForReviewRepositoryRoute requires routeId');
+    throw new Error(
+      "getRequiredInputsForReviewRepositoryRoute requires routeId",
+    );
   }
 
   if (!hasCanonicalRoute(routeId)) {
@@ -70,7 +79,9 @@ export function getRequiredInputsForReviewRepositoryRoute(routeId) {
 
   const routeInputs = getRouteInputMap()[routeId];
   if (!routeInputs) {
-    throw new Error(`Task type '${TASK_TYPE}' is missing required input definition for route '${routeId}'`);
+    throw new Error(
+      `Task type '${TASK_TYPE}' is missing required input definition for route '${routeId}'`,
+    );
   }
 
   return [...routeInputs.required_inputs];
@@ -78,22 +89,26 @@ export function getRequiredInputsForReviewRepositoryRoute(routeId) {
 
 export function validateReviewRepositoryRouteInputs({ routeId, inputs } = {}) {
   if (!routeId) {
-    throw new Error('validateReviewRepositoryRouteInputs requires routeId');
+    throw new Error("validateReviewRepositoryRouteInputs requires routeId");
   }
-  if (!inputs || typeof inputs !== 'object' || Array.isArray(inputs)) {
-    throw new Error('validateReviewRepositoryRouteInputs requires inputs object');
+  if (!inputs || typeof inputs !== "object" || Array.isArray(inputs)) {
+    throw new Error(
+      "validateReviewRepositoryRouteInputs requires inputs object",
+    );
   }
 
   const requiredInputs = getRequiredInputsForReviewRepositoryRoute(routeId);
   const missing = requiredInputs.filter((field) => {
     const value = inputs[field];
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       return value.trim().length === 0;
     }
     return value === undefined || value === null;
   });
 
   if (missing.length > 0) {
-    throw new Error(`review_repository route '${routeId}' missing required inputs: ${missing.join(', ')}`);
+    throw new Error(
+      `review_repository route '${routeId}' missing required inputs: ${missing.join(", ")}`,
+    );
   }
 }

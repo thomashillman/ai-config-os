@@ -109,31 +109,39 @@ When a new issue arrives and you need quick classification before assignment.
 ## Examples
 
 ### Example 1: Bug report
+
 **Input:**
+
 ```
 Title: "Login fails every 5th attempt"
 Description: "When I try to log in, it works 1-4 times, then fails on the 5th attempt. Session timeout error. Works again after page refresh."
 ```
+
 **Output:**
+
 ```
 SEVERITY: HIGH (intermittent auth failure)
 LABELS: bug, needs-investigation, auth
 COMPONENT: Session manager, token refresh logic
 ACTION: Check for off-by-one in session rotation, race conditions in token refresh
 DRAFT RESPONSE:
-"Thanks for reporting! This intermittent pattern suggests a session rotation bug. 
+"Thanks for reporting! This intermittent pattern suggests a session rotation bug.
 I'll investigate the token refresh logic. Can you confirm:
 1. Are you using the same browser/device?
 2. Does it happen consistently on 5th attempt or random?"
 ```
 
 ### Example 2: Feature request
+
 **Input:**
+
 ```
 Title: "Support for bulk user import"
 Description: "Currently can only add users one at a time. Need to import CSV for 500+ users."
 ```
+
 **Output:**
+
 ```
 SEVERITY: MEDIUM (enhancement for enterprise users)
 LABELS: enhancement, bulk-operations, feature-request

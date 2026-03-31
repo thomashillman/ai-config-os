@@ -1,6 +1,7 @@
 ---
 skill: "debug"
-description: "Structured debugging for symptoms, error messages, and stack traces.
+description:
+  "Structured debugging for symptoms, error messages, and stack traces.
 
   Use when diagnosing unexpected behavior, errors, or test failures.\n"
 type: "prompt"
@@ -148,9 +149,11 @@ Follow this 5-step debugging loop:
 ## Examples
 
 ### Syntax error debugging
+
 **Input:** `SyntaxError: unexpected EOF while parsing at line 42 in app.py`
 **Output:** Diagnosis: function definition missing colon. Root cause: incomplete refactoring left a function header without a body. Fix: add colon and proper indentation. Regression test: add unit test for that function.
 
 ### Logic bug debugging
+
 **Input:** Unit test failing: "Expected 5 items in result, got 0. Function runs without error."
 **Output:** Diagnosis: filter condition too restrictive. Root cause: condition was changed during refactor and now filters out all items. Fix: adjust condition or provide sample data that matches. Regression test: add parameterized test with edge case data.

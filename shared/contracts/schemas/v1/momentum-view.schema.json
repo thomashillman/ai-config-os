@@ -4,7 +4,15 @@
   "title": "MomentumView",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "task_id", "work_title", "progress_summary", "top_findings", "current_strength", "best_next_action"],
+  "required": [
+    "schema_version",
+    "task_id",
+    "work_title",
+    "progress_summary",
+    "top_findings",
+    "current_strength",
+    "best_next_action"
+  ],
   "properties": {
     "schema_version": { "const": "1.0.0" },
     "task_id": { "type": "string", "minLength": 1 },

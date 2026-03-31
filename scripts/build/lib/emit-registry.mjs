@@ -2,8 +2,8 @@
  * emit-registry.mjs
  * Emits dist/registry/index.json — the canonical skill manifest.
  */
-import { mkdirSync, writeFileSync } from 'fs';
-import { join, dirname } from 'path';
+import { mkdirSync, writeFileSync } from "fs";
+import { join, dirname } from "path";
 
 /**
  * @param {object[]} skills - All parsed skills
@@ -15,8 +15,12 @@ import { join, dirname } from 'path';
  * @param {Map<string, Map<string, object>>} [opts.compatMatrix] - Compatibility matrix
  * @param {Map<string, object>} [opts.platformDefs] - Full platform definitions from YAML
  */
-export function emitRegistry(skills, platforms, { distDir, releaseVersion, provenance, compatMatrix, platformDefs }) {
-  const indexPath = join(distDir, 'registry', 'index.json');
+export function emitRegistry(
+  skills,
+  platforms,
+  { distDir, releaseVersion, provenance, compatMatrix, platformDefs },
+) {
+  const indexPath = join(distDir, "registry", "index.json");
   mkdirSync(dirname(indexPath), { recursive: true });
 
   // Build platform_definitions block from loaded YAML definitions.
@@ -27,8 +31,8 @@ export function emitRegistry(skills, platforms, { distDir, releaseVersion, prove
       platform_definitions[id] = {
         id: def.id,
         name: def.name || id,
-        surface: def.surface || 'unknown',
-        default_package: def.default_package || 'api',
+        surface: def.surface || "unknown",
+        default_package: def.default_package || "api",
         capabilities: def.capabilities || {},
         ...(def.notes ? { notes: def.notes } : {}),
       };
@@ -40,19 +44,21 @@ export function emitRegistry(skills, platforms, { distDir, releaseVersion, prove
     // Provenance: consistent with emit-claude-code.mjs — all three fields in release mode
     ...(provenance?.builtAt ? { built_at: provenance.builtAt } : {}),
     ...(provenance?.buildId ? { build_id: provenance.buildId } : {}),
-    ...(provenance?.sourceCommit ? { source_commit: provenance.sourceCommit } : {}),
+    ...(provenance?.sourceCommit
+      ? { source_commit: provenance.sourceCommit }
+      : {}),
     skill_count: skills.length,
     platform_count: platforms.length,
     platforms,
     platform_definitions,
-    skills: skills.map(s => {
+    skills: skills.map((s) => {
       const caps = s.frontmatter.capabilities || {};
       const entry = {
         id: s.skillName,
-        version: s.frontmatter.version || '1.0.0',
-        description: s.frontmatter.description || '',
-        type: s.frontmatter.type || 'prompt',
-        status: s.frontmatter.status || 'stable',
+        version: s.frontmatter.version || "1.0.0",
+        description: s.frontmatter.description || "",
+        type: s.frontmatter.type || "prompt",
+        status: s.frontmatter.status || "stable",
         invocation: s.frontmatter.invocation || null,
         tags: s.frontmatter.tags || [],
         capabilities: {
@@ -64,7 +70,9 @@ export function emitRegistry(skills, platforms, { distDir, releaseVersion, prove
         dependencies: {
           runtime: s.frontmatter.dependencies?.runtime || [],
           optional: s.frontmatter.dependencies?.optional || [],
-          skills: (s.frontmatter.dependencies?.skills || []).map(d => d.name || d),
+          skills: (s.frontmatter.dependencies?.skills || []).map(
+            (d) => d.name || d,
+          ),
           models: s.frontmatter.dependencies?.models || [],
         },
       };
@@ -89,8 +97,10 @@ export function emitRegistry(skills, platforms, { distDir, releaseVersion, prove
     }),
   };
 
-  writeFileSync(indexPath, JSON.stringify(index, null, 2) + '\n');
-  console.log(`  [registry] index.json → ${indexPath} (${skills.length} skills, ${platforms.length} platforms)`);
+  writeFileSync(indexPath, JSON.stringify(index, null, 2) + "\n");
+  console.log(
+    `  [registry] index.json → ${indexPath} (${skills.length} skills, ${platforms.length} platforms)`,
+  );
 }
 
 /**
@@ -106,7 +116,7 @@ export function emitRegistry(skills, platforms, { distDir, releaseVersion, prove
  * @param {string} opts.releaseVersion
  */
 export function emitSummary(skills, platforms, { distDir, releaseVersion }) {
-  const summaryPath = join(distDir, 'registry', 'summary.json');
+  const summaryPath = join(distDir, "registry", "summary.json");
   mkdirSync(dirname(summaryPath), { recursive: true });
 
   const summary = {
@@ -114,22 +124,24 @@ export function emitSummary(skills, platforms, { distDir, releaseVersion }) {
     skill_count: skills.length,
     platform_count: platforms.length,
     platforms,
-    skills: skills.map(s => {
+    skills: skills.map((s) => {
       const caps = s.frontmatter.capabilities || {};
       return {
-        id:          s.skillName,
-        description: s.frontmatter.description || '',
-        type:        s.frontmatter.type || 'prompt',
-        status:      s.frontmatter.status || 'stable',
+        id: s.skillName,
+        description: s.frontmatter.description || "",
+        type: s.frontmatter.type || "prompt",
+        status: s.frontmatter.status || "stable",
         capabilities: {
-          required:      caps.required      || [],
-          optional:      caps.optional      || [],
+          required: caps.required || [],
+          optional: caps.optional || [],
           fallback_mode: caps.fallback_mode || null,
         },
       };
     }),
   };
 
-  writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + '\n');
-  console.log(`  [registry] summary.json → ${summaryPath} (${skills.length} skills)`);
+  writeFileSync(summaryPath, JSON.stringify(summary, null, 2) + "\n");
+  console.log(
+    `  [registry] summary.json → ${summaryPath} (${skills.length} skills)`,
+  );
 }

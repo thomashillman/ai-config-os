@@ -1,1 +1,1 @@
-export { validateWorkerProxyResponse } from './worker-proxy.mjs';
+export { validateWorkerProxyResponse } from "./worker-proxy.mjs";

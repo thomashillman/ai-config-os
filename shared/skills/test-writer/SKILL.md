@@ -1,6 +1,7 @@
 ---
 skill: "test-writer"
-description: "Generate comprehensive unit and integration tests from function/module code.
+description:
+  "Generate comprehensive unit and integration tests from function/module code.
 
   Complements code-review and debug skills to complete the code quality toolkit.\n"
 type: "prompt"
@@ -12,11 +13,11 @@ inputs:
     required: true
   - name: "test_type"
     type: "string"
-    description: "\"unit\" (isolated), \"integration\" (with dependencies), or \"both\""
+    description: '"unit" (isolated), "integration" (with dependencies), or "both"'
     required: false
   - name: "framework"
     type: "string"
-    description: "\"jest\", \"mocha\", \"pytest\", \"go test\", etc. (inferred if omitted)"
+    description: '"jest", "mocha", "pytest", "go test", etc. (inferred if omitted)'
     required: false
 outputs:
   - name: "test_code"
@@ -124,39 +125,44 @@ After writing or reviewing code, use this to generate tests. Pair with `code-rev
 ## Examples
 
 ### Example 1: Simple utility function
+
 **Input:**
+
 ```javascript
 function capitalize(str) {
-  if (!str) return '';
+  if (!str) return "";
   return str[0].toUpperCase() + str.slice(1);
 }
 ```
+
 **Output:**
+
 ```javascript
-describe('capitalize', () => {
-  it('capitalizes first letter', () => {
-    expect(capitalize('hello')).toBe('Hello');
+describe("capitalize", () => {
+  it("capitalizes first letter", () => {
+    expect(capitalize("hello")).toBe("Hello");
   });
 
-  it('handles empty string', () => {
-    expect(capitalize('')).toBe('');
+  it("handles empty string", () => {
+    expect(capitalize("")).toBe("");
   });
 
-  it('handles single character', () => {
-    expect(capitalize('a')).toBe('A');
+  it("handles single character", () => {
+    expect(capitalize("a")).toBe("A");
   });
 
-  it('handles already capitalized', () => {
-    expect(capitalize('Hello')).toBe('Hello');
+  it("handles already capitalized", () => {
+    expect(capitalize("Hello")).toBe("Hello");
   });
 
-  it('handles null/undefined', () => {
-    expect(capitalize(null)).toBe('');
-    expect(capitalize(undefined)).toBe('');
+  it("handles null/undefined", () => {
+    expect(capitalize(null)).toBe("");
+    expect(capitalize(undefined)).toBe("");
   });
 });
 ```
 
 ### Example 2: API endpoint (integration)
+
 **Input:** Express middleware function with database calls
 **Output:** Jest test suite with mocked database, request/response objects, error cases

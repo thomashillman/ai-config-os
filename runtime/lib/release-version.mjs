@@ -2,12 +2,15 @@
 // Consumed by runtime/mcp/server.js so the MCP server's advertised version
 // always matches the build system's authoritative source.
 // This helper validates the version using the same rules as the build path.
-import { readFileSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { readReleaseVersion, validateReleaseVersion } from '../../scripts/build/lib/versioning.mjs';
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  readReleaseVersion,
+  validateReleaseVersion,
+} from "../../scripts/build/lib/versioning.mjs";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /**
  * Get the release version from a specific root directory.

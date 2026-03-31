@@ -4,9 +4,9 @@
  * Helpers for creating temporary repository structures for testing.
  * Reusable utilities to avoid duplication across test files.
  */
-import { mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, symlinkSync, rmSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { tmpdir } from "node:os";
 
 /**
  * Create a minimal temporary repository structure for testing the compiler.
@@ -20,33 +20,45 @@ import { tmpdir } from 'node:os';
  * @returns {{ repoPath: string, cleanup: () => void }}
  */
 export function createTempRepo(opts = {}) {
-  const repoPath = join(tmpdir(), `test-repo-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const repoPath = join(
+    tmpdir(),
+    `test-repo-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
 
   mkdirSync(repoPath, { recursive: true });
 
   // Create VERSION file
-  const version = opts.version || '0.1.0';
-  writeFileSync(join(repoPath, 'VERSION'), version);
+  const version = opts.version || "0.1.0";
+  writeFileSync(join(repoPath, "VERSION"), version);
 
   // Create package.json
   const packageJson = {
-    name: 'test-repo',
+    name: "test-repo",
     version,
     ...opts.packageJson,
   };
-  writeFileSync(join(repoPath, 'package.json'), JSON.stringify(packageJson, null, 2));
+  writeFileSync(
+    join(repoPath, "package.json"),
+    JSON.stringify(packageJson, null, 2),
+  );
 
   // Create plugin.json
-  const pluginJsonPath = join(repoPath, 'plugins', 'core-skills', '.claude-plugin', 'plugin.json');
+  const pluginJsonPath = join(
+    repoPath,
+    "plugins",
+    "core-skills",
+    ".claude-plugin",
+    "plugin.json",
+  );
   mkdirSync(dirname(pluginJsonPath), { recursive: true });
   const pluginJson = {
-    name: 'core-skills',
+    name: "core-skills",
     version,
   };
   writeFileSync(pluginJsonPath, JSON.stringify(pluginJson, null, 2));
 
   // Create skills directory structure
-  const skillsDir = join(repoPath, 'shared', 'skills');
+  const skillsDir = join(repoPath, "shared", "skills");
   mkdirSync(skillsDir, { recursive: true });
 
   if (opts.skills) {
@@ -55,13 +67,16 @@ export function createTempRepo(opts = {}) {
       mkdirSync(skillDir, { recursive: true });
 
       // Write SKILL.md
-      const skillMd = skillContent.skillMd || skillContent.frontmatter || '---\nskill: test\n---\nTest skill';
-      writeFileSync(join(skillDir, 'SKILL.md'), skillMd);
+      const skillMd =
+        skillContent.skillMd ||
+        skillContent.frontmatter ||
+        "---\nskill: test\n---\nTest skill";
+      writeFileSync(join(skillDir, "SKILL.md"), skillMd);
     }
   }
 
   // Create platforms directory
-  const platformsDir = join(repoPath, 'shared', 'targets', 'platforms');
+  const platformsDir = join(repoPath, "shared", "targets", "platforms");
   mkdirSync(platformsDir, { recursive: true });
 
   if (opts.platforms) {
@@ -71,39 +86,39 @@ export function createTempRepo(opts = {}) {
   }
 
   // Create schemas
-  const schemasDir = join(repoPath, 'schemas');
+  const schemasDir = join(repoPath, "schemas");
   mkdirSync(schemasDir, { recursive: true });
 
   // Minimal skill schema
   writeFileSync(
-    join(schemasDir, 'skill.schema.json'),
+    join(schemasDir, "skill.schema.json"),
     JSON.stringify({
-      $schema: 'http://json-schema.org/draft-07/schema#',
-      title: 'Skill Package',
-      type: 'object',
+      $schema: "http://json-schema.org/draft-07/schema#",
+      title: "Skill Package",
+      type: "object",
       properties: {
-        skill: { type: 'string' },
-        description: { type: 'string' },
-        version: { type: 'string' },
+        skill: { type: "string" },
+        description: { type: "string" },
+        version: { type: "string" },
       },
-      required: ['skill'],
-    })
+      required: ["skill"],
+    }),
   );
 
   // Minimal platform schema
   writeFileSync(
-    join(schemasDir, 'platform.schema.json'),
+    join(schemasDir, "platform.schema.json"),
     JSON.stringify({
-      $schema: 'http://json-schema.org/draft-07/schema#',
-      title: 'Platform Definition',
-      type: 'object',
+      $schema: "http://json-schema.org/draft-07/schema#",
+      title: "Platform Definition",
+      type: "object",
       properties: {
-        id: { type: 'string' },
-        default_package: { type: 'string' },
-        capabilities: { type: 'object' },
+        id: { type: "string" },
+        default_package: { type: "string" },
+        capabilities: { type: "object" },
       },
-      required: ['id'],
-    })
+      required: ["id"],
+    }),
   );
 
   return {
@@ -126,10 +141,10 @@ export function createTempRepo(opts = {}) {
  */
 export function createSkillMd(opts = {}) {
   const {
-    skill = 'test-skill',
-    description = 'Test skill',
-    version = '1.0.0',
-    body = 'Test body',
+    skill = "test-skill",
+    description = "Test skill",
+    version = "1.0.0",
+    body = "Test body",
     ...frontmatterRest
   } = opts;
 
@@ -142,12 +157,12 @@ export function createSkillMd(opts = {}) {
 
   const frontmatterStr = Object.entries(frontmatter)
     .map(([key, val]) => {
-      if (typeof val === 'string') {
+      if (typeof val === "string") {
         return `${key}: ${val}`;
       }
       return `${key}: ${JSON.stringify(val)}`;
     })
-    .join('\n');
+    .join("\n");
 
   return `---\n${frontmatterStr}\n---\n\n${body}`;
 }
@@ -160,18 +175,18 @@ export function createSkillMd(opts = {}) {
  */
 export function createPlatformYaml(opts = {}) {
   const {
-    id = 'test-platform',
-    default_package = 'test',
+    id = "test-platform",
+    default_package = "test",
     capabilities = {},
   } = opts;
 
   let yaml = `id: ${id}\ndefault_package: ${default_package}\n`;
 
   if (Object.keys(capabilities).length > 0) {
-    yaml += 'capabilities:\n';
+    yaml += "capabilities:\n";
     for (const [cap, state] of Object.entries(capabilities)) {
       yaml += `  ${cap}:\n`;
-      yaml += `    status: ${state.status || 'supported'}\n`;
+      yaml += `    status: ${state.status || "supported"}\n`;
       if (state.evidence_date) {
         yaml += `    evidence_date: ${state.evidence_date}\n`;
       }

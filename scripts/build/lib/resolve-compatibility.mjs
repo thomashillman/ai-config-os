@@ -41,17 +41,17 @@
 export function resolveSkillPlatform(skillFrontmatter, platform) {
   const caps = skillFrontmatter.capabilities || {};
   const required = Array.isArray(caps.required) ? caps.required : [];
-  const fallbackMode = caps.fallback_mode || 'none';
+  const fallbackMode = caps.fallback_mode || "none";
   const override = (skillFrontmatter.platforms || {})[platform.id] || {};
 
   // Check if skill explicitly excludes this platform
-  if (override.mode === 'excluded') {
+  if (override.mode === "excluded") {
     return {
-      status: 'excluded',
-      mode: 'excluded',
+      status: "excluded",
+      mode: "excluded",
       package: override.package || platform.default_package,
       emit: false,
-      notes: override.notes || 'Explicitly excluded by skill override.',
+      notes: override.notes || "Explicitly excluded by skill override.",
     };
   }
 
@@ -61,11 +61,11 @@ export function resolveSkillPlatform(skillFrontmatter, platform) {
 
   for (const cap of required) {
     const state = platform.capabilities?.[cap];
-    const status = state?.status || 'unknown';
+    const status = state?.status || "unknown";
 
-    if (status === 'unsupported') {
+    if (status === "unsupported") {
       unsupported.push(cap);
-    } else if (status === 'unknown') {
+    } else if (status === "unknown") {
       unknown.push(cap);
     }
   }
@@ -73,36 +73,36 @@ export function resolveSkillPlatform(skillFrontmatter, platform) {
   // Determine base status
   let status;
   if (unsupported.length > 0) {
-    status = 'excluded';
+    status = "excluded";
   } else if (unknown.length > 0) {
-    status = 'unverified';
+    status = "unverified";
   } else {
-    status = 'supported';
+    status = "supported";
   }
 
   // Determine mode
   let mode;
-  if (status === 'excluded') {
-    mode = 'excluded';
+  if (status === "excluded") {
+    mode = "excluded";
   } else if (override.mode) {
     mode = override.mode;
-  } else if (status === 'unverified') {
+  } else if (status === "unverified") {
     // Default to degraded for unverified if skill can degrade
-    mode = fallbackMode !== 'none' ? 'degraded' : 'native';
+    mode = fallbackMode !== "none" ? "degraded" : "native";
   } else {
-    mode = 'native';
+    mode = "native";
   }
 
   // Validate degraded mode
-  if (mode === 'degraded' && fallbackMode === 'none') {
-    mode = 'native'; // Can't degrade if no fallback
+  if (mode === "degraded" && fallbackMode === "none") {
+    mode = "native"; // Can't degrade if no fallback
   }
 
   // Determine emission
   let emit;
-  if (status === 'excluded') {
+  if (status === "excluded") {
     emit = false;
-  } else if (status === 'unverified') {
+  } else if (status === "unverified") {
     emit = override.allow_unverified === true;
   } else {
     emit = true;
@@ -112,12 +112,13 @@ export function resolveSkillPlatform(skillFrontmatter, platform) {
   const pkg = override.package || platform.default_package;
 
   // Build notes
-  let notes = override.notes || '';
+  let notes = override.notes || "";
   if (unsupported.length > 0) {
-    notes = `Excluded: unsupported capabilities [${unsupported.join(', ')}]. ${notes}`.trim();
+    notes =
+      `Excluded: unsupported capabilities [${unsupported.join(", ")}]. ${notes}`.trim();
   }
   if (unknown.length > 0 && !notes) {
-    notes = `Unverified: unknown capabilities [${unknown.join(', ')}].`;
+    notes = `Unverified: unknown capabilities [${unknown.join(", ")}].`;
   }
 
   return {
@@ -143,11 +144,11 @@ export function resolveSkillPlatform(skillFrontmatter, platform) {
 function buildCacheKey(frontmatter, platformId) {
   const caps = frontmatter.capabilities || {};
   const required = Array.isArray(caps.required)
-    ? [...caps.required].sort().join(',')
-    : '';
-  const fallbackMode = caps.fallback_mode || 'none';
+    ? [...caps.required].sort().join(",")
+    : "";
+  const fallbackMode = caps.fallback_mode || "none";
   const override = (frontmatter.platforms || {})[platformId];
-  const overrideStr = override ? JSON.stringify(override) : '';
+  const overrideStr = override ? JSON.stringify(override) : "";
   return `${required}|${fallbackMode}|${platformId}|${overrideStr}`;
 }
 
@@ -190,7 +191,11 @@ export function resolveAll(skills, platforms) {
  * @param {Set<string>} knownCapabilityIds - Known capability IDs from schema
  * @returns {{errors: string[]}}
  */
-export function validateOutcomeCompatibility(outcomes, routes, knownCapabilityIds) {
+export function validateOutcomeCompatibility(
+  outcomes,
+  routes,
+  knownCapabilityIds,
+) {
   const errors = [];
   const invalidRoutes = new Set();
 
@@ -200,37 +205,48 @@ export function validateOutcomeCompatibility(outcomes, routes, knownCapabilityId
       errors.push(`${fieldLabel} must be an array`);
       return [];
     }
-    return value.filter(item => typeof item === 'string');
+    return value.filter((item) => typeof item === "string");
   };
 
   for (const [routeId, route] of routes) {
-    const routeCapabilities = getStringArray(route.capabilities, `route '${routeId}'.capabilities`);
+    const routeCapabilities = getStringArray(
+      route.capabilities,
+      `route '${routeId}'.capabilities`,
+    );
     const unknownRouteCapabilities = routeCapabilities.filter(
-      capabilityId => !knownCapabilityIds.has(capabilityId)
+      (capabilityId) => !knownCapabilityIds.has(capabilityId),
     );
 
     if (unknownRouteCapabilities.length > 0) {
       invalidRoutes.add(routeId);
-      errors.push(`route '${routeId}' references unknown capabilities: ${unknownRouteCapabilities.join(', ')}`);
+      errors.push(
+        `route '${routeId}' references unknown capabilities: ${unknownRouteCapabilities.join(", ")}`,
+      );
     }
   }
 
   for (const [outcomeId, outcome] of outcomes) {
-    const outcomeCapabilities = getStringArray(outcome.capabilities, `outcome '${outcomeId}'.capabilities`);
+    const outcomeCapabilities = getStringArray(
+      outcome.capabilities,
+      `outcome '${outcomeId}'.capabilities`,
+    );
     const unknownOutcomeCapabilities = outcomeCapabilities.filter(
-      capabilityId => !knownCapabilityIds.has(capabilityId)
+      (capabilityId) => !knownCapabilityIds.has(capabilityId),
     );
 
     if (unknownOutcomeCapabilities.length > 0) {
       errors.push(
-        `outcome '${outcomeId}' references unknown capabilities: ${unknownOutcomeCapabilities.join(', ')}`
+        `outcome '${outcomeId}' references unknown capabilities: ${unknownOutcomeCapabilities.join(", ")}`,
       );
     }
 
     const unknownRoutes = [];
     let resolvableRouteCount = 0;
 
-    const outcomeRoutes = getStringArray(outcome.routes, `outcome '${outcomeId}'.routes`);
+    const outcomeRoutes = getStringArray(
+      outcome.routes,
+      `outcome '${outcomeId}'.routes`,
+    );
 
     for (const routeId of outcomeRoutes) {
       const route = routes.get(routeId);
@@ -247,12 +263,14 @@ export function validateOutcomeCompatibility(outcomes, routes, knownCapabilityId
     }
 
     if (unknownRoutes.length > 0) {
-      errors.push(`outcome '${outcomeId}' references unknown routes: ${unknownRoutes.join(', ')}`);
+      errors.push(
+        `outcome '${outcomeId}' references unknown routes: ${unknownRoutes.join(", ")}`,
+      );
     }
 
     if (resolvableRouteCount === 0) {
       errors.push(
-        `outcome '${outcomeId}' has no resolvable route set (all routes are unknown or invalid)`
+        `outcome '${outcomeId}' has no resolvable route set (all routes are unknown or invalid)`,
       );
     }
   }

@@ -1,6 +1,7 @@
 ---
 skill: "review-pr"
-description: "Review incoming pull requests for correctness, breaking changes, test coverage, security.
+description:
+  "Review incoming pull requests for correctness, breaking changes, test coverage, security.
 
   Different from pr-description (which generates PR summaries); this reviews incoming PRs.\n"
 type: "prompt"
@@ -12,11 +13,11 @@ inputs:
     required: true
   - name: "focus_areas"
     type: "string"
-    description: "\"breaking-changes\", \"security\", \"test-coverage\", \"api-design\", \"all\""
+    description: '"breaking-changes", "security", "test-coverage", "api-design", "all"'
     required: false
   - name: "severity"
     type: "string"
-    description: "\"thorough\" (detailed) or \"quick\" (critical issues only)"
+    description: '"thorough" (detailed) or "quick" (critical issues only)'
     required: false
 outputs:
   - name: "review_feedback"
@@ -124,8 +125,10 @@ When you need a structured code review of an incoming PR before approval. Can be
 ## Examples
 
 ### Example 1: API endpoint PR
+
 **Input:** Diff showing new POST /users endpoint
 **Output:**
+
 ```
 BREAKING CHANGES:
 - None detected

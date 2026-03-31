@@ -7,13 +7,13 @@ function clone(value) {
 }
 
 function assertNonEmptyString(name, value) {
-  if (typeof value !== 'string' || value.trim().length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${name} is required`);
   }
 }
 
 function isPlainObject(value) {
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return false;
   }
 
@@ -24,8 +24,8 @@ function isPlainObject(value) {
 export class ProgressEventConflictError extends Error {
   constructor(message, details = {}) {
     super(message);
-    this.name = 'ProgressEventConflictError';
-    this.code = 'progress_event_conflict';
+    this.name = "ProgressEventConflictError";
+    this.code = "progress_event_conflict";
     this.details = details;
   }
 }
@@ -38,19 +38,19 @@ export function createProgressEvent({
   createdAt = new Date().toISOString(),
   metadata,
 } = {}) {
-  assertNonEmptyString('taskId', taskId);
-  assertNonEmptyString('eventId', eventId);
-  assertNonEmptyString('type', type);
-  assertNonEmptyString('message', message);
-  assertNonEmptyString('createdAt', createdAt);
+  assertNonEmptyString("taskId", taskId);
+  assertNonEmptyString("eventId", eventId);
+  assertNonEmptyString("type", type);
+  assertNonEmptyString("message", message);
+  assertNonEmptyString("createdAt", createdAt);
 
   if (metadata !== undefined && !isPlainObject(metadata)) {
-    throw new Error('metadata must be a plain object when provided');
+    throw new Error("metadata must be a plain object when provided");
   }
 
   // Worker-safe: skip Ajv validation; data safely constructed
   const payload = {
-    schema_version: '1.0.0',
+    schema_version: "1.0.0",
     task_id: taskId,
     event_id: eventId,
     type,
@@ -87,7 +87,7 @@ export class ProgressEventStore {
   }
 
   listByTaskId(taskId) {
-    assertNonEmptyString('taskId', taskId);
+    assertNonEmptyString("taskId", taskId);
     const events = this.eventsByTask.get(taskId) || [];
     return clone(events);
   }

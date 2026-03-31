@@ -1,6 +1,7 @@
 # Sonnet variant: Autoresearch optimisation loop
 
 **STOP before running experiments.** Confirm all five inputs with the user:
+
 1. Target skill path (exact path to SKILL.md)
 2. Test inputs (3-5 varied prompts covering different use cases)
 3. Eval criteria (3-6 binary yes/no checks -- see references/eval-guide.md)
@@ -15,12 +16,14 @@ process steps, and output format before changing anything.
 ## Step 2: Build the eval suite
 
 Convert each eval criterion into:
+
 ```
 EVAL [N]: [Name]
 Question: [Yes/no question]
 Pass: [Specific observable "yes"]
 Fail: [Specific observable "no"]
 ```
+
 Rules: binary only; 3-6 evals; specific enough to be consistent; not so narrow the
 skill games it. `max_score = evals x runs`.
 

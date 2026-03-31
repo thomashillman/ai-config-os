@@ -1,38 +1,52 @@
-import { validateContract } from '../../shared/contracts/validate.mjs';
+import { validateContract } from "../../shared/contracts/validate.mjs";
 import {
   resolveTaskRoute,
   resolveTaskRouteFromRuntime as defaultResolveTaskRouteFromRuntime,
-} from './task-route-resolver.mjs';
-import { createCachedTaskRouteInputDefinitionsLoader } from './task-route-input-loader.mjs';
-import { getUpgradeExplanation } from './upgrade-explanations.mjs';
+} from "./task-route-resolver.mjs";
+import { createCachedTaskRouteInputDefinitionsLoader } from "./task-route-input-loader.mjs";
+import { getUpgradeExplanation } from "./upgrade-explanations.mjs";
 
-const defaultRouteInputDefinitionsLoader = createCachedTaskRouteInputDefinitionsLoader();
+const defaultRouteInputDefinitionsLoader =
+  createCachedTaskRouteInputDefinitionsLoader();
 
-function resolveRequiredInputs({ taskType, routeId, routeInputDefinitionsLoader }) {
+function resolveRequiredInputs({
+  taskType,
+  routeId,
+  routeInputDefinitionsLoader,
+}) {
   const definitions = routeInputDefinitionsLoader();
   const taskRouteInputs = definitions?.taskTypes?.[taskType]?.routes;
   const requiredInputs = taskRouteInputs?.[routeId]?.required_inputs;
   if (!Array.isArray(requiredInputs)) {
-    throw new Error(`No required input definition for task '${taskType}' route '${routeId}'`);
+    throw new Error(
+      `No required input definition for task '${taskType}' route '${routeId}'`,
+    );
   }
   return [...requiredInputs];
 }
 
 function validateResolutionShape(resolution, contextLabel) {
-  if (!resolution || typeof resolution !== 'object') {
+  if (!resolution || typeof resolution !== "object") {
     throw new Error(`${contextLabel} returned invalid resolution object`);
   }
-  if (!resolution.selected_route || typeof resolution.selected_route !== 'object') {
-    throw new Error(`${contextLabel} returned resolution without selected_route`);
+  if (
+    !resolution.selected_route ||
+    typeof resolution.selected_route !== "object"
+  ) {
+    throw new Error(
+      `${contextLabel} returned resolution without selected_route`,
+    );
   }
 }
 
 function buildStrongerHostGuidance({ selectedRoute, candidates }) {
-  if (selectedRoute.equivalence_level === 'equal') {
+  if (selectedRoute.equivalence_level === "equal") {
     return undefined;
   }
 
-  const strongerCandidate = candidates.find((candidate) => candidate.equivalence_level === 'equal');
+  const strongerCandidate = candidates.find(
+    (candidate) => candidate.equivalence_level === "equal",
+  );
   if (!strongerCandidate) {
     return undefined;
   }
@@ -42,20 +56,25 @@ function buildStrongerHostGuidance({ selectedRoute, candidates }) {
     return `Prefer '${strongerCandidate.route_id}' for stronger verification equivalence.`;
   }
 
-  return `Upgrade to route '${strongerCandidate.route_id}' when host supports: ${missingCapabilities.join(', ')}.`;
+  return `Upgrade to route '${strongerCandidate.route_id}' when host supports: ${missingCapabilities.join(", ")}.`;
 }
 
 function buildUpgradeExplanation({ selectedRoute, candidates }) {
-  if (selectedRoute.equivalence_level === 'equal') {
+  if (selectedRoute.equivalence_level === "equal") {
     return undefined;
   }
 
-  const strongerCandidate = candidates.find((candidate) => candidate.equivalence_level === 'equal');
+  const strongerCandidate = candidates.find(
+    (candidate) => candidate.equivalence_level === "equal",
+  );
   if (!strongerCandidate) {
     return undefined;
   }
 
-  const explanation = getUpgradeExplanation(selectedRoute.route_id, strongerCandidate.route_id);
+  const explanation = getUpgradeExplanation(
+    selectedRoute.route_id,
+    strongerCandidate.route_id,
+  );
   if (!explanation) return undefined;
 
   return { ...explanation, stronger_route_id: strongerCandidate.route_id };
@@ -68,11 +87,13 @@ export function buildEffectiveExecutionContract({
   computedAt = new Date().toISOString(),
   routeInputDefinitionsLoader = defaultRouteInputDefinitionsLoader,
 } = {}) {
-  if (!taskId) throw new Error('buildEffectiveExecutionContract requires taskId');
-  if (!taskType) throw new Error('buildEffectiveExecutionContract requires taskType');
+  if (!taskId)
+    throw new Error("buildEffectiveExecutionContract requires taskId");
+  if (!taskType)
+    throw new Error("buildEffectiveExecutionContract requires taskType");
 
   const resolution = resolveTaskRoute({ taskType, capabilityProfile });
-  validateResolutionShape(resolution, 'resolveTaskRoute');
+  validateResolutionShape(resolution, "resolveTaskRoute");
   const selectedRoute = resolution.selected_route;
   const requiredInputs = resolveRequiredInputs({
     taskType,
@@ -89,7 +110,7 @@ export function buildEffectiveExecutionContract({
   });
 
   const contract = {
-    schema_version: '1.0.0',
+    schema_version: "1.0.0",
     task_id: taskId,
     task_type: taskType,
     selected_route: selectedRoute,
@@ -106,7 +127,7 @@ export function buildEffectiveExecutionContract({
     contract.upgrade_explanation = upgradeExplanation;
   }
 
-  return validateContract('effectiveExecutionContract', contract);
+  return validateContract("effectiveExecutionContract", contract);
 }
 
 export async function buildEffectiveExecutionContractFromRuntime({
@@ -116,11 +137,17 @@ export async function buildEffectiveExecutionContractFromRuntime({
   routeInputDefinitionsLoader = defaultRouteInputDefinitionsLoader,
   resolveTaskRouteFromRuntime = defaultResolveTaskRouteFromRuntime,
 } = {}) {
-  if (!taskId) throw new Error('buildEffectiveExecutionContractFromRuntime requires taskId');
-  if (!taskType) throw new Error('buildEffectiveExecutionContractFromRuntime requires taskType');
+  if (!taskId)
+    throw new Error(
+      "buildEffectiveExecutionContractFromRuntime requires taskId",
+    );
+  if (!taskType)
+    throw new Error(
+      "buildEffectiveExecutionContractFromRuntime requires taskType",
+    );
 
   const resolution = await resolveTaskRouteFromRuntime({ taskType });
-  validateResolutionShape(resolution, 'resolveTaskRouteFromRuntime');
+  validateResolutionShape(resolution, "resolveTaskRouteFromRuntime");
   const selectedRoute = resolution.selected_route;
   const requiredInputs = resolveRequiredInputs({
     taskType,
@@ -138,7 +165,7 @@ export async function buildEffectiveExecutionContractFromRuntime({
   });
 
   const contract = {
-    schema_version: '1.0.0',
+    schema_version: "1.0.0",
     task_id: taskId,
     task_type: taskType,
     selected_route: selectedRoute,
@@ -155,5 +182,5 @@ export async function buildEffectiveExecutionContractFromRuntime({
     contract.upgrade_explanation = upgradeExplanation;
   }
 
-  return validateContract('effectiveExecutionContract', contract);
+  return validateContract("effectiveExecutionContract", contract);
 }

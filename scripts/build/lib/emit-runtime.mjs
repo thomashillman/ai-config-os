@@ -2,9 +2,9 @@
  * emit-runtime.mjs
  * Emits runtime metadata documents consumed by automation and tooling.
  */
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'fs';
-import { createHash } from 'crypto';
-import { join } from 'path';
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "fs";
+import { createHash } from "crypto";
+import { join } from "path";
 
 /**
  * @typedef {object} Manifest
@@ -35,20 +35,28 @@ import { join } from 'path';
 export function emitRuntime(
   skills,
   platforms,
-  { distDir, releaseVersion, provenance, taskRouteDefinitions, taskRouteInputDefinitions }
+  {
+    distDir,
+    releaseVersion,
+    provenance,
+    taskRouteDefinitions,
+    taskRouteInputDefinitions,
+  },
 ) {
-  const runtimeDir = join(distDir, 'runtime');
+  const runtimeDir = join(distDir, "runtime");
   mkdirSync(runtimeDir, { recursive: true });
 
-  const sortedSkills = [...skills].sort((a, b) => a.skillName.localeCompare(b.skillName));
+  const sortedSkills = [...skills].sort((a, b) =>
+    a.skillName.localeCompare(b.skillName),
+  );
 
   const outcomesDoc = {
     version: releaseVersion,
-    skills: sortedSkills.map(skill => ({
+    skills: sortedSkills.map((skill) => ({
       id: skill.skillName,
       outcomes: [...(skill.frontmatter.outputs || [])]
         .sort((a, b) => a.name.localeCompare(b.name))
-        .map(output => ({
+        .map((output) => ({
           name: output.name,
           type: output.type,
           description: output.description,
@@ -65,7 +73,9 @@ export function emitRuntime(
       });
     }
   }
-  routes.sort((a, b) => a.route.localeCompare(b.route) || a.skill.localeCompare(b.skill));
+  routes.sort(
+    (a, b) => a.route.localeCompare(b.route) || a.skill.localeCompare(b.skill),
+  );
 
   const routesDoc = {
     version: releaseVersion,
@@ -74,13 +84,21 @@ export function emitRuntime(
 
   const toolRegistryDoc = {
     version: releaseVersion,
-    tools: sortedSkills.map(skill => ({
+    tools: sortedSkills.map((skill) => ({
       id: skill.skillName,
-      description: skill.frontmatter.description || '',
-      runtime: [...(skill.frontmatter.dependencies?.runtime || [])].sort((a, b) => a.localeCompare(b)),
-      optional: [...(skill.frontmatter.dependencies?.optional || [])].sort((a, b) => a.localeCompare(b)),
-      models: [...(skill.frontmatter.dependencies?.models || [])].sort((a, b) => a.localeCompare(b)),
-      platforms: Object.keys(skill.frontmatter.platforms || {}).sort((a, b) => a.localeCompare(b)),
+      description: skill.frontmatter.description || "",
+      runtime: [...(skill.frontmatter.dependencies?.runtime || [])].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+      optional: [...(skill.frontmatter.dependencies?.optional || [])].sort(
+        (a, b) => a.localeCompare(b),
+      ),
+      models: [...(skill.frontmatter.dependencies?.models || [])].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+      platforms: Object.keys(skill.frontmatter.platforms || {}).sort((a, b) =>
+        a.localeCompare(b),
+      ),
     })),
   };
 
@@ -94,12 +112,18 @@ export function emitRuntime(
     task_types: cloneJsonObject(taskRouteInputDefinitions),
   };
 
-  const manifestPath = join(runtimeDir, 'manifest.json');
-  const outcomesPath = join(runtimeDir, 'outcomes.json');
-  const routesPath = join(runtimeDir, 'routes.json');
-  const toolRegistryPath = join(runtimeDir, 'tool-registry.json');
-  const taskRouteDefinitionsPath = join(runtimeDir, 'task-route-definitions.json');
-  const taskRouteInputDefinitionsPath = join(runtimeDir, 'task-route-input-definitions.json');
+  const manifestPath = join(runtimeDir, "manifest.json");
+  const outcomesPath = join(runtimeDir, "outcomes.json");
+  const routesPath = join(runtimeDir, "routes.json");
+  const toolRegistryPath = join(runtimeDir, "tool-registry.json");
+  const taskRouteDefinitionsPath = join(
+    runtimeDir,
+    "task-route-definitions.json",
+  );
+  const taskRouteInputDefinitionsPath = join(
+    runtimeDir,
+    "task-route-input-definitions.json",
+  );
 
   writeJson(outcomesPath, outcomesDoc);
   writeJson(routesPath, routesDoc);
@@ -108,23 +132,25 @@ export function emitRuntime(
   writeJson(taskRouteInputDefinitionsPath, taskRouteInputDefinitionsDoc);
 
   const documents = {
-    manifest: 'runtime/manifest.json',
-    outcomes: 'runtime/outcomes.json',
-    routes: 'runtime/routes.json',
-    toolRegistry: 'runtime/tool-registry.json',
-    taskRouteDefinitions: 'runtime/task-route-definitions.json',
-    taskRouteInputDefinitions: 'runtime/task-route-input-definitions.json',
+    manifest: "runtime/manifest.json",
+    outcomes: "runtime/outcomes.json",
+    routes: "runtime/routes.json",
+    toolRegistry: "runtime/tool-registry.json",
+    taskRouteDefinitions: "runtime/task-route-definitions.json",
+    taskRouteInputDefinitions: "runtime/task-route-input-definitions.json",
   };
 
   const bundles = [
-    'registry/index.json',
-    'registry/summary.json',
-    'clients/claude-code/.claude-plugin/plugin.json',
-    'clients/cursor/.emit-meta.json',
-  ].filter(path => existsSync(join(distDir, path))).sort((a, b) => a.localeCompare(b));
+    "registry/index.json",
+    "registry/summary.json",
+    "clients/claude-code/.claude-plugin/plugin.json",
+    "clients/cursor/.emit-meta.json",
+  ]
+    .filter((path) => existsSync(join(distDir, path)))
+    .sort((a, b) => a.localeCompare(b));
 
   const hashTargets = [
-    ...Object.values(documents).filter(path => path !== documents.manifest),
+    ...Object.values(documents).filter((path) => path !== documents.manifest),
     ...bundles,
   ].sort((a, b) => a.localeCompare(b));
 
@@ -142,15 +168,20 @@ export function emitRuntime(
     documents,
     bundles,
     artifactHashes,
-    artifactHashAlgorithm: 'sha256',
-    artifactHashScope: 'file',
+    artifactHashAlgorithm: "sha256",
+    artifactHashScope: "file",
     ...(provenance?.builtAt ? { built_at: provenance.builtAt } : {}),
     ...(provenance?.buildId ? { build_id: provenance.buildId } : {}),
-    ...(provenance?.sourceCommit ? { source_commit: provenance.sourceCommit } : {}),
+    ...(provenance?.sourceCommit
+      ? { source_commit: provenance.sourceCommit }
+      : {}),
   };
 
-  manifestDoc.artifactHashScope = 'manifest-with-self-hash-redacted';
-  artifactHashes[documents.manifest] = hashManifestWithRedactedSelfHash(manifestDoc, documents.manifest);
+  manifestDoc.artifactHashScope = "manifest-with-self-hash-redacted";
+  artifactHashes[documents.manifest] = hashManifestWithRedactedSelfHash(
+    manifestDoc,
+    documents.manifest,
+  );
 
   writeJson(manifestPath, manifestDoc);
 
@@ -158,18 +189,22 @@ export function emitRuntime(
   console.log(`  [runtime] outcomes.json → ${outcomesPath}`);
   console.log(`  [runtime] routes.json → ${routesPath}`);
   console.log(`  [runtime] tool-registry.json → ${toolRegistryPath}`);
-  console.log(`  [runtime] task-route-definitions.json → ${taskRouteDefinitionsPath}`);
-  console.log(`  [runtime] task-route-input-definitions.json → ${taskRouteInputDefinitionsPath}`);
+  console.log(
+    `  [runtime] task-route-definitions.json → ${taskRouteDefinitionsPath}`,
+  );
+  console.log(
+    `  [runtime] task-route-input-definitions.json → ${taskRouteInputDefinitionsPath}`,
+  );
 }
 
 function writeJson(path, data) {
-  writeFileSync(path, JSON.stringify(data, null, 2) + '\n');
+  writeFileSync(path, JSON.stringify(data, null, 2) + "\n");
 }
 
 function hashFile(path) {
-  const hash = createHash('sha256');
+  const hash = createHash("sha256");
   hash.update(readFileSync(path));
-  return hash.digest('hex');
+  return hash.digest("hex");
 }
 
 function hashManifestWithRedactedSelfHash(manifestDoc, manifestPath) {
@@ -177,13 +212,13 @@ function hashManifestWithRedactedSelfHash(manifestDoc, manifestPath) {
     ...manifestDoc,
     artifactHashes: {
       ...manifestDoc.artifactHashes,
-      [manifestPath]: '',
+      [manifestPath]: "",
     },
   };
 
-  const hash = createHash('sha256');
-  hash.update(JSON.stringify(clone, null, 2) + '\n');
-  return hash.digest('hex');
+  const hash = createHash("sha256");
+  hash.update(JSON.stringify(clone, null, 2) + "\n");
+  return hash.digest("hex");
 }
 
 function cloneJsonObject(value) {

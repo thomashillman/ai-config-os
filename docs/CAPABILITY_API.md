@@ -3,6 +3,7 @@
 The capability discovery API exposes two lightweight endpoints on the Cloudflare Worker that allow any client — including browsers and mobile apps — to discover which skills are compatible with their runtime environment.
 
 All responses are:
+
 - **CORS-enabled** (works from any browser/iOS WebView)
 - **Immutably cached** (`Cache-Control: max-age=31536000, immutable`)
 - **ETag-bearing** (clients can use conditional requests)
@@ -30,9 +31,9 @@ parsing, no hardcoded tables.
 
 **Path parameters:**
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `platform` | Yes | Platform ID. One of: `claude-code`, `claude-web`, `claude-ios`, `cursor`, `codex` |
+| Parameter  | Required | Description                                                                       |
+| ---------- | -------- | --------------------------------------------------------------------------------- |
+| `platform` | Yes      | Platform ID. One of: `claude-code`, `claude-web`, `claude-ios`, `cursor`, `codex` |
 
 **Response (200):**
 
@@ -45,7 +46,15 @@ parsing, no hardcoded tables.
   "capabilities": {
     "supported": ["network.http", "ui.prompt-only"],
     "unsupported": ["shell.exec", "shell.long-running", "secrets.inject"],
-    "unknown": ["fs.read", "fs.write", "git.read", "git.write", "mcp.client", "env.read", "browser.fetch"]
+    "unknown": [
+      "fs.read",
+      "fs.write",
+      "git.read",
+      "git.write",
+      "mcp.client",
+      "env.read",
+      "browser.fetch"
+    ]
   },
   "capability_detail": {
     "network.http": {
@@ -61,9 +70,9 @@ parsing, no hardcoded tables.
 
 **Error responses:**
 
-| Status | Error code | Meaning |
-|--------|-----------|---------|
-| 404 | `INVALID_PLATFORM` | Unknown platform identifier |
+| Status | Error code         | Meaning                     |
+| ------ | ------------------ | --------------------------- |
+| 404    | `INVALID_PLATFORM` | Unknown platform identifier |
 
 ---
 
@@ -78,9 +87,9 @@ platform-specific status and notes without extra round trips.
 
 **Query parameters:**
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `caps` | Yes | Comma-separated capability IDs (e.g. `network.http,fs.read,shell.exec`) |
+| Parameter | Required | Description                                                             |
+| --------- | -------- | ----------------------------------------------------------------------- |
+| `caps`    | Yes      | Comma-separated capability IDs (e.g. `network.http,fs.read,shell.exec`) |
 
 **Capability ID format:** `word.word[.word]*` — all lowercase, dot-separated segments.
 
@@ -106,9 +115,21 @@ platform-specific status and notes without extra round trips.
         "fallback_mode": "prompt-only"
       },
       "compatibility": {
-        "claude-code": { "status": "supported", "mode": "native", "package": "skill" },
-        "claude-web":  { "status": "supported", "mode": "native", "package": "api" },
-        "claude-ios":  { "status": "supported", "mode": "native", "package": "api" }
+        "claude-code": {
+          "status": "supported",
+          "mode": "native",
+          "package": "skill"
+        },
+        "claude-web": {
+          "status": "supported",
+          "mode": "native",
+          "package": "api"
+        },
+        "claude-ios": {
+          "status": "supported",
+          "mode": "native",
+          "package": "api"
+        }
       }
     }
   ]
@@ -117,11 +138,11 @@ platform-specific status and notes without extra round trips.
 
 **Error responses:**
 
-| Status | Error code | Meaning |
-|--------|-----------|---------|
-| 400 | `MISSING_CAPS_PARAM` | `caps` query parameter not provided |
-| 400 | `EMPTY_CAPS_PARAM` | `caps` is empty after parsing |
-| 400 | `INVALID_CAPABILITY_FORMAT` | One or more capability IDs fail format check |
+| Status | Error code                  | Meaning                                      |
+| ------ | --------------------------- | -------------------------------------------- |
+| 400    | `MISSING_CAPS_PARAM`        | `caps` query parameter not provided          |
+| 400    | `EMPTY_CAPS_PARAM`          | `caps` is empty after parsing                |
+| 400    | `INVALID_CAPABILITY_FORMAT` | One or more capability IDs fail format check |
 
 ---
 
@@ -146,27 +167,33 @@ All error responses also include CORS headers.
 ## Common query patterns
 
 **All skills available on Claude Code Web:**
+
 ```
 GET /v1/skills/compatible?caps=network.http,ui.prompt-only
 ```
 
 **All skills available on iOS:**
+
 ```
 GET /v1/skills/compatible?caps=network.http
 ```
 
 **All skills requiring no capabilities (always compatible):**
+
 ```
 GET /v1/skills/compatible?caps=network.http
 ```
+
 _(skills with `required: []` are always included)_
 
 **Full CLI skill set:**
+
 ```
 GET /v1/skills/compatible?caps=fs.read,fs.write,shell.exec,git.read,git.write,network.http,mcp.client,env.read
 ```
 
 **Check a specific platform first, then filter:**
+
 ```
 # 1. Get platform profile
 GET /v1/capabilities/platform/claude-web
@@ -182,10 +209,10 @@ GET /v1/skills/compatible?caps=network.http,ui.prompt-only
 Both endpoints use `Cache-Control: public, max-age=31536000, immutable` and an `ETag`
 based on a stable cache key:
 
-| Endpoint | Cache key | Changes when |
-|----------|-----------|-------------|
-| `/v1/capabilities/platform/:platform` | Platform ID | Platform YAML definition changes (requires new deploy) |
-| `/v1/skills/compatible?caps=...` | `{manifest_version}:{sorted_caps}` | Manifest version bumped |
+| Endpoint                              | Cache key                          | Changes when                                           |
+| ------------------------------------- | ---------------------------------- | ------------------------------------------------------ |
+| `/v1/capabilities/platform/:platform` | Platform ID                        | Platform YAML definition changes (requires new deploy) |
+| `/v1/skills/compatible?caps=...`      | `{manifest_version}:{sorted_caps}` | Manifest version bumped                                |
 
 Clients should honour ETags for conditional requests to avoid re-downloading unchanged
 responses. The reference client (`adapters/claude/capabilities-client.mjs`) handles

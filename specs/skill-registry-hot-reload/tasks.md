@@ -171,5 +171,3 @@
     - `npm run -s verify`
   - Commit:
     - `chore(verification): confirm dashboard root gate enforcement`
-
-

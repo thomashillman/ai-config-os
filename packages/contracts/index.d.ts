@@ -1,4 +1,4 @@
-export const CONTRACT_VERSION: '1.0';
+export const CONTRACT_VERSION: "1.0";
 
 export interface ToolInvocationPayload {
   toolName: string;
@@ -46,13 +46,23 @@ export const signedExecutionRequestEnvelopeSchema: Record<string, unknown>;
 export const executionResultSchema: Record<string, unknown>;
 export const errorResponseSchema: Record<string, unknown>;
 
-export function validateToolInvocationPayload(value: unknown): value is ToolInvocationPayload;
-export function validateSignedExecutionRequestEnvelope(value: unknown): value is SignedExecutionRequestEnvelope;
-export function validateExecutionResult(value: unknown): value is ExecutionResult;
+export function validateToolInvocationPayload(
+  value: unknown,
+): value is ToolInvocationPayload;
+export function validateSignedExecutionRequestEnvelope(
+  value: unknown,
+): value is SignedExecutionRequestEnvelope;
+export function validateExecutionResult(
+  value: unknown,
+): value is ExecutionResult;
 export function validateErrorResponse(value: unknown): value is ErrorResponse;
 
-export function assertToolInvocationPayload(value: unknown): ToolInvocationPayload;
-export function assertSignedExecutionRequestEnvelope(value: unknown): SignedExecutionRequestEnvelope;
+export function assertToolInvocationPayload(
+  value: unknown,
+): ToolInvocationPayload;
+export function assertSignedExecutionRequestEnvelope(
+  value: unknown,
+): SignedExecutionRequestEnvelope;
 export function assertExecutionResult(value: unknown): ExecutionResult;
 export function assertErrorResponse(value: unknown): ErrorResponse;
 

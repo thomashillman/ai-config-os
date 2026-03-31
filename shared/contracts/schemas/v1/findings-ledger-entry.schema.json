@@ -9,8 +9,14 @@
     "schema_version": { "const": "1.0.0" },
     "finding_id": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
     "summary": { "type": "string", "minLength": 1 },
-    "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
     "provenance": { "$ref": "provenance-marker.schema.json" },
-    "verification_status": { "type": "string", "enum": ["unverified", "partially_verified", "verified", "ruled_out"] }
+    "verification_status": {
+      "type": "string",
+      "enum": ["unverified", "partially_verified", "verified", "ruled_out"]
+    }
   }
 }

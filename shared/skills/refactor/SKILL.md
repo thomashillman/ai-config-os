@@ -12,7 +12,7 @@ inputs:
     required: true
   - name: "goal"
     type: "string"
-    description: "\"simplify\", \"extract-method\", \"decompose\", \"reduce-duplication\", \"improve-readability\""
+    description: '"simplify", "extract-method", "decompose", "reduce-duplication", "improve-readability"'
     required: false
   - name: "constraints"
     type: "string"
@@ -131,46 +131,50 @@ When code is hard to read, has too many responsibilities, or violates DRY princi
 ## Examples
 
 ### Example 1: Extract method
+
 **Input:**
+
 ```javascript
 function processOrder(order) {
   // Validate
-  if (!order.items || order.items.length === 0) throw new Error('No items');
-  if (!order.customer) throw new Error('No customer');
-  
+  if (!order.items || order.items.length === 0) throw new Error("No items");
+  if (!order.customer) throw new Error("No customer");
+
   // Calculate
   let total = 0;
-  order.items.forEach(item => {
+  order.items.forEach((item) => {
     total += item.price * item.quantity;
   });
-  
+
   // Apply discount
   if (order.customer.isVIP) {
     total *= 0.9;
   }
-  
+
   // Save
-  db.saveOrder({...order, total});
+  db.saveOrder({ ...order, total });
   return total;
 }
 ```
+
 **Output:**
+
 ```javascript
 function processOrder(order) {
   validateOrder(order);
   const total = calculateTotal(order);
   applyDiscount(order.customer, total);
-  db.saveOrder({...order, total});
+  db.saveOrder({ ...order, total });
   return total;
 }
 
 function validateOrder(order) {
-  if (!order.items?.length) throw new Error('No items');
-  if (!order.customer) throw new Error('No customer');
+  if (!order.items?.length) throw new Error("No items");
+  if (!order.customer) throw new Error("No customer");
 }
 
 function calculateTotal(order) {
-  return order.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  return order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 }
 
 function applyDiscount(customer, total) {

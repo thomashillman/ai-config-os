@@ -7,8 +7,8 @@
  */
 
 export interface ToolInputMetadata {
-  skill?: string;      // For Skill tool invocations
-  name?: string;       // Alternative skill name field (fallback)
+  skill?: string; // For Skill tool invocations
+  name?: string; // Alternative skill name field (fallback)
   args?: string | Record<string, unknown>;
 }
 
@@ -18,36 +18,36 @@ export interface ToolResponseMetadata {
 }
 
 export interface PreToolUseEvent {
-  type: 'PreToolUse';
+  type: "PreToolUse";
   tool_name: string;
   file_path?: string;
   tool_input?: ToolInputMetadata;
   session_id: string;
-  timestamp: string;  // ISO 8601 format
+  timestamp: string; // ISO 8601 format
 }
 
 export interface PostToolUseEvent {
-  type: 'PostToolUse';
+  type: "PostToolUse";
   tool_name: string;
   file_path?: string;
   tool_input?: ToolInputMetadata;
   tool_response?: ToolResponseMetadata;
   session_id: string;
-  timestamp: string;  // ISO 8601 format
+  timestamp: string; // ISO 8601 format
 }
 
 export interface SessionStartEvent {
-  type: 'SessionStart';
+  type: "SessionStart";
   session_id: string;
   project_dir: string;
   home_dir: string;
-  timestamp: string;  // ISO 8601 format
+  timestamp: string; // ISO 8601 format
 }
 
 export type HookEvent = PreToolUseEvent | PostToolUseEvent | SessionStartEvent;
 
 export interface RuleResult {
-  decision: 'allow' | 'block';
+  decision: "allow" | "block";
   reason?: string;
   metadata?: Record<string, unknown>;
 }
@@ -57,42 +57,44 @@ export interface RuleResult {
  * Throws TypeError if validation fails.
  */
 export function validateHookEvent(event: unknown): HookEvent {
-  if (!event || typeof event !== 'object') {
-    throw new TypeError('Event must be a non-null object');
+  if (!event || typeof event !== "object") {
+    throw new TypeError("Event must be a non-null object");
   }
 
   const e = event as Record<string, unknown>;
   const type = e.type as string;
 
   // Check event type
-  if (!['PreToolUse', 'PostToolUse', 'SessionStart'].includes(type)) {
+  if (!["PreToolUse", "PostToolUse", "SessionStart"].includes(type)) {
     throw new TypeError(
-      `Invalid event type: "${type}". Must be PreToolUse, PostToolUse, or SessionStart.`
+      `Invalid event type: "${type}". Must be PreToolUse, PostToolUse, or SessionStart.`,
     );
   }
 
   // Check timestamp format (ISO 8601)
-  if (typeof e.timestamp !== 'string' || !isValidISO8601(e.timestamp)) {
+  if (typeof e.timestamp !== "string" || !isValidISO8601(e.timestamp)) {
     throw new TypeError(
-      `Event timestamp must be ISO 8601 format (got: ${e.timestamp})`
+      `Event timestamp must be ISO 8601 format (got: ${e.timestamp})`,
     );
   }
 
   // Check session_id
-  if (typeof e.session_id !== 'string' || !e.session_id.trim()) {
-    throw new TypeError('Event session_id is required and must be a non-empty string');
+  if (typeof e.session_id !== "string" || !e.session_id.trim()) {
+    throw new TypeError(
+      "Event session_id is required and must be a non-empty string",
+    );
   }
 
   // Type-specific validations
-  if (type === 'SessionStart') {
-    if (typeof e.project_dir !== 'string' || !e.project_dir.trim()) {
-      throw new TypeError('SessionStartEvent requires project_dir');
+  if (type === "SessionStart") {
+    if (typeof e.project_dir !== "string" || !e.project_dir.trim()) {
+      throw new TypeError("SessionStartEvent requires project_dir");
     }
-    if (typeof e.home_dir !== 'string' || !e.home_dir.trim()) {
-      throw new TypeError('SessionStartEvent requires home_dir');
+    if (typeof e.home_dir !== "string" || !e.home_dir.trim()) {
+      throw new TypeError("SessionStartEvent requires home_dir");
     }
-  } else if (type === 'PreToolUse' || type === 'PostToolUse') {
-    if (typeof e.tool_name !== 'string' || !e.tool_name.trim()) {
+  } else if (type === "PreToolUse" || type === "PostToolUse") {
+    if (typeof e.tool_name !== "string" || !e.tool_name.trim()) {
       throw new TypeError(`${type} requires tool_name`);
     }
   }
@@ -115,8 +117,11 @@ function isValidISO8601(timestamp: string): boolean {
  * @param projectDir - Project root directory (used for relative paths)
  * @returns Absolute file path
  */
-export function normalizeFilePath(filePath: string, projectDir: string): string {
-  if (!filePath || filePath.startsWith('/')) {
+export function normalizeFilePath(
+  filePath: string,
+  projectDir: string,
+): string {
+  if (!filePath || filePath.startsWith("/")) {
     return filePath;
   }
   // Relative path: resolve relative to project directory

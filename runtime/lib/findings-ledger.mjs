@@ -1,14 +1,17 @@
-import { validateContract } from '../../shared/contracts/validate.mjs';
-import { confidenceForRoute, canUpgradeConfidence } from './confidence-rules.mjs';
+import { validateContract } from "../../shared/contracts/validate.mjs";
+import {
+  confidenceForRoute,
+  canUpgradeConfidence,
+} from "./confidence-rules.mjs";
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-const EQUIVALENCE_LEVELS = Object.freeze(['equal', 'degraded']);
+const EQUIVALENCE_LEVELS = Object.freeze(["equal", "degraded"]);
 
 function assertNonEmptyString(name, value) {
-  if (typeof value !== 'string' || value.trim().length === 0) {
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new Error(`${name} is required`);
   }
 }
@@ -25,14 +28,14 @@ export function createFindingsLedgerEntry({
   confidenceBasis: confidenceBasisOverride,
   verificationStatus,
 } = {}) {
-  assertNonEmptyString('findingId', findingId);
-  assertNonEmptyString('summary', summary);
-  assertNonEmptyString('status', status);
-  assertNonEmptyString('recordedAt', recordedAt);
-  assertNonEmptyString('recordedByRoute', recordedByRoute);
+  assertNonEmptyString("findingId", findingId);
+  assertNonEmptyString("summary", summary);
+  assertNonEmptyString("status", status);
+  assertNonEmptyString("recordedAt", recordedAt);
+  assertNonEmptyString("recordedByRoute", recordedByRoute);
 
   if (!Array.isArray(evidence)) {
-    throw new Error('evidence must be an array');
+    throw new Error("evidence must be an array");
   }
 
   // Derive confidence from route unless explicitly overridden
@@ -40,14 +43,14 @@ export function createFindingsLedgerEntry({
   const resolvedConfidence = confidenceOverride || confidence;
   const resolvedBasis = confidenceBasisOverride || confidence_basis;
 
-  return validateContract('findingsLedgerEntry', {
-    schema_version: '1.0.0',
+  return validateContract("findingsLedgerEntry", {
+    schema_version: "1.0.0",
     finding_id: findingId,
     summary,
     evidence,
-    verification_status: verificationStatus || 'unverified',
+    verification_status: verificationStatus || "unverified",
     provenance: {
-      schema_version: '1.0.0',
+      schema_version: "1.0.0",
       status,
       recorded_at: recordedAt,
       recorded_by_route: recordedByRoute,
@@ -58,17 +61,24 @@ export function createFindingsLedgerEntry({
   });
 }
 
-export function appendFindingToTask({ task, expectedVersion, finding, updatedAt } = {}) {
-  if (!task || typeof task !== 'object') {
-    throw new Error('appendFindingToTask requires task object');
+export function appendFindingToTask({
+  task,
+  expectedVersion,
+  finding,
+  updatedAt,
+} = {}) {
+  if (!task || typeof task !== "object") {
+    throw new Error("appendFindingToTask requires task object");
   }
-  assertNonEmptyString('updatedAt', updatedAt);
+  assertNonEmptyString("updatedAt", updatedAt);
 
   if (!Number.isInteger(expectedVersion)) {
-    throw new Error('expectedVersion must be an integer');
+    throw new Error("expectedVersion must be an integer");
   }
   if (task.version !== expectedVersion) {
-    throw new Error(`Task lifecycle expectedVersion ${expectedVersion} does not match task version ${task.version}`);
+    throw new Error(
+      `Task lifecycle expectedVersion ${expectedVersion} does not match task version ${task.version}`,
+    );
   }
 
   const entry = createFindingsLedgerEntry(finding);
@@ -79,7 +89,7 @@ export function appendFindingToTask({ task, expectedVersion, finding, updatedAt 
     updated_at: updatedAt,
   };
 
-  return validateContract('portableTaskObject', next);
+  return validateContract("portableTaskObject", next);
 }
 
 export function transitionFindingsForRouteUpgrade({
@@ -89,25 +99,31 @@ export function transitionFindingsForRouteUpgrade({
   toEquivalenceLevel,
 } = {}) {
   if (!Array.isArray(findings)) {
-    throw new Error('transitionFindingsForRouteUpgrade requires findings array');
+    throw new Error(
+      "transitionFindingsForRouteUpgrade requires findings array",
+    );
   }
-  assertNonEmptyString('toRouteId', toRouteId);
-  assertNonEmptyString('upgradedAt', upgradedAt);
-  assertNonEmptyString('toEquivalenceLevel', toEquivalenceLevel);
+  assertNonEmptyString("toRouteId", toRouteId);
+  assertNonEmptyString("upgradedAt", upgradedAt);
+  assertNonEmptyString("toEquivalenceLevel", toEquivalenceLevel);
   if (!EQUIVALENCE_LEVELS.includes(toEquivalenceLevel)) {
-    throw new Error(`transitionFindingsForRouteUpgrade requires toEquivalenceLevel to be one of: ${EQUIVALENCE_LEVELS.join(', ')}`);
+    throw new Error(
+      `transitionFindingsForRouteUpgrade requires toEquivalenceLevel to be one of: ${EQUIVALENCE_LEVELS.join(", ")}`,
+    );
   }
 
-  if (toEquivalenceLevel !== 'equal') {
+  if (toEquivalenceLevel !== "equal") {
     return clone(findings);
   }
 
-  const { confidence: newConfidence, confidence_basis: newBasis } = confidenceForRoute(toRouteId);
+  const { confidence: newConfidence, confidence_basis: newBasis } =
+    confidenceForRoute(toRouteId);
 
   return findings.map((entry) => {
-    const validated = validateContract('findingsLedgerEntry', clone(entry));
+    const validated = validateContract("findingsLedgerEntry", clone(entry));
     const sameRoute = validated.provenance.recorded_by_route === toRouteId;
-    const shouldDowngrade = !sameRoute && validated.provenance.status === 'verified';
+    const shouldDowngrade =
+      !sameRoute && validated.provenance.status === "verified";
 
     // Upgrade confidence if the new route offers higher confidence
     const currentConfidence = validated.provenance.confidence;
@@ -117,21 +133,23 @@ export function transitionFindingsForRouteUpgrade({
 
     const updatedProvenance = {
       ...validated.provenance,
-      ...(shouldUpgradeConfidence ? { confidence: newConfidence, confidence_basis: newBasis } : {}),
+      ...(shouldUpgradeConfidence
+        ? { confidence: newConfidence, confidence_basis: newBasis }
+        : {}),
     };
 
     if (!shouldDowngrade) {
-      return validateContract('findingsLedgerEntry', {
+      return validateContract("findingsLedgerEntry", {
         ...validated,
         provenance: updatedProvenance,
       });
     }
 
-    return validateContract('findingsLedgerEntry', {
+    return validateContract("findingsLedgerEntry", {
       ...validated,
       provenance: {
         ...updatedProvenance,
-        status: 'reused',
+        status: "reused",
         recorded_at: upgradedAt,
         recorded_by_route: toRouteId,
         note: `Route upgrade to '${toRouteId}' carried forward verification from weaker route`,

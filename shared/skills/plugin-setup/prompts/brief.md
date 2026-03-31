@@ -26,6 +26,7 @@ shared/skills/<skill-name>/prompts/
 ## Update manifest
 
 Add row to `shared/manifest.md`:
+
 ```
 | `<skill-name>` | Description | `shared/skills/<skill-name>/SKILL.md` |
 ```
@@ -33,6 +34,7 @@ Add row to `shared/manifest.md`:
 ## Bump version
 
 Edit `plugins/core-skills/.claude-plugin/plugin.json`:
+
 - Patch (0.2.3 → 0.2.4) for content changes
 - Minor (0.2.3 → 0.3.0) for new skills
 
