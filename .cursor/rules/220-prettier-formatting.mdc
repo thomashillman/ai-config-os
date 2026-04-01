@@ -1,0 +1,11 @@
+---
+description: Prettier formatting — match CI format:check before finishing edits
+alwaysApply: true
+---
+
+- **CI enforces** repo-wide formatting via `npm run format:check` (Prettier). A failing run blocks merges the same way as tests.
+- **Before completing** a task that adds or edits files Prettier formats (e.g. `.js`, `.mjs`, `.ts`, `.md`, `.json`, `.yml`, `.yaml` under the repo root), run **`npm run format:check`** from the repository root and fix any reported paths.
+  - To auto-fix: **`npm run format`** (writes in place), then re-run **`npm run format:check`** to confirm green.
+- **Respect `.prettierignore`** (e.g. `dist/`, `dashboard/`, generated roots like `AGENTS.md` / `CLAUDE.md` per that file — do not expect Prettier to rewrite ignored paths).
+- **When touching only ignored paths**, `format:check` may still pass; no need to format ignored files.
+- After adding or editing **`.cursor/rules/*.mdc`**, run **`npm run check:cursor-rules`** per repository workflow.
