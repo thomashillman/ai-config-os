@@ -1,0 +1,14 @@
+# Versioned API-key pricing (minor units per 1000 tokens). Atom 2 — not live provider quotes.
+# Bump `version` when rates change so callers can cache-bust.
+version: 1
+currency: USD
+tiers:
+  haiku:
+    input_per_1k_tokens_minor: 25
+    output_per_1k_tokens_minor: 75
+  sonnet:
+    input_per_1k_tokens_minor: 300
+    output_per_1k_tokens_minor: 1500
+  opus:
+    input_per_1k_tokens_minor: 1500
+    output_per_1k_tokens_minor: 7500
