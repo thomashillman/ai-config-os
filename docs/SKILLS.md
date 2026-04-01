@@ -45,7 +45,7 @@ Because the standard is tool-agnostic, skills authored here can work across any 
 
 When installing from this repo’s Cursor package (`dist/clients/cursor/` after `npm run build`):
 
-- **Discovery path:** Cursor loads Agent Skills from `~/.cursor/skills` or `<project>/.cursor/skills`, not from the build output root by itself. Copy `dist/clients/cursor/skills/<skill-id>/` into one of those directories. See [Cursor Agent Skills](https://cursor.com/docs/context/skills).
+- **Discovery path:** Cursor loads Agent Skills from `~/.cursor/skills` or `<project>/.cursor/skills`, not from the build output root by itself. From this repo run `npm run install:cursor-skills` to copy every **Cursor-compatible** emitted skill (or copy `dist/clients/cursor/skills/<skill-id>/` manually). See [Cursor Agent Skills](https://cursor.com/docs/context/skills). Skills excluded for the `cursor` platform in frontmatter are not present under `dist/clients/cursor/skills/`.
 - **Preserved frontmatter:** Standard keys such as `allowed-tools`, `license`, `compatibility`, and `metadata` are not stripped by the Cursor emitter (only Claude-only and repo-internal keys in the build strip list are removed).
 - **`prompts/` directory:** The compiler may emit `prompts/` next to `SKILL.md` for parity with the Claude Code package. Cursor’s documented optional layout includes `scripts/`, `references/`, and `assets/`; additional sibling directories are harmless on disk.
 
@@ -196,6 +196,11 @@ AI Config OS extends the Agent Skills standard with additional metadata for mult
 | —               | `tests`            | Automated validation definitions                                |
 | —               | `monitoring`       | Performance tracking configuration                              |
 | —               | `version`          | Skill-level semver (independent of release version)             |
+| —               | `resource_budget`  | Optional resource **policy** (not precise billing); see schema below |
+
+### Resource budget (optional)
+
+Skills may declare a **`resource_budget`** block so the compiler and runtime share the same policy intent: subscription **pressure**, API **spend**, or **hybrid** overflow. Values are validated against [`shared/contracts/schemas/v1/resource-budget.schema.json`](../shared/contracts/schemas/v1/resource-budget.schema.json). This models **policy and headroom**, not vendor-secret quotas. Omitted on most skills until they opt in.
 
 ### Capability contract
 

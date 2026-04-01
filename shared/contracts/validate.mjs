@@ -12,6 +12,9 @@ function loadSchema(relativePath) {
   return JSON.parse(readFileSync(absolutePath, "utf8"));
 }
 
+const resourceBudgetSchema = loadSchema(
+  "shared/contracts/schemas/v1/resource-budget.schema.json",
+);
 const skillSchema = loadSchema("schemas/skill.schema.json");
 
 const manifestSchema = loadSchema(
@@ -99,6 +102,7 @@ const kindToSchemaId = {
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
 
+ajv.addSchema(resourceBudgetSchema);
 ajv.addSchema(skillSchema);
 ajv.addSchema(manifestSchema);
 ajv.addSchema(capabilityProfileSchema);

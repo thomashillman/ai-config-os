@@ -4,6 +4,7 @@
  */
 import { mkdirSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
+import { normalizeResourceBudget } from "../../../shared/contracts/resource-budget-normalize.mjs";
 
 /**
  * @param {object[]} skills - All parsed skills
@@ -76,6 +77,13 @@ export function emitRegistry(
           models: s.frontmatter.dependencies?.models || [],
         },
       };
+
+      if (s.frontmatter.resource_budget !== undefined) {
+        const normalized = normalizeResourceBudget(s.frontmatter.resource_budget);
+        if (normalized) {
+          entry.resource_budget = normalized;
+        }
+      }
 
       // Add compatibility matrix if available
       if (compatMatrix) {

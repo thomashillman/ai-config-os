@@ -327,6 +327,21 @@ describe("worker endpoint contract", () => {
     );
   });
 
+  test("GET /v1/skill/context-budget exposes resource_budget_meta alongside registry skill", async () => {
+    const registry = loadJson(REGISTRY_PATH);
+    const plugin = loadJson(PLUGIN_PATH);
+    const worker = await loadWorkerWithFixtures(registry, plugin);
+    const res = await responseJson(worker, "/v1/skill/context-budget");
+    assert.equal(res.status, 200);
+    assert.equal(res.body.skill.resource_budget.mode, "hybrid");
+    assert.ok(res.body.resource_budget_meta);
+    assert.equal(res.body.resource_budget_meta.mode, "hybrid");
+    assert.equal(
+      res.body.resource_budget_meta.normalized.mode,
+      "hybrid",
+    );
+  });
+
   test("client payload artifact metadata aligns with registry skill entries", async () => {
     const registry = loadJson(REGISTRY_PATH);
     const plugin = loadJson(PLUGIN_PATH);
