@@ -23,6 +23,8 @@ import {
   handleAnalyticsAutoresearchRunsRead,
   handleAnalyticsFrictionSignalsPublish,
   handleAnalyticsFrictionSignalsRead,
+  handleAnalyticsResourceUsePublish,
+  handleAnalyticsResourceUseRead,
   handleAnalyticsSkillEffectivenessPublish,
   handleAnalyticsSkillEffectivenessRead,
   handleAnalyticsToolUsagePublish,
@@ -239,6 +241,11 @@ export function createWorkerHandler(
       pattern: "/v1/analytics/friction-signals",
       handler: ({ url, env }) => handleAnalyticsFrictionSignalsRead(url, env),
     },
+    {
+      method: "GET",
+      pattern: "/v1/analytics/resource-use",
+      handler: ({ url, env }) => handleAnalyticsResourceUseRead(url, env),
+    },
 
     // ── Dashboard publish routes (local runtime → Worker) ─────────────────
     {
@@ -289,6 +296,12 @@ export function createWorkerHandler(
       pattern: "/v1/analytics/friction-signals/publish",
       handler: ({ request, env }) =>
         handleAnalyticsFrictionSignalsPublish(request, env),
+    },
+    {
+      method: "POST",
+      pattern: "/v1/analytics/resource-use/publish",
+      handler: ({ request, env }) =>
+        handleAnalyticsResourceUsePublish(request, env),
     },
 
     // ── Dashboard action routes (dashboard → Worker → local runtime) ──────

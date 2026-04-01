@@ -303,6 +303,152 @@ export function buildAutoresearchRunGetContract(runs, skill, runDir) {
   };
 }
 
+/**
+ * Aggregate execution-resource telemetry for dashboard "Resource Use" (Atom 5).
+ *
+ * @param {Array<Record<string, unknown>>} events - raw observation events (filter to execution_resource)
+ * @returns {object}
+ */
+export function buildResourceUseContract(events) {
+  const rows = Array.isArray(events)
+    ? events.filter((e) => e && e.type === "execution_resource")
+    : [];
+
+  /** @type {Record<string, { count: number, pressure_sum: number, pressure_n: number, cost_sum: number, cost_n: number, packed_sum: number, packed_n: number, throttle_n: number }>} */
+  const byMode = {
+    subscription: {
+      count: 0,
+      pressure_sum: 0,
+      pressure_n: 0,
+      cost_sum: 0,
+      cost_n: 0,
+      packed_sum: 0,
+      packed_n: 0,
+      throttle_n: 0,
+    },
+    api_key: {
+      count: 0,
+      pressure_sum: 0,
+      pressure_n: 0,
+      cost_sum: 0,
+      cost_n: 0,
+      packed_sum: 0,
+      packed_n: 0,
+      throttle_n: 0,
+    },
+    hybrid: {
+      count: 0,
+      pressure_sum: 0,
+      pressure_n: 0,
+      cost_sum: 0,
+      cost_n: 0,
+      packed_sum: 0,
+      packed_n: 0,
+      throttle_n: 0,
+    },
+  };
+
+  let unknownMode = 0;
+
+  for (const e of rows) {
+    const mode = typeof e.user_mode === "string" ? e.user_mode : "";
+    const bucket =
+      mode === "subscription" || mode === "api_key" || mode === "hybrid"
+        ? byMode[mode]
+        : null;
+    if (!bucket) {
+      unknownMode++;
+      continue;
+    }
+    bucket.count++;
+
+    if (
+      typeof e.pressure_score === "number" &&
+      !Number.isNaN(e.pressure_score)
+    ) {
+      bucket.pressure_sum += e.pressure_score;
+      bucket.pressure_n++;
+    }
+    if (
+      typeof e.estimated_cost_minor === "number" &&
+      e.estimated_cost_minor >= 0
+    ) {
+      bucket.cost_sum += e.estimated_cost_minor;
+      bucket.cost_n++;
+    }
+    if (
+      typeof e.packed_context_tokens === "number" &&
+      e.packed_context_tokens >= 0
+    ) {
+      bucket.packed_sum += e.packed_context_tokens;
+      bucket.packed_n++;
+    }
+    if (e.throttle_detected === true || e.throttle_detected === 1) {
+      bucket.throttle_n++;
+    }
+  }
+
+  function summarizeBucket(b) {
+    return {
+      count: b.count,
+      avg_pressure_score:
+        b.pressure_n > 0
+          ? Math.round((b.pressure_sum / b.pressure_n) * 1000) / 1000
+          : null,
+      total_estimated_cost_minor: b.cost_n > 0 ? b.cost_sum : null,
+      avg_packed_context_tokens:
+        b.packed_n > 0 ? Math.round(b.packed_sum / b.packed_n) : null,
+      throttle_events: b.throttle_n,
+    };
+  }
+
+  const totalWithMode = rows.length - unknownMode;
+
+  return {
+    contract: "analytics.resource_use",
+    generated_at: toIsoNow(),
+    total_events: rows.length,
+    total_with_mode: totalWithMode,
+    unknown_mode_events: unknownMode,
+    by_mode: {
+      subscription: summarizeBucket(byMode.subscription),
+      api_key: summarizeBucket(byMode.api_key),
+      hybrid: summarizeBucket(byMode.hybrid),
+    },
+    interpretation: {
+      why_it_matters_now:
+        rows.length > 0
+          ? "Resource policy telemetry: subscription pressure vs API spend vs hybrid — use the mode lens that matches billing."
+          : "No execution resource events yet; runtime can append JSONL to ~/.ai-config-os/logs/execution-resource.jsonl.",
+      attention_required: false,
+      top_opportunity:
+        byMode.subscription.count > 0 && byMode.subscription.throttle_n > 0
+          ? "Review throttle-heavy subscription runs and compaction settings."
+          : rows.length > 0
+            ? "Compare packed context size across modes as data accumulates."
+            : "Emit execution_resource observations from the policy stack when wired.",
+      empty_state_reason:
+        rows.length === 0
+          ? "No execution-resource.jsonl lines ingested yet."
+          : null,
+      best_next_action:
+        rows.length === 0
+          ? "Publish snapshots after Atom 7 pilots emit telemetry."
+          : "Toggle mode below to compare pressure vs spend signals.",
+      severity: rows.length === 0 ? "info" : "ok",
+      skills_needing_improvement: [],
+      changed_since_last_period:
+        "Prior-period baseline not yet available in this contract.",
+    },
+    sources: {
+      observation_snapshot: { execution_resource_events: rows.length },
+      retrospectives_aggregate: null,
+      autoresearch_results: null,
+    },
+    success: true,
+  };
+}
+
 export function buildFrictionSignalsContract(retroSummary) {
   const signalBreakdown = retroSummary?.signal_breakdown || {};
   const topSignal =
