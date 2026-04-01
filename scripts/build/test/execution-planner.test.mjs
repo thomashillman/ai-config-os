@@ -172,6 +172,33 @@ test("hybrid: high pressure disables optional passes", () => {
   assert.equal(plan.optional_passes_included, false);
 });
 
+test("plannerOverrides tighten plan after enforcer delta (Atom 7 replan)", () => {
+  const policy = resolveExecutionPolicy({
+    skillBudget: { mode: "subscription", ...sharedBudgetFields },
+  });
+  const base = planExecution({
+    policy,
+    task_class: "balanced",
+    signals: { pressure_score: 0.1 },
+  });
+  const overridden = planExecution({
+    policy,
+    task_class: "balanced",
+    signals: { pressure_score: 0.1 },
+    plannerOverrides: {
+      context_ceiling_tokens: Math.max(
+        1,
+        Math.floor(base.context_ceiling_tokens * 0.5),
+      ),
+      optional_passes_included: false,
+      model_tier: "haiku",
+    },
+  });
+  assert.ok(overridden.context_ceiling_tokens <= base.context_ceiling_tokens);
+  assert.equal(overridden.optional_passes_included, false);
+  assert.equal(overridden.model_tier, "haiku");
+});
+
 test("skill planner_rules lowers ceiling_ratio (data-driven override)", () => {
   const baseline = resolveExecutionPolicy({
     skillBudget: { mode: "api_key", ...sharedBudgetFields },

@@ -1,6 +1,7 @@
 import { createPortableTask } from "./portable-task-lifecycle.mjs";
 import { buildEffectiveExecutionContract } from "./effective-execution-contract.mjs";
 import { validateReviewRepositoryRouteInputs } from "./review-repository-route-runtime.mjs";
+import { getTaskJourneyResourcePolicySummary } from "./execution-policy-compose.mjs";
 
 const REVIEW_REPOSITORY_TASK_TYPE = "review_repository";
 const MAX_INPUT_LENGTH = 200_000;
@@ -175,6 +176,7 @@ export function startReviewRepositoryTask({
     task: activeTask,
     effective_execution_contract: effectiveExecutionContract,
     narration,
+    resource_policy: getTaskJourneyResourcePolicySummary(),
   };
 }
 

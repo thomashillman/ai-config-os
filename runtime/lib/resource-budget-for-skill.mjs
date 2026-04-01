@@ -1,4 +1,5 @@
 import { normalizeResourceBudget } from "../../shared/contracts/resource-budget-normalize.mjs";
+import { resolveExecutionPolicy } from "../../shared/contracts/resource-policy-types.mjs";
 
 /**
  * Registry skill entries from dist/registry/index.json may include `resource_budget`
@@ -22,4 +23,29 @@ export function getResourceBudgetForSkill(registrySkillEntry) {
     return null;
   }
   return { mode: normalized.mode, normalized };
+}
+
+/**
+ * Resolved ExecutionPolicy for a registry skill (Atom 7 pilot: context-budget / MCP / Worker routes).
+ *
+ * @param {unknown} registrySkillEntry
+ * @param {Record<string, unknown>} [route]
+ * @param {Record<string, unknown>} [projectConfig]
+ * @param {Record<string, unknown>} [machineConfig]
+ * @returns {import('../../shared/contracts/resource-policy-types.mjs').ExecutionPolicy | null}
+ */
+export function summarizeExecutionPolicyForRegistrySkill(
+  registrySkillEntry,
+  route,
+  projectConfig,
+  machineConfig,
+) {
+  const rb = getResourceBudgetForSkill(registrySkillEntry);
+  if (!rb) return null;
+  return resolveExecutionPolicy({
+    skillBudget: rb.normalized,
+    route,
+    projectConfig,
+    machineConfig,
+  });
 }
