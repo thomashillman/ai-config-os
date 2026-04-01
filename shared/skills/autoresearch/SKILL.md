@@ -116,6 +116,17 @@ monitoring:
   track_metrics:
     - latency
     - token_count
+resource_budget:
+  mode: subscription
+  max_input_tokens: 200000
+  max_output_tokens: 16000
+  max_total_tokens: 400000
+  max_latency_ms: 600000
+  preferred_model_tier: opus
+  minimum_model_tier: haiku
+  compaction_policy: aggressive
+  escalation_allowed: true
+  pressure_threshold: 0.82
 version: "1.0.0"
 changelog:
   1.0.0: "Initial release; full Karpathy autoresearch loop with live HTML dashboard"

@@ -131,6 +131,7 @@ export function clampTierToBudget(tier, minTier, maxTier) {
  * @param {string} [input.task_class]
  * @param {Record<string, unknown>} [input.signals] mock: pressure_score, estimated_cost_minor, throttle_detected
  * @param {Record<string, unknown>} [input.rules] full merged rules (optional; else default + policy.planner_rules)
+ * @param {Partial<import('../../shared/contracts/resource-policy-types.mjs').ExecutionPlannerOutput>} [input.plannerOverrides] Atom 7 replan: tighten plan after enforcer delta (bounded replan)
  * @returns {import('../../shared/contracts/resource-policy-types.mjs').ExecutionPlannerOutput}
  */
 export function planExecution(input) {
@@ -275,11 +276,33 @@ export function planExecution(input) {
     optionalPasses = false;
   }
 
+  /** @type {import('../../shared/contracts/resource-policy-types.mjs').ExecutionPlannerOutput} */
   const out = {
     context_ceiling_tokens: contextCeiling,
     optional_passes_included: optionalPasses,
     model_tier: modelTier,
   };
+
+  const overrides = input.plannerOverrides;
+  if (overrides && typeof overrides === "object") {
+    const o = /** @type {Record<string, unknown>} */ (overrides);
+    if (
+      typeof o.context_ceiling_tokens === "number" &&
+      Number.isFinite(o.context_ceiling_tokens)
+    ) {
+      out.context_ceiling_tokens = Math.max(
+        1,
+        Math.floor(o.context_ceiling_tokens),
+      );
+    }
+    if (typeof o.optional_passes_included === "boolean") {
+      out.optional_passes_included = o.optional_passes_included;
+    }
+    if (typeof o.model_tier === "string") {
+      out.model_tier = clampTierToBudget(o.model_tier, minTier, maxTier);
+    }
+  }
+
   const v = validateExecutionPlannerOutput(out);
   if (!v) {
     throw new TypeError("planExecution: invalid planner output");
