@@ -215,9 +215,7 @@ export function handleSkill(skillId: string, registry: RegistryLike): Response {
   return jsonResponse({
     version: registry.version,
     skill,
-    ...(resourceBudgetMeta
-      ? { resource_budget_meta: resourceBudgetMeta }
-      : {}),
+    ...(resourceBudgetMeta ? { resource_budget_meta: resourceBudgetMeta } : {}),
   });
 }
 

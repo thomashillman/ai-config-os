@@ -79,7 +79,9 @@ export function emitRegistry(
       };
 
       if (s.frontmatter.resource_budget !== undefined) {
-        const normalized = normalizeResourceBudget(s.frontmatter.resource_budget);
+        const normalized = normalizeResourceBudget(
+          s.frontmatter.resource_budget,
+        );
         if (normalized) {
           entry.resource_budget = normalized;
         }

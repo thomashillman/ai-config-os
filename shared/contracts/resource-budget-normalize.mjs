@@ -26,7 +26,8 @@ export function normalizeResourceBudget(raw) {
     return {
       ...o,
       pressure_threshold:
-        o.pressure_threshold ?? SUBSCRIPTION_OPTIONAL_DEFAULTS.pressure_threshold,
+        o.pressure_threshold ??
+        SUBSCRIPTION_OPTIONAL_DEFAULTS.pressure_threshold,
       premium_tier_allowed:
         o.premium_tier_allowed ??
         SUBSCRIPTION_OPTIONAL_DEFAULTS.premium_tier_allowed,

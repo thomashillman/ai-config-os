@@ -336,10 +336,7 @@ describe("worker endpoint contract", () => {
     assert.equal(res.body.skill.resource_budget.mode, "hybrid");
     assert.ok(res.body.resource_budget_meta);
     assert.equal(res.body.resource_budget_meta.mode, "hybrid");
-    assert.equal(
-      res.body.resource_budget_meta.normalized.mode,
-      "hybrid",
-    );
+    assert.equal(res.body.resource_budget_meta.normalized.mode, "hybrid");
   });
 
   test("client payload artifact metadata aligns with registry skill entries", async () => {

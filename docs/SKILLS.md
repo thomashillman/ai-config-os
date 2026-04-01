@@ -181,21 +181,21 @@ AI Config OS extends the Agent Skills standard with additional metadata for mult
 
 ### Frontmatter mapping: standard vs extended
 
-| Standard field  | This repo's field  | Notes                                                           |
-| --------------- | ------------------ | --------------------------------------------------------------- |
-| `name`          | `skill`            | Used as `skill:` internally; emitted as `name:` for Claude Code |
-| `description`   | `description`      | Same                                                            |
-| `allowed-tools` | `allowed-tools`    | Same                                                            |
-| —               | `type`             | `prompt`, `hook`, `agent`, `workflow-blueprint`                 |
-| —               | `status`           | `stable`, `experimental`, `deprecated`                          |
-| —               | `capabilities`     | Structured capability requirements                              |
-| —               | `platforms`        | Platform-specific overrides                                     |
-| —               | `variants`         | Multi-model prompt variants                                     |
-| —               | `inputs`/`outputs` | Typed parameter declarations                                    |
-| —               | `dependencies`     | Skill, API, and model dependencies                              |
-| —               | `tests`            | Automated validation definitions                                |
-| —               | `monitoring`       | Performance tracking configuration                              |
-| —               | `version`          | Skill-level semver (independent of release version)             |
+| Standard field  | This repo's field  | Notes                                                                |
+| --------------- | ------------------ | -------------------------------------------------------------------- |
+| `name`          | `skill`            | Used as `skill:` internally; emitted as `name:` for Claude Code      |
+| `description`   | `description`      | Same                                                                 |
+| `allowed-tools` | `allowed-tools`    | Same                                                                 |
+| —               | `type`             | `prompt`, `hook`, `agent`, `workflow-blueprint`                      |
+| —               | `status`           | `stable`, `experimental`, `deprecated`                               |
+| —               | `capabilities`     | Structured capability requirements                                   |
+| —               | `platforms`        | Platform-specific overrides                                          |
+| —               | `variants`         | Multi-model prompt variants                                          |
+| —               | `inputs`/`outputs` | Typed parameter declarations                                         |
+| —               | `dependencies`     | Skill, API, and model dependencies                                   |
+| —               | `tests`            | Automated validation definitions                                     |
+| —               | `monitoring`       | Performance tracking configuration                                   |
+| —               | `version`          | Skill-level semver (independent of release version)                  |
 | —               | `resource_budget`  | Optional resource **policy** (not precise billing); see schema below |
 
 ### Resource budget (optional)

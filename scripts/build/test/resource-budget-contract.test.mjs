@@ -45,9 +45,7 @@ test("skill validator rejects invalid resource_budget (wrong mode payload)", asy
     },
   });
   assert.equal(valid, false);
-  const path = (validator.errors || [])
-    .map((e) => e.instancePath)
-    .join(",");
+  const path = (validator.errors || []).map((e) => e.instancePath).join(",");
   assert.ok(
     path.includes("resource_budget") || (validator.errors?.length ?? 0) > 0,
     `expected resource_budget validation error, got ${JSON.stringify(validator.errors)}`,
