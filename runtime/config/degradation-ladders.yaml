@@ -1,0 +1,56 @@
+# Data-driven degradation ladders (Atom 6). Referenced by ExecutionPolicy.fallback_ladder id in Atom 7.
+# v1 default ladder id: "default"
+version: 1
+ladders:
+  default:
+    subscription:
+      steps:
+        - id: compact_harder
+          delta:
+            context_ceiling_multiplier: 0.85
+        - id: optional_passes_off
+          delta:
+            optional_passes_included: false
+        - id: downshift_tier
+          delta:
+            tier_downshift: 1
+        - id: compact_harder_again
+          delta:
+            context_ceiling_multiplier: 0.85
+        - id: exhausted
+          terminal:
+            reason_code: subscription_policy_exhausted
+            message: Cannot satisfy subscription resource policy after degradation steps
+    api_key:
+      steps:
+        - id: compact_harder
+          delta:
+            context_ceiling_multiplier: 0.88
+        - id: downshift_tier
+          delta:
+            tier_downshift: 1
+        - id: reduce_output_budget
+          delta:
+            max_output_tokens_multiplier: 0.75
+        - id: optional_passes_off
+          delta:
+            optional_passes_included: false
+        - id: spend_cap_breach
+          terminal:
+            reason_code: api_spend_cap_breach
+            message: Estimated or actual spend exceeds configured cap
+    hybrid:
+      steps:
+        - id: subscription_style_compact
+          delta:
+            context_ceiling_multiplier: 0.87
+        - id: api_style_downshift
+          delta:
+            tier_downshift: 1
+        - id: optional_passes_off
+          delta:
+            optional_passes_included: false
+        - id: hybrid_overflow_hint
+          terminal:
+            reason_code: hybrid_policy_exhausted
+            message: Hybrid degradation ladder exhausted; configure overflow or retry later
