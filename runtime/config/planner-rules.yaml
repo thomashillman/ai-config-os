@@ -1,0 +1,9 @@
+# Deterministic execution planner defaults (Atom 3). Overridable via ExecutionPolicy.planner_rules.
+version: 1
+task_classes:
+  balanced:
+    ceiling_ratio: 0.55
+    rule_tier: sonnet
+  deep_research:
+    ceiling_ratio: 0.92
+    rule_tier: opus
