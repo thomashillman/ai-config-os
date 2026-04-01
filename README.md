@@ -167,6 +167,8 @@ npm run dev
 # Open http://localhost:5173 in your browser
 ```
 
+**One-command local stack:** From the repo root, `bash ops/dashboard-start.sh` frees ports **4242** and **5173** (it stops **any** listener on those ports, not only this repo’s processes — avoid running unrelated services on the same ports), starts MCP + the dashboard API, optionally publishes Worker KV snapshots, starts Vite with **`--host 127.0.0.1`** on port **5173** (so other machines on your LAN cannot reach the dev server unless you change the script to e.g. `--host 0.0.0.0`), and opens the browser. Requires **`curl`** and **`lsof`** in PATH (readiness checks and freeing ports). Put `VITE_WORKER_URL` and `VITE_AUTH_TOKEN` in `dashboard/.env.local`. For Skill Library and other snapshot-backed tabs, install **`yq`** (e.g. `brew install yq`) so publish can run; otherwise those tabs may show stale until you run `node runtime/publish-dashboard-state.mjs` after installing `yq`. Stop everything with Ctrl+C in that terminal, or free the ports manually.
+
 Security note: dashboard API requests are denied by default unless they originate from loopback or provide tunnel assertions (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS verification header). CORS follows the same tunnel policy: loopback origins stay enabled for local development, and you can allow a public dashboard origin with `DASHBOARD_PUBLIC_ORIGINS`. Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
 For the current dashboard/runtime feature support list, see **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)**.

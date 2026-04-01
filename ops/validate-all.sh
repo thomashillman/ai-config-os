@@ -81,6 +81,15 @@ else
   # Not incremented: probe failure is informational only
 fi
 
+# Step 9: Dashboard orchestrator shell syntax
+echo "Step 9: Validating dashboard ops scripts..."
+if ./ops/validate-dashboard-ops.sh > /tmp/val-dashboard-ops.out 2>&1; then
+  echo "  ✓ Pass"
+else
+  echo "  ✗ Fail"
+  ((failed++))
+fi
+
 echo ""
 if [ "$failed" -eq 0 ]; then
   echo "==> All validation stages passed! ✓"
