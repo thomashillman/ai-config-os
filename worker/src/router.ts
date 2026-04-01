@@ -1,5 +1,10 @@
 import { isAuthorized, unauthorizedResponse } from "./auth";
-import { jsonResponse, notFound, corsPreflightResponse } from "./http";
+import {
+  jsonResponse,
+  notFound,
+  corsPreflightResponse,
+  withCors,
+} from "./http";
 import {
   handleClientLatest,
   handleClientPackage,
@@ -498,31 +503,35 @@ export function createWorkerHandler(
       const method = request.method as HttpMethod;
 
       if (!isAuthorized(request, env)) {
-        return unauthorizedResponse();
+        return withCors(unauthorizedResponse());
       }
 
       for (const route of ROUTES) {
         if (route.method !== method) continue;
         if (typeof route.pattern === "string") {
           if (path !== route.pattern) continue;
-          return route.handler({ request, env, url, params: [] });
+          return withCors(
+            await route.handler({ request, env, url, params: [] }),
+          );
         }
         const m = path.match(route.pattern);
         if (!m) continue;
-        return route.handler({
-          request,
-          env,
-          url,
-          params: m.slice(1) as string[],
-        });
+        return withCors(
+          await route.handler({
+            request,
+            env,
+            url,
+            params: m.slice(1) as string[],
+          }),
+        );
       }
 
       const knownMethods: HttpMethod[] = ["GET", "POST", "PATCH", "PUT"];
       if (!knownMethods.includes(method)) {
-        return jsonResponse({ error: "Method Not Allowed" }, 405);
+        return withCors(jsonResponse({ error: "Method Not Allowed" }, 405));
       }
 
-      return notFound(`Unknown route: ${path}`);
+      return withCors(notFound(`Unknown route: ${path}`));
     },
   };
 }
