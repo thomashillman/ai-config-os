@@ -89,8 +89,9 @@ monitoring:
     - "token_count"
     - "variant_selected"
   alert_threshold_latency_ms: 3000
-version: "1.0.0"
+version: "1.1.0"
 changelog:
+  1.1.0: "Canonical PR body template (checklists + CI status) in templates/pr-body-default.md; prompts aligned."
   1.0.0: "Initial release"
 tags:
   - "pr"
@@ -106,7 +107,7 @@ capabilities:
 
 # pr-description
 
-Structured PR template: title conventions, description format, test plan, and reviewer guidance.
+Structured PR template: title conventions plus the **canonical PR body** for this repository (checklists, reviewer questions, CI status line).
 
 ## When to use
 
@@ -114,14 +115,15 @@ When drafting a pull request, preparing change summary, or documenting breaking 
 
 ## Instructions
 
-Generate a complete PR with:
+1. **Title**: &lt;70 chars, follows commit-conventions (`feat:`, `fix:`, etc.) — pair with **commit-conventions** skill.
+2. **Body**: Use the markdown structure in **`templates/pr-body-default.md`** (Summary, Type, Pre-Push Checklist with all subsections, Specific Changes, Questions for Reviewers, CI Status). Variant prompts (`prompts/balanced.md`, `brief.md`, `detailed.md`) inherit this structure; do not swap in a different outline unless the user opts out.
+3. **Checklists**: Mark `[x]` only for verified items; use `[ ]` and short `— N/A` where a line does not apply.
+4. **Tests**: Record commands run (`npm test`, `npm run verify`, targeted suites) under Delivery Contract and/or Specific Changes.
 
-1. **Title**: <70 chars, follows commit-conventions (feat:, fix:, etc.)
-2. **Summary**: 1-2 sentences on what changed and why
-3. **Changes**: Bullet list of modifications
-4. **Test Plan**: How this was tested (manual/automated)
-5. **Breaking Changes**: Any backwards-incompatible changes
-6. **Reviewer Notes**: Specific guidance for reviewers
-7. **Checklist**: Linting, docs, tests, etc.
+Keep prose concise. Link issues or docs when provided.
 
-Keep descriptions concise but complete. Include links to relevant issues or docs.
+## Canonical template location
+
+- `shared/skills/pr-description/templates/pr-body-default.md`
+
+Project-local Cursor skill **`pr-description-body`** (`.cursor/skills/`) points agents at the same template when generating PR markdown in this repo.
