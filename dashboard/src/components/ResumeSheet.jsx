@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { WORKER_URL } from "../lib/workerClient"
+import { getWorkerBaseUrl } from "../lib/workerClient"
 import { summarizeTaskFindings } from "../lib/taskFindingSummary"
 
 // Human-readable label for where a session was created
@@ -20,7 +20,8 @@ function upgradeCapabilityLine(initialRoute, currentRoute) {
   return null
 }
 
-export default function ResumeSheet({ task, onClose }) {
+export default function ResumeSheet({ task, onClose, workerUrl }) {
+  const base = workerUrl ?? getWorkerBaseUrl()
   const [copied, setCopied] = useState(false)
   const phrase = `resume ${task.goal || task.name || task.task_type || task.task_id}`
   const origin = sessionOriginLabel(task.initial_route || task.current_route)
@@ -50,7 +51,7 @@ export default function ResumeSheet({ task, onClose }) {
   }
 
   function handleShare() {
-    const url = `${WORKER_URL}/hub/latest`
+    const url = `${base}/hub/latest`
     if (navigator.share) {
       navigator.share({ title: `Continue: ${task.goal || task.name}`, url })
     } else if (navigator.clipboard) {
