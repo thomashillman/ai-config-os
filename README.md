@@ -629,6 +629,8 @@ Claude Code automatically loads `CLAUDE.md`, which includes:
 | `.claude/hooks/`                           | Startup and post-tool hooks for Claude Code                                                                                                                                                                                                          |
 | `.github/workflows/`                       | CI validation (structure, metadata, source integrity, docs, build, portability contracts)                                                                                                                                                            |
 
+**Worker TypeScript:** `@cloudflare/workers-types` is a root devDependency. Run `npm install` at the repo root for editor resolution. Use `npm run check:worker-types` (production sources) and, after `npm ci --prefix worker`, `npm run check:worker-test-types` (includes Vitest test files).
+
 ---
 
 ## Examples: Common tasks

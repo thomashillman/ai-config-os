@@ -12,6 +12,8 @@
     "format:check": "prettier --check .",
     "check:cursor-rules": "node scripts/ci/validate-cursor-rules.mjs",
     "install:cursor-skills": "bash adapters/cursor/install-agent-skills.sh",
+    "check:worker-types": "tsc -p worker/tsconfig.json --noEmit",
+    "check:worker-test-types": "npm run check:test-types --prefix worker",
     "validate": "node scripts/build/compile.mjs --validate-only",
     "pretest": "node scripts/build/compile.mjs",
     "test": "node scripts/build/test/run-tests.mjs",
@@ -35,6 +37,7 @@
     "yaml": "^2.7.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241224.0",
     "prettier": "^3.8.1",
     "typescript": "^5.7.2"
   },

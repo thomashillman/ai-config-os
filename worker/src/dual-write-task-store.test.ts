@@ -234,9 +234,13 @@ describe("DualWriteTaskStore", () => {
 
       // Wait for fire-and-forget
       await new Promise((r) => setTimeout(r, 10));
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[DualWrite]"),
+      const structuredCall = warnSpy.mock.calls.find(
+        (args) =>
+          typeof args[0] === "string" &&
+          args[0].includes('"component":"DualWrite"') &&
+          args[0].includes('"event":"do_replication_failed"'),
       );
+      expect(structuredCall).toBeDefined();
       warnSpy.mockRestore();
     });
 
@@ -248,9 +252,13 @@ describe("DualWriteTaskStore", () => {
 
       const result = await store.create({ task_id: "task_1", version: 1 });
       expect(result.version).toBe(1);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("[DualWrite] DO stub creation failed"),
+      const structuredCall = warnSpy.mock.calls.find(
+        (args) =>
+          typeof args[0] === "string" &&
+          args[0].includes('"event":"do_stub_creation_failed"') &&
+          args[0].includes("bad ID"),
       );
+      expect(structuredCall).toBeDefined();
       warnSpy.mockRestore();
     });
   });

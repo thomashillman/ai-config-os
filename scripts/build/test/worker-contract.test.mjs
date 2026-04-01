@@ -114,7 +114,7 @@ async function loadWorkerWithFixtures(registryFixture, pluginFixture) {
       if (relative === "task-runtime.ts") {
         tsSource = tsSource
           .replace(
-            /import\s*\{\s*TaskConflictError,\s*TaskNotFoundError,\s*TaskStore,\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-store-worker\.mjs["'];/,
+            /(?:\/\/ @ts-expect-error[^\n]*\n)(?:\/\/ prettier-ignore\s*\n)?import\s*\{\s*TaskConflictError,\s*TaskNotFoundError,\s*TaskStore,?\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-store-worker\.mjs["'];/s,
             `import { TaskStore, TaskConflictError, TaskNotFoundError } from '${TASK_STORE_FILE_URL}';`,
           )
           .replace(

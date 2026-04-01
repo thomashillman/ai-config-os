@@ -46,7 +46,10 @@
           "id": { "type": "string", "minLength": 1 },
           "label": { "type": "string", "minLength": 1 },
           "reason": { "type": "string" },
-          "runnable_target": { "type": "string" }
+          "runnable_target": {
+            "type": ["string", "null"],
+            "description": "Concrete follow-up target when actionable; null when not."
+          }
         }
       }
     },

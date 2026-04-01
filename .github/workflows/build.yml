@@ -65,6 +65,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install worker dependencies (typecheck)
+        run: npm ci --prefix worker
+
+      - name: Worker TypeScript (including tests)
+        run: npm run check:worker-test-types
+
       - name: Check version parity
         run: npm run version:check
 

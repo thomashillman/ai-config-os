@@ -8,7 +8,7 @@
  * DO write failures are emitted as structured JSON logs with metrics for alerting.
  */
 
-// @ts-ignore - runtime JS module
+// @ts-expect-error - runtime JS module (no .d.ts)
 import type { KvTaskStore } from "../../runtime/lib/task-store-kv.mjs";
 
 const DO_BASE_URL = "https://task-object";

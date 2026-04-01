@@ -10,7 +10,8 @@ export interface SuggestedAction {
   id: string;
   label: string;
   reason: string;
-  runnable_target: string;
+  /** Present when the client can run a concrete follow-up; null when not actionable. */
+  runnable_target: string | null;
 }
 
 export interface ContractError {
