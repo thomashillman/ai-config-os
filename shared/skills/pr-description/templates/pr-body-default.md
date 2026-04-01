@@ -1,14 +1,6 @@
-# PR Description — Standard (Sonnet)
+# Canonical PR body (ai-config-os)
 
-You are drafting the **markdown body** for a pull request in **ai-config-os**.
-
-## Required structure
-
-Output MUST follow the canonical template in this skill: `templates/pr-body-default.md` (same sections, headings, and checklist items as below). Do not omit sections. Use `[x]` only for items you can confirm; use `[ ]` otherwise and add a short `— N/A` where a line does not apply.
-
-**Title** (separate line of output, <70 chars): follow commit-conventions (`feat:`, `fix:`, etc.).
-
-**Body** (markdown below):
+Use this structure for GitHub/GitLab PR descriptions unless the user explicitly requests a different format.
 
 ```markdown
 ## Summary
@@ -81,5 +73,3 @@ Describe what you changed and why:
 
 **CI Status:** This PR will run tests on Linux, macOS, and Windows before merge. All platforms must pass before merging.
 ```
-
-Fill Summary, Type, checklists, and Specific Changes from the user’s change summary. State what was run for tests (`npm test`, `npm run verify`, etc.) in Delivery Contract or under Specific Changes.
