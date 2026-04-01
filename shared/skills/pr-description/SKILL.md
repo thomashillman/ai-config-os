@@ -89,8 +89,9 @@ monitoring:
     - "token_count"
     - "variant_selected"
   alert_threshold_latency_ms: 3000
-version: "1.1.0"
+version: "1.1.1"
 changelog:
+  1.1.1: "Instructions: read template file first when possible; prompts stress replacing placeholders; Cursor rule 305-pr-description-authoring."
   1.1.0: "Canonical PR body template (checklists + CI status) in templates/pr-body-default.md; prompts aligned."
   1.0.0: "Initial release"
 tags:
@@ -115,10 +116,11 @@ When drafting a pull request, preparing change summary, or documenting breaking 
 
 ## Instructions
 
-1. **Title**: &lt;70 chars, follows commit-conventions (`feat:`, `fix:`, etc.) — pair with **commit-conventions** skill.
-2. **Body**: Use the markdown structure in **`templates/pr-body-default.md`** (Summary, Type, Pre-Push Checklist with all subsections, Specific Changes, Questions for Reviewers, CI Status). Variant prompts (`prompts/balanced.md`, `brief.md`, `detailed.md`) inherit this structure; do not swap in a different outline unless the user opts out.
-3. **Checklists**: Mark `[x]` only for verified items; use `[ ]` and short `— N/A` where a line does not apply.
-4. **Tests**: Record commands run (`npm test`, `npm run verify`, targeted suites) under Delivery Contract and/or Specific Changes.
+1. **Read the template first** (when the repo or filesystem is available): open **`templates/pr-body-default.md`** and use it as the single source of truth for headings and checklist lines. If the file cannot be read, use the variant prompt (`prompts/balanced.md`, etc.), which duplicates the structure for offline/dist bundles.
+2. **Title**: &lt;70 chars, follows commit-conventions (`feat:`, `fix:`, etc.) — pair with **commit-conventions** skill.
+3. **Body**: Match **`templates/pr-body-default.md`** exactly (Summary, Type, Pre-Push Checklist with all subsections, Specific Changes, Questions for Reviewers, CI Status). **Replace placeholder sentences** with real content — do not leave lines like “Brief description of what this PR does.” unchanged. Variant prompts inherit this structure; do not swap in a different outline unless the user explicitly opts out.
+4. **Checklists**: Mark `[x]` only for verified items; use `[ ]` and short `— N/A` where a line does not apply.
+5. **Tests**: Record commands run (`npm test`, `npm run verify`, targeted suites) under Delivery Contract and/or Specific Changes.
 
 Keep prose concise. Link issues or docs when provided.
 
@@ -126,4 +128,4 @@ Keep prose concise. Link issues or docs when provided.
 
 - `shared/skills/pr-description/templates/pr-body-default.md`
 
-Project-local Cursor skill **`pr-description-body`** (`.cursor/skills/`) points agents at the same template when generating PR markdown in this repo.
+Project-local Cursor skill **`pr-description-body`** (`.cursor/skills/`) and Cursor project rule **`305-pr-description-authoring`** (`.cursor/rules/`) point agents at the same template when generating PR markdown in this repo.
