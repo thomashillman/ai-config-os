@@ -300,3 +300,16 @@ export async function handleAnalyticsFrictionSignalsRead(
 ): Promise<Response> {
   return handleRead("analytics.friction_signals", url, env);
 }
+
+export async function handleAnalyticsResourceUsePublish(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  return handlePublish("analytics.resource_use", request, env);
+}
+export async function handleAnalyticsResourceUseRead(
+  url: URL,
+  env: Env,
+): Promise<Response> {
+  return handleRead("analytics.resource_use", url, env);
+}

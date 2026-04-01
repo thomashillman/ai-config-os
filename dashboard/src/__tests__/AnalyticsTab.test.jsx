@@ -18,6 +18,23 @@ function workerEnvelope(data) {
 // Default mock responses for all four endpoints
 function makeDefaultMock({ retroSummary = { artifact_count: 0, signal_breakdown: {}, top_recommendations: [], success: true } } = {}) {
   return vi.fn((url) => {
+    if (url.includes("/v1/analytics/resource-use")) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(workerEnvelope({
+          contract: "analytics.resource_use",
+          total_events: 0,
+          by_mode: {
+            subscription: { count: 0, avg_pressure_score: null, total_estimated_cost_minor: null, avg_packed_context_tokens: null, throttle_events: 0 },
+            api_key: { count: 0, avg_pressure_score: null, total_estimated_cost_minor: null, avg_packed_context_tokens: null, throttle_events: 0 },
+            hybrid: { count: 0, avg_pressure_score: null, total_estimated_cost_minor: null, avg_packed_context_tokens: null, throttle_events: 0 },
+          },
+          interpretation: { why_it_matters_now: "" },
+          success: true,
+        })),
+      })
+    }
     if (url.includes("/v1/analytics/friction-signals")) {
       return Promise.resolve({
         ok: true,
@@ -83,6 +100,18 @@ describe("AnalyticsTab — unified /api/contracts/analytics.tool_usage shape (At
 
   it("shows empty state when no metrics present in unified response", async () => {
     global.fetch = vi.fn((url) => {
+      if (url.includes("/v1/analytics/resource-use")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(workerEnvelope({
+            total_events: 0,
+            by_mode: {},
+            interpretation: {},
+            success: true,
+          })),
+        })
+      }
       if (url.includes("/v1/analytics/friction-signals")) {
         return Promise.resolve({
           ok: true, status: 200,
@@ -173,6 +202,13 @@ describe("AnalyticsTab — Friction Signals section", () => {
 
   it("shows empty state when retrospectives-summary endpoint fails", async () => {
     global.fetch = vi.fn((url) => {
+      if (url.includes("/v1/analytics/resource-use")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve(workerEnvelope({ total_events: 0, by_mode: {}, interpretation: {}, success: true })),
+        })
+      }
       if (url.includes("/v1/analytics/friction-signals")) {
         return Promise.reject(new Error("network error"))
       }

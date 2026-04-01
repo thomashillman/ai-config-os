@@ -15,6 +15,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   buildFrictionSignalsContract,
+  buildResourceUseContract,
   buildSkillEffectivenessContract,
   buildSkillsListContract,
   buildToolUsageContract,
@@ -231,6 +232,41 @@ export async function publishAnalyticsToolUsage({
   );
 }
 
+export async function publishAnalyticsResourceUse({
+  workerUrl,
+  token,
+  scope,
+  repoRoot = resolveRepoRoot(),
+}) {
+  let contractData;
+  try {
+    const { events } = await loadObservationSnapshot({
+      home: process.env.HOME,
+      projectDir: repoRoot,
+    });
+    const resourceEvents = events.filter(
+      (e) => e.type === "execution_resource",
+    );
+    contractData = buildResourceUseContract(resourceEvents);
+  } catch {
+    contractData = buildResourceUseContract([]);
+  }
+  return postSnapshot(
+    workerUrl,
+    token,
+    "analytics.resource_use",
+    "/v1/analytics/resource-use/publish",
+    {
+      data: contractData,
+      meta: {
+        ...freshnessMeta(scope),
+        interpretation: contractData.interpretation,
+      },
+      summary: `analytics.resource_use: ${contractData.total_events} event(s)`,
+    },
+  );
+}
+
 export async function publishAnalyticsSkillEffectiveness({
   workerUrl,
   token,
@@ -385,6 +421,7 @@ export async function publishAll({
     { name: "runtime.context_cost", fn: publishContextCost },
     { name: "audit.validate_all", fn: publishAuditValidateAll },
     { name: "analytics.tool_usage", fn: publishAnalyticsToolUsage },
+    { name: "analytics.resource_use", fn: publishAnalyticsResourceUse },
     {
       name: "analytics.skill_effectiveness",
       fn: publishAnalyticsSkillEffectiveness,

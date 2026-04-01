@@ -114,6 +114,7 @@ test("dashboard API registers task and outcome contract routes", () => {
   assert.ok(getPaths.includes("/api/contracts/tooling.status"));
   assert.ok(getPaths.includes("/api/contracts/config.summary"));
   assert.ok(getPaths.includes("/api/contracts/analytics.tool_usage"));
+  assert.ok(getPaths.includes("/api/contracts/analytics.resource_use"));
   assert.ok(getPaths.includes("/api/tasks/:taskId/readiness"));
   assert.ok(postPaths.includes("/api/tasks/review/start"));
   assert.ok(postPaths.includes("/api/tasks/:taskId/review/resume"));

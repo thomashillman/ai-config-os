@@ -9,6 +9,7 @@
 import { join } from "node:path";
 import { readdirSync, readFileSync } from "node:fs";
 import { loadToolUsageObservations } from "./observation-sources/tool-usage.mjs";
+import { loadExecutionResourceObservations } from "./observation-sources/execution-resource.mjs";
 import { readSkillOutcomes } from "./observation-sources/skill-outcomes.mjs";
 import { mapRetrospectiveToObservations } from "./observation-sources/retrospectives.mjs";
 
@@ -35,6 +36,7 @@ export async function loadObservationSnapshot(options = {}) {
     tool_usage_count: 0,
     tool_error_count: 0,
     skill_outcome_count: 0,
+    execution_resource_count: 0,
     bootstrap_success_count: 0,
     bootstrap_error_count: 0,
     loop_suspected_count: 0,
@@ -96,6 +98,19 @@ export async function loadObservationSnapshot(options = {}) {
       maxBytes: 5 * 1024 * 1024,
     });
     for (const event of outcomeEvents) {
+      if (events.length >= limit) break;
+      events.push(event);
+      updateSummary(summary, event);
+    }
+  }
+
+  // Execution resource telemetry (resource policy / Atom 5)
+  if (events.length < limit) {
+    const execEvents = loadExecutionResourceObservations({
+      home,
+      limit: limit - events.length,
+    });
+    for (const event of execEvents) {
       if (events.length >= limit) break;
       events.push(event);
       updateSummary(summary, event);
@@ -177,6 +192,8 @@ function updateSummary(summary, event) {
     }
   } else if (event.type === "skill_outcome") {
     summary.skill_outcome_count++;
+  } else if (event.type === "execution_resource") {
+    summary.execution_resource_count++;
   }
 }
 

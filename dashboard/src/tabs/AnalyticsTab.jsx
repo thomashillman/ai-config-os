@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   fetchAnalyticsToolUsage,
+  fetchAnalyticsResourceUse,
   fetchAnalyticsSkillEffectiveness,
   fetchAnalyticsAutoresearchRuns,
   fetchAnalyticsFrictionSignals,
@@ -79,6 +80,99 @@ function RefreshBar({ lastFetched, onRefresh, stale }) {
       >
         Refresh
       </button>
+    </div>
+  )
+}
+
+// -- Resource use (execution policy telemetry) --------------------------------
+
+const RESOURCE_MODES = [
+  { id: "all", label: "All" },
+  { id: "subscription", label: "Subscription" },
+  { id: "api_key", label: "API key" },
+  { id: "hybrid", label: "Hybrid" },
+]
+
+function ResourceUseSection({ contract, loading, modeFilter, onModeChange }) {
+  const interpretation = contract?.interpretation || {}
+  const byMode = contract?.by_mode || {}
+  const total = contract?.total_events ?? 0
+  const modesToShow =
+    modeFilter === "all"
+      ? ["subscription", "api_key", "hybrid"]
+      : [modeFilter]
+
+  return (
+    <div>
+      <SectionHeader
+        title="Resource Use"
+        count={total > 0 ? `${total} events` : null}
+        subtitle={interpretation.why_it_matters_now || "Execution policy telemetry: pressure vs spend by billing mode."}
+      />
+      <div className="flex flex-wrap gap-1.5 mb-3">
+        {RESOURCE_MODES.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onModeChange(id)}
+            className={`text-[11px] px-2 py-0.5 rounded border transition-colors ${
+              modeFilter === id
+                ? "border-violet-500 bg-violet-950/50 text-violet-200"
+                : "border-gray-800 text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {loading ? (
+        <SectionSkeleton rows={3} />
+      ) : total === 0 ? (
+        <EmptyState
+          message="No resource telemetry yet."
+          hint="When the policy stack emits events, they aggregate here (subscription pressure vs API spend)."
+        />
+      ) : (
+        <div className="space-y-2 text-xs">
+          {modesToShow.map((key) => {
+            const row = byMode[key] || {}
+            return (
+              <div
+                key={key}
+                className="border border-gray-800 rounded-lg p-3 space-y-1.5"
+              >
+                <div className="text-gray-400 font-medium capitalize">{key.replace("_", " ")}</div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-500">
+                  <span>Events</span>
+                  <span className="text-gray-300 text-right">{row.count ?? 0}</span>
+                  {(key === "subscription" || key === "hybrid") && (
+                    <>
+                      <span>Avg pressure</span>
+                      <span className="text-gray-300 text-right">
+                        {row.avg_pressure_score != null ? row.avg_pressure_score : "—"}
+                      </span>
+                    </>
+                  )}
+                  {(key === "api_key" || key === "hybrid") && (
+                    <>
+                      <span>Est. cost (minor)</span>
+                      <span className="text-gray-300 text-right">
+                        {row.total_estimated_cost_minor != null ? row.total_estimated_cost_minor : "—"}
+                      </span>
+                    </>
+                  )}
+                  <span>Avg packed tokens</span>
+                  <span className="text-gray-300 text-right">
+                    {row.avg_packed_context_tokens != null ? row.avg_packed_context_tokens : "—"}
+                  </span>
+                  <span>Throttle signals</span>
+                  <span className="text-gray-300 text-right">{row.throttle_events ?? 0}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -334,16 +428,25 @@ function FrictionSignalsSection({ contract, loading }) {
 // -- Root tab ------------------------------------------------------------------
 
 export default function AnalyticsTab({ workerUrl, token }) {
+  const [resourceUse, setResourceUse] = useState(null)
+  const [resourceModeFilter, setResourceModeFilter] = useState("all")
   const [toolUsage, setToolUsage] = useState(null)
   const [skillEffectiveness, setSkillEffectiveness] = useState(null)
   const [autoresearchRuns, setAutoresearchRuns] = useState(null)
   const [frictionSignals, setFrictionSignals] = useState(null)
-  const [loading, setLoading] = useState({ tools: true, skills: true, autoresearch: true, retro: true })
+  const [loading, setLoading] = useState({ resource: true, tools: true, skills: true, autoresearch: true, retro: true })
   const [lastFetched, setLastFetched] = useState(null)
   const [anyStale, setAnyStale] = useState(false)
 
   const fetchAll = useCallback(() => {
-    setLoading({ tools: true, skills: true, autoresearch: true, retro: true })
+    setLoading({ resource: true, tools: true, skills: true, autoresearch: true, retro: true })
+
+    const p0 = fetchAnalyticsResourceUse(workerUrl, token)
+      .then(envelope => {
+        if (envelope?.data && typeof envelope.data === "object") { setResourceUse(envelope.data); return envelope }
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(prev => ({ ...prev, resource: false })))
 
     const p1 = fetchAnalyticsToolUsage(workerUrl, token)
       .then(envelope => {
@@ -373,7 +476,7 @@ export default function AnalyticsTab({ workerUrl, token }) {
       .catch(() => undefined)
       .finally(() => setLoading(prev => ({ ...prev, retro: false })))
 
-    Promise.allSettled([p1, p2, p3, p4])
+    Promise.allSettled([p0, p1, p2, p3, p4])
       .then(results => {
         const envelopes = results.map(r => r.value).filter(Boolean)
         if (envelopes.length > 0) setLastFetched(new Date().toLocaleTimeString())
@@ -386,6 +489,12 @@ export default function AnalyticsTab({ workerUrl, token }) {
   return (
     <div className="max-w-2xl space-y-8">
       <RefreshBar lastFetched={lastFetched} onRefresh={fetchAll} stale={anyStale} />
+      <ResourceUseSection
+        contract={resourceUse}
+        loading={loading.resource}
+        modeFilter={resourceModeFilter}
+        onModeChange={setResourceModeFilter}
+      />
       <ToolUsageSection contract={toolUsage} loading={loading.tools} />
       <SkillEffectivenessSection contract={skillEffectiveness} loading={loading.skills} />
       <AutoresearchSection contract={autoresearchRuns} loading={loading.autoresearch} />

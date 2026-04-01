@@ -288,6 +288,14 @@ export function createDashboardApi({
     );
   });
 
+  app.get("/api/contracts/analytics.resource_use", (req, res) => {
+    proxyWorkerRead(
+      "analytics.resource_use",
+      "/v1/analytics/resource-use",
+      res,
+    );
+  });
+
   app.get("/api/contracts/analytics.autoresearch_runs", (req, res) => {
     proxyWorkerRead(
       "analytics.autoresearch_runs",

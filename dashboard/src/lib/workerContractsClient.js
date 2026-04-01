@@ -97,6 +97,10 @@ export function fetchAnalyticsFrictionSignals(workerUrl, token, scope = {}) {
   return workerFetch(workerUrl, token, `/v1/analytics/friction-signals${scopeParams(scope)}`)
 }
 
+export function fetchAnalyticsResourceUse(workerUrl, token, scope = {}) {
+  return workerFetch(workerUrl, token, `/v1/analytics/resource-use${scopeParams(scope)}`)
+}
+
 // ── Action request helpers ────────────────────────────────────────────────────
 
 export function requestToolingSync(workerUrl, token) {
