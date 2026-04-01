@@ -109,7 +109,8 @@
 export const DEFAULT_REPLAN_ATTEMPTS_K = 3;
 
 /** Runtime config key for default replan K (enforcer / facade). */
-export const RUNTIME_CONFIG_REPLAN_ATTEMPTS_KEY = "execution.replan_max_attempts";
+export const RUNTIME_CONFIG_REPLAN_ATTEMPTS_KEY =
+  "execution.replan_max_attempts";
 
 /** @type {ReadonlySet<string>} */
 const EXECUTION_MODES = new Set(["subscription", "api_key", "hybrid"]);
@@ -197,7 +198,9 @@ function narrowCap(current, routeVal) {
  */
 export function resolveExecutionPolicy(input) {
   if (!isPlainObject(input) || !isPlainObject(input.skillBudget)) {
-    throw new TypeError("resolveExecutionPolicy: skillBudget must be a plain object");
+    throw new TypeError(
+      "resolveExecutionPolicy: skillBudget must be a plain object",
+    );
   }
   const skillBudget = { ...input.skillBudget };
   const machineConfig = isPlainObject(input.machineConfig)
@@ -336,8 +339,13 @@ export function validateExecutionPolicy(policy) {
   if (!isPlainObject(policy.planner_rules)) {
     errors.push("ExecutionPolicy.planner_rules must be an object");
   }
-  if (typeof policy.accounting_adapter !== "string" || !policy.accounting_adapter) {
-    errors.push("ExecutionPolicy.accounting_adapter must be a non-empty string");
+  if (
+    typeof policy.accounting_adapter !== "string" ||
+    !policy.accounting_adapter
+  ) {
+    errors.push(
+      "ExecutionPolicy.accounting_adapter must be a non-empty string",
+    );
   }
   if (errors.length) return { ok: false, errors };
   return { ok: true, policy: /** @type {ExecutionPolicy} */ (policy) };
@@ -350,13 +358,19 @@ export function validateExecutionPolicy(policy) {
  */
 export function validateNormalizedAccountingResult(raw, mode) {
   if (!isExecutionMode(mode)) {
-    return { ok: false, errors: ["validateNormalizedAccountingResult: invalid mode"] };
+    return {
+      ok: false,
+      errors: ["validateNormalizedAccountingResult: invalid mode"],
+    };
   }
   if (raw === null || raw === undefined) {
     return { ok: true, value: {} };
   }
   if (!isPlainObject(raw)) {
-    return { ok: false, errors: ["NormalizedAccountingResult must be an object"] };
+    return {
+      ok: false,
+      errors: ["NormalizedAccountingResult must be an object"],
+    };
   }
   const errors = [];
 
@@ -381,7 +395,10 @@ export function validateNormalizedAccountingResult(raw, mode) {
     "compacted_from_tokens",
   ]) {
     const v = raw[key];
-    if (v !== undefined && (typeof v !== "number" || v < 0 || Number.isNaN(v))) {
+    if (
+      v !== undefined &&
+      (typeof v !== "number" || v < 0 || Number.isNaN(v))
+    ) {
       errors.push(`${key} must be a non-negative number when present`);
     }
   }
@@ -402,13 +419,20 @@ export function validateNormalizedAccountingResult(raw, mode) {
   }
 
   if (mode === "subscription") {
-    if (raw.estimated_cost_minor !== undefined || raw.actual_cost_minor !== undefined) {
-      errors.push("subscription mode: monetary fields must not be set on accounting result");
+    if (
+      raw.estimated_cost_minor !== undefined ||
+      raw.actual_cost_minor !== undefined
+    ) {
+      errors.push(
+        "subscription mode: monetary fields must not be set on accounting result",
+      );
     }
   }
   if (mode === "api_key") {
     if (raw.pressure_score !== undefined) {
-      errors.push("api_key mode: pressure_score must not be set on accounting result");
+      errors.push(
+        "api_key mode: pressure_score must not be set on accounting result",
+      );
     }
   }
 
@@ -425,11 +449,16 @@ export function validateExecutionObservationFields(raw) {
     return { ok: true, value: {} };
   }
   if (!isPlainObject(raw)) {
-    return { ok: false, errors: ["ExecutionObservationFields must be an object"] };
+    return {
+      ok: false,
+      errors: ["ExecutionObservationFields must be an object"],
+    };
   }
   const errors = [];
   if (raw.user_mode !== undefined && !isExecutionMode(raw.user_mode)) {
-    errors.push("user_mode must be subscription | api_key | hybrid when present");
+    errors.push(
+      "user_mode must be subscription | api_key | hybrid when present",
+    );
   }
   if (raw.pressure_score !== undefined) {
     const p = raw.pressure_score;
@@ -445,7 +474,10 @@ export function validateExecutionObservationFields(raw) {
     "estimated_cost_minor",
   ]) {
     const v = raw[key];
-    if (v !== undefined && (typeof v !== "number" || v < 0 || Number.isNaN(v))) {
+    if (
+      v !== undefined &&
+      (typeof v !== "number" || v < 0 || Number.isNaN(v))
+    ) {
       errors.push(`${key} must be a non-negative number when present`);
     }
   }

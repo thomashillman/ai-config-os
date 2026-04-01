@@ -118,12 +118,18 @@ test("validateNormalizedAccountingResult: rejects malformed pressure_score", () 
 });
 
 test("validateNormalizedAccountingResult: subscription rejects monetary fields", () => {
-  const r = validateNormalizedAccountingResult({ estimated_cost_minor: 10 }, "subscription");
+  const r = validateNormalizedAccountingResult(
+    { estimated_cost_minor: 10 },
+    "subscription",
+  );
   assert.equal(r.ok, false);
 });
 
 test("validateNormalizedAccountingResult: api_key rejects pressure_score", () => {
-  const r = validateNormalizedAccountingResult({ pressure_score: 0.5 }, "api_key");
+  const r = validateNormalizedAccountingResult(
+    { pressure_score: 0.5 },
+    "api_key",
+  );
   assert.equal(r.ok, false);
 });
 
@@ -140,12 +146,18 @@ test("validateExecutionObservationFields: minimal ok", () => {
 });
 
 test("validateExecutionObservationFields: rejects bad user_mode", () => {
-  assert.equal(validateExecutionObservationFields({ user_mode: "invalid" }).ok, false);
+  assert.equal(
+    validateExecutionObservationFields({ user_mode: "invalid" }).ok,
+    false,
+  );
 });
 
 test("constants exported for enforcer / facade", () => {
   assert.equal(DEFAULT_REPLAN_ATTEMPTS_K, 3);
-  assert.equal(RUNTIME_CONFIG_REPLAN_ATTEMPTS_KEY, "execution.replan_max_attempts");
+  assert.equal(
+    RUNTIME_CONFIG_REPLAN_ATTEMPTS_KEY,
+    "execution.replan_max_attempts",
+  );
 });
 
 test("resolveExecutionPolicy throws without skillBudget object", () => {
@@ -166,7 +178,9 @@ test("integration: normalizeResourceBudget(subscription) feeds resolveExecutionP
   };
   const n = normalizeResourceBudget(raw);
   assert.ok(n);
-  const p = resolveExecutionPolicy({ skillBudget: /** @type {Record<string, unknown>} */ (n) });
+  const p = resolveExecutionPolicy({
+    skillBudget: /** @type {Record<string, unknown>} */ (n),
+  });
   assert.equal(p.mode, "subscription");
   assert.equal(validateExecutionPolicy(p).ok, true);
 });
@@ -187,7 +201,9 @@ test("integration: normalizeResourceBudget(api_key) feeds resolveExecutionPolicy
   };
   const n = normalizeResourceBudget(raw);
   assert.ok(n);
-  const p = resolveExecutionPolicy({ skillBudget: /** @type {Record<string, unknown>} */ (n) });
+  const p = resolveExecutionPolicy({
+    skillBudget: /** @type {Record<string, unknown>} */ (n),
+  });
   assert.equal(p.mode, "api_key");
   assert.equal(validateExecutionPolicy(p).ok, true);
 });

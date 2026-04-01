@@ -14,15 +14,15 @@
 
 ## File map (create / own)
 
-| Area | Create / modify |
-|------|-----------------|
-| Contracts | `shared/contracts/resource-policy-types.mjs`, optional `schemas/resource-policy-*.json`, `resolveExecutionPolicy` + tests |
-| Meter | `runtime/lib/resource-meter/*.mjs`, `runtime/config/pricing-profile.yaml`, `runtime/lib/adapters/*-provider-signals.mjs` |
-| Planner | `runtime/lib/execution-planner.mjs`, `runtime/config/planner-rules.yaml` |
-| Context pack | `runtime/lib/context-pack-builder.mjs`, `runtime/lib/token-estimate.mjs` |
-| Telemetry | `runtime/lib/observation-sources/execution-resource.mjs`, glue in `observation-read-model.mjs`, `dashboard-analytics-contracts.mjs`, dashboard UI, Worker if needed |
-| Enforcer | `runtime/lib/execution-budget-enforcer.mjs`, `runtime/config/degradation-ladders.yaml` |
-| Integration | `runtime/lib/execution-policy-compose.mjs`, wire `context_cost`, task control plane, autoresearch path; golden tests |
+| Area         | Create / modify                                                                                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contracts    | `shared/contracts/resource-policy-types.mjs`, optional `schemas/resource-policy-*.json`, `resolveExecutionPolicy` + tests                                           |
+| Meter        | `runtime/lib/resource-meter/*.mjs`, `runtime/config/pricing-profile.yaml`, `runtime/lib/adapters/*-provider-signals.mjs`                                            |
+| Planner      | `runtime/lib/execution-planner.mjs`, `runtime/config/planner-rules.yaml`                                                                                            |
+| Context pack | `runtime/lib/context-pack-builder.mjs`, `runtime/lib/token-estimate.mjs`                                                                                            |
+| Telemetry    | `runtime/lib/observation-sources/execution-resource.mjs`, glue in `observation-read-model.mjs`, `dashboard-analytics-contracts.mjs`, dashboard UI, Worker if needed |
+| Enforcer     | `runtime/lib/execution-budget-enforcer.mjs`, `runtime/config/degradation-ladders.yaml`                                                                              |
+| Integration  | `runtime/lib/execution-policy-compose.mjs`, wire `context_cost`, task control plane, autoresearch path; golden tests                                                |
 
 ---
 
@@ -198,9 +198,9 @@
 
 ## Verification ladder (every PR)
 
-1. `node scripts/build/compile.mjs` when skills/registry/dist affected  
-2. `npm test` (or targeted `run-tests.mjs` paths)  
-3. `bash ops/pre-pr-mergeability-gate.sh`  
+1. `node scripts/build/compile.mjs` when skills/registry/dist affected
+2. `npm test` (or targeted `run-tests.mjs` paths)
+3. `bash ops/pre-pr-mergeability-gate.sh`
 4. Conventional Commits: `feat(resource-policy): atom N — …`
 
 ---

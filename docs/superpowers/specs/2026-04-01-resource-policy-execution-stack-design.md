@@ -42,11 +42,11 @@ A single “cost budget” framing misleads subscription users and encourages fa
 
 ### 4.1 Modes (recap)
 
-| Mode | Primary signal | Planner bias (intent) |
-|------|----------------|------------------------|
+| Mode             | Primary signal      | Planner bias (intent)                                                                                     |
+| ---------------- | ------------------- | --------------------------------------------------------------------------------------------------------- |
 | **subscription** | Pressure / headroom | Minimize pressure; preserve premium tier; aggressive compaction; skip optional passes when policy says so |
-| **api_key** | Spend (minor units) | Minimize money subject to quality floor; planner knows when it crosses spend bands |
-| **hybrid** | Both | User preference (e.g. subscription first, API overflow on throttle or deep research) |
+| **api_key**      | Spend (minor units) | Minimize money subject to quality floor; planner knows when it crosses spend bands                        |
+| **hybrid**       | Both                | User preference (e.g. subscription first, API overflow on throttle or deep research)                      |
 
 ### 4.2 Pipeline (logical)
 
@@ -82,13 +82,13 @@ flowchart LR
 
 **Partitioning Atoms 3, 4, 6, 7 (no duplicate “compact” logic):**
 
-| Concern | Owner | Role |
-|--------|--------|------|
-| **Plan** tier, optional passes, context ceiling | Atom 3 (planner) | Pure function of `ExecutionPolicy` + task class + signals + **current constraints** |
-| **Pack** context to a token budget | Atom 4 (context pack) | Pure function of planner output + task state |
-| **Measure** spend/pressure | Atom 2 (meter) | After execution (and optionally pre-exec estimates) |
-| **Choose the next ladder step** when policy is violated | Atom 6 (enforcer) | Maps (meter output, policy) → **constraint delta** or terminal failure reason — **does not** reimplement planner rules |
-| **Loop** plan → pack → execute → meter → enforce | Atom 7 (facade) | Owns **bounded replan**: enforcer may return “apply ladder step *s* and **retry**” → orchestration **re-invokes** PL → CP → EX with tightened constraints (same user request), up to **K** attempts. **Default `K`:** `3` unless overridden by `runtime/config` key documented in Atom 1 (same key used in enforcer/facade tests). |
+| Concern                                                 | Owner                 | Role                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Plan** tier, optional passes, context ceiling         | Atom 3 (planner)      | Pure function of `ExecutionPolicy` + task class + signals + **current constraints**                                                                                                                                                                                                                                                |
+| **Pack** context to a token budget                      | Atom 4 (context pack) | Pure function of planner output + task state                                                                                                                                                                                                                                                                                       |
+| **Measure** spend/pressure                              | Atom 2 (meter)        | After execution (and optionally pre-exec estimates)                                                                                                                                                                                                                                                                                |
+| **Choose the next ladder step** when policy is violated | Atom 6 (enforcer)     | Maps (meter output, policy) → **constraint delta** or terminal failure reason — **does not** reimplement planner rules                                                                                                                                                                                                             |
+| **Loop** plan → pack → execute → meter → enforce        | Atom 7 (facade)       | Owns **bounded replan**: enforcer may return “apply ladder step _s_ and **retry**” → orchestration **re-invokes** PL → CP → EX with tightened constraints (same user request), up to **K** attempts. **Default `K`:** `3` unless overridden by `runtime/config` key documented in Atom 1 (same key used in enforcer/facade tests). |
 
 **Single-request vs multi-turn:** Ladder steps that **change** planner inputs for the **same** request are **intra-request retries** orchestrated in Atom 7. Steps that only make sense on the **next** user message (e.g. “back off for 60s”) are **terminal outcomes** with a clear reason code; no hidden loop inside Atom 6.
 
@@ -195,15 +195,15 @@ Each atom is **one branch, one PR**. Atom **1** merges first; **2–6** parallel
 
 ## 6. File ownership (conflict firewall)
 
-| Atom | Owns primarily |
-|------|----------------|
-| 1 | Shared types/schemas; minimal normalize extend |
-| 2 | `runtime/lib/resource-meter/**`, pricing config, provider signal adapters |
-| 3 | `execution-planner.mjs`, planner rules data |
-| 4 | `context-pack-builder.mjs`, `token-estimate.mjs` |
-| 5 | observation sources + read-model extension + dashboard + Worker dashboard if API changes |
-| 6 | `execution-budget-enforcer.mjs`, degradation ladders data |
-| 7 | Facade + wire points + golden tests |
+| Atom | Owns primarily                                                                           |
+| ---- | ---------------------------------------------------------------------------------------- |
+| 1    | Shared types/schemas; minimal normalize extend                                           |
+| 2    | `runtime/lib/resource-meter/**`, pricing config, provider signal adapters                |
+| 3    | `execution-planner.mjs`, planner rules data                                              |
+| 4    | `context-pack-builder.mjs`, `token-estimate.mjs`                                         |
+| 5    | observation sources + read-model extension + dashboard + Worker dashboard if API changes |
+| 6    | `execution-budget-enforcer.mjs`, degradation ladders data                                |
+| 7    | Facade + wire points + golden tests                                                      |
 
 ## 7. Verification
 
@@ -211,18 +211,18 @@ Per [`AGENTS.md`](../../../AGENTS.md): `node scripts/build/compile.mjs`, `npm te
 
 ## 8. References
 
-- Hillman, T. (2026). *AI Config OS* [GitHub repository]. `https://github.com/thomashillman/ai-config-os`
+- Hillman, T. (2026). _AI Config OS_ [GitHub repository]. `https://github.com/thomashillman/ai-config-os`
 - [`PLAN.md`](../../../PLAN.md), [`README.md`](../../../README.md), [`docs/SUPPORTED_TODAY.md`](../../SUPPORTED_TODAY.md)
 - [`runtime/lib/observation-read-model.mjs`](../../../runtime/lib/observation-read-model.mjs)
 - [`runtime/lib/resource-budget-for-skill.mjs`](../../../runtime/lib/resource-budget-for-skill.mjs)
 
 ## 9. Spec review log (spec-document-reviewer)
 
-| Pass | Outcome | Follow-up |
-|------|---------|-----------|
-| **1** | **Approved** (no blocking issues) | Advisory: hybrid config surface, PR title consistency, concrete pilots, backward-compat definition — incorporated into §2, §4, §5, Appendix A. |
-| **2** | **Issues Found** | Enforcer/planner partition, policy precedence, Atom 5/7 merge hazard — addressed by §4.2a, §4.2b, §5 merge note, Appendix A orchestration. |
-| **3** | **Issues Found** | Appendix A vs §5 (Atom 5/7 goldens); “user policy” wording in §4.2b — addressed by orchestration step 4, §4.2b route wording + non-route pairs in Atom 1 tests; **K** default in §4.2a. |
+| Pass  | Outcome                           | Follow-up                                                                                                                                                                               |
+| ----- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1** | **Approved** (no blocking issues) | Advisory: hybrid config surface, PR title consistency, concrete pilots, backward-compat definition — incorporated into §2, §4, §5, Appendix A.                                          |
+| **2** | **Issues Found**                  | Enforcer/planner partition, policy precedence, Atom 5/7 merge hazard — addressed by §4.2a, §4.2b, §5 merge note, Appendix A orchestration.                                              |
+| **3** | **Issues Found**                  | Appendix A vs §5 (Atom 5/7 goldens); “user policy” wording in §4.2b — addressed by orchestration step 4, §4.2b route wording + non-route pairs in Atom 1 tests; **K** default in §4.2a. |
 
 **After pass 3:** remaining subagent findings were **resolved in-repo**; no fourth pass required per “up to three iterations.” Human approval is the next gate.
 
