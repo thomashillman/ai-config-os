@@ -1,5 +1,10 @@
+import type { ExecutionContext } from "@cloudflare/workers-types";
 import { describe, it, expect } from "vitest";
 import { createWorkerHandler } from "./router";
+
+function testExecutionContext(): ExecutionContext {
+  return {} as unknown as ExecutionContext;
+}
 
 const registry = {
   version: "2026.03.26",
@@ -49,9 +54,12 @@ function authRequest(path: string): Request {
 describe("worker response envelope contracts", () => {
   it("returns deterministic capability error shape with code/message/hint", async () => {
     const handler = createWorkerHandler(registry, {});
-    const response = await handler.fetch(
-      authRequest("/v1/skills/compatible"),
+    const response = await handler.fetch!(
+      authRequest("/v1/skills/compatible") as Parameters<
+        NonNullable<typeof handler.fetch>
+      >[0],
       env as never,
+      testExecutionContext(),
     );
     const payload = (await response.json()) as {
       error: { code: string; message: string; hint: string };
@@ -67,9 +75,12 @@ describe("worker response envelope contracts", () => {
 
   it("keeps capability/locality flags accurate in platform response", async () => {
     const handler = createWorkerHandler(registry, {});
-    const response = await handler.fetch(
-      authRequest("/v1/capabilities/platform/claude-code"),
+    const response = await handler.fetch!(
+      authRequest("/v1/capabilities/platform/claude-code") as Parameters<
+        NonNullable<typeof handler.fetch>
+      >[0],
       env as never,
+      testExecutionContext(),
     );
     const payload = (await response.json()) as {
       surface: string;
@@ -91,13 +102,16 @@ describe("worker response envelope contracts", () => {
   it("preserves legacy task route aliases consumed by existing clients", async () => {
     const handler = createWorkerHandler(registry, {});
 
-    const byCode = await handler.fetch(
-      authRequest("/v1/t/ABC123"),
+    type FetchReq = Parameters<NonNullable<typeof handler.fetch>>[0];
+    const byCode = await handler.fetch!(
+      authRequest("/v1/t/ABC123") as FetchReq,
       env as never,
+      testExecutionContext(),
     );
-    const byTaskId = await handler.fetch(
-      authRequest("/v1/tasks/task_123"),
+    const byTaskId = await handler.fetch!(
+      authRequest("/v1/tasks/task_123") as FetchReq,
       env as never,
+      testExecutionContext(),
     );
     const byCodePayload = (await byCode.json()) as {
       error: { code: string; message: string };

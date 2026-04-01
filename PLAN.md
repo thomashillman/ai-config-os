@@ -29,8 +29,8 @@ Last reconciled: 2026-03-31 (skills/tests/tabs/platform inventory claims verifie
 | Area                                        | Version | Notes                                                                                                                                     |
 | ------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | Repo scaffold, .gitignore, marketplace.json | v0.1.0  | Phase 1                                                                                                                                   |
-| core-skills plugin.json                     | v0.6.4  | Inventory source is `shared/skills/*/SKILL.md`; 38 installable skills currently materialized (excluding `_template`; matches `./VERSION`) |
-| shared/manifest.md (skill index)            | —       | Mirrors current `shared/skills/*/SKILL.md` inventory (38 installable skills, excluding `_template`) plus workflows/components             |
+| core-skills plugin.json                     | v0.6.4  | Inventory source is `shared/skills/*/SKILL.md`; 39 installable skills currently materialized (excluding `_template`; matches `./VERSION`) |
+| shared/manifest.md (skill index)            | —       | Mirrors current `shared/skills/*/SKILL.md` inventory (39 installable skills, excluding `_template`) plus workflows/components             |
 | shared/principles.md                        | —       | Opinionated AI behaviour defaults                                                                                                         |
 | adapters/claude/dev-test.sh                 | —       | Non-interactive validation                                                                                                                |
 | CLAUDE.md (dev context)                     | —       | Extended with self-improvement, portability contract, delivery contract, CI pitfalls                                                      |
@@ -38,7 +38,7 @@ Last reconciled: 2026-03-31 (skills/tests/tabs/platform inventory claims verifie
 | .github/workflows/                          | —       | `validate.yml` (structure), `build.yml` (compile + test + dist artifact)                                                                  |
 | .claude/hooks/                              | —       | session-start, pre-tool-use, post-tool-use, post-tool-use-metrics, skill-outcome-tracker                                                  |
 
-### Skills (38 installable total from `shared/skills/*/SKILL.md`, excluding `_template`)
+### Skills (39 installable total from `shared/skills/*/SKILL.md`, excluding `_template`)
 
 Canonical declaration format (validated in CI): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
 
@@ -58,7 +58,7 @@ Canonical declaration format (validated in CI): `Installable skill count: <numbe
 | fetch-abstraction-drift-detector, pr-diff-targeted-reader                             | prompt/agent                    | Phase 10+ (contract/drift + PR reading)             |
 | rtl-query-patterns                                                                    | prompt                          | Phase 10+ (RTL query reference)                     |
 
-All 38 installable skills in `shared/skills/*/SKILL.md` (excluding `_template`) have: YAML frontmatter, structured capability contracts, and tests defined in frontmatter.
+All 39 installable skills in `shared/skills/*/SKILL.md` (excluding `_template`) have: YAML frontmatter, structured capability contracts, and tests defined in frontmatter.
 skill-effectiveness and autoresearch now have opus/sonnet/haiku prompt variants.
 
 ### Workflows (5 total)
@@ -1228,7 +1228,7 @@ Evidence artifacts captured from command runs (UTC ISO date):
   - [ ] Real Claude Code marketplace add/install flow blocked in this run (no `claude` binary and no interactive Claude Code UI in runner).
   - Blocker owner: Platform/Ops (provide interactive Claude Code-capable device + auth token).
 - [x] Installed skill exposure verified on at least two real environments
-  - [x] Environment A (`claude-code` package): `extract` materialized 38 skills into local cache (matches installable `shared/skills/*/SKILL.md` count at compile time).
+  - [x] Environment A (`claude-code` package): `extract` materialized 39 skills into local cache (matches installable `shared/skills/*/SKILL.md` count at compile time).
   - [x] Environment B (`codex` package): `extract` + `install` wrote `~/.codex/AGENTS.md`; skill names verified in installed file (`list-available-skills`, `task-start`).
 - [ ] Cross-device sync: push from device A, restart on device B, verify sync
   - [x] Push/pull sync verified using distinct device A/B clones against a bare remote; marker committed on A appeared on B.
@@ -1242,7 +1242,7 @@ Evidence artifacts captured from command runs (UTC ISO date):
 - [x] No secrets in tracked files
 - [x] Delivery contract: 28 tests protecting dist/ artifacts
 - [x] Portability contract: 76 tests protecting materialisation
-- [x] All 38 installable skills have structured capability contracts
+- [x] All 39 installable skills have structured capability contracts
 - [x] Compiler resolves compatibility from platform capabilities (not hardcoded)
 - [x] Phase 9.7 runtime gating wired and tested (Steps 2-4)
 - [x] T004: outcome resolver moved from hardcoded mappings to loader-backed definitions with tests

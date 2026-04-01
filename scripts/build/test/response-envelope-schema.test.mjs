@@ -80,6 +80,26 @@ test("success envelope: factory output passes schema", () => {
   assert.ok(valid, JSON.stringify(validateEnvelope.errors));
 });
 
+test("success envelope: factory preserves null runnable_target and passes schema", () => {
+  const envelope = createSuccessEnvelope({
+    resource: "tasks.list",
+    data: { tasks: [] },
+    summary: "0 tasks.",
+    capability: WORKER_CAPABILITY,
+    suggestedActions: [
+      {
+        id: "a1",
+        label: "Retry",
+        reason: "Transient failure",
+        runnable_target: null,
+      },
+    ],
+  });
+  assert.equal(envelope.suggested_actions[0].runnable_target, null);
+  const valid = validateEnvelope(envelope);
+  assert.ok(valid, JSON.stringify(validateEnvelope.errors));
+});
+
 test("success envelope: resource name pattern is enforced", () => {
   const valid = validateEnvelope({
     contract_version: "1.0.0",

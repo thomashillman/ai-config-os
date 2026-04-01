@@ -1,14 +1,11 @@
-// @ts-ignore - runtime JS module
-import {
-  TaskConflictError,
-  TaskNotFoundError,
-  TaskStore,
-} from "../../runtime/lib/task-store-worker.mjs";
-// @ts-ignore - runtime JS module
+// @ts-expect-error - runtime JS module (no .d.ts)
+// prettier-ignore
+import { TaskConflictError, TaskNotFoundError, TaskStore } from "../../runtime/lib/task-store-worker.mjs";
+// @ts-expect-error - runtime JS module (no .d.ts)
 import { KvTaskStore } from "../../runtime/lib/task-store-kv.mjs";
-// @ts-ignore - runtime JS module
+// @ts-expect-error - runtime JS module (no .d.ts)
 import { createTaskControlPlaneService } from "../../runtime/lib/task-control-plane-service-worker.mjs";
-// @ts-ignore - runtime JS module
+// @ts-expect-error - runtime JS module (no .d.ts)
 import { createHandoffTokenService } from "../../runtime/lib/handoff-token-service-worker.mjs";
 import { DualWriteTaskStore } from "./dual-write-task-store";
 import { contractErrorResponse, WORKER_CAPABILITY } from "./contracts";

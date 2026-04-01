@@ -16,7 +16,8 @@ const mod = await import("../../../worker/src/task-runtime.ts").catch(
 
     src = src
       .replace(
-        /import\s*\{\s*TaskConflictError,\s*TaskNotFoundError,\s*TaskStore,\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-store-worker\.mjs["'];/,
+        // Keep in sync with worker/src/task-runtime.ts (see @ts-expect-error + prettier-ignore on first import)
+        /(?:\/\/ @ts-expect-error[^\n]*\n)(?:\/\/ prettier-ignore\s*\n)?import\s*\{\s*TaskConflictError,\s*TaskNotFoundError,\s*TaskStore,?\s*\}\s*from\s*["']\.\.\/\.\.\/runtime\/lib\/task-store-worker\.mjs["'];/s,
         `import { TaskConflictError, TaskNotFoundError, TaskStore } from '${new URL("../../../runtime/lib/task-store-worker.mjs", import.meta.url).href}';`,
       )
       .replace(

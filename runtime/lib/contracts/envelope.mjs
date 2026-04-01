@@ -18,7 +18,8 @@ function normalizeSuggestedActions(actions) {
       id: String(entry.id || "action"),
       label: String(entry.label || "Run action"),
       reason: String(entry.reason || ""),
-      runnable_target: String(entry.runnable_target || ""),
+      runnable_target:
+        entry.runnable_target != null ? String(entry.runnable_target) : null,
     }));
 }
 
