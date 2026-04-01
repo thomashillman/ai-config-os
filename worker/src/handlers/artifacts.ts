@@ -18,6 +18,24 @@ function readAsObject(payload: unknown): Record<string, unknown> | null {
   return payload as Record<string, unknown>;
 }
 
+/**
+ * Registry skill entries include normalised `resource_budget` from compile.
+ * Kept in the Worker package (no import from runtime/) so test harnesses that
+ * transpile worker/src to a temp tree do not need to copy runtime modules.
+ */
+function getResourceBudgetMetaFromRegistrySkill(skill: unknown): {
+  mode: string;
+  normalized: Record<string, unknown>;
+} | null {
+  const o = readAsObject(skill);
+  if (!o) return null;
+  const raw = o.resource_budget;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const rb = raw as Record<string, unknown>;
+  if (typeof rb.mode !== "string") return null;
+  return { mode: rb.mode, normalized: rb };
+}
+
 export async function readLatestVersion(
   env: Env,
   registry: RegistryLike,
@@ -192,9 +210,12 @@ export function handleSkill(skillId: string, registry: RegistryLike): Response {
     return notFound(`Skill '${skillId}' not found`);
   }
 
+  const resourceBudgetMeta = getResourceBudgetMetaFromRegistrySkill(skill);
+
   return jsonResponse({
     version: registry.version,
     skill,
+    ...(resourceBudgetMeta ? { resource_budget_meta: resourceBudgetMeta } : {}),
   });
 }
 

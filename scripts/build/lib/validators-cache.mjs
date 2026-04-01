@@ -6,11 +6,23 @@
  * on first access and reused for the lifetime of the process.
  */
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const SCHEMAS_DIR = resolve(__filename, "..", "..", "..", "..", "schemas");
+const RESOURCE_BUDGET_SCHEMA_PATH = resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  "shared",
+  "contracts",
+  "schemas",
+  "v1",
+  "resource-budget.schema.json",
+);
 
 let _ajv = null;
 const _cache = new Map();
@@ -40,8 +52,21 @@ async function getValidator(name) {
   return _cache.get(name);
 }
 
+async function getSkillValidatorCompiled() {
+  const ajv = await getAjv();
+  const resourceBudgetSchema = JSON.parse(
+    readFileSync(RESOURCE_BUDGET_SCHEMA_PATH, "utf8"),
+  );
+  ajv.addSchema(resourceBudgetSchema);
+  const skillSchema = loadSchema("skill");
+  return ajv.compile(skillSchema);
+}
+
 export async function getSkillValidator() {
-  return getValidator("skill");
+  if (!_cache.has("skill")) {
+    _cache.set("skill", await getSkillValidatorCompiled());
+  }
+  return _cache.get("skill");
 }
 export async function getPlatformValidator() {
   return getValidator("platform");

@@ -11,6 +11,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:cursor-rules": "node scripts/ci/validate-cursor-rules.mjs",
+    "install:cursor-skills": "bash adapters/cursor/install-agent-skills.sh",
     "validate": "node scripts/build/compile.mjs --validate-only",
     "pretest": "node scripts/build/compile.mjs",
     "test": "node scripts/build/test/run-tests.mjs",

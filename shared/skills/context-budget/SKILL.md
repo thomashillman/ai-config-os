@@ -97,6 +97,19 @@ capabilities:
   optional: []
   fallback_mode: "prompt-only"
   fallback_notes: "Pure guidance skill."
+resource_budget:
+  mode: hybrid
+  max_input_tokens: 128000
+  max_output_tokens: 8192
+  max_total_tokens: 200000
+  max_latency_ms: 120000
+  preferred_model_tier: sonnet
+  minimum_model_tier: haiku
+  compaction_policy: aggressive
+  escalation_allowed: true
+  primary_mode: subscription
+  overflow_mode: api_key
+  overflow_trigger: throttle
 ---
 
 # context-budget

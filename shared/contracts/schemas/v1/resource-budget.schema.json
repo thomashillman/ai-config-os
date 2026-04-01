@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-config-os/contracts/v1/resource-budget.schema.json",
+  "title": "ResourceBudget",
+  "description": "Policy-level resource intent for skills (subscription pressure vs API spend vs hybrid). Not vendor quota precision.",
+  "$defs": {
+    "modelTier": {
+      "type": "string",
+      "enum": ["opus", "sonnet", "haiku"]
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_total_tokens",
+        "max_latency_ms",
+        "preferred_model_tier",
+        "minimum_model_tier",
+        "compaction_policy",
+        "escalation_allowed"
+      ],
+      "properties": {
+        "mode": { "const": "subscription" },
+        "max_input_tokens": { "type": "integer", "minimum": 1 },
+        "max_output_tokens": { "type": "integer", "minimum": 1 },
+        "max_total_tokens": { "type": "integer", "minimum": 1 },
+        "max_latency_ms": { "type": "integer", "minimum": 0 },
+        "preferred_model_tier": { "$ref": "#/$defs/modelTier" },
+        "minimum_model_tier": { "$ref": "#/$defs/modelTier" },
+        "compaction_policy": { "type": "string", "minLength": 1 },
+        "escalation_allowed": { "type": "boolean" },
+        "pressure_threshold": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "premium_tier_allowed": { "type": "boolean" },
+        "defer_nonessential_passes": { "type": "boolean" },
+        "backoff_on_throttle": { "type": "boolean" },
+        "reserve_headroom": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_total_tokens",
+        "max_latency_ms",
+        "preferred_model_tier",
+        "minimum_model_tier",
+        "compaction_policy",
+        "escalation_allowed",
+        "max_estimated_cost_minor",
+        "max_monthly_spend_minor",
+        "pricing_profile",
+        "allow_price_escalation"
+      ],
+      "properties": {
+        "mode": { "const": "api_key" },
+        "max_input_tokens": { "type": "integer", "minimum": 1 },
+        "max_output_tokens": { "type": "integer", "minimum": 1 },
+        "max_total_tokens": { "type": "integer", "minimum": 1 },
+        "max_latency_ms": { "type": "integer", "minimum": 0 },
+        "preferred_model_tier": { "$ref": "#/$defs/modelTier" },
+        "minimum_model_tier": { "$ref": "#/$defs/modelTier" },
+        "compaction_policy": { "type": "string", "minLength": 1 },
+        "escalation_allowed": { "type": "boolean" },
+        "max_estimated_cost_minor": { "type": "integer", "minimum": 0 },
+        "max_monthly_spend_minor": { "type": "integer", "minimum": 0 },
+        "pricing_profile": { "type": "string", "minLength": 1 },
+        "allow_price_escalation": { "type": "boolean" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "max_input_tokens",
+        "max_output_tokens",
+        "max_total_tokens",
+        "max_latency_ms",
+        "preferred_model_tier",
+        "minimum_model_tier",
+        "compaction_policy",
+        "escalation_allowed",
+        "primary_mode",
+        "overflow_mode",
+        "overflow_trigger"
+      ],
+      "properties": {
+        "mode": { "const": "hybrid" },
+        "max_input_tokens": { "type": "integer", "minimum": 1 },
+        "max_output_tokens": { "type": "integer", "minimum": 1 },
+        "max_total_tokens": { "type": "integer", "minimum": 1 },
+        "max_latency_ms": { "type": "integer", "minimum": 0 },
+        "preferred_model_tier": { "$ref": "#/$defs/modelTier" },
+        "minimum_model_tier": { "$ref": "#/$defs/modelTier" },
+        "compaction_policy": { "type": "string", "minLength": 1 },
+        "escalation_allowed": { "type": "boolean" },
+        "primary_mode": {
+          "type": "string",
+          "enum": ["subscription", "api_key"]
+        },
+        "overflow_mode": {
+          "type": "string",
+          "enum": ["subscription", "api_key"]
+        },
+        "overflow_trigger": { "type": "string", "minLength": 1 }
+      }
+    }
+  ]
+}

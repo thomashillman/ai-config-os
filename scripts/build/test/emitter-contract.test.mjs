@@ -123,6 +123,15 @@ test("claude-code plugin.json skill list matches registry", () => {
   );
 });
 
+test("registry includes normalised resource_budget for context-budget pilot", () => {
+  const cb = registry.skills.find((s) => s.id === "context-budget");
+  assert.ok(cb, "context-budget skill must exist in registry");
+  assert.ok(cb.resource_budget, "context-budget must emit resource_budget");
+  assert.equal(cb.resource_budget.mode, "hybrid");
+  assert.equal(cb.resource_budget.primary_mode, "subscription");
+  assert.equal(cb.resource_budget.overflow_mode, "api_key");
+});
+
 // ─── Test 2: Cursor skills tree + emit meta ───
 
 test("cursor skills directory and .emit-meta.json exist with expected shape", () => {

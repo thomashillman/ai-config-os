@@ -355,6 +355,11 @@
       "additionalProperties": { "type": "string" }
     },
 
+    "resource_budget": {
+      "description": "Optional policy-level resource intent (subscription vs API spend vs hybrid). Validated against contracts/v1/resource-budget.schema.json.",
+      "$ref": "https://ai-config-os/contracts/v1/resource-budget.schema.json"
+    },
+
     "$extensions": {
       "type": "object",
       "description": "Escape hatch for non-standard metadata. Use a namespaced key (e.g. 'myorg.field'). Core tooling ignores all fields here.",

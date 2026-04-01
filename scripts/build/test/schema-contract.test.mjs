@@ -17,11 +17,23 @@ import { parseSkill } from "../lib/parse-skill.mjs";
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const ROOT = resolve(__dirname, "../../..");
 const SCHEMA_PATH = join(ROOT, "schemas", "skill.schema.json");
+const RESOURCE_BUDGET_SCHEMA_PATH = join(
+  ROOT,
+  "shared",
+  "contracts",
+  "schemas",
+  "v1",
+  "resource-budget.schema.json",
+);
 const SKILLS_DIR = join(ROOT, "shared", "skills");
 
+const resourceBudgetSchema = JSON.parse(
+  readFileSync(RESOURCE_BUDGET_SCHEMA_PATH, "utf8"),
+);
 const schema = JSON.parse(readFileSync(SCHEMA_PATH, "utf8"));
 const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
+ajv.addSchema(resourceBudgetSchema);
 const validate = ajv.compile(schema);
 
 // ---------------------------------------------------------------------------

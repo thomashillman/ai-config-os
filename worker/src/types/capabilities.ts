@@ -68,6 +68,8 @@ export interface RegistrySkill {
     skills: string[];
     models: string[];
   };
+  /** Normalised resource policy when the skill declares `resource_budget` in frontmatter. */
+  resource_budget?: Record<string, unknown>;
 }
 
 // ─── Error codes ─────────────────────────────────────────────────────────────
