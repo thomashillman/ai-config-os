@@ -1,5 +1,7 @@
 # Resource policy execution stack — Implementation Plan
 
+**Status:** Complete on `main` (Atom 7 merged 2026-04-01, PR [#282](https://github.com/thomashillman/ai-config-os/pull/282)). The step checklists below are a historical record of the delivery sequence; do not treat open `[ ]` items as remaining work unless you are verifying a regression.
+
 > **For agentic workers:** Use **superpowers:subagent-driven-development** or **superpowers:executing-plans** to run this plan task-by-task. Steps use checkbox (`- [ ]`) syntax. **Canonical spec:** [`docs/superpowers/specs/2026-04-01-resource-policy-execution-stack-design.md`](../specs/2026-04-01-resource-policy-execution-stack-design.md).
 
 **Goal:** Land resource policy (contracts, meter, planner, context pack, telemetry, enforcer, integration pilots) as **seven PRs** with minimal merge conflicts and deterministic tests.

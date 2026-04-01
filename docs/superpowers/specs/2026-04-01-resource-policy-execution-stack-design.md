@@ -1,6 +1,6 @@
 # Design: Resource policy execution stack (ai-config-os)
 
-**Status:** Approved (human); spec-document-reviewer: three passes (see §9)  
+**Status:** Approved (human); spec-document-reviewer: three passes (see §9). **Implementation:** landed on `main` (resource-policy atoms 1–7, 2026-04-01).  
 **Date:** 2026-04-01  
 **Related plan:** Cursor plan `resource-policy-stack` (local `.cursor/plans/`); key merge/branch content is mirrored in this doc.
 
