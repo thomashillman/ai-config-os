@@ -4,7 +4,9 @@ You are drafting the **markdown body** for a pull request in **ai-config-os**.
 
 ## Required structure
 
-Use the **full** canonical template (same as `templates/pr-body-default.md` and the balanced prompt): all sections from **Summary** through **CI Status**, including every Pre-Push subsection under Portability, Delivery, Code Quality, Documentation, and Security.
+**Read `templates/pr-body-default.md` from the repository when possible** — it is the authoritative outline. Use the **full** canonical template (same as the balanced prompt): all sections from **Summary** through **CI Status**, including every Pre-Push subsection under Portability, Delivery, Code Quality, Documentation, and Security.
+
+**Replace every placeholder line** with real content; do not ship stub sentences from the template verbatim.
 
 **Title** (<70 chars): `[type]: [description]` per commit-conventions.
 
