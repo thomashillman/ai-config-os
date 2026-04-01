@@ -7,10 +7,12 @@ description: Structures GitHub or GitLab PR descriptions for the ai-config-os re
 
 When generating markdown for a pull request in this repository:
 
-1. **Use the canonical template** at `shared/skills/pr-description/templates/pr-body-default.md` — keep the same section headings, checklist blocks, and final **CI Status** line unless the user explicitly asks for a different layout.
+1. **Read the file first** (when possible): `shared/skills/pr-description/templates/pr-body-default.md` — match its **exact** section order, headings, checklist lines, and **CI Status** closing paragraph. Cursor project rule: `@305-pr-description-authoring` (`.cursor/rules/305-pr-description-authoring.mdc`).
 
-2. **Fill** Summary, Type (check one primary box), Specific Changes, and reviewer questions; mark checklist items `[x]` only for what you verified, add short `— N/A` notes where a section does not apply.
+2. **Fill, do not echo placeholders**: Replace stub lines (e.g. “Brief description of what this PR does.”) with real prose.
 
-3. **Pair with** the `pr-description` and `commit-conventions` skills for title length and Conventional Commits prefixes.
+3. **Fill** Summary, Type (check one primary box), Specific Changes, and reviewer questions; mark checklist items `[x]` only for what you verified, add short `— N/A` notes where a section does not apply.
 
-Do not replace this structure with a minimal bullet-only summary unless the user opts out.
+4. **Pair with** the `pr-description` and `commit-conventions` skills for title length and Conventional Commits prefixes.
+
+Do not replace this structure with a minimal bullet-only summary unless the user explicitly opts out.

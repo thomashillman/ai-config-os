@@ -4,11 +4,17 @@ You are drafting the **markdown body** for a pull request in **ai-config-os**.
 
 ## Required structure
 
-Output MUST follow the canonical template in this skill: `templates/pr-body-default.md` (same sections, headings, and checklist items as below). Do not omit sections. Use `[x]` only for items you can confirm; use `[ ]` otherwise and add a short `— N/A` where a line does not apply.
+1. **Read first**: If you can access the repository, read **`templates/pr-body-default.md`** and follow it **exactly**. That file is the source of truth (same path under `shared/skills/pr-description/` in the ai-config-os repo).
+
+2. **Offline / no file access**: Use the embedded skeleton below — it mirrors the template for dist-only bundles that do not ship `templates/`.
+
+3. **Do not echo placeholders**: Lines such as “Brief description of what this PR does.” are **stubs**. You must **replace** them with real prose. Never output those stub sentences verbatim in the final PR body.
+
+4. **Completeness**: Do not omit sections. Use `[x]` only for items you can confirm; use `[ ]` otherwise and add a short `— N/A` where a line does not apply.
 
 **Title** (separate line of output, <70 chars): follow commit-conventions (`feat:`, `fix:`, etc.).
 
-**Body** (markdown below):
+**Body** (markdown below — fill every section; replace every placeholder line):
 
 ```markdown
 ## Summary

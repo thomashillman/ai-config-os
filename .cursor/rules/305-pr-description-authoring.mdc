@@ -1,0 +1,30 @@
+---
+description: Canonical PR body for ai-config-os when drafting GitHub/GitLab PR descriptions or pre-merge checklists (opt-in)
+alwaysApply: false
+---
+
+# When to use
+
+Mention this rule (for example `@305-pr-description-authoring`) when you want a **paste-ready PR body** or **pre-merge checklist** for **this repository** (ai-config-os): opening a PR, filling GitHub/GitLab description fields, or generating markdown the mergeability gate expects.
+
+Related skills: `shared/skills/pr-description/SKILL.md`, `shared/skills/commit-conventions/SKILL.md`.
+
+## Required behaviour
+
+1. **Read first**: If you have filesystem access, read `shared/skills/pr-description/templates/pr-body-default.md` and follow its **exact** section order, `##` / `###` headings, checklist lines, and final **CI Status** paragraph. Do not invent a shorter outline.
+
+2. **Fill, do not echo placeholders**: Replace placeholder lines (for example “Brief description of what this PR does.”) with real content. Mark `[x]` only for items you can confirm; use `[ ]` otherwise and add short `— N/A` where a line does not apply.
+
+3. **Opt-out only by request**: Do not replace this structure with a bullet-only summary unless the user **explicitly** asks for a different format or a minimal outline.
+
+4. **Title**: Keep &lt;70 characters; use Conventional Commits (`feat:`, `fix:`, `docs:`, etc.) per `commit-conventions`.
+
+## Trigger pattern
+
+```text
+@305-pr-description-authoring
+Task: Draft PR description for my branch
+Context: <summary of changes, or point to commits>
+```
+
+If the rule is not invoked, still prefer the same template whenever the user asks for a **PR description** or **PR body** for **ai-config-os** in this workspace.
