@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react"
 import ResumeSheet from "../components/ResumeSheet"
 import TaskDetailTab from "./TaskDetailTab"
-import { WORKER_URL as DEFAULT_WORKER_URL } from "../lib/workerClient"
+import { getWorkerBaseUrl } from "../lib/workerClient"
 import { routeLabel } from "../lib/taskFormatters"
 import { timeAgo } from "../lib/dateFormatters"
 import { summarizeTaskFindings } from "../lib/taskFindingSummary"
@@ -84,11 +84,18 @@ export default function HubTab({ workerUrl, token: tokenProp }) {
   const [filter, setFilter] = useState("active")
   const [detailTaskId, setDetailTaskId] = useState(null)
 
-  const WORKER_URL = workerUrl || DEFAULT_WORKER_URL
-  const token = tokenProp || import.meta.env.VITE_AUTH_TOKEN || ""
+  const baseUrl = workerUrl || getWorkerBaseUrl()
+  const token = tokenProp
 
   if (detailTaskId) {
-    return <TaskDetailTab taskId={detailTaskId} onBack={() => setDetailTaskId(null)} />
+    return (
+      <TaskDetailTab
+        taskId={detailTaskId}
+        onBack={() => setDetailTaskId(null)}
+        workerUrl={baseUrl}
+        token={token}
+      />
+    )
   }
 
   async function fetchTasks() {
@@ -98,7 +105,7 @@ export default function HubTab({ workerUrl, token: tokenProp }) {
       const params = new URLSearchParams({ limit: "20" })
       if (filter !== "all") params.set("status", filter)
 
-      const res = await fetch(`${WORKER_URL}/v1/tasks?${params}`, {
+      const res = await fetch(`${baseUrl}/v1/tasks?${params}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
 
@@ -192,7 +199,7 @@ export default function HubTab({ workerUrl, token: tokenProp }) {
       )}
 
       {resumeTask && (
-        <ResumeSheet task={resumeTask} onClose={() => setResumeTask(null)} />
+        <ResumeSheet task={resumeTask} onClose={() => setResumeTask(null)} workerUrl={baseUrl} />
       )}
     </div>
   )

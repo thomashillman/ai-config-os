@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react"
 import ResumeSheet from "../components/ResumeSheet"
-import { WORKER_URL } from "../lib/workerClient"
+import { getWorkerBaseUrl, getWorkerToken } from "../lib/workerClient"
 import { routeLabel, stateLabel, readErrorMessage } from "../lib/taskFormatters"
 import { formatDate } from "../lib/dateFormatters"
 import { summarizeTaskFindings } from "../lib/taskFindingSummary"
@@ -155,7 +155,7 @@ function EventStory({ events, task, openFindingsCount }) {
   )
 }
 
-function AnswerModal({ question, taskId, token, onClose, onSaved }) {
+function AnswerModal({ question, taskId, token, workerUrl, onClose, onSaved }) {
   const [answer, setAnswer] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -171,7 +171,7 @@ function AnswerModal({ question, taskId, token, onClose, onSaved }) {
       const version = question.taskVersion
       if (!version) throw new Error("Missing task version")
 
-      const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/questions/${questionId}/answer`, {
+      const response = await fetch(`${workerUrl}/v1/tasks/${taskId}/questions/${questionId}/answer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -230,7 +230,7 @@ function AnswerModal({ question, taskId, token, onClose, onSaved }) {
   )
 }
 
-export default function TaskDetailTab({ taskId, onBack }) {
+export default function TaskDetailTab({ taskId, onBack, workerUrl, token: tokenProp }) {
   const [task, setTask] = useState(null)
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -240,7 +240,8 @@ export default function TaskDetailTab({ taskId, onBack }) {
   const [dismissErrors, setDismissErrors] = useState({})
   const [dismissingQuestionId, setDismissingQuestionId] = useState(null)
 
-  const token = import.meta.env.VITE_AUTH_TOKEN || ""
+  const baseUrl = workerUrl ?? getWorkerBaseUrl()
+  const token = tokenProp ?? getWorkerToken()
 
   async function fetchTask() {
     setLoading(true)
@@ -248,8 +249,8 @@ export default function TaskDetailTab({ taskId, onBack }) {
     try {
       const headers = token ? { Authorization: `Bearer ${token}` } : {}
       const [taskRes, eventsRes] = await Promise.all([
-        fetch(`${WORKER_URL}/v1/tasks/${taskId}`, { headers }),
-        fetch(`${WORKER_URL}/v1/tasks/${taskId}/progress-events`, { headers }),
+        fetch(`${baseUrl}/v1/tasks/${taskId}`, { headers }),
+        fetch(`${baseUrl}/v1/tasks/${taskId}/progress-events`, { headers }),
       ])
 
       if (!taskRes.ok) {
@@ -284,7 +285,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
     })
 
     try {
-      const response = await fetch(`${WORKER_URL}/v1/tasks/${taskId}/questions/${encodeURIComponent(questionId)}/dismiss`, {
+      const response = await fetch(`${baseUrl}/v1/tasks/${taskId}/questions/${encodeURIComponent(questionId)}/dismiss`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -313,7 +314,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
     }
   }
 
-  useEffect(() => { fetchTask() }, [taskId])
+  useEffect(() => { fetchTask() }, [taskId, baseUrl, token])
 
   const findings = task?.findings || []
   const findingSummary = useMemo(
@@ -414,7 +415,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
       )}
 
       {showResume && task && (
-        <ResumeSheet task={task} onClose={() => setShowResume(false)} />
+        <ResumeSheet task={task} onClose={() => setShowResume(false)} workerUrl={baseUrl} />
       )}
 
       {answerQuestion && task && (
@@ -422,6 +423,7 @@ export default function TaskDetailTab({ taskId, onBack }) {
           question={{ ...answerQuestion, taskVersion: task.version }}
           taskId={task.task_id}
           token={token}
+          workerUrl={baseUrl}
           onClose={() => setAnswerQuestion(null)}
           onSaved={() => { setAnswerQuestion(null); fetchTask() }}
         />

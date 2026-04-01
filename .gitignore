@@ -31,6 +31,9 @@ runtime/manifest.yaml
 dashboard/dist/
 dashboard/node_modules/
 
+# Dashboard: local Vite secrets
+dashboard/.env.local
+
 # Build system
 dist/
 node_modules/

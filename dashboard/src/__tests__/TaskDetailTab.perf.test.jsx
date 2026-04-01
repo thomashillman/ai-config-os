@@ -15,6 +15,20 @@ import { useMemo } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import TaskDetailTab from "../tabs/TaskDetailTab"
 
+const TEST_WORKER = "http://localhost:3000"
+const TEST_TOKEN = "test-token"
+
+function renderTaskDetail(taskId = "task-abc") {
+  return render(
+    <TaskDetailTab
+      taskId={taskId}
+      onBack={() => {}}
+      workerUrl={TEST_WORKER}
+      token={TEST_TOKEN}
+    />,
+  )
+}
+
 // ─── Hook-level stability test ────────────────────────────────────────────────
 // This simulates what TaskDetailTab does internally. If useMemo is missing,
 // filter() returns a NEW array reference every render. With useMemo, the same
@@ -130,7 +144,7 @@ afterEach(() => {
 describe("TaskDetailTab — correct filtered output", () => {
   it("shows hypothesis/reused findings count in title row", async () => {
     mockFetch()
-    render(<TaskDetailTab taskId="task-abc" onBack={() => {}} />)
+    renderTaskDetail()
 
     // 2 findings have hypothesis/reused status (f1 + f2)
     await waitFor(() => expect(screen.getByText("2 to verify")).toBeInTheDocument())
@@ -138,7 +152,7 @@ describe("TaskDetailTab — correct filtered output", () => {
 
   it("filtered output survives unrelated state changes", async () => {
     mockFetch()
-    render(<TaskDetailTab taskId="task-abc" onBack={() => {}} />)
+    renderTaskDetail()
 
     await waitFor(() => expect(screen.getByText("2 to verify")).toBeInTheDocument())
 

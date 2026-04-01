@@ -11,6 +11,9 @@ function jsonResponse(payload, init = {}) {
   })
 }
 
+const TEST_WORKER = "http://localhost:3000"
+const TEST_TOKEN = "test-token"
+
 const BASE_TASK = {
   task_id: "task-123",
   short_code: "T-123",
@@ -60,7 +63,14 @@ describe("TaskDetailTab answer and dismiss actions", () => {
       .mockImplementationOnce(() => jsonResponse({ task: updatedTask }))
       .mockImplementationOnce(() => jsonResponse({ events: [] }))
 
-    render(<TaskDetailTab taskId={BASE_TASK.task_id} onBack={() => {}} />)
+    render(
+      <TaskDetailTab
+        taskId={BASE_TASK.task_id}
+        onBack={() => {}}
+        workerUrl={TEST_WORKER}
+        token={TEST_TOKEN}
+      />,
+    )
 
     expect((await screen.findAllByText("Should we keep this?")).length).toBeGreaterThan(0)
 
@@ -90,7 +100,14 @@ describe("TaskDetailTab answer and dismiss actions", () => {
         },
       }, { ok: false, status: 409 }))
 
-    render(<TaskDetailTab taskId={BASE_TASK.task_id} onBack={() => {}} />)
+    render(
+      <TaskDetailTab
+        taskId={BASE_TASK.task_id}
+        onBack={() => {}}
+        workerUrl={TEST_WORKER}
+        token={TEST_TOKEN}
+      />,
+    )
 
     expect((await screen.findAllByText("Should we keep this?")).length).toBeGreaterThan(0)
 
@@ -118,7 +135,14 @@ describe("TaskDetailTab answer and dismiss actions", () => {
         },
       }, { ok: false, status: 409 }))
 
-    render(<TaskDetailTab taskId={BASE_TASK.task_id} onBack={() => {}} />)
+    render(
+      <TaskDetailTab
+        taskId={BASE_TASK.task_id}
+        onBack={() => {}}
+        workerUrl={TEST_WORKER}
+        token={TEST_TOKEN}
+      />,
+    )
 
     expect((await screen.findAllByText("Should we keep this?")).length).toBeGreaterThan(0)
 

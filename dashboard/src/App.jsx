@@ -1,4 +1,5 @@
 import { Suspense, lazy, useMemo, useState } from "react"
+import { getWorkerBaseUrl, getWorkerToken } from "./lib/workerClient"
 
 const ToolsTab = lazy(() => import("./tabs/ToolsTab"))
 const SkillsTab = lazy(() => import("./tabs/SkillsTab"))
@@ -20,13 +21,8 @@ const TABS = [
   { id: "observability", label: "Bootstrap Runs" },
 ]
 
-const API = "http://localhost:4242/api"
-const WORKER_URL = typeof window !== "undefined"
-  ? (window.__AI_CONFIG_WORKER ?? "https://ai-config-os.workers.dev")
-  : "https://ai-config-os.workers.dev"
-const WORKER_TOKEN = typeof window !== "undefined"
-  ? (window.__AI_CONFIG_TOKEN ?? "")
-  : ""
+const WORKER_URL = getWorkerBaseUrl()
+const WORKER_TOKEN = getWorkerToken()
 
 function TabPanel({ activeTab }) {
   switch (activeTab) {
