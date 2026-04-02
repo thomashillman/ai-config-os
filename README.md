@@ -1,17 +1,17 @@
-#  AI Config OS
+# AI Config OS
 
 **Build a personal AI behaviour layer for Claude Code and other agents.**
 
 [Build and Validate Skills](https://github.com/thomashillman/ai-config-os/actions/workflows/build.yml)
 [License](https://github.com/thomashillman/ai-config-os)
 
-*Additional CI:* [Validate plugin structure](.github/workflows/validate.yml) runs when paths such as `shared/skills/`, `plugins/`, `runtime/`, and related trees change — not on every commit to `main`.
+_Additional CI:_ [Validate plugin structure](.github/workflows/validate.yml) runs when paths such as `shared/skills/`, `plugins/`, `runtime/`, and related trees change — not on every commit to `main`.
 
 AI Config OS is a plugin marketplace and skill authoring system that centralizes how you configure AI agents across your devices. Instead of scattering prompts, hooks, and conventions across different tools, you define them once in a shared library and deploy them everywhere—your Claude Code workspace, Cursor, Codex, or any tool that supports plugins.
 
 Skills follow the [Agent Skills](https://agentskills.io) open standard — a portable format implemented by many agent products. This repo extends the standard with multi-model variants, capability contracts, automated testing, and cross-platform distribution. See `[docs/SKILLS.md](docs/SKILLS.md)` for the comprehensive skills reference.
 
-**Support status (canonical):** For what is supported *today* (platforms, marketplace vs sync, dashboard features), see `**[docs/SUPPORTED_TODAY.md](docs/SUPPORTED_TODAY.md)`**. Roadmap and milestones live in `[PLAN.md](PLAN.md)`.
+**Support status (canonical):** For what is supported _today_ (platforms, marketplace vs sync, dashboard features), see `**[docs/SUPPORTED_TODAY.md](docs/SUPPORTED_TODAY.md)`\*\*. Roadmap and milestones live in `[PLAN.md](PLAN.md)`.
 
 ## Table of contents
 
@@ -101,7 +101,7 @@ cd dashboard && npm ci && npm run dev
 bash ops/dashboard-start.sh
 ```
 
-This frees ports **4242** and **5173** (any listener on those ports — not only this repo), starts MCP + dashboard API, optionally publishes Worker KV snapshots, and starts Vite on **127.0.0.1:5173**. Requires `**curl`** and `**lsof`**. Set `VITE_WORKER_URL` and `VITE_AUTH_TOKEN` in `[dashboard/.env.local](dashboard/.env.local)`. For Skill Library and other snapshot-backed tabs, install `**yq`** so publish can run; otherwise run `node runtime/publish-dashboard-state.mjs` after installing `yq`.
+This frees ports **4242** and **5173** (any listener on those ports — not only this repo), starts MCP + dashboard API, optionally publishes Worker KV snapshots, and starts Vite on **127.0.0.1:5173**. Requires `**curl`** and `**lsof`**. Set `VITE_WORKER_URL`and`VITE_AUTH_TOKEN`in`[dashboard/.env.local](dashboard/.env.local)`. For Skill Library and other snapshot-backed tabs, install `**yq`** so publish can run; otherwise run `node runtime/publish-dashboard-state.mjs` after installing `yq`.
 
 **Security note:** The dashboard API denies non-loopback callers unless tunnel assertions match (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS). Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, `DASHBOARD_PUBLIC_ORIGINS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
@@ -137,8 +137,6 @@ flowchart LR
   RT --> W
 ```
 
-
-
 ### Runtime execution (Phase 1, Cloudflare-first)
 
 Phase 1 needs no external executor host.
@@ -163,14 +161,12 @@ Portable tasks (including `review_repository`), Momentum Engine (narrator, obser
 
 ## Configuration
 
-
 | Item                                                                                              | Purpose                                                          |
 | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | `AI_CONFIG_TOKEN`                                                                                 | Bearer token for Worker API calls from adapters and hooks        |
 | `AI_CONFIG_WORKER`                                                                                | Base URL of the Worker (e.g. `https://ai-config-os.workers.dev`) |
 | `VITE_WORKER_URL`, `VITE_AUTH_TOKEN`                                                              | Dashboard client → Worker (`dashboard/.env.local`)               |
 | `DASHBOARD_PUBLIC_ORIGINS`, `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, `REQUIRE_TUNNEL_MTLS` | Tunnel / CORS / hardening for dashboard API                      |
-
 
 Deploy your own Worker (optional):
 
@@ -191,14 +187,12 @@ curl -H "Authorization: Bearer $AI_CONFIG_TOKEN" \
 
 Summary table (see `[docs/SUPPORTED_TODAY.md](docs/SUPPORTED_TODAY.md)` for evidence and nuance):
 
-
 | Surface                                          | Setup                                                                                                                               | Offline skills cache              | Runtime sync role                                                                                                                              |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Claude Code** (local/remote)                   | Marketplace + env + `adapters/claude/materialise.sh`                                                                                | Yes (`~/.ai-config-os/cache/...`) | Full sync/status for `claude-code` in registry; MCP + CLI checks                                                                               |
 | **Cursor**                                       | `npm run build` + copy `dist/clients/cursor/skills/` to `~/.cursor/skills` or project                                               | N/A (local copy)                  | Registry + CLI presence; file-adapter sync mostly no-op today                                                                                  |
 | **Codex**                                        | Build + `[adapters/codex/install.sh](adapters/codex/install.sh)` / `[adapters/codex/materialise.sh](adapters/codex/materialise.sh)` | Per your install                  | Presence checks; no installer inside `runtime/sync.sh`                                                                                         |
-| **Other IDEs (VS Code, JetBrains, Windsurf, …)** | No `dist/clients/`* package from this compiler today                                                                                | N/A                               | May appear in `[shared/targets/platforms/](shared/targets/platforms/)` for compatibility only; use Claude Code / Cursor / Codex emitters above |
-
+| **Other IDEs (VS Code, JetBrains, Windsurf, …)** | No `dist/clients/`\* package from this compiler today                                                                               | N/A                               | May appear in `[shared/targets/platforms/](shared/targets/platforms/)` for compatibility only; use Claude Code / Cursor / Codex emitters above |
 
 **Claude Code CLI (local)**
 
@@ -319,12 +313,11 @@ Installers for some surfaces exist as **separate scripts** (e.g. `[adapters/curs
 
 ## Directory structure
 
-
 | Path                       | Purpose                                                                           |
 | -------------------------- | --------------------------------------------------------------------------------- |
-| `**shared/skills/`**       | Canonical skill source (`SKILL.md` per folder). Compiler reads only this tree.    |
-| `**dist/clients/`**        | Emitted per-platform packages (self-contained).                                   |
-| `**dist/registry/`**       | Cross-platform `index.json` and summaries.                                        |
+| `**shared/skills/`\*\*     | Canonical skill source (`SKILL.md` per folder). Compiler reads only this tree.    |
+| `**dist/clients/`\*\*      | Emitted per-platform packages (self-contained).                                   |
+| `**dist/registry/`\*\*     | Cross-platform `index.json` and summaries.                                        |
 | `**dist/runtime/**`        | Task routes, tool registry snapshots, manifests consumed by Worker/MCP/dashboard. |
 | `shared/workflows/`        | Composed workflows (JSON).                                                        |
 | `shared/targets/`          | Platform capability YAML.                                                         |
@@ -342,7 +335,6 @@ Installers for some surfaces exist as **separate scripts** (e.g. `[adapters/curs
 | `ops/`                     | Validation, dashboard orchestration, helpers.                                     |
 | `.claude/hooks/`           | Claude Code hooks.                                                                |
 | `.github/workflows/`       | CI (`build.yml`, `validate.yml`, PR gates).                                       |
-
 
 **Worker TypeScript:** `npm install` at repo root; `npm run check:worker-types`; with worker deps, `npm run check:worker-test-types` under `worker/`.
 
@@ -368,7 +360,6 @@ See `[shared/workflows/daily-brief.json](shared/workflows/daily-brief.json)`. Ot
 
 ## Status and roadmap
 
-
 | Phase              | Status   | Notes                                                                                                                     |
 | ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Phase 1–7          | Complete | Skill library, metadata, tests, composition — `[shared/manifest.md](shared/manifest.md)`                                  |
@@ -376,13 +367,11 @@ See `[shared/workflows/daily-brief.json](shared/workflows/daily-brief.json)`. Ot
 | Phase 9.1–9.7      | Complete | Compiler, distribution, capability contracts, delivery/portability tests                                                  |
 | Phase 10 milestone | Complete | KV tasks, Codex emitter, Tasks UI, Momentum Engine, portable task skills — see `[shared/manifest.md](shared/manifest.md)` |
 
-
 Versioning: repository release is `./VERSION`; phase labels are internal checkpoints.
 
 `Installable skill count: 39 (source: shared/skills/*/SKILL.md; excluding _template).`
 
 **Platform maturity**
-
 
 | Platform               | Compiler                    | Worker               | Runtime sync (today)                                                              | Notes                                       |
 | ---------------------- | --------------------------- | -------------------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
@@ -390,7 +379,6 @@ Versioning: repository release is `./VERSION`; phase labels are internal checkpo
 | Cursor                 | Emits `dist/clients/cursor` | Not served as bundle | Registry + CLI checks; file sync mostly no-op                                     | Install skills by copy; see SUPPORTED_TODAY |
 | Codex                  | Emits Codex package         | Not served           | Presence checks; `[adapters/codex/materialise.sh](adapters/codex/materialise.sh)` | No Worker-side Codex bundle                 |
 | claude-web, claude-ios | Modeled                     | Not served           | N/A                                                                               | Compatibility / model only                  |
-
 
 ## Troubleshooting
 
@@ -426,7 +414,6 @@ bash ops/runtime-status.sh
 
 ## Testing and quality checks
 
-
 | Command                                                          | When                                         |
 | ---------------------------------------------------------------- | -------------------------------------------- |
 | `npm run build`                                                  | Compile skills to `dist/`                    |
@@ -434,11 +421,10 @@ bash ops/runtime-status.sh
 | `npm run validate`                                               | Compile validation only                      |
 | `npm run format:check`                                           | Prettier (CI-enforced)                       |
 | `npm run check:cursor-rules`                                     | After editing `.cursor/rules/*.mdc`          |
-| `npm run doctrine:check`                                         | After editing `shared/agent-doctrine/`**     |
+| `npm run doctrine:check`                                         | After editing `shared/agent-doctrine/`\*\*   |
 | `npm run check:worker-types` / `npm run check:worker-test-types` | Worker TypeScript                            |
 | `bash ops/validate-all.sh`                                       | Broader ops validation                       |
 | `bash adapters/claude/dev-test.sh`                               | Plugin and packaging checks                  |
-
 
 Narrow tests: `npm run test:file -- scripts/build/test/<name>.test.mjs` (run `npm run build` first if you need fresh `dist/`).
 
@@ -489,4 +475,3 @@ This project builds on concepts from the Mycelium project by [@bytemines](https:
 - `[shared/skills/_template/SKILL.md](shared/skills/_template/SKILL.md)` — New skill template
 - [Agent Skills](https://agentskills.io) — Open specification
 - [GitHub Issues](https://github.com/thomashillman/ai-config-os/issues) — Questions and bug reports
-
