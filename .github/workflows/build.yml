@@ -7,6 +7,7 @@ on:
       - "VERSION"
       - "shared/skills/**"
       - "shared/targets/**"
+      - "shared/ci/**"
       - "schemas/**"
       - "scripts/build/**"
       - "scripts/ci/**"
@@ -17,40 +18,92 @@ on:
       - "README.md"
       - "PLAN.md"
       - "package.json"
+      - "package-lock.json"
       - "runtime/adapters/**"
+      - "worker/**"
       - ".github/workflows/build.yml"
       - ".prettierrc"
       - ".prettierignore"
       - ".github/workflows/pr-mergeability-gate.yml"
+      - ".github/workflows/format-check-main.yml"
   pull_request:
-    paths:
-      - "VERSION"
-      - "shared/skills/**"
-      - "shared/targets/**"
-      - "schemas/**"
-      - "scripts/build/**"
-      - "scripts/ci/**"
-      - ".cursor/rules/**"
-      - ".github/workflows/pr-ai-review.yml"
-      - "scripts/lint/**"
-      - "dashboard/src/App.jsx"
-      - "README.md"
-      - "PLAN.md"
-      - "package.json"
-      - "runtime/adapters/**"
-      - ".github/workflows/build.yml"
-      - ".prettierrc"
-      - ".prettierignore"
-      - ".github/workflows/pr-mergeability-gate.yml"
+    branches: [main]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.filter.outputs.build }}
+      portable: ${{ steps.filter.outputs.portable }}
+      matrix_os: ${{ steps.matrix.outputs.matrix_os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # v3.0.2 — pin commit for supply-chain stability
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        id: filter
+        with:
+          filters: |
+            build:
+              - 'VERSION'
+              - 'shared/ci/**'
+              - 'shared/skills/**'
+              - 'shared/targets/**'
+              - 'schemas/**'
+              - 'scripts/build/**'
+              - 'scripts/ci/**'
+              - '.cursor/rules/**'
+              - '.github/workflows/pr-ai-review.yml'
+              - 'scripts/lint/**'
+              - 'dashboard/src/App.jsx'
+              - 'README.md'
+              - 'PLAN.md'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'runtime/adapters/**'
+              - 'worker/**'
+              - '.github/workflows/build.yml'
+              - '.prettierrc'
+              - '.prettierignore'
+              - '.github/workflows/pr-mergeability-gate.yml'
+            portable:
+              - 'VERSION'
+              - 'shared/ci/**'
+              - 'shared/skills/**'
+              - 'shared/targets/**'
+              - 'schemas/**'
+              - 'scripts/build/**'
+              - 'scripts/ci/**'
+              - '.cursor/rules/**'
+              - 'scripts/lint/**'
+              - 'dashboard/src/App.jsx'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'runtime/adapters/**'
+              - 'worker/**'
+
+      - name: Set matrix
+        id: matrix
+        run: |
+          if [ "${{ steps.filter.outputs.build }}" != "true" ]; then
+            echo 'matrix_os=["ubuntu-latest"]' >> $GITHUB_OUTPUT
+          elif [ "${{ steps.filter.outputs.portable }}" = "true" ]; then
+            echo 'matrix_os=["ubuntu-latest","macos-latest","windows-latest"]' >> $GITHUB_OUTPUT
+          else
+            echo 'matrix_os=["ubuntu-latest"]' >> $GITHUB_OUTPUT
+          fi
+
   build:
     name: Build (${{ matrix.os }})
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.changes.outputs.matrix_os) }}
 
     steps:
       - name: Checkout
@@ -185,3 +238,12 @@ jobs:
           name: dist-${{ github.sha }}
           path: dist/
           retention-days: 30
+
+  build-not-needed:
+    name: Build (skipped — no matching paths)
+    needs: changes
+    if: needs.changes.outputs.build != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No paths matched the build workflow filters; skipping compile and multi-platform tests."
+        shell: bash

@@ -5,8 +5,8 @@
  * Runs all validation steps in sequence. Uses Node.js glob discovery
  * instead of shell patterns so it works on Windows CMD.
  *
- * Usage: node scripts/build/verify.mjs
- *        npm run verify
+ * Usage: node scripts/build/verify.mjs [--skip-dashboard] [--skip-tests]
+ *        npm run verify -- [--skip-dashboard] [--skip-tests]
  */
 import { readdirSync, existsSync } from "fs";
 import { join, resolve, dirname } from "path";
@@ -15,6 +15,9 @@ import { spawnSync } from "child_process";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..", "..");
+
+const skipDashboard = process.argv.includes("--skip-dashboard");
+const skipTests = process.argv.includes("--skip-tests");
 
 let failed = false;
 
@@ -85,14 +88,19 @@ if (existsSync(platformsDir)) {
   }
 }
 
-// 4. Full test suite
-// Includes: canonical source contract, portability contract, materialisation contract, delivery contract
-run("Test suite (portability & delivery contracts)", process.execPath, [
-  join(REPO_ROOT, "scripts", "build", "test", "run-tests.mjs"),
-]);
+// 4. Full test suite (skipped when --skip-tests passed, e.g. in CI after npm test)
+if (skipTests) {
+  console.log(
+    "\n==> Test suite [SKIPPED — --skip-tests] (run separately, e.g. npm test)",
+  );
+} else {
+  // Includes: canonical source contract, portability contract, materialisation contract, delivery contract
+  run("Test suite (portability & delivery contracts)", process.execPath, [
+    join(REPO_ROOT, "scripts", "build", "test", "run-tests.mjs"),
+  ]);
+}
 
 // 5. Dashboard gate (skipped when --skip-dashboard passed, e.g. in CI when dashboard/ unchanged)
-const skipDashboard = process.argv.includes("--skip-dashboard");
 if (skipDashboard) {
   console.log("\n==> Dashboard test suite [SKIPPED — --skip-dashboard]");
   console.log("==> Dashboard production build [SKIPPED — --skip-dashboard]");

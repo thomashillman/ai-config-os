@@ -1,0 +1,25 @@
+# Full-repo Prettier check on main — complements PR merge gate, which uses
+# scripts/ci/format-check-changed.mjs (changed files only) for speed.
+name: Format check (main)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prettier (full repo)
+        run: npm run format:check

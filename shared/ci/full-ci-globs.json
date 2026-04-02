@@ -1,0 +1,18 @@
+[
+  ".cursor/rules/**",
+  ".github/workflows/**",
+  "VERSION",
+  "adapters/**",
+  "dashboard/**",
+  "ops/**",
+  "package-lock.json",
+  "package.json",
+  "plugins/**",
+  "runtime/**",
+  "schemas/**",
+  "scripts/**",
+  "shared/**",
+  "shared/agent-doctrine/**",
+  "shared/lib/**",
+  "worker/**"
+]

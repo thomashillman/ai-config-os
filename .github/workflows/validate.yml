@@ -15,31 +15,50 @@ on:
       - "PLAN.md"
       - "README.md"
       - "package.json"
+      - "package-lock.json"
       - ".github/workflows/validate.yml"
       - ".prettierrc"
       - ".prettierignore"
       - ".github/workflows/pr-mergeability-gate.yml"
   pull_request:
     branches: [main]
-    paths:
-      - "shared/skills/**"
-      - "plugins/**"
-      - "runtime/**"
-      - "shared/lib/**"
-      - "ops/**"
-      - "scripts/ci/**"
-      - ".cursor/rules/**"
-      - ".github/workflows/pr-ai-review.yml"
-      - "PLAN.md"
-      - "README.md"
-      - "package.json"
-      - ".github/workflows/validate.yml"
-      - ".prettierrc"
-      - ".prettierignore"
-      - ".github/workflows/pr-mergeability-gate.yml"
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      validate: ${{ steps.filter.outputs.validate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # v3.0.2 — pin commit for supply-chain stability
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36
+        id: filter
+        with:
+          filters: |
+            validate:
+              - 'shared/skills/**'
+              - 'plugins/**'
+              - 'runtime/**'
+              - 'shared/lib/**'
+              - 'ops/**'
+              - 'scripts/ci/**'
+              - '.cursor/rules/**'
+              - '.github/workflows/pr-ai-review.yml'
+              - 'PLAN.md'
+              - 'README.md'
+              - 'package.json'
+              - 'package-lock.json'
+              - '.github/workflows/validate.yml'
+              - '.prettierrc'
+              - '.prettierignore'
+              - '.github/workflows/pr-mergeability-gate.yml'
+
   validate:
+    needs: changes
+    if: needs.changes.outputs.validate == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -143,3 +162,12 @@ jobs:
         run: |
           bash shared/lib/config-merger.sh > /dev/null
           echo "Config merge: OK"
+
+  validate-not-needed:
+    name: Validate plugin (skipped — no matching paths)
+    needs: changes
+    if: needs.changes.outputs.validate != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "No paths matched the validate workflow filters; skipping plugin/runtime validation."
+        shell: bash
