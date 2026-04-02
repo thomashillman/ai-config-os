@@ -2,834 +2,476 @@
 
 **Build a personal AI behaviour layer for Claude Code and other agents.**
 
+[Build and Validate Skills](https://github.com/thomashillman/ai-config-os/actions/workflows/build.yml)
+[License](https://github.com/thomashillman/ai-config-os)
+
+_Additional CI:_ [Validate plugin structure](.github/workflows/validate.yml) runs when paths such as `shared/skills/`, `plugins/`, `runtime/`, and related trees change — not on every commit to `main`.
+
 AI Config OS is a plugin marketplace and skill authoring system that centralizes how you configure AI agents across your devices. Instead of scattering prompts, hooks, and conventions across different tools, you define them once in a shared library and deploy them everywhere—your Claude Code workspace, Cursor, Codex, or any tool that supports plugins.
 
-Skills follow the [Agent Skills](https://agentskills.io) open standard — a portable format supported by 30+ agent products including Claude Code, Cursor, VS Code (Copilot), GitHub Copilot, Gemini CLI, OpenAI Codex, and many others. This repo extends the standard with multi-model variants, capability contracts, automated testing, and cross-platform distribution. See [`docs/SKILLS.md`](docs/SKILLS.md) for the comprehensive skills reference.
+Skills follow the [Agent Skills](https://agentskills.io) open standard — a portable format implemented by many agent products. This repo extends the standard with multi-model variants, capability contracts, automated testing, and cross-platform distribution. See `[docs/SKILLS.md](docs/SKILLS.md)` for the comprehensive skills reference.
 
-## What can you do with it?
+**Support status (canonical):** For what is supported _today_ (platforms, marketplace vs sync, dashboard features), see `**[docs/SUPPORTED_TODAY.md](docs/SUPPORTED_TODAY.md)`\*\*. Roadmap and milestones live in `[PLAN.md](PLAN.md)`.
 
-- **Centralize AI behaviour:** Define skills, hooks, and conventions in one place; sync across devices
-- **Author skills that understand themselves:** Skills include metadata (inputs, outputs, dependencies, tests) so AI agents can discover and compose them intelligently
-- **Multi-model intelligence:** Tag skills with model variants (Opus for complexity, Sonnet for balance, Haiku for speed) and let the system pick the best one
-- **Visualize your setup:** A React dashboard shows your installed tools, skill library, context costs, and performance metrics
-- **Desired-state tool management:** Declare what tools you want, and a sync engine keeps your environment in sync across machines
+## Table of contents
+
+- [What you can do](#what-you-can-do)
+- [Quick start](#quick-start)
+- [Demo: local dashboard](#demo-local-dashboard)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+- [Installation and setup by platform](#installation-and-setup-by-platform)
+- [How to use](#how-to-use)
+- [Runtime config and sync](#runtime-config-and-sync)
+- [Directory structure](#directory-structure)
+- [Examples: common tasks](#examples-common-tasks)
+- [Status and roadmap](#status-and-roadmap)
+- [Troubleshooting](#troubleshooting)
+- [Versioning](#versioning)
+  - [Release history](#release-history)
+- [Testing and quality checks](#testing-and-quality-checks)
+- [Contributing](#contributing)
+- [Maintainers and contact](#maintainers-and-contact)
+- [Security](#security)
+- [License](#license)
+- [Acknowledgements](#acknowledgements-and-related-projects)
+- [Quick links](#quick-links)
+
+## What you can do
+
+- **Centralize AI behaviour:** Define skills, hooks, and conventions in one place; distribute compiled packages and (for Claude Code) refresh manifests from the Worker where configured.
+- **Author skills that understand themselves:** Skills include metadata (inputs, outputs, dependencies, tests) so agents can discover and compose them.
+- **Multi-model intelligence:** Tag skills with model variants (Opus, Sonnet, Haiku) and let the client pick the best match.
+- **Visualize your setup:** A React dashboard surfaces tools, skills, context cost, and related runtime views (see `[docs/SUPPORTED_TODAY.md](docs/SUPPORTED_TODAY.md)` for the exact tab list).
+- **Desired-state configuration:** Merge global, machine, and project YAML; sync applies **config and status** (including MCP config and CLI **presence checks**). Runtime sync **does not install** CLIs or IDEs — see [Runtime config and sync](#runtime-config-and-sync).
 
 This is for you if you spend time in Claude Code, Cursor, or other agent IDEs, and want consistency without repetition.
 
----
+## Quick start
 
-## Architecture: Source → Build → Distribution
+**Prerequisites**
 
-AI Config OS follows a clean **portability contract**:
+- **Node.js** 18+ (`[package.json](package.json)` `engines.node`: `>=18.0.0`) for builds, MCP, and dashboard
+- **git** for clone and hooks
+- **yq** for config merge (`brew install yq` / `snap install yq`)
+- **jq** (optional; some adapter scripts)
+- **Claude Code** if you use the marketplace plugin flow and `adapters/claude/` scripts
 
-1. **Source:** Skills are authored once in `shared/skills/` as self-contained SKILL.md files with full metadata
-2. **Build:** The compiler reads only from source, validates skills, and emits **self-sufficient packages** to `dist/clients/<platform>/`
-3. **Distribution:** Emitted packages are complete and independent—no symlinks, no source-tree references, no external dependencies
-4. **Materialisation:** Packages can be extracted (cached, archived, offline) and materialized on any system without source access
-
-This architecture ensures:
-
-- **Portability:** Same skill package works in CI, on your laptop, or an air-gapped device
-- **Determinism:** Same source always produces identical emitted packages (no timestamps in build output)
-- **Scalability:** Packages can be distributed via Worker, S3, package manager, or Git without modification
-
-## Architecture: Runtime Execution (Phase 1 Cloudflare-first)
-
-**Phase 1 is Cloudflare-first. No external executor host is required.**
-
-The main execution flow:
-
-1. **Main Worker** (`worker/src/`) — API gateway serving artifacts, routing requests
-2. **Executor Worker** (`worker/executor/`) — Executes Phase 1 tools via service binding (KV/R2 metadata queries only, 15s timeout)
-3. **Task control plane** (`runtime/lib/`) — Portable task state, route resolution, continuation
-
-All execution is contained within Cloudflare Workers. The two Workers communicate via **service binding** (no external HTTP overhead).
-
-### Current support truth
-
-For the current, evidence-backed support matrix (platforms, runtime vs compile surfaces, marketplace/install, sync, dashboard/runtime features), see **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)**.
-Roadmap intent remains in `PLAN.md`.
-
-### Supporting Components
-
-- `runtime/mcp/` — Local development MCP server (exposes runtime operations)
-- `runtime/remote-executor/` — Reference Phase 0 HTTP executor (preserved for Phase 2 seam only)
-- `dashboard/` — Operator UI over runtime API
-
-### Phase 2 (future, not implemented)
-
-A future phase may add VPS-backed executor for shell, filesystem, git, and long-running tasks. The seam for Phase 2 is preserved in code but not implemented yet. Phase 1 will remain the primary fast path for metadata operations.
-
-## Current state
-
-For current support truth (what is supported now), use **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)**.
-
-The `review_repository` portable task journey is complete end-to-end:
-
-- start in a weaker environment (web, mobile, pasted diff, uploaded bundle)
-- create a canonical task object with route-specific inputs
-- continue in a stronger environment (`local_repo`)
-- preserve findings with explicit provenance (`verified`, `reused`, `hypothesis`)
-- finish without asking the user to restate the task
-
-The **Momentum Engine** (Phase 10 milestone) is now complete — it adds the experience layer on top of the task control plane:
-
-- **Narrator:** produces structured prose from task state at start, resume, finding-evolution, and upgrade-available moments
-- **Observer:** records narrations and user responses via the existing ProgressEventPipeline
-- **Shelf:** ranks continuable tasks by environment-aware continuation value
-- **Intent Lexicon:** resolves natural language phrases to task types and route hints
-- **Reflector:** analyzes observation data and proposes narrator/lexicon improvements; invoke via `/momentum-reflect` or `/loop 10m /momentum-reflect`
-
-Task state is now persisted cross-session via **Cloudflare KV** (`runtime/lib/task-store-kv.mjs`). The session-start hook queries the Worker for active tasks and surfaces resume prompts automatically.
-
-### Operational validation snapshot (2026-03-31)
-
-Current operational verification status is aligned with `PLAN.md` acceptance criteria:
-
-- **Marketplace add + Claude Code install:** partially validated (local package build/extract complete; interactive Claude Code marketplace flow blocked in this runner due missing `claude` binary/UI).
-- **Installed skill exposure:** validated on two environments (`claude-code` package extraction + `codex` install with skill presence checks in `~/.codex/AGENTS.md`).
-- **Cross-device sync (A push → B restart):** push/pull sync verified across separate A/B clones; full post-sync restart validation on B is still blocked pending fresh-device dependency bootstrap.
-
-The detailed planning notes live in `PLAN.md`, with supporting research documents in `specs/`.
-
----
-
-## Getting started
-
-### Prerequisites
-
-Before you begin, ensure you have:
-
-- **Claude Code** (required for plugin installation and testing)
-- **Node.js 18+** (required by MCP server and dashboard)
-- **jq** (optional; used by some adapter scripts)
-- **yq** (required by config merger: `brew install yq` / `snap install yq`)
-- **git** (for cloning and version control)
-
-### Develop from source (Node tooling)
-
-If you clone the repository and run `npm run build`, `node scripts/build/compile.mjs`, `npm test`, or other Node scripts, install dependencies at the **repository root** first:
+**Develop from source (repository root)**
 
 ```bash
 cd /path/to/ai-config-os
-npm ci
-# or: npm install
+npm ci   # or: npm install
+npm run build
+npm test
 ```
 
-### Step 1: Install the plugin
+A successful run exits with code **0** and ends with a test summary (pass counts from the Node test runner). If anything fails, the process exits non-zero and the failing suite is named in the output.
 
-The quickest way to add AI Config OS to your Claude Code setup:
+**Install the Claude Code plugin (marketplace)**
 
 ```bash
-# 1. Clone the repository
-git clone <repo-url> ~/ai-config
-
-# 2. Open Claude Code and navigate to Plugins
-# 3. Click "Add Marketplace"
-# 4. Enter the repository URL
-# 5. Find "core-skills" and click Install
-# 6. Enable auto-update (disabled by default for third-party marketplaces)
+git clone https://github.com/thomashillman/ai-config-os.git ~/ai-config-os
+# In Claude Code: Plugins → Add Marketplace → repo URL → install "core-skills"
 ```
 
-After installation, your Claude Code will have access to all skills immediately. No restart required.
-
-### Step 2: Verify your installation
-
-Run the validation suite to confirm everything is working:
+**Verify packaging and skills**
 
 ```bash
 bash adapters/claude/dev-test.sh
 ```
 
-This script:
+You should see “All validation stages passed ✓” before relying on emitted `dist/` output.
 
-- Validates plugin structure
-- Checks skill metadata
-- Validates skill structure and source integrity
-- Confirms frontmatter syntax
+## Demo: local dashboard
 
-You should see "All validation stages passed ✓" before proceeding.
+There is no checked-in screenshot in `docs/`; run the stack locally to see the UI.
 
-### Step 3: Explore the dashboard
-
-The optional visual dashboard shows your tool configuration, skills, and performance metrics:
+**Manual two-terminal flow**
 
 ```bash
-# Start the MCP server (serves tools + dashboard API on 127.0.0.1:4242 by default)
 bash runtime/mcp/start.sh &
-
-# In a new terminal, start the dashboard dev server
-cd dashboard
-npm install
-# or: npm ci
-npm run dev
-
-# Open http://localhost:5173 in your browser
+cd dashboard && npm ci && npm run dev
+# Open http://localhost:5173
 ```
 
-**One-command local stack:** From the repo root, `bash ops/dashboard-start.sh` frees ports **4242** and **5173** (it stops **any** listener on those ports, not only this repo’s processes — avoid running unrelated services on the same ports), starts MCP + the dashboard API, optionally publishes Worker KV snapshots, starts Vite with **`--host 127.0.0.1`** on port **5173** (so other machines on your LAN cannot reach the dev server unless you change the script to e.g. `--host 0.0.0.0`), and opens the browser. Requires **`curl`** and **`lsof`** in PATH (readiness checks and freeing ports). Put `VITE_WORKER_URL` and `VITE_AUTH_TOKEN` in `dashboard/.env.local`. For Skill Library and other snapshot-backed tabs, install **`yq`** (e.g. `brew install yq`) so publish can run; otherwise those tabs may show stale until you run `node runtime/publish-dashboard-state.mjs` after installing `yq`. Stop everything with Ctrl+C in that terminal, or free the ports manually.
+**One command (repo root)**
 
-Security note: dashboard API requests are denied by default unless they originate from loopback or provide tunnel assertions (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS verification header). CORS follows the same tunnel policy: loopback origins stay enabled for local development, and you can allow a public dashboard origin with `DASHBOARD_PUBLIC_ORIGINS`. Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
+```bash
+bash ops/dashboard-start.sh
+```
 
-For the current dashboard/runtime feature support list, see **[`docs/SUPPORTED_TODAY.md`](docs/SUPPORTED_TODAY.md)**.
+This frees ports **4242** and **5173** (any listener on those ports — not only this repo), starts MCP + dashboard API, optionally publishes Worker KV snapshots, and starts Vite on **127.0.0.1:5173**. Requires `**curl`** and `**lsof`**. Set `VITE_WORKER_URL`and`VITE_AUTH_TOKEN`in`[dashboard/.env.local](dashboard/.env.local)`. For Skill Library and other snapshot-backed tabs, install `**yq`** so publish can run; otherwise run `node runtime/publish-dashboard-state.mjs` after installing `yq`.
 
----
+**Security note:** The dashboard API denies non-loopback callers unless tunnel assertions match (`X-Tunnel-Token`, trusted forwarding headers, or optional mTLS). Configure `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, `DASHBOARD_PUBLIC_ORIGINS`, and `REQUIRE_TUNNEL_MTLS=1` as needed.
 
-## Installation & Setup by Platform
+## Architecture
 
-Choose your primary Claude surface(s) and follow the setup steps:
+AI Config OS follows a **portability contract**:
 
-### Claude Code CLI (local)
+1. **Source:** Skills live in `shared/skills/` as self-contained `SKILL.md` files with metadata.
+2. **Build:** `[scripts/build/compile.mjs](scripts/build/compile.mjs)` validates and emits self-sufficient packages under `dist/clients/<platform>/`.
+3. **Distribution:** Emitted packages have no symlinks to source and no source-tree references in normal builds.
+4. **Materialisation:** Packages can be extracted and materialised offline (see adapters and materialiser).
 
-**Best for:** Local development, terminal-first workflow, offline usage.
+```mermaid
+flowchart LR
+  subgraph source [Source]
+    SK[shared/skills]
+  end
+  subgraph build [Build]
+    C[compile.mjs]
+  end
+  subgraph dist [Emitted]
+    P[dist/clients]
+    R[dist/registry]
+    RT[dist/runtime]
+  end
+  subgraph cloud [Cloudflare]
+    W[worker]
+  end
+  SK --> C --> P
+  C --> R
+  C --> RT
+  P --> W
+  RT --> W
+```
 
-#### 1. Obtain your Worker credentials
+### Runtime execution (Phase 1, Cloudflare-first)
 
-You have two options:
+Phase 1 needs no external executor host.
 
-**Option A: Use the public shared Worker (recommended for most users)**
+1. **Main Worker** (`worker/src/`) — API gateway for artifacts and routing.
+2. **Executor Worker** (`worker/executor/`) — Phase 1 tools via service binding (KV/R2 metadata, bounded timeout).
+3. **Task control plane** (`runtime/lib/`) — Portable tasks, routes, continuation.
 
-- No setup needed — the public Worker is shared and already deployed
-- Token is available in the repo secrets or documentation
-- If using in this repository, the token is typically in CI secrets or a credentials file
+Workers talk via **service bindings** (not public HTTP between them).
 
-**Option B: Deploy your own Worker (for customization)**
+**Supporting components**
+
+- `runtime/mcp/` — Local MCP server (runtime + dashboard API).
+- `runtime/remote-executor/` — Phase 0 HTTP executor seam (preserved for a possible Phase 2; not the primary path).
+- `dashboard/` — Operator UI over the runtime API.
+
+**Phase 2 (not implemented):** A future VPS-backed executor may add shell, filesystem, git, and long-running tasks. The seam exists in code; Phase 1 remains the fast path for metadata operations.
+
+### Current product state (summary)
+
+Portable tasks (including `review_repository`), Momentum Engine (narrator, observer, shelf, lexicon, reflector), and KV-backed task persistence (`runtime/lib/task-store-kv.mjs`) are implemented. Session-start hooks can query the Worker for active tasks. For operational validation notes and acceptance criteria, see `[PLAN.md](PLAN.md)` and `[specs/](specs/)`.
+
+## Configuration
+
+| Item                                                                                              | Purpose                                                          |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `AI_CONFIG_TOKEN`                                                                                 | Bearer token for Worker API calls from adapters and hooks        |
+| `AI_CONFIG_WORKER`                                                                                | Base URL of the Worker (e.g. `https://ai-config-os.workers.dev`) |
+| `VITE_WORKER_URL`, `VITE_AUTH_TOKEN`                                                              | Dashboard client → Worker (`dashboard/.env.local`)               |
+| `DASHBOARD_PUBLIC_ORIGINS`, `TUNNEL_SHARED_TOKEN`, `TRUSTED_FORWARDER_IPS`, `REQUIRE_TUNNEL_MTLS` | Tunnel / CORS / hardening for dashboard API                      |
+
+Deploy your own Worker (optional):
 
 ```bash
 cd worker
-wrangler secret put AUTH_TOKEN         # Set your chosen secret token
-wrangler deploy                         # Deploy to Cloudflare
+wrangler secret put AUTH_TOKEN
+wrangler deploy
 ```
 
-After deployment, note your Worker URL from the deploy output (e.g., `https://your-worker.workers.dev`)
-
-#### 2. Configure environment variables
-
-Store the token and Worker URL persistently so Claude Code can access them:
-
-**For bash/zsh (recommended):**
+Verify reachability:
 
 ```bash
-# Add to ~/.bashrc, ~/.zshrc, or ~/.bash_profile:
-export AI_CONFIG_TOKEN="<your-token-here>"
-export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"
-
-# Reload your shell
-source ~/.bashrc  # or ~/.zshrc
+curl -H "Authorization: Bearer $AI_CONFIG_TOKEN" \
+  "$AI_CONFIG_WORKER/v1/manifest/latest" | head -50
 ```
 
-**For fish shell:**
+## Installation and setup by platform
+
+Summary table (see `[docs/SUPPORTED_TODAY.md](docs/SUPPORTED_TODAY.md)` for evidence and nuance):
+
+| Surface                                          | Setup                                                                                                                               | Offline skills cache              | Runtime sync role                                                                                                                              |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Claude Code** (local/remote)                   | Marketplace + env + `adapters/claude/materialise.sh`                                                                                | Yes (`~/.ai-config-os/cache/...`) | Full sync/status for `claude-code` in registry; MCP + CLI checks                                                                               |
+| **Cursor**                                       | `npm run build` + copy `dist/clients/cursor/skills/` to `~/.cursor/skills` or project                                               | N/A (local copy)                  | Registry + CLI presence; file-adapter sync mostly no-op today                                                                                  |
+| **Codex**                                        | Build + `[adapters/codex/install.sh](adapters/codex/install.sh)` / `[adapters/codex/materialise.sh](adapters/codex/materialise.sh)` | Per your install                  | Presence checks; no installer inside `runtime/sync.sh`                                                                                         |
+| **Other IDEs (VS Code, JetBrains, Windsurf, …)** | No `dist/clients/`\* package from this compiler today                                                                               | N/A                               | May appear in `[shared/targets/platforms/](shared/targets/platforms/)` for compatibility only; use Claude Code / Cursor / Codex emitters above |
+
+**Claude Code CLI (local)**
+
+**Best for:** Local development, terminal-first workflow, offline usage.
+
+1. Obtain Worker credentials (shared deployment or your own — see [Configuration](#configuration)).
+2. Set `AI_CONFIG_TOKEN` and `AI_CONFIG_WORKER` in your environment (replace placeholders with your real token and Worker base URL).
+
+#### bash / zsh
+
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or ~/.bash_profile
+export AI_CONFIG_TOKEN="<your-token-here>"
+export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"
+source ~/.zshrc   # or: source ~/.bashrc
+```
+
+#### fish
 
 ```fish
-# Add to ~/.config/fish/config.fish:
+# Add to ~/.config/fish/config.fish
 set -gx AI_CONFIG_TOKEN "<your-token-here>"
 set -gx AI_CONFIG_WORKER "https://ai-config-os.workers.dev"
-
-# Reload
 source ~/.config/fish/config.fish
 ```
 
-**For Windows (PowerShell):**
+#### PowerShell
 
 ```powershell
-# Set environment variables permanently
 [Environment]::SetEnvironmentVariable("AI_CONFIG_TOKEN", "<your-token-here>", "User")
 [Environment]::SetEnvironmentVariable("AI_CONFIG_WORKER", "https://ai-config-os.workers.dev", "User")
-
-# Restart PowerShell to apply changes
+# Open a new PowerShell window so User-scoped variables apply.
 ```
 
-**For one-time use (testing only):**
-
-```bash
-export AI_CONFIG_TOKEN="<your-token-here>"
-export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"
-# Commands in this terminal session will use these values
-```
-
-#### 3. Verify your credentials
-
-```bash
-# Test that the Worker is reachable
-curl -H "Authorization: Bearer $AI_CONFIG_TOKEN" \
-  "$AI_CONFIG_WORKER/v1/manifest/latest" \
-  | head -50  # Show first 50 lines
-
-# You should see JSON with skill metadata, not a 403 or 401 error
-```
-
-#### 4. Fetch and cache skills
+1. Fetch and cache skills:
 
 ```bash
 bash adapters/claude/materialise.sh
-# Downloads skills and caches them to ~/.ai-config-os/cache/claude-code/latest.json
-```
-
-#### 5. Verify installation
-
-```bash
 bash adapters/claude/materialise.sh status
-# Shows: Local cache version vs remote version
-# Example: "Local cache: v1.0.0, Remote: v1.0.0 ✓"
 ```
 
-#### 6. Use skills in Claude Code
+**Offline:** Cache path `~/.ai-config-os/cache/claude-code/latest.json`. If the Worker is unreachable, hooks can fall back to last-known-good where implemented.
+
+**Claude Code CLI (remote: Codespaces, SSH, CI agents)**
+
+Set `AI_CONFIG_TOKEN` and `AI_CONFIG_WORKER` in the environment (e.g. Codespace secrets). Session-start behaviour validates skills, probes capabilities, refreshes manifest in the background when possible, and falls back to cache when offline.
+
+Stress-test cache behaviour:
 
 ```bash
-claude ask "your question"  # Skills now available as slash commands
-```
-
-**Offline fallback:** Skills are cached at `~/.ai-config-os/cache/claude-code/latest.json`. If the Worker is unreachable, Claude Code automatically uses the last-known-good manifest.
-
----
-
-### Claude Code CLI (remote environments)
-
-**Best for:** Cloud development, SSH sessions, GitHub Codespaces, AWS CodeSpaces, CI/CD agents.
-
-#### Setup by environment
-
-**GitHub Codespaces (recommended for most cloud workflows):**
-
-1. Open your Codespace settings:
-   - Click your avatar → **Codespaces** → Select your Codespace → Click the gear icon (⚙)
-   - Or go to **Settings** → **Codespaces** → **Environment variables** (top-right "New secret" button)
-
-2. In **Environment variables**, add these as **Codespace secrets** (visible to all your Codespaces):
-
-   ```
-   AI_CONFIG_TOKEN=<your-token>
-   AI_CONFIG_WORKER=https://ai-config-os.workers.dev
-   ```
-
-   Codespaces automatically injects these into all new sessions.
-
-3. Optional: Add a setup script to `.devcontainer/devcontainer.json` if you need to run commands at session start:
-   ```json
-   {
-     "postCreateCommand": "echo 'Codespace ready for AI Config OS'"
-   }
-   ```
-
-**SSH / VPS / Cloud VM (any remote server):**
-
-1. SSH into your remote machine and edit your shell startup file:
-
-   ```bash
-   # For bash:
-   echo 'export AI_CONFIG_TOKEN="<your-token>"' >> ~/.bashrc
-   echo 'export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"' >> ~/.bashrc
-   source ~/.bashrc
-
-   # For zsh:
-   echo 'export AI_CONFIG_TOKEN="<your-token>"' >> ~/.zshrc
-   echo 'export AI_CONFIG_WORKER="https://ai-config-os.workers.dev"' >> ~/.zshrc
-   source ~/.zshrc
-   ```
-
-2. Verify the variables are set:
-   ```bash
-   echo $AI_CONFIG_TOKEN
-   echo $AI_CONFIG_WORKER
-   ```
-
-#### Automatic session-start behavior
-
-When Claude Code starts in a remote environment, the session-start hook automatically:
-
-1. **Validates skill structure** (early error detection)
-2. **Probes platform capabilities** (filesystem, shell, MCP)
-3. **Fetches latest manifest in background** (non-blocking)
-4. **Refreshes retrospectives aggregate cache** in background (non-blocking; skipped if cache is <6 days old)
-5. **Falls back to cached manifest** if Worker is unreachable
-
-This means skills are available **immediately**, even if:
-
-- Network is slow or partitioned
-- Worker is temporarily down
-- Manifest cache is >7 days old
-
-#### Robustness guarantees
-
-| Scenario                | Behavior                               | Fallback                                  |
-| ----------------------- | -------------------------------------- | ----------------------------------------- |
-| Worker unavailable      | Cached manifest available indefinitely | Continue using last-known-good            |
-| Network partition       | All cached skills work offline         | Session continues with cached skills      |
-| Manifest stale (>1 day) | Still usable; versions are immutable   | No breaking changes retroactively applied |
-| New skill published     | Available next session                 | Current session uses cached skills        |
-
-#### Testing robustness locally
-
-Simulate offline scenarios:
-
-```bash
-# Clear the cache to test fallback behavior
 rm ~/.ai-config-os/cache/claude-code/latest.json
-
-# Check status (should show "no cache" warning)
 bash adapters/claude/materialise.sh status
-
-# Fetch new manifest
 bash adapters/claude/materialise.sh
-
-# Verify it's cached
-bash adapters/claude/materialise.sh status
 ```
 
----
+**Claude.ai web (browser)**
 
-### Claude.ai web (browser)
+**Not supported** for the skill system today — capability modeling only. Use Claude Code in a remote environment if you need cloud access.
 
-**Status:** Not yet supported by the skill system.
-
-Claude.ai web is currently tracked for capability compatibility modeling only. There is no Worker serving it, no runtime adapter, and no plugin system for skill discovery. Skills are not available in the browser version.
-
-If you need cloud-based agent access, use **Claude Code CLI in a remote environment** (above) with Codespaces or SSH.
-
----
-
-### Cursor IDE
-
-**Best for:** Full-featured IDE development, multi-file edits.
+**Cursor IDE**
 
 ```bash
-# 1. Build the Cursor client package (Agent Skills tree)
 npm run build
-
-# Validate checked-in Cursor project rules (.cursor/rules/*.mdc), if present
-npm run check:cursor-rules
-
-# 2. Install skills where Cursor discovers them (see Cursor docs: Agent Skills)
-#    Typical global install:
+npm run check:cursor-rules   # if you use .cursor/rules/*.mdc
 mkdir -p ~/.cursor/skills
 cp -R /path/to/ai-config-os/dist/clients/cursor/skills/* ~/.cursor/skills/
-
-#    Or copy into a project: <repo>/.cursor/skills/
-
-# 3. Restart Cursor — skills appear under Settings → Rules (Agent)
-
-# Optional: legacy monolithic .cursorrules (same machine, migration only)
-# AI_CONFIG_OS_EMIT_CURSORRULES=1 npm run build
-# then use the emitted dist/clients/cursor/.cursorrules if you still rely on it.
-
-# Troubleshooting:
-# - Skills are not loaded from dist/clients/cursor/ alone. Cursor discovers
-#   per-skill folders under ~/.cursor/skills or <project>/.cursor/skills (see
-#   https://cursor.com/docs/context/skills ). Copy dist/clients/cursor/skills/*
-#   into one of those trees; do not point Settings only at the package root.
-# - emitted skills may include a prompts/ directory (Claude parity). Cursor’s
-#   public layout lists scripts/, references/, assets/; extra dirs on disk are fine.
-# - Open-standard frontmatter such as allowed-tools is preserved in emitted SKILL.md.
-bash adapters/claude/dev-test.sh   # Validate dist/ structure
+# Or copy into <repo>/.cursor/skills/
 ```
 
----
-
-### VS Code
-
-**Best for:** VS Code with GitHub Copilot, lightweight IDE workflow.
+Restart Cursor. Skills are discovered under Agent Skills paths — not by pointing Settings only at `dist/clients/cursor/` root. Optional: `AI_CONFIG_OS_EMIT_CURSORRULES=1 npm run build` for legacy `.cursorrules` migration.
 
 ```bash
-# 1. Build VS Code-specific skill packages
-npm run build
-
-# 2. Install the CLI extension (one-time):
-npm install -g @anthropic-ai/vs-code-extension
-
-# 3. Configure VS Code:
-# - Add to .vscode/settings.json:
-{
-  "anthropic.skillsPath": "/path/to/ai-config/dist/clients/vscode"
-}
-
-# 4. Reload VS Code window
-
-# Verify:
 bash adapters/claude/dev-test.sh
 ```
 
----
+Docs: [Cursor Agent Skills](https://cursor.com/docs/context/skills).
 
-### JetBrains IDEs (IntelliJ, PyCharm, WebStorm, etc.)
+**VS Code, JetBrains, Windsurf, and other modeled surfaces**
 
-**Best for:** JetBrains-native development, polyglot projects.
+The compiler **only** emits installable trees under `dist/clients/claude-code`, `dist/clients/cursor`, and `dist/clients/codex` (see `[scripts/build/compile.mjs](scripts/build/compile.mjs)` and `[docs/SUPPORTED_TODAY.md](docs/SUPPORTED_TODAY.md)`). There is **no** `dist/clients/vscode`, `jetbrains`, or `windsurf` output from `npm run build`.
 
-```bash
-# 1. Build for JetBrains
-npm run build
-
-# 2. In JetBrains:
-# - Go to Settings → Plugins → (gear icon) → Manage Plugin Repositories
-# - Add: file:///path/to/ai-config/dist/clients/jetbrains
-
-# 3. Install the plugin
-
-# 4. Restart IDE
-```
-
----
-
-### Windsurf
-
-**Best for:** Agentic IDE, multi-file coordinated edits.
-
-```bash
-# 1. Build for Windsurf
-npm run build
-
-# 2. Windsurf reads from .windsurf/settings.json
-# Create or update it:
-{
-  "skills": {
-    "source": "file:///path/to/ai-config/dist/clients/windsurf"
-  }
-}
-
-# 3. Restart Windsurf
-```
-
----
-
-## Choosing Your Setup
-
-| Surface                                     | Setup time | Offline                             | Sync            | Status         |
-| ------------------------------------------- | ---------- | ----------------------------------- | --------------- | -------------- |
-| **Claude Code CLI** (local)                 | 2 min      | ✅ Yes                              | Auto via Worker | **Production** |
-| **Claude Code CLI** (remote/Codespaces/SSH) | 2 min      | ✅ Yes (with robustness guarantees) | Auto via Worker | **Production** |
-| **Cursor**                                  | 3 min      | ✅ Yes                              | Manual rebuild  | **Partial**    |
-| **VS Code**                                 | 3 min      | ✅ Yes                              | Manual rebuild  | **Partial**    |
-| **JetBrains**                               | 3 min      | ✅ Yes                              | Manual rebuild  | **Partial**    |
-| **Windsurf**                                | 3 min      | ✅ Yes                              | Manual rebuild  | **Partial**    |
-
-**Recommendation:** Start with **Claude Code CLI** (2 min setup) to verify everything works, then add your IDE of choice. For cloud environments, Claude Code CLI in Codespaces or SSH is fully supported with offline fallbacks.
-
----
-
-## How to use it
+## How to use
 
 ### Running a skill in Claude Code
 
-Skills are invoked like prompts. Once installed, they appear in Claude Code's skill menu:
-
-```
-Claude Code → Ask a Question or Run a Task → [skill-name]
-```
-
-Each skill's metadata tells Claude Code what inputs it needs and what it will produce. The system automatically selects the best model variant for your query.
+Use the skill picker / task flow your Claude Code build exposes; metadata in each `SKILL.md` describes inputs and outputs.
 
 ### Adding your own skill
 
-Create a new skill in five minutes:
-
 ```bash
-# 1. Generate scaffold (creates directory, updates manifest; symlink on Unix)
 node scripts/build/new-skill.mjs my-skill
-
-# 2. Edit the skill (use shared/skills/_template/SKILL.md as a guide)
-vim shared/skills/my-skill/SKILL.md
-
-# 3. Update the skill index
-vim shared/manifest.md
-
-# 4. Validate your work
+# Edit shared/skills/my-skill/SKILL.md; update shared/manifest.md
 bash adapters/claude/dev-test.sh
 ```
 
-**Skill metadata structure:**
-
-Every skill defines what it does using YAML frontmatter. The `name`/`skill` and `description` fields follow the [Agent Skills open standard](https://agentskills.io/specification); this repo adds extensions for multi-model intelligence and cross-platform distribution:
-
-| Field          | Standard | Purpose                                 | Example                                             |
-| -------------- | -------- | --------------------------------------- | --------------------------------------------------- |
-| `skill`/`name` | Yes      | Unique identifier                       | `my-skill`                                          |
-| `description`  | Yes      | What the skill does and when to use it  | `Refactor code with safety checks`                  |
-| `type`         | Extended | Skill category                          | `prompt`, `hook`, `agent`, `workflow-blueprint`     |
-| `capabilities` | Extended | Required/optional platform capabilities | `required: [git.read, shell.exec]`                  |
-| `inputs`       | Extended | Required parameters                     | `code: string`, `refactor_scope: string`            |
-| `outputs`      | Extended | What the skill produces                 | `refactored_code: string`                           |
-| `dependencies` | Extended | Skills, APIs, or models needed          | `dependencies: [security-review]`                   |
-| `variants`     | Extended | Model-specific prompts                  | `opus`, `sonnet`, `haiku`                           |
-| `tests`        | Extended | Automated validation                    | `test: { input: "...", expected_substring: "..." }` |
-
-[See the full template](shared/skills/_template/SKILL.md) for all available fields, or [`docs/SKILLS.md`](docs/SKILLS.md) for the comprehensive reference.
-
-### Sync tools across machines
-
-The runtime layer manages desired-state configuration. Instead of manually configuring each device, declare what you want and let the sync engine apply it:
-
-```bash
-# 1. Edit your desired config
-vim runtime/config/global.yaml        # applies to all machines
-vim runtime/config/machines/laptop.yaml  # machine-specific overrides
-vim runtime/config/project.yaml        # project-local settings
-
-# 2. Preview changes (dry-run mode)
-bash runtime/sync.sh --dry-run
-
-# 3. Apply configuration
-bash runtime/sync.sh
-
-# 4. Watch for changes (auto-sync when config changes)
-bash runtime/watch.sh
-```
-
-**Example config:**
-
-```yaml
-mcps:
-  blockscout:
-    type: http
-    url: https://api.blockscout.com/
-    enabled: true
-  web-search:
-    type: native
-    enabled: true
-```
+**Skill metadata (excerpt)** — standard fields follow [Agent Skills](https://agentskills.io/specification); this repo adds `type`, `capabilities`, `inputs`, `outputs`, `dependencies`, `variants`, `tests`, etc. See `[shared/skills/_template/SKILL.md](shared/skills/_template/SKILL.md)` and `[docs/SKILLS.md](docs/SKILLS.md)`.
 
 ### Develop in this repository
 
-If you're authoring or modifying skills, open the repo in Claude Code:
+Open the repo in your editor; `[CLAUDE.md](CLAUDE.md)` and `[AGENTS.md](AGENTS.md)` carry checklists and conventions.
+
+## Runtime config and sync
+
+`runtime/sync.sh` merges **global → machine → project** YAML, updates manifest status, syncs **MCP server config** (`~/.claude/mcp.json` via the MCP adapter), and runs **CLI presence checks**. It does **not** install missing CLIs or IDEs (`runtime/adapters/cli-adapter.sh` reports “no installation performed”). File-based tool sync is **limited / mostly no-op** today (`runtime/adapters/file-adapter.sh`).
 
 ```bash
-cd ~/ai-config
-code .
+vim runtime/config/global.yaml
+vim runtime/config/machines/laptop.yaml
+vim runtime/config/project.yaml
+bash runtime/sync.sh --dry-run
+bash runtime/sync.sh
+bash ops/runtime-status.sh
 ```
 
-Claude Code automatically loads `CLAUDE.md`, which includes:
+Optional watch: `bash runtime/watch.sh`.
 
-- Skill authoring conventions
-- Git workflow for the local proxy environment
-- Session startup checklist
-- Testing and validation procedures
-
----
+Installers for some surfaces exist as **separate scripts** (e.g. `[adapters/cursor/install.sh](adapters/cursor/install.sh)`, `[adapters/codex/install.sh](adapters/codex/install.sh)`) — they are not invoked automatically by `runtime/sync.sh`.
 
 ## Directory structure
 
-| Path                                       | What goes here                                                                                                                                                                                                                                       |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`shared/skills/`**                       | **Canonical source.** Write skills here. Each skill is a folder with SKILL.md (metadata + prompts) and optional subdirectories (prompts/, tests/). Compiler reads _only_ from this directory.                                                        |
-| **`dist/clients/`**                        | **Emitted packages (self-sufficient, source-independent).** Each platform (claude-code, cursor) has a complete package: plugin.json + skill copies + resources (prompts/, etc.). These packages work standalone without source access.               |
-| **`dist/registry/`**                       | Cross-platform skill registry (index.json) with compatibility matrix. Single source of truth for what skills are available and which platforms support them.                                                                                         |
-| **`dist/runtime/`**                        | Runtime control-plane metadata documents (manifest, outcomes, routes, tool-registry, task-route-definitions, task-route-input-definitions) consumed by Worker/MCP/dashboard adapters. Authoritative emitted surface for task orchestration metadata. |
-| `shared/workflows/`                        | Skill compositions: named collections of skills executed in sequence                                                                                                                                                                                 |
-| `shared/targets/`                          | Platform reference docs (capability definitions for v0.5.2+)                                                                                                                                                                                         |
-| `shared/lib/`                              | Shared utility libraries (YAML parser, analytics, config merger)                                                                                                                                                                                     |
-| `schemas/`                                 | JSON Schemas for skill package manifests and related structures                                                                                                                                                                                      |
-| `scripts/build/`                           | Compiler that validates skills and emits `dist/` artefacts                                                                                                                                                                                           |
-| `scripts/build/lib/materialise-client.mjs` | Materialiser: extracts emitted packages without source access (portability contract)                                                                                                                                                                 |
-| `worker/`                                  | Cloudflare Worker serving compiled skills via signed-request REST API                                                                                                                                                                                |
-| `worker/executor/`                         | Phase 1 executor Worker (Cloudflare-only, invoked via service binding; supports KV/R2 queries only)                                                                                                                                                  |
-| `plugins/core-skills/`                     | Claude Code plugin (optional local symlinks to `shared/skills/` on Unix only)                                                                                                                                                                        |
-| `runtime/config/`                          | Desired-state configuration (global, machine, project overrides)                                                                                                                                                                                     |
-| `runtime/adapters/`                        | Tool integration layer (Claude Code, Cursor, Codex)                                                                                                                                                                                                  |
-| `runtime/mcp/`                             | MCP server exposing runtime operations as Claude Code tools                                                                                                                                                                                          |
-| `runtime/remote-executor/`                 | HTTP service that executes proxied tool requests from the worker (Phase 0, being phased out)                                                                                                                                                         |
-| `runtime/lib/`                             | Task-control-plane core: route resolution, task lifecycle, findings provenance, continuation, runtime contracts, and Momentum Engine (narrator, observer, shelf, lexicon, reflector)                                                                 |
-| `dashboard/`                               | React SPA for runtime visibility and control                                                                                                                                                                                                         |
-| `ops/`                                     | Developer scripts (new-skill, merge-open-prs, lint, validate, docs generator)                                                                                                                                                                        |
-| `.claude/hooks/`                           | Startup and post-tool hooks for Claude Code                                                                                                                                                                                                          |
-| `.github/workflows/`                       | CI validation (structure, metadata, source integrity, docs, build, portability contracts)                                                                                                                                                            |
+| Path                       | Purpose                                                                           |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| `**shared/skills/`\*\*     | Canonical skill source (`SKILL.md` per folder). Compiler reads only this tree.    |
+| `**dist/clients/`\*\*      | Emitted per-platform packages (self-contained).                                   |
+| `**dist/registry/`\*\*     | Cross-platform `index.json` and summaries.                                        |
+| `**dist/runtime/**`        | Task routes, tool registry snapshots, manifests consumed by Worker/MCP/dashboard. |
+| `shared/workflows/`        | Composed workflows (JSON).                                                        |
+| `shared/targets/`          | Platform capability YAML.                                                         |
+| `shared/lib/`              | Shared libraries (YAML, analytics, merger).                                       |
+| `schemas/`                 | JSON Schemas for manifests and related types.                                     |
+| `scripts/build/`           | Compiler, materialiser, tests.                                                    |
+| `worker/`                  | Cloudflare Worker + executor subtree.                                             |
+| `plugins/core-skills/`     | Claude plugin metadata (optional dev symlinks on Unix).                           |
+| `runtime/config/`          | Merged desired-state YAML.                                                        |
+| `runtime/adapters/`        | Claude, Cursor, Codex, MCP, file, CLI adapters.                                   |
+| `runtime/mcp/`             | MCP server + dashboard API.                                                       |
+| `runtime/remote-executor/` | Legacy HTTP executor seam.                                                        |
+| `runtime/lib/`             | Task control plane + Momentum components.                                         |
+| `dashboard/`               | React SPA.                                                                        |
+| `ops/`                     | Validation, dashboard orchestration, helpers.                                     |
+| `.claude/hooks/`           | Claude Code hooks.                                                                |
+| `.github/workflows/`       | CI (`build.yml`, `validate.yml`, PR gates).                                       |
 
-**Worker TypeScript:** `@cloudflare/workers-types` is a root devDependency. Run `npm install` at the repo root for editor resolution. Use `npm run check:worker-types` (production sources) and, after `npm ci --prefix worker`, `npm run check:worker-test-types` (includes Vitest test files).
+**Worker TypeScript:** `npm install` at repo root; `npm run check:worker-types`; with worker deps, `npm run check:worker-test-types` under `worker/`.
 
----
+## Examples: common tasks
 
-## Examples: Common tasks
-
-### Example 0: Merge all open PRs (sequentially)
+### Merge open PRs (sequential)
 
 ```bash
 bash ops/merge-open-prs.sh
 ```
 
-This attempts to merge each open PR in order using GitHub CLI. If a merge fails due to conflicts, it rebases the PR branch on `origin/main`, pushes, and retries.
-
-### Example 1: Create a security-focused skill
+### Scaffold a skill
 
 ```bash
 ops/new-skill.sh security-scan
-
-# Edit the skill to include OWASP mappings
-vim shared/skills/security-scan/SKILL.md
-
-# Add test cases
-vim shared/skills/security-scan/tests.yaml
-
-# Validate
+# Edit shared/skills/security-scan/SKILL.md; add tests if needed
 bash adapters/claude/dev-test.sh
 ```
 
-### Example 2: Set up MCP server on a new machine
+### Workflow: daily brief
 
-```bash
-# 1. Edit machine-specific config
-vim runtime/config/machines/work-laptop.yaml
-
-# 2. Add the MCP you want
-# mcps:
-#   my-mcp:
-#     type: stdio
-#     command: /usr/local/bin/my-mcp
-
-# 3. Apply
-bash runtime/sync.sh
-
-# 4. Verify
-bash ops/runtime-status.sh
-```
-
-### Example 3: Share a workflow across your team
-
-Workflows compose multiple skills. Use a checked-in workflow definition from `shared/workflows/daily-brief.json` so teammates can open the exact file:
-
-```json
-{
-  "name": "daily-brief",
-  "description": "Morning standup: synthesize recent changes, open issues, blocked work",
-  "type": "workflow",
-  "version": "1.0.0",
-  "composed_skills": [
-    { "skill": "git-ops", "variant": "sonnet" },
-    { "skill": "changelog", "variant": "sonnet" },
-    { "skill": "memory", "variant": "sonnet" },
-    { "skill": "task-decompose", "variant": "sonnet" }
-  ]
-}
-```
-
-Run it: `Claude Code → Run Workflow → daily-brief`
-
-Other checked-in workflow names you can run immediately:
-
-- `pre-commit` (`shared/workflows/pre-commit.json`)
-- `code-quality` (`shared/workflows/code-quality/workflow.json`)
-- `release-agent` (`shared/workflows/release-agent/workflow.json`)
-- `research-mode` (`shared/workflows/research-mode/workflow.json`)
-
----
+See `[shared/workflows/daily-brief.json](shared/workflows/daily-brief.json)`. Others: `pre-commit`, `code-quality`, `release-agent`, `research-mode` under `shared/workflows/`.
 
 ## Status and roadmap
 
-| Phase              | Status      | What it adds                                                                                                                                                                                                                                                                              |
-| ------------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Phase 1–7          | ✅ Complete | Progressive skill library through metadata, testing, composition, and multi-device sync — full list in [`shared/manifest.md`](shared/manifest.md)                                                                                                                                         |
-| Phase 8            | ✅ Complete | Runtime config layer, MCP server, React dashboard, desired-state sync                                                                                                                                                                                                                     |
-| Phase 9.1–9.7      | ✅ Complete | Build compiler, distribution pipeline, capability contracts, delivery contract (28 tests), portability contract (76 tests), manifest feature flags                                                                                                                                        |
-| Phase 10 milestone | ✅ Complete | KV-backed task persistence, Codex emitter, Tasks hub + nested Task Detail, Momentum Engine (narrator, observer, shelf, lexicon, reflector), portable task skills (`task-start`, `task-save`, `task-resume`), runtime/CI analytics skills — see [`shared/manifest.md`](shared/manifest.md) |
+| Phase              | Status   | Notes                                                                                                                     |
+| ------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Phase 1–7          | Complete | Skill library, metadata, tests, composition — `[shared/manifest.md](shared/manifest.md)`                                  |
+| Phase 8            | Complete | Runtime config, MCP, dashboard, sync                                                                                      |
+| Phase 9.1–9.7      | Complete | Compiler, distribution, capability contracts, delivery/portability tests                                                  |
+| Phase 10 milestone | Complete | KV tasks, Codex emitter, Tasks UI, Momentum Engine, portable task skills — see `[shared/manifest.md](shared/manifest.md)` |
 
-> Versioning note: `VERSION` is the canonical repository release number (see `./VERSION`), while phase/milestone labels are internal roadmap checkpoints.
+Versioning: repository release is `./VERSION`; phase labels are internal checkpoints.
 
-Canonical skill count declaration format (for deterministic CI parsing in docs): `Installable skill count: <number> (source: shared/skills/*/SKILL.md; excluding _template).`
+`Installable skill count: 39 (source: shared/skills/*/SKILL.md; excluding _template).`
 
-### Platform maturity
+**Platform maturity**
 
-| Platform               | Compiler                | Worker               | Runtime sync                    | Status         |
-| ---------------------- | ----------------------- | -------------------- | ------------------------------- | -------------- |
-| Claude Code            | Full emitter            | Serves latest bundle | Full desired-state sync         | **Production** |
-| Cursor                 | Emits rules             | Not served           | No runtime adapter              | **Partial**    |
-| Codex                  | Emits Codex package     | Not served           | `adapters/codex/materialise.sh` | **Partial**    |
-| claude-web, claude-ios | Capability model loaded | Not served           | No adapter                      | **Model only** |
-
-The capability contract and compatibility model cover all platforms. Operational tooling (Worker distribution, runtime sync, materialise) is complete for Claude Code. Cursor and Codex get compiler output but no runtime management. Other platforms are tracked for compatibility only.
-
-See [PLAN.md](PLAN.md) for detailed implementation progress and [CLAUDE.md](CLAUDE.md) for development conventions.
-
----
+| Platform               | Compiler                    | Worker               | Runtime sync (today)                                                              | Notes                                       |
+| ---------------------- | --------------------------- | -------------------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
+| Claude Code            | Full emitter                | Serves latest bundle | Registry + MCP + CLI checks                                                       | Primary production path                     |
+| Cursor                 | Emits `dist/clients/cursor` | Not served as bundle | Registry + CLI checks; file sync mostly no-op                                     | Install skills by copy; see SUPPORTED_TODAY |
+| Codex                  | Emits Codex package         | Not served           | Presence checks; `[adapters/codex/materialise.sh](adapters/codex/materialise.sh)` | No Worker-side Codex bundle                 |
+| claude-web, claude-ios | Modeled                     | Not served           | N/A                                                                               | Compatibility / model only                  |
 
 ## Troubleshooting
 
-**Installation failed or skills don't appear:**
+**Validation / structure**
 
 ```bash
 bash adapters/claude/dev-test.sh
 ```
 
-This validates structure and shows specific errors.
-
-**Sync engine not applying changes:**
+**Sync / status**
 
 ```bash
-bash runtime/sync.sh --dry-run  # Preview what would change
-bash ops/runtime-status.sh      # Check overall health
+bash runtime/sync.sh --dry-run
+bash ops/runtime-status.sh
 ```
 
-**Plugin version mismatch:**
+**Version drift**
 
-- The root `VERSION` file is the single source of truth for the release version
-- Run `npm run version:sync` to mirror it into `package.json` and `plugin.json`, then `npm run version:check` to verify parity
-- Note: `ops/new-skill.sh` does not change the release version — if you expected a version bump after scaffolding a skill, that is a separate step
-
----
+- Bump `./VERSION`, then `npm run version:sync` and `npm run version:check`.
+- `ops/new-skill.sh` does not bump the release version.
 
 ## Versioning
 
-The root `VERSION` file is the canonical release version. All other version references are derived from it:
+- `./VERSION` is canonical; `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` track it via `npm run version:sync`.
+- Per-skill versions live in each skill’s frontmatter.
+- Local builds are deterministic; release builds may add provenance (`--release`).
 
-- `package.json` and `plugins/core-skills/.claude-plugin/plugin.json` mirror `VERSION` (run `npm run version:sync` after editing)
-- Skill versions stay in each skill's YAML frontmatter (independent of the release version)
-- Creating or editing a skill does not bump the release version — release version bumps are explicit and separate
-- `dist/` artefacts use the release version from `VERSION`
-- Local builds are deterministic and contain no provenance; release builds (`--release`) add consistent provenance (built_at, build_id, source_commit) to all emitted artefacts
+### Release history
 
-To bump the version: edit `VERSION`, run `npm run version:sync`, commit all three changed files.
+- Tagged releases and notes: [GitHub Releases](https://github.com/thomashillman/ai-config-os/releases).
+- Not every commit is tagged; use `git log --oneline --decorate` for full history.
+- The current value in `[VERSION](VERSION)` is the repository release number (for example `0.6.4` at time of writing).
 
----
+## Testing and quality checks
+
+| Command                                                          | When                                         |
+| ---------------------------------------------------------------- | -------------------------------------------- |
+| `npm run build`                                                  | Compile skills to `dist/`                    |
+| `npm test`                                                       | Full test suite (runs compile via `pretest`) |
+| `npm run validate`                                               | Compile validation only                      |
+| `npm run format:check`                                           | Prettier (CI-enforced)                       |
+| `npm run check:cursor-rules`                                     | After editing `.cursor/rules/*.mdc`          |
+| `npm run doctrine:check`                                         | After editing `shared/agent-doctrine/`\*\*   |
+| `npm run check:worker-types` / `npm run check:worker-test-types` | Worker TypeScript                            |
+| `bash ops/validate-all.sh`                                       | Broader ops validation                       |
+| `bash adapters/claude/dev-test.sh`                               | Plugin and packaging checks                  |
+
+Narrow tests: `npm run test:file -- scripts/build/test/<name>.test.mjs` (run `npm run build` first if you need fresh `dist/`).
+
+Full agent checklists: `[AGENTS.md](AGENTS.md)`, `[CLAUDE.md](CLAUDE.md)`.
 
 ## Contributing
 
-We welcome improvements, bug reports, and new skills.
+1. Fork and branch (e.g. `git checkout -b feat/my-change`).
+2. `npm ci` at repo root.
+3. Make changes; run the [Testing and quality checks](#testing-and-quality-checks) relevant to your edit.
+4. Use [Conventional Commits](https://www.conventionalcommits.org/).
+5. Open a PR.
 
-**To contribute:**
+There is no separate `CONTRIBUTING.md` in this repo — this section is the contribution entrypoint.
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b claude/my-feature`
-3. Install root dependencies (`npm ci` or `npm install`) if you have not already
-4. Make your changes
-5. Run checks before opening a PR:
-   - **Core:** `npm run validate` or `npm run build`, then `npm test`
-   - **Narrow tests:** `npm run test:file -- scripts/build/test/<name>.test.mjs` runs only those files and does **not** run the full compile pre-step—run `npm run build` first if you need a fresh `dist/`
-   - **If you changed** `.cursor/rules/**`: also `npm run check:cursor-rules`
-   - **If you changed** `shared/agent-doctrine/**`: also `npm run doctrine:check` (and regenerate entrypoints if needed)
-   - **Full matrix:** see **[AGENTS.md](AGENTS.md)** for Codex-oriented agents and **[CLAUDE.md](CLAUDE.md)** for Claude-oriented workflows
-   - **Claude plugin / packaging surfaces:** `bash adapters/claude/dev-test.sh` and related commands from AGENTS.md / CLAUDE.md when those paths change
-6. Commit with [conventional commit](https://www.conventionalcommits.org/) messages (e.g., `feat: add new skill`, `fix: resolve symlink issue`)
-7. Push to your fork and create a pull request
+**Skills:** Prefer multi-model variants where applicable, tests or fixtures per skill conventions, and update `[shared/manifest.md](shared/manifest.md)`.
 
-**For skill contributions:** Please include multi-model variants (Opus, Sonnet, Haiku), at least one test case, and update `shared/manifest.md`.
+## Maintainers and contact
 
----
+- **Repository:** [thomashillman/ai-config-os](https://github.com/thomashillman/ai-config-os) on GitHub.
+- **General questions and bug reports:** [GitHub Issues](https://github.com/thomashillman/ai-config-os/issues).
+- **Security-sensitive reports:** use a private channel — see [Security](#security) (for example GitHub Security advisories where available).
+
+## Security
+
+Do not report security-sensitive issues in public issues if you believe they could enable abuse; contact maintainers through a **private** channel (e.g. GitHub **Security advisories** for the repository, if enabled, or maintainer-coordinated disclosure). For general bugs and feature requests, use GitHub Issues.
+
+There is no `SECURITY.md` in this repository today.
 
 ## License
 
-No license is granted by default. All rights are reserved unless stated elsewhere. This repository is **not** published under an open-source license unless the maintainers explicitly say so.
+No license is granted by default. All rights are reserved unless stated elsewhere. This repository is **not** published under an open-source license. `package.json` declares `"license": "UNLICENSED"`.
 
----
+## Acknowledgements and related projects
 
-## Acknowledgements
+This project builds on concepts from the Mycelium project by [@bytemines](https://github.com/bytemines/mycelium): three-tier configuration merge and dashboard visibility concepts. All implementation here follows ai-config-os conventions.
 
-This project builds on the excellent work of the Mycelium project by [@bytemines](https://github.com/bytemines/mycelium). Specifically, we adopted Mycelium's architectural concepts for desired-state tool management, including:
-
-- **Three-tier configuration merge** (global → machine → project)
-- **Tool registry abstraction** for managing Claude Code, Cursor, Codex, and other agents
-- **MCP server integration** for exposing configuration operations as agent tools
-- **Dashboard visualization** for runtime and skill library visibility
-
-All components in ai-config-os are implemented from scratch using ai-config-os conventions and resolved architectural challenges present in the original design (in-place mutation, subprocess overhead, race conditions). Our approach integrates these concepts seamlessly with the skill authoring system, creating a unified layer for both skill definition and tool management.
-
-Thank you to the Mycelium team for the foundational ideas that shaped this system.
-
----
+**Related:** [Agent Skills](https://agentskills.io) (open specification this repo implements and extends) · [Mycelium](https://github.com/bytemines/mycelium) (prior art for desired-state tooling concepts).
 
 ## Quick links
 
-- **[CLAUDE.md](CLAUDE.md)** — Development context, conventions, and checklist (loaded automatically in Claude Code)
-- **[docs/SKILLS.md](docs/SKILLS.md)** — Comprehensive skills reference (Agent Skills standard, Claude Code features, hooks, authoring guide)
-- **[PLAN.md](PLAN.md)** — Implementation roadmap and completion status
-- **[shared/manifest.md](shared/manifest.md)** — Searchable index of all available skills and workflows
-- **[shared/skills/\_template/SKILL.md](shared/skills/_template/SKILL.md)** — Template for creating new skills
-- **[Agent Skills standard](https://agentskills.io)** — The open standard this project follows
-
----
-
-**Questions?** Open an issue. **Feedback?** Pull requests welcome. Happy building!
+- `[CLAUDE.md](CLAUDE.md)` — Claude-oriented developer workflow
+- `[AGENTS.md](AGENTS.md)` — Codex-oriented workflow
+- `[docs/SKILLS.md](docs/SKILLS.md)` — Skills reference
+- `[docs/SUPPORTED_TODAY.md](docs/SUPPORTED_TODAY.md)` — Supported features (canonical)
+- `[PLAN.md](PLAN.md)` — Roadmap and milestones
+- `[shared/manifest.md](shared/manifest.md)` — Skill and workflow index
+- `[shared/skills/_template/SKILL.md](shared/skills/_template/SKILL.md)` — New skill template
+- [Agent Skills](https://agentskills.io) — Open specification
+- [GitHub Issues](https://github.com/thomashillman/ai-config-os/issues) — Questions and bug reports
