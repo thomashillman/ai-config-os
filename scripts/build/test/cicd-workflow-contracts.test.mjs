@@ -8,8 +8,8 @@
  *  2. build.yml — setup-node must use npm cache (avoid cold npm install every run)
  *  3. build.yml — redundant --validate-only step must not exist (pretest + full
  *     build already cover it; removing it saves one full compiler invocation per leg)
- *  4. validate.yml — must have path filters (avoid running on unrelated changes)
- *  5. validate.yml — checkout fetch-depth must not be 0
+ *  4. validate.yml — push must keep path filters; PR uses triage (dorny/paths-filter) + noop job
+ *  5. validate.yml — validate job checkout fetch-depth must be bounded (not full history)
  *  6. validate.yml — setup-node must use npm cache
  *  7. All workflows — no step may run compile.mjs --validate-only followed immediately
  *     by a separate compile.mjs (triple-compile anti-pattern)
@@ -55,6 +55,7 @@ const buildSteps = allSteps(buildWf);
 
 const validateWf = loadWorkflow("validate.yml");
 const validateSteps = allSteps(validateWf);
+const validateJobSteps = validateWf.jobs?.validate?.steps ?? [];
 
 // ─────────────────────────────────────────────
 // build.yml
@@ -96,6 +97,32 @@ test("build.yml: no redundant --validate-only compile step", () => {
   );
 });
 
+test("build.yml: triage job uses paths-filter and noop when skipped", () => {
+  assert.ok(buildWf.jobs?.changes, "changes triage job must exist");
+  const changesSteps = buildWf.jobs.changes.steps ?? [];
+  const pf = changesSteps.find(
+    (s) => typeof s.uses === "string" && s.uses.includes("dorny/paths-filter"),
+  );
+  assert.ok(pf, "changes job must use dorny/paths-filter");
+  assert.ok(
+    buildWf.jobs?.["build-not-needed"],
+    "build-not-needed noop job must exist",
+  );
+});
+
+test("build.yml: pull_request has branches main and no path filters (triage decides)", () => {
+  const pr = buildWf.on?.pull_request;
+  assert.ok(
+    Array.isArray(pr?.branches) && pr.branches.includes("main"),
+    "pull_request must target main",
+  );
+  assert.equal(
+    pr?.paths,
+    undefined,
+    "PR trigger must not use paths: — triage job + noop covers relevance",
+  );
+});
+
 test("build.yml: compile.mjs is not invoked more than twice in a single matrix leg", () => {
   // Acceptable: pretest (via npm test) + full build. Release mode on Linux adds a third
   // but is guarded by `if: runner.os == 'Linux'` so it only runs on one leg.
@@ -123,11 +150,29 @@ test("validate.yml: push trigger has path filters", () => {
   );
 });
 
-test("validate.yml: pull_request trigger has path filters", () => {
-  const prPaths = validateWf.on?.pull_request?.paths;
+test("validate.yml: pull_request has branches main and no path filters (triage decides)", () => {
+  const pr = validateWf.on?.pull_request;
   assert.ok(
-    Array.isArray(prPaths) && prPaths.length > 0,
-    "validate.yml pull_request trigger must have path filters",
+    Array.isArray(pr?.branches) && pr.branches.includes("main"),
+    "pull_request must target main",
+  );
+  assert.equal(
+    pr?.paths,
+    undefined,
+    "PR trigger must not use paths: — triage job + noop covers relevance",
+  );
+});
+
+test("validate.yml: triage job uses paths-filter and noop when skipped", () => {
+  assert.ok(validateWf.jobs?.changes, "changes triage job must exist");
+  const changesSteps = validateWf.jobs.changes.steps ?? [];
+  const pf = changesSteps.find(
+    (s) => typeof s.uses === "string" && s.uses.includes("dorny/paths-filter"),
+  );
+  assert.ok(pf, "changes job must use dorny/paths-filter");
+  assert.ok(
+    validateWf.jobs?.["validate-not-needed"],
+    "validate-not-needed noop job must exist",
   );
 });
 
@@ -141,19 +186,19 @@ test("validate.yml: path filters cover skill and runtime directories", () => {
   assert.ok(hasPlugins, "Path filters must include plugins/**");
 });
 
-test("validate.yml: checkout fetch-depth is not 0 (full history)", () => {
-  const checkout = findActionStep(validateSteps, "actions/checkout");
-  assert.ok(checkout, "actions/checkout step must exist");
+test("validate.yml: validate job checkout fetch-depth is bounded (not full history)", () => {
+  const checkout = findActionStep(validateJobSteps, "actions/checkout");
+  assert.ok(checkout, "validate job actions/checkout step must exist");
   const depth = checkout.with?.["fetch-depth"];
   assert.notEqual(
     depth,
     0,
-    "fetch-depth: 0 fetches full git history unnecessarily. Use a bounded depth.",
+    "validate job fetch-depth: 0 would fetch full history unnecessarily. Use a bounded depth.",
   );
 });
 
 test("validate.yml: setup-node action configures npm cache", () => {
-  const setupNode = findActionStep(validateSteps, "actions/setup-node");
+  const setupNode = findActionStep(validateJobSteps, "actions/setup-node");
   assert.ok(setupNode, "actions/setup-node step must exist");
   assert.equal(setupNode.with?.cache, "npm", "setup-node must set cache: npm");
 });
