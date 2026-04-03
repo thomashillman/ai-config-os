@@ -4,6 +4,7 @@
 **Date:** 2026-04-04  
 **Related plan:** [`docs/superpowers/plans/2026-04-04-routing-policy-model-path-selection-implementation.md`](../plans/2026-04-04-routing-policy-model-path-selection-implementation.md)  
 **Related specs:**
+
 - [`docs/superpowers/specs/2026-04-03-authoritative-task-command-store-design.md`](2026-04-03-authoritative-task-command-store-design.md)
 - [`docs/superpowers/specs/2026-04-01-resource-policy-execution-stack-design.md`](2026-04-01-resource-policy-execution-stack-design.md)
 

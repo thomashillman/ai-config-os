@@ -40,17 +40,17 @@
 
 ## File map (create / own)
 
-| Area | Create / modify |
-| --- | --- |
-| Route registry | Create `runtime/config/route-profiles.*` or equivalent typed module; create validator under `shared/contracts/` or `runtime/lib/`; tests under `scripts/build/test/` or colocated |
-| Route facts + narrowing | Create `runtime/lib/route-instance-facts.mjs`; create `runtime/lib/route-capability-narrowing.mjs`; tests for facts and narrowing |
-| Model registry | Create `runtime/config/model-path-registry.*` or equivalent typed module; create validator; optional data-only template source expanded before validation |
-| Model evaluator | Create `runtime/lib/model-path-evaluator.mjs`; tests for admissible frontier and representative ordering |
-| Final resolver | Create `runtime/lib/execution-selection-resolver.mjs`; tests for pair-cost derivation, cheapest-valid-pair, tie-breaks, and fallback shaping |
-| Canonical identity | Create `runtime/lib/execution-selection-identity.mjs`; tests for identity projection, digest stability, revision triggers |
-| Task integration | Modify task service / authoritative store integration points to stamp `ExecutionSelection` and references only where appropriate |
-| Diagnostics | Create segregated debug or observation sink helpers for `execution_selection_diagnostic_context`; tests for TTL / segregation / default-off behaviour |
-| Docs and validation | Create validation scripts or test suites that fail fast on registry drift and contract drift |
+| Area                    | Create / modify                                                                                                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Route registry          | Create `runtime/config/route-profiles.*` or equivalent typed module; create validator under `shared/contracts/` or `runtime/lib/`; tests under `scripts/build/test/` or colocated |
+| Route facts + narrowing | Create `runtime/lib/route-instance-facts.mjs`; create `runtime/lib/route-capability-narrowing.mjs`; tests for facts and narrowing                                                 |
+| Model registry          | Create `runtime/config/model-path-registry.*` or equivalent typed module; create validator; optional data-only template source expanded before validation                         |
+| Model evaluator         | Create `runtime/lib/model-path-evaluator.mjs`; tests for admissible frontier and representative ordering                                                                          |
+| Final resolver          | Create `runtime/lib/execution-selection-resolver.mjs`; tests for pair-cost derivation, cheapest-valid-pair, tie-breaks, and fallback shaping                                      |
+| Canonical identity      | Create `runtime/lib/execution-selection-identity.mjs`; tests for identity projection, digest stability, revision triggers                                                         |
+| Task integration        | Modify task service / authoritative store integration points to stamp `ExecutionSelection` and references only where appropriate                                                  |
+| Diagnostics             | Create segregated debug or observation sink helpers for `execution_selection_diagnostic_context`; tests for TTL / segregation / default-off behaviour                             |
+| Docs and validation     | Create validation scripts or test suites that fail fast on registry drift and contract drift                                                                                      |
 
 ---
 

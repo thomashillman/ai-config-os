@@ -37,30 +37,42 @@
  * @throws {Error} if input is invalid
  */
 export function evaluateModelPaths(input) {
-  if (!input || typeof input !== 'object') {
-    throw new Error('Input must be a non-null object');
+  if (!input || typeof input !== "object") {
+    throw new Error("Input must be a non-null object");
   }
 
-  const { registry_snapshot, policy_intent, route_compatibility_projection, dynamic_runtime_overlays } = input;
+  const {
+    registry_snapshot,
+    policy_intent,
+    route_compatibility_projection,
+    dynamic_runtime_overlays,
+  } = input;
 
   if (!Array.isArray(registry_snapshot)) {
-    throw new Error('registry_snapshot must be an array');
+    throw new Error("registry_snapshot must be an array");
   }
 
-  if (!policy_intent || typeof policy_intent !== 'object') {
-    throw new Error('policy_intent is required');
+  if (!policy_intent || typeof policy_intent !== "object") {
+    throw new Error("policy_intent is required");
   }
 
-  if (!route_compatibility_projection || typeof route_compatibility_projection !== 'object') {
-    throw new Error('route_compatibility_projection is required');
+  if (
+    !route_compatibility_projection ||
+    typeof route_compatibility_projection !== "object"
+  ) {
+    throw new Error("route_compatibility_projection is required");
   }
 
   if (!Array.isArray(route_compatibility_projection.allowed_execution_modes)) {
-    throw new Error('route_compatibility_projection.allowed_execution_modes must be an array');
+    throw new Error(
+      "route_compatibility_projection.allowed_execution_modes must be an array",
+    );
   }
 
   if (!route_compatibility_projection.minimum_model_tier) {
-    throw new Error('route_compatibility_projection.minimum_model_tier is required');
+    throw new Error(
+      "route_compatibility_projection.minimum_model_tier is required",
+    );
   }
 
   const overlays = dynamic_runtime_overlays || {};
@@ -71,24 +83,28 @@ export function evaluateModelPaths(input) {
       const candidate = fromRegistryEntry(
         modelPath,
         originalIndex,
-        route_compatibility_projection.allowed_execution_modes
+        route_compatibility_projection.allowed_execution_modes,
       );
       return candidate;
     })
-    .filter(candidate =>
-      isExecutionModeCompatible(
-        candidate,
-        route_compatibility_projection.allowed_execution_modes
-      ) &&
-      isTierMinimumMet(candidate, route_compatibility_projection.minimum_model_tier) &&
-      isReliabilityFloorMet(candidate, policy_intent.reliability_tier) &&
-      isAvailable(candidate, overlays.availability_state)
+    .filter(
+      (candidate) =>
+        isExecutionModeCompatible(
+          candidate,
+          route_compatibility_projection.allowed_execution_modes,
+        ) &&
+        isTierMinimumMet(
+          candidate,
+          route_compatibility_projection.minimum_model_tier,
+        ) &&
+        isReliabilityFloorMet(candidate, policy_intent.reliability_tier) &&
+        isAvailable(candidate, overlays.availability_state),
     );
 
   if (admissible.length === 0) {
     return {
       admissible_candidates: [],
-      frontier_reason: 'no_candidates_meet_constraints',
+      frontier_reason: "no_candidates_meet_constraints",
     };
   }
 
@@ -142,7 +158,9 @@ function fromRegistryEntry(modelPath, originalIndex, allowedModes) {
  * @private
  */
 function isExecutionModeCompatible(candidate, allowedModes) {
-  return candidate.supported_execution_modes.some(mode => allowedModes.includes(mode));
+  return candidate.supported_execution_modes.some((mode) =>
+    allowedModes.includes(mode),
+  );
 }
 
 /**
@@ -160,7 +178,10 @@ function isTierMinimumMet(candidate, minimumTier) {
  */
 function isReliabilityFloorMet(candidate, reliabilityTier) {
   const reliabilityOrder = { meets_floor: 0, above_floor: 1, high_margin: 2 };
-  return reliabilityOrder[candidate.reliability_margin] >= reliabilityOrder[reliabilityTier];
+  return (
+    reliabilityOrder[candidate.reliability_margin] >=
+    reliabilityOrder[reliabilityTier]
+  );
 }
 
 /**
@@ -194,7 +215,11 @@ function isAvailable(candidate, availabilityState) {
 function computeNonDominatedFrontier(candidates) {
   const costOrder = { cost_efficient: 0, cost_balanced: 1, cost_heavy: 2 };
   const reliabilityOrder = { meets_floor: 0, above_floor: 1, high_margin: 2 };
-  const latencyOrder = { interactive_safe: 0, interactive_tolerable: 1, background_biased: 2 };
+  const latencyOrder = {
+    interactive_safe: 0,
+    interactive_tolerable: 1,
+    background_biased: 2,
+  };
 
   const nonDominated = [];
 
@@ -205,16 +230,29 @@ function computeNonDominatedFrontier(candidates) {
       // Check if 'other' dominates 'candidate'
       // For cost and latency: lower rank is better, so subtract candidate from other
       // For reliability: higher rank is better, so subtract other from candidate
-      const costOtherBetter = costOrder[other.cost_basis] <= costOrder[candidate.cost_basis];
-      const reliabilityOtherBetter = reliabilityOrder[other.reliability_margin] >= reliabilityOrder[candidate.reliability_margin];
-      const latencyOtherBetter = latencyOrder[other.latency_risk] <= latencyOrder[candidate.latency_risk];
+      const costOtherBetter =
+        costOrder[other.cost_basis] <= costOrder[candidate.cost_basis];
+      const reliabilityOtherBetter =
+        reliabilityOrder[other.reliability_margin] >=
+        reliabilityOrder[candidate.reliability_margin];
+      const latencyOtherBetter =
+        latencyOrder[other.latency_risk] <=
+        latencyOrder[candidate.latency_risk];
 
-      const costStrictlyBetter = costOrder[other.cost_basis] < costOrder[candidate.cost_basis];
-      const reliabilityStrictlyBetter = reliabilityOrder[other.reliability_margin] > reliabilityOrder[candidate.reliability_margin];
-      const latencyStrictlyBetter = latencyOrder[other.latency_risk] < latencyOrder[candidate.latency_risk];
+      const costStrictlyBetter =
+        costOrder[other.cost_basis] < costOrder[candidate.cost_basis];
+      const reliabilityStrictlyBetter =
+        reliabilityOrder[other.reliability_margin] >
+        reliabilityOrder[candidate.reliability_margin];
+      const latencyStrictlyBetter =
+        latencyOrder[other.latency_risk] < latencyOrder[candidate.latency_risk];
 
-      const otherBetter = costOtherBetter && reliabilityOtherBetter && latencyOtherBetter;
-      const otherStrictlyBetter = costStrictlyBetter || reliabilityStrictlyBetter || latencyStrictlyBetter;
+      const otherBetter =
+        costOtherBetter && reliabilityOtherBetter && latencyOtherBetter;
+      const otherStrictlyBetter =
+        costStrictlyBetter ||
+        reliabilityStrictlyBetter ||
+        latencyStrictlyBetter;
 
       if (otherBetter && otherStrictlyBetter) {
         // 'other' dominates 'candidate'
@@ -227,16 +265,32 @@ function computeNonDominatedFrontier(candidates) {
       // Remove any candidates that 'candidate' dominates
       const filtered = [];
       for (const other of nonDominated) {
-        const costCandidateBetter = costOrder[candidate.cost_basis] <= costOrder[other.cost_basis];
-        const reliabilityCandidateBetter = reliabilityOrder[candidate.reliability_margin] >= reliabilityOrder[other.reliability_margin];
-        const latencyCandidateBetter = latencyOrder[candidate.latency_risk] <= latencyOrder[other.latency_risk];
+        const costCandidateBetter =
+          costOrder[candidate.cost_basis] <= costOrder[other.cost_basis];
+        const reliabilityCandidateBetter =
+          reliabilityOrder[candidate.reliability_margin] >=
+          reliabilityOrder[other.reliability_margin];
+        const latencyCandidateBetter =
+          latencyOrder[candidate.latency_risk] <=
+          latencyOrder[other.latency_risk];
 
-        const costStrictlyBetter = costOrder[candidate.cost_basis] < costOrder[other.cost_basis];
-        const reliabilityStrictlyBetter = reliabilityOrder[candidate.reliability_margin] > reliabilityOrder[other.reliability_margin];
-        const latencyStrictlyBetter = latencyOrder[candidate.latency_risk] < latencyOrder[other.latency_risk];
+        const costStrictlyBetter =
+          costOrder[candidate.cost_basis] < costOrder[other.cost_basis];
+        const reliabilityStrictlyBetter =
+          reliabilityOrder[candidate.reliability_margin] >
+          reliabilityOrder[other.reliability_margin];
+        const latencyStrictlyBetter =
+          latencyOrder[candidate.latency_risk] <
+          latencyOrder[other.latency_risk];
 
-        const candidateBetter = costCandidateBetter && reliabilityCandidateBetter && latencyCandidateBetter;
-        const candidateStrictlyBetter = costStrictlyBetter || reliabilityStrictlyBetter || latencyStrictlyBetter;
+        const candidateBetter =
+          costCandidateBetter &&
+          reliabilityCandidateBetter &&
+          latencyCandidateBetter;
+        const candidateStrictlyBetter =
+          costStrictlyBetter ||
+          reliabilityStrictlyBetter ||
+          latencyStrictlyBetter;
 
         if (!(candidateBetter && candidateStrictlyBetter)) {
           filtered.push(other);
@@ -263,7 +317,11 @@ function selectRepresentatives(nonDominated) {
 
   const costOrder = { cost_efficient: 0, cost_balanced: 1, cost_heavy: 2 };
   const reliabilityOrder = { meets_floor: 0, above_floor: 1, high_margin: 2 };
-  const latencyOrder = { interactive_safe: 0, interactive_tolerable: 1, background_biased: 2 };
+  const latencyOrder = {
+    interactive_safe: 0,
+    interactive_tolerable: 1,
+    background_biased: 2,
+  };
 
   const representatives = [];
   const used = new Set();
@@ -273,8 +331,11 @@ function selectRepresentatives(nonDominated) {
   let cheapestIdx = 0;
   for (let i = 0; i < nonDominated.length; i++) {
     const c = nonDominated[i];
-    if (costOrder[c.cost_basis] < costOrder[cheapest.cost_basis] ||
-        (costOrder[c.cost_basis] === costOrder[cheapest.cost_basis] && c._originalIndex < cheapest._originalIndex)) {
+    if (
+      costOrder[c.cost_basis] < costOrder[cheapest.cost_basis] ||
+      (costOrder[c.cost_basis] === costOrder[cheapest.cost_basis] &&
+        c._originalIndex < cheapest._originalIndex)
+    ) {
       cheapest = c;
       cheapestIdx = i;
     }
@@ -289,8 +350,14 @@ function selectRepresentatives(nonDominated) {
     for (let i = 0; i < nonDominated.length; i++) {
       if (!used.has(i)) {
         const c = nonDominated[i];
-        if (!strongest || reliabilityOrder[c.reliability_margin] > reliabilityOrder[strongest.reliability_margin] ||
-            (reliabilityOrder[c.reliability_margin] === reliabilityOrder[strongest.reliability_margin] && c._originalIndex < strongest._originalIndex)) {
+        if (
+          !strongest ||
+          reliabilityOrder[c.reliability_margin] >
+            reliabilityOrder[strongest.reliability_margin] ||
+          (reliabilityOrder[c.reliability_margin] ===
+            reliabilityOrder[strongest.reliability_margin] &&
+            c._originalIndex < strongest._originalIndex)
+        ) {
           strongest = c;
           strongestIdx = i;
         }
@@ -309,8 +376,14 @@ function selectRepresentatives(nonDominated) {
     for (let i = 0; i < nonDominated.length; i++) {
       if (!used.has(i)) {
         const c = nonDominated[i];
-        if (!lowestLatency || latencyOrder[c.latency_risk] < latencyOrder[lowestLatency.latency_risk] ||
-            (latencyOrder[c.latency_risk] === latencyOrder[lowestLatency.latency_risk] && c._originalIndex < lowestLatency._originalIndex)) {
+        if (
+          !lowestLatency ||
+          latencyOrder[c.latency_risk] <
+            latencyOrder[lowestLatency.latency_risk] ||
+          (latencyOrder[c.latency_risk] ===
+            latencyOrder[lowestLatency.latency_risk] &&
+            c._originalIndex < lowestLatency._originalIndex)
+        ) {
           lowestLatency = c;
           lowestIdx = i;
         }
@@ -323,7 +396,7 @@ function selectRepresentatives(nonDominated) {
   }
 
   // Return max 3
-  return representatives.slice(0, 3).map(c => ({
+  return representatives.slice(0, 3).map((c) => ({
     provider: c.provider,
     model_id: c.model_id,
     model_tier: c.model_tier,
