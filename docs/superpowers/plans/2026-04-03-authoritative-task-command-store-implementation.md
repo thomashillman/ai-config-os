@@ -43,16 +43,16 @@
 
 ## File map (create / own)
 
-| Area | Create / modify |
-| --- | --- |
+| Area                            | Create / modify                                                                                                                                                                     |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Command envelope and validation | Create `worker/src/task-command.ts` (or equivalent focused module), create tests under `worker/src/__tests__/task-command*.test.ts`, modify `worker/src/types.ts` only if necessary |
-| Handler stamping | Modify `worker/src/handlers/tasks.ts`, optionally `worker/src/auth.ts` if principal resolution helpers belong there |
-| Service path | Modify `runtime/lib/task-control-plane-service-core.mjs`, `runtime/lib/task-control-plane-service-worker.mjs` |
-| Authoritative store | Modify `worker/src/task-object.ts` to add `apply-command`; keep legacy replication endpoints only for migration support |
-| Runtime wiring | Modify `worker/src/task-runtime.ts`, modify `worker/src/dual-write-task-store.ts` |
-| Projection logic | Modify `runtime/lib/task-store-kv.mjs` for projection-only behaviour after cutover, add reconciliation helper under `runtime/lib/` or `worker/src/` as appropriate |
-| Tests | Add authoritative-store tests, replay/conflict tests, projection-repair tests, command-type integration tests |
-| Docs | This plan file, plus spec updates only if implementation uncovers a genuine design mismatch |
+| Handler stamping                | Modify `worker/src/handlers/tasks.ts`, optionally `worker/src/auth.ts` if principal resolution helpers belong there                                                                 |
+| Service path                    | Modify `runtime/lib/task-control-plane-service-core.mjs`, `runtime/lib/task-control-plane-service-worker.mjs`                                                                       |
+| Authoritative store             | Modify `worker/src/task-object.ts` to add `apply-command`; keep legacy replication endpoints only for migration support                                                             |
+| Runtime wiring                  | Modify `worker/src/task-runtime.ts`, modify `worker/src/dual-write-task-store.ts`                                                                                                   |
+| Projection logic                | Modify `runtime/lib/task-store-kv.mjs` for projection-only behaviour after cutover, add reconciliation helper under `runtime/lib/` or `worker/src/` as appropriate                  |
+| Tests                           | Add authoritative-store tests, replay/conflict tests, projection-repair tests, command-type integration tests                                                                       |
+| Docs                            | This plan file, plus spec updates only if implementation uncovers a genuine design mismatch                                                                                         |
 
 ---
 

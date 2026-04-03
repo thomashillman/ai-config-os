@@ -101,6 +101,16 @@ export function getTaskService(env: Env) {
   return createTaskControlPlaneService({ taskStore: ensureTaskStore(env) });
 }
 
+/**
+ * Get the underlying task store directly (for mutation context resolution)
+ * Allows looki ng up current task state for boundary validation
+ */
+export function getTaskStore(
+  env: Env,
+): TaskStore | KvTaskStore | DualWriteTaskStore {
+  return ensureTaskStore(env);
+}
+
 export function taskErrorResponse(error: unknown): Response | null {
   if (error instanceof TaskNotFoundError) {
     const known = error as Error & { code?: string };

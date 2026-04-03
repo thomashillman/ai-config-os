@@ -7,9 +7,16 @@ import {
 import {
   getContinuationFingerprint,
   getTaskService,
+  getTaskStore,
   setContinuationFingerprint,
   taskErrorResponse,
 } from "../task-runtime";
+import { deriveAuthenticatedRequest } from "../auth";
+import {
+  resolveMutationContext,
+  type TaskContextResolver,
+} from "../task-mutation-context";
+import { buildTaskCommand, type TaskCommandType } from "../task-command";
 import type { Env } from "../types";
 import {
   validateTaskCreatePayload,
@@ -30,6 +37,30 @@ const TASK_AVAILABLE_ROUTES: Record<string, string[]> = {
     "pasted_diff",
   ],
 };
+
+/**
+ * Create a task context resolver for the given environment
+ * Wraps task store lookups to extract boundary context for mutation resolution
+ */
+function createTaskContextResolver(env: Env): TaskContextResolver {
+  return async (taskId: string) => {
+    try {
+      const store = getTaskStore(env);
+      const task = await store.load(taskId);
+      if (!task) return null;
+
+      return {
+        task_id: taskId,
+        owner_principal_id: task.owner_principal_id ?? "owner",
+        workspace_id: task.workspace_id ?? "default",
+        repo_id: task.repo_id,
+        version: task.version,
+      };
+    } catch {
+      return null;
+    }
+  };
+}
 
 function taskSummary(task: Record<string, unknown>): string {
   const state = String(task.state ?? "unknown");
@@ -127,6 +158,62 @@ export async function handleTaskTransitionState(
   if (!validation.ok) return validationError(validation.error);
 
   try {
+    // Step 1: Resolve mutation context (principal, boundary, authority)
+    const authenticatedRequest = deriveAuthenticatedRequest(request);
+    const taskContextResolver = createTaskContextResolver(env);
+    const allowedActions: TaskCommandType[] = [
+      "task.select_route",
+      "task.transition_state",
+      "task.append_finding",
+      "task.create",
+      "task.create_continuation",
+    ];
+
+    const contextResult = await resolveMutationContext(
+      authenticatedRequest,
+      taskId,
+      "task.transition_state",
+      {
+        next_state: validation.value.next_state,
+        next_action: validation.value.next_action,
+      },
+      taskContextResolver,
+      allowedActions,
+    );
+
+    if (!contextResult.ok) {
+      return validationError(
+        contextResult.error === "unauthorized"
+          ? "Not authorized to transition state"
+          : contextResult.error === "task_not_found"
+            ? "Task not found"
+            : contextResult.error === "workspace_mismatch"
+              ? "Workspace mismatch"
+              : "Invalid mutation context",
+      );
+    }
+
+    const context = contextResult.context!;
+
+    // Step 2: Build authoritative command envelope
+    const idempotencyKey = `state-${taskId}-${validation.value.updated_at ?? Date.now()}`;
+
+    const command = buildTaskCommand({
+      task_id: taskId,
+      idempotency_key: idempotencyKey,
+      expected_task_version: validation.value.expected_version ?? null,
+      command_type: "task.transition_state",
+      payload: {
+        next_state: validation.value.next_state,
+        next_action: validation.value.next_action,
+      },
+      principal: context.principal,
+      boundary: context.boundary,
+      authority: context.authority,
+      request_context: context.request_context,
+    });
+
+    // Step 3: Execute mutation (current: via service, future: via authoritative store)
     const updated = (await getTaskService(env).transitionState(
       taskId,
       validation.value,
@@ -161,10 +248,66 @@ export async function handleTaskRouteSelection(
   if (!validation.ok) return validationError(validation.error);
 
   try {
+    // Step 1: Resolve mutation context (principal, boundary, authority)
+    const authenticatedRequest = deriveAuthenticatedRequest(request);
+    const taskContextResolver = createTaskContextResolver(env);
+    const allowedActions: TaskCommandType[] = [
+      "task.select_route",
+      "task.transition_state",
+      "task.append_finding",
+      "task.create",
+      "task.create_continuation",
+    ];
+
+    const contextResult = await resolveMutationContext(
+      authenticatedRequest,
+      taskId,
+      "task.select_route",
+      {
+        route_id: validation.value.route_id,
+        selected_at: validation.value.selected_at,
+      },
+      taskContextResolver,
+      allowedActions,
+    );
+
+    if (!contextResult.ok) {
+      return validationError(
+        contextResult.error === "unauthorized"
+          ? "Not authorized to select route"
+          : contextResult.error === "task_not_found"
+            ? "Task not found"
+            : contextResult.error === "workspace_mismatch"
+              ? "Workspace mismatch"
+              : "Invalid mutation context",
+      );
+    }
+
+    const context = contextResult.context!;
+
+    // Step 2: Build authoritative command envelope
+    const idempotencyKey = `route-${taskId}-${validation.value.selected_at ?? Date.now()}`;
+
+    const command = buildTaskCommand({
+      task_id: taskId,
+      idempotency_key: idempotencyKey,
+      expected_task_version: validation.value.expected_version ?? null,
+      command_type: "task.select_route",
+      payload: {
+        route_id: validation.value.route_id,
+      },
+      principal: context.principal,
+      boundary: context.boundary,
+      authority: context.authority,
+      request_context: context.request_context,
+    });
+
+    // Step 3: Execute mutation (current: via service, future: via authoritative store)
     const updated = (await getTaskService(env).selectRoute(
       taskId,
       validation.value,
     )) as Record<string, unknown>;
+
     return contractSuccessResponse({
       resource: "tasks.route_selection",
       data: { task: updated },
@@ -519,6 +662,60 @@ export async function handleTaskAppendFinding(
   if (!validation.ok) return validationError(validation.error);
 
   try {
+    // Step 1: Resolve mutation context (principal, boundary, authority)
+    const authenticatedRequest = deriveAuthenticatedRequest(request);
+    const taskContextResolver = createTaskContextResolver(env);
+    const allowedActions: TaskCommandType[] = [
+      "task.select_route",
+      "task.transition_state",
+      "task.append_finding",
+      "task.create",
+      "task.create_continuation",
+    ];
+
+    const contextResult = await resolveMutationContext(
+      authenticatedRequest,
+      taskId,
+      "task.append_finding",
+      {
+        finding: validation.value.finding,
+      },
+      taskContextResolver,
+      allowedActions,
+    );
+
+    if (!contextResult.ok) {
+      return validationError(
+        contextResult.error === "unauthorized"
+          ? "Not authorized to append finding"
+          : contextResult.error === "task_not_found"
+            ? "Task not found"
+            : contextResult.error === "workspace_mismatch"
+              ? "Workspace mismatch"
+              : "Invalid mutation context",
+      );
+    }
+
+    const context = contextResult.context!;
+
+    // Step 2: Build authoritative command envelope
+    const idempotencyKey = `finding-${taskId}-${validation.value.updated_at ?? Date.now()}`;
+
+    const command = buildTaskCommand({
+      task_id: taskId,
+      idempotency_key: idempotencyKey,
+      expected_task_version: validation.value.expected_version ?? null,
+      command_type: "task.append_finding",
+      payload: {
+        finding: validation.value.finding,
+      },
+      principal: context.principal,
+      boundary: context.boundary,
+      authority: context.authority,
+      request_context: context.request_context,
+    });
+
+    // Step 3: Execute mutation (current: via service, future: via authoritative store)
     const updated = (await getTaskService(env).appendFinding(
       taskId,
       validation.value,
