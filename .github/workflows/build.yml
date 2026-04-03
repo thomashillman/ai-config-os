@@ -14,7 +14,7 @@ on:
       - ".cursor/rules/**"
       - ".github/workflows/pr-ai-review.yml"
       - "scripts/lint/**"
-      - "dashboard/src/App.jsx"
+      - "dashboard/**"
       - "README.md"
       - "PLAN.md"
       - "package.json"
@@ -57,7 +57,7 @@ jobs:
               - '.cursor/rules/**'
               - '.github/workflows/pr-ai-review.yml'
               - 'scripts/lint/**'
-              - 'dashboard/src/App.jsx'
+              - 'dashboard/**'
               - 'README.md'
               - 'PLAN.md'
               - 'package.json'
@@ -78,7 +78,7 @@ jobs:
               - 'scripts/ci/**'
               - '.cursor/rules/**'
               - 'scripts/lint/**'
-              - 'dashboard/src/App.jsx'
+              - 'dashboard/**'
               - 'package.json'
               - 'package-lock.json'
               - 'runtime/adapters/**'
