@@ -16,6 +16,25 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 - `f1c07e6` - step 1.1: task-command envelope and mutation context types
 - `bac979e` - step 1.4: handler modifications with command building
 
+### ✅ Step 2: Authoritative ApplyCommand and Replay Semantics (COMPLETE)
+
+**Branch commits:**
+- `664f575` - step 2.1-2.2: apply-command endpoint and idempotency
+- `0f4ff0a` - step 2.4: apply-command invocation infrastructure
+
+### ✅ Step 3: Shadow Mode and Projection Hardening (PARTIAL - 3.1-3.3 COMPLETE)
+
+**Branch commits:**
+- `89e3bc5` - step 3.1-3.3: projection reconciliation helpers
+
+## Completed Work (Detailed)
+
+### ✅ Step 1: Internal Command Envelope and Server Stamping (COMPLETE)
+
+**Branch commits:**
+- `f1c07e6` - step 1.1: task-command envelope and mutation context types
+- `bac979e` - step 1.4: handler modifications with command building
+
 **Deliverables implemented:**
 - `worker/src/task-command.ts` - Canonical command envelope with:
   - `TaskCommand` interface with server-stamped principal, boundary, authority
@@ -76,15 +95,32 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 
 **Verification:** `npm test` - 99 tests passing
 
-### 🔄 Step 2 Remaining Work
+### ✅ Step 3: Shadow Mode and Projection Hardening (PARTIAL)
 
-- Step 2.3: Ensure atomic persistence of state together (✓ implemented but needs verification)
-- Step 2.4: Wire apply-command invocation from handlers → runtime → TaskObject
-  - Add command envelope parameter to service methods (optional for now)
-  - Create helper to invoke apply-command from DualWriteTaskStore
-  - Keep KV as primary for shadow mode
-- Step 2.5: Preserve dual-write behavior for non-migrated commands
-- Step 2.6: Run full test suite and mergeability gate
+**Branch commits:**
+- `89e3bc5` - step 3.1-3.3: projection reconciliation helpers
+
+**Deliverables implemented:**
+- `worker/src/task-projection-reconcile.ts` - Projection repair and divergence detection:
+  - `reconstructAuthoritativeState()` - Replay commits to rebuild current state
+  - `detectProjectionDivergence()` - Compare authoritative vs served state
+  - `computeProjectionLag()` - Calculate version lag between KV and TaskObject
+  - `planProjectionRepair()` - Identify commits needed to catch KV up
+  - `validateRepairPlan()` - Ensure repair plan completeness (no gaps)
+
+- Tests: 14 comprehensive tests covering:
+  - Reconstruction from empty and multi-commit logs
+  - Divergence detection on version and field mismatches
+  - Lag computation and repair planning
+  - Repair plan validation
+
+**Verification:** 113 worker tests passing (14 new projection tests)
+
+### 🔄 Step 3 Remaining Work
+
+- Step 3.4: Integrate projection repair into runtime
+- Step 3.5: Surface divergence detection and lag as diagnostic output
+- Step 3.6-3.7: Run sampled task sequences and confirm no divergence
 
 ## Architecture Decisions
 
@@ -118,10 +154,11 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 
 ## Test Coverage
 
-### Worker Tests (99 passing)
+### Worker Tests (113 passing)
 - Command envelope: 9 tests (digest, builder, payload preservation)
 - Mutation context: 19 tests (principal, boundary, authority, validation)
 - Apply-command: 7 tests (idempotency, version conflict, replay)
+- Projection reconciliation: 14 tests (reconstruction, divergence, repair)
 - Existing: 64 tests (task-object, dual-write, storage)
 
 ### Test Gaps Identified
@@ -144,18 +181,33 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
    - Should expand to match existing error responses
    - Needs mapping from command errors to contract errors
 
+## Completed in This Session
+
+- ✅ Step 1: Complete command envelope and mutation context
+- ✅ Step 2: Complete apply-command endpoint with idempotency
+- ✅ Step 2.4: Add apply-command invocation infrastructure to DualWriteTaskStore
+- ✅ Step 3.1-3.3: Projection reconciliation helpers (reconstruct, detect divergence, repair planning)
+- ✅ All tests passing (113 worker tests + 107 validation tests)
+- ✅ Build clean
+
 ## Next Steps (For Next Session)
 
-### Step 2.4-2.6: Complete Step 2
-1. Modify `DualWriteTaskStore.selectRoute()`, `.transitionState()`, `.appendFinding()` to invoke apply-command (shadow)
-2. Keep KV as primary source of truth
-3. Run full test suite and validation
+### Step 3.4-3.7: Complete Shadow Mode Hardening
+1. Integrate projection repair into task runtime
+2. Add projection lag as metadata to task reads
+3. Test divergence detection with sampled tasks
+4. Validate repair succeeds before cutover
 
-### Step 3: Shadow Mode and Projection Hardening
-1. Detect projection lag (authoritative vs KV versions)
-2. Implement projection repair helper
-3. Add sampled divergence detection
-4. Tests for reconstruction and repair
+### Step 4: Command-Type Cutover
+1. Wire command envelopes from handlers → service → store
+2. Make apply-command authoritative for narrow command types
+3. Implement full command semantics in apply-command
+4. Demote KV to projection-only for migrated commands
+
+### Step 5: Build Hardening
+1. Create envelope drift detection validator
+2. Create service signature drift detection
+3. Integrate into build/test pipeline
 
 ### Step 4: Command-Type Cutover
 1. Make apply-command the real writer (no more shadow)
