@@ -154,8 +154,10 @@ export class TaskObject implements DurableObject {
         return jsonResponse({
           ok: true,
           action_id: existingEntry.action_id,
-          task_version: existingEntry.task_version,
+          task_id: command.task_id,
+          resulting_task_version: existingEntry.task_version,
           replayed: true,
+          projection_status: "complete",
         });
       }
 
@@ -175,18 +177,131 @@ export class TaskObject implements DurableObject {
         }
       }
 
-      // Generate action ID
+      // Apply command semantics based on command type
+      const updatedTask = { ...currentTask };
+      let applyError: { code: string; message: string } | null = null;
+
+      switch (command.command_type) {
+        case "task.select_route": {
+          const payload = command.payload as { route_id?: string };
+          if (!payload.route_id) {
+            applyError = {
+              code: "invalid_command",
+              message: "route_id required for select_route",
+            };
+          } else {
+            // Validate route is available for task type
+            const taskType = String(updatedTask.task_type ?? "");
+            const validRoutes: Record<string, string[]> = {
+              review_repository: [
+                "local_repo",
+                "github_pr",
+                "uploaded_bundle",
+                "pasted_diff",
+              ],
+            };
+            const availableRoutes = validRoutes[taskType] ?? [];
+
+            if (!availableRoutes.includes(payload.route_id)) {
+              applyError = {
+                code: "invalid_command",
+                message: `Route '${payload.route_id}' not available for task type '${taskType}'`,
+              };
+            } else {
+              updatedTask.current_route = payload.route_id;
+            }
+          }
+          break;
+        }
+
+        case "task.transition_state": {
+          const payload = command.payload as {
+            next_state?: string;
+            next_action?: string;
+          };
+          if (!payload.next_state) {
+            applyError = {
+              code: "invalid_command",
+              message: "next_state required for transition_state",
+            };
+          } else {
+            // Validate state transition is allowed
+            const currentState = String(updatedTask.state ?? "created");
+            const validTransitions: Record<string, string[]> = {
+              created: ["ready", "in_progress"],
+              ready: ["in_progress"],
+              in_progress: ["completed", "blocked"],
+              blocked: ["in_progress"],
+              completed: [],
+            };
+
+            const allowedStates = validTransitions[currentState] ?? [];
+            if (!allowedStates.includes(payload.next_state)) {
+              applyError = {
+                code: "invalid_command",
+                message: `Invalid state transition from '${currentState}' to '${payload.next_state}'`,
+              };
+            } else {
+              updatedTask.state = payload.next_state;
+              if (payload.next_action) {
+                updatedTask.current_action = payload.next_action;
+              }
+            }
+          }
+          break;
+        }
+
+        case "task.append_finding": {
+          const payload = command.payload as { finding?: Record<string, unknown> };
+          if (!payload.finding) {
+            applyError = {
+              code: "invalid_command",
+              message: "finding required for append_finding",
+            };
+          } else {
+            const finding = payload.finding as Record<string, unknown>;
+            // Validate finding has required fields
+            if (!finding.findingId || !finding.summary) {
+              applyError = {
+                code: "invalid_command",
+                message: "Finding missing required fields (findingId, summary)",
+              };
+            } else {
+              const findings = Array.isArray(updatedTask.findings)
+                ? (updatedTask.findings as unknown[])
+                : [];
+              findings.push(finding);
+              updatedTask.findings = findings;
+            }
+          }
+          break;
+        }
+
+        default:
+          applyError = {
+            code: "invalid_command",
+            message: `Unknown command type: ${command.command_type}`,
+          };
+      }
+
+      // Return error if command execution failed
+      if (applyError) {
+        return jsonResponse(
+          {
+            error: applyError.code,
+            message: applyError.message,
+          },
+          400,
+        );
+      }
+
+      // Generate action ID and new version
       const actionId = `action-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const newVersion = taskVersion + 1;
       const now = new Date().toISOString();
 
-      // Apply command to task state (simple state mutation for now)
-      // In a real implementation, this would apply the command semantics
-      const updatedTask = {
-        ...currentTask,
-        version: newVersion,
-        [command.command_type]: command.payload,
-      };
+      updatedTask.version = newVersion;
+      updatedTask.updated_at = now;
 
       // Create action commit
       const commit: ActionCommit = {
@@ -232,8 +347,10 @@ export class TaskObject implements DurableObject {
       return jsonResponse({
         ok: true,
         action_id: actionId,
-        task_version: newVersion,
+        task_id: command.task_id,
+        resulting_task_version: newVersion,
         replayed: false,
+        projection_status: "pending", // KV update may lag
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
