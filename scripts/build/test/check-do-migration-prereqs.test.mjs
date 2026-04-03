@@ -52,6 +52,7 @@ function createFixtureRepo({
   runGit("git init", repoRoot);
   runGit('git config user.name "Test Bot"', repoRoot);
   runGit('git config user.email "test@example.com"', repoRoot);
+  runGit('git config commit.gpgsign false', repoRoot);
   runGit("git add .", repoRoot);
   runGit('git commit -m "fixture"', repoRoot);
 
