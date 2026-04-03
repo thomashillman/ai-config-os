@@ -1,20 +1,31 @@
 /**
  * TaskObject -- Durable Object that owns live state for a single task.
  *
- * PR1: Write-only target in the dual-write path. Reads still served by KV.
- * One DO instance per task ID (sharded via idFromName(taskId)).
+ * Implements a task-scoped command store:
+ * - Authoritative write path via apply-command endpoint
+ * - Append-only commit log for audit trail
+ * - Idempotency index for deterministic replay
+ * - Explicit version enforcement and conflict detection
  *
  * Storage keys (DO native serialization, not JSON strings):
- *   task                      - Full PortableTaskObject
+ *   task                      - Full PortableTaskObject (current state)
  *   version                   - Integer version counter
- *   events                    - Array of progress events
- *   snapshots                 - Array of task state snapshots
- *   log                       - Array of checkpoint log entries
+ *   commits                   - Array of ActionCommit (append-only)
+ *   idempotency_index         - Map<idempotency_key, {action_id, semantic_digest, version}>
+ *   events                    - Array of progress events (derived, migration support)
+ *   snapshots                 - Array of task state snapshots (derived, migration support)
+ *   log                       - Array of checkpoint log entries (derived, migration support)
  *   continuation_fingerprints - Map<tokenId, fingerprint> for replay protection
  *   meta                      - Replication metadata
  */
 
 import type { Env } from "./types";
+import type {
+  TaskCommand,
+  ApplyCommandRequest,
+  ApplyCommandResponse,
+  ActionCommit,
+} from "./task-command";
 
 interface TaskObjectMeta {
   created_at: string;
@@ -41,6 +52,9 @@ export class TaskObject implements DurableObject {
     const path = url.pathname;
 
     try {
+      if (request.method === "POST" && path === "/apply-command") {
+        return this.handleApplyCommand(request);
+      }
       if (request.method === "POST" && path === "/put-state") {
         return this.handlePutState(request);
       }
@@ -73,6 +87,160 @@ export class TaskObject implements DurableObject {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Internal error";
       return jsonResponse({ error: "internal_error", message }, 500);
+    }
+  }
+
+  private async handleApplyCommand(request: Request): Promise<Response> {
+    const body = (await request.json()) as ApplyCommandRequest;
+
+    if (!body.command || typeof body.command !== "object") {
+      return jsonResponse(
+        { error: "validation_error", message: "Missing or invalid command" },
+        400,
+      );
+    }
+
+    const command = body.command as TaskCommand;
+
+    // Validate required command fields
+    if (
+      typeof command.task_id !== "string" ||
+      typeof command.idempotency_key !== "string" ||
+      typeof command.command_type !== "string"
+    ) {
+      return jsonResponse(
+        {
+          error: "validation_error",
+          message: "Command missing required fields",
+        },
+        400,
+      );
+    }
+
+    try {
+      // Load current state
+      const currentVersion = await this.state.storage.get<number>("version");
+      const currentTask = await this.state.storage.get<Record<string, unknown>>(
+        "task",
+      );
+      const idempotencyIndex = await this.state.storage.get<
+        Record<
+          string,
+          {
+            action_id: string;
+            semantic_digest: string;
+            task_version: number;
+          }
+        >
+      >("idempotency_index");
+
+      // Check if command was already applied (idempotency)
+      const existingEntry = idempotencyIndex?.[command.idempotency_key];
+      if (existingEntry) {
+        // Verify digest matches (prevent key reuse with different semantics)
+        if (existingEntry.semantic_digest !== command.semantic_digest) {
+          return jsonResponse(
+            {
+              error: "idempotency_key_reused",
+              message:
+                "This idempotency key was used with a different request body",
+              action_id: existingEntry.action_id,
+            },
+            400,
+          );
+        }
+
+        // Return original result (replay)
+        return jsonResponse({
+          ok: true,
+          action_id: existingEntry.action_id,
+          task_version: existingEntry.task_version,
+          replayed: true,
+        });
+      }
+
+      // Check version constraint
+      const taskVersion = currentVersion ?? 0;
+      if (command.expected_task_version !== null) {
+        if (command.expected_task_version !== taskVersion) {
+          return jsonResponse(
+            {
+              error: "version_conflict",
+              message: `Expected task version ${command.expected_task_version}, current is ${taskVersion}`,
+              expected_version: command.expected_task_version,
+              current_version: taskVersion,
+            },
+            409,
+          );
+        }
+      }
+
+      // Generate action ID
+      const actionId = `action-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const newVersion = taskVersion + 1;
+      const now = new Date().toISOString();
+
+      // Apply command to task state (simple state mutation for now)
+      // In a real implementation, this would apply the command semantics
+      const updatedTask = {
+        ...currentTask,
+        version: newVersion,
+        [command.command_type]: command.payload,
+      };
+
+      // Create action commit
+      const commit: ActionCommit = {
+        action_id: actionId,
+        command_envelope: command,
+        task_version_before: taskVersion,
+        task_version_after: newVersion,
+        task_state_after: updatedTask,
+        committed_at: now,
+      };
+
+      // Persist updates atomically
+      const newIdempotencyIndex = {
+        ...(idempotencyIndex ?? {}),
+        [command.idempotency_key]: {
+          action_id: actionId,
+          semantic_digest: command.semantic_digest,
+          task_version: newVersion,
+        },
+      };
+
+      const existingCommits =
+        (await this.state.storage.get<ActionCommit[]>("commits")) ?? [];
+      const newCommits = [...existingCommits, commit];
+
+      // Atomic write
+      await this.state.storage.put({
+        task: updatedTask,
+        version: newVersion,
+        commits: newCommits,
+        idempotency_index: newIdempotencyIndex,
+      });
+
+      // Update meta
+      const existingMeta = await this.state.storage.get<TaskObjectMeta>("meta");
+      const meta: TaskObjectMeta = {
+        created_at: existingMeta?.created_at ?? now,
+        last_replicated_at: now,
+        replication_count: (existingMeta?.replication_count ?? 0) + 1,
+      };
+      await this.state.storage.put("meta", meta);
+
+      return jsonResponse({
+        ok: true,
+        action_id: actionId,
+        task_version: newVersion,
+        replayed: false,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      return jsonResponse(
+        { error: "internal_error", message },
+        500,
+      );
     }
   }
 

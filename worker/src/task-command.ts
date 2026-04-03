@@ -143,6 +143,43 @@ export function computeSemanticDigest(
 }
 
 /**
+ * ActionCommit -- Immutable receipt for authoritative task mutation
+ * Written once, read many times. Forms the authoritative audit log.
+ */
+export interface ActionCommit {
+  readonly action_id: string; // UUID, generated on server
+  readonly command_envelope: TaskCommand;
+  readonly task_version_before: number;
+  readonly task_version_after: number;
+  readonly task_state_after: Record<string, unknown>;
+  readonly committed_at: string; // ISO 8601
+}
+
+/**
+ * ApplyCommandRequest -- Client request to apply a command
+ * Sent by handlers after resolving mutation context
+ */
+export interface ApplyCommandRequest {
+  readonly command: TaskCommand;
+}
+
+/**
+ * ApplyCommandResponse -- Result of applying a command
+ * Includes replayed flag for idempotency, projection status for migration
+ */
+export interface ApplyCommandResponse {
+  readonly ok: boolean;
+  readonly action_id: string;
+  readonly task_version: number;
+  readonly replayed: boolean; // true if idempotency replay
+  readonly projection_status?: "pending" | "complete"; // for migration
+  readonly error?: {
+    readonly code: string;
+    readonly message: string;
+  };
+}
+
+/**
  * Builder for creating canonical TaskCommand instances
  * Ensures all commands follow the authoritative structure
  */
