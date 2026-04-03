@@ -27,49 +27,49 @@
  * @throws {Error} if input is invalid
  */
 export function deriveRouteInstanceFacts(input) {
-  if (!input || typeof input !== "object") {
-    throw new Error("Input must be a non-null object");
+  if (!input || typeof input !== 'object') {
+    throw new Error('Input must be a non-null object');
   }
 
   const { route_id, route_kind, artifact, history, repository, task } = input;
 
-  if (!route_id || typeof route_id !== "string") {
-    throw new Error("route_id must be a non-empty string");
+  if (!route_id || typeof route_id !== 'string') {
+    throw new Error('route_id must be a non-empty string');
   }
 
-  if (!route_kind || typeof route_kind !== "string") {
-    throw new Error("route_kind must be a non-empty string");
+  if (!route_kind || typeof route_kind !== 'string') {
+    throw new Error('route_kind must be a non-empty string');
   }
 
-  if (!artifact || typeof artifact !== "object") {
-    throw new Error("artifact object is required");
+  if (!artifact || typeof artifact !== 'object') {
+    throw new Error('artifact object is required');
   }
 
-  if (!artifact.completeness || typeof artifact.completeness !== "string") {
-    throw new Error("artifact.completeness must be a non-empty string");
+  if (!artifact.completeness || typeof artifact.completeness !== 'string') {
+    throw new Error('artifact.completeness must be a non-empty string');
   }
 
-  if (!history || typeof history !== "object") {
-    throw new Error("history object is required");
+  if (!history || typeof history !== 'object') {
+    throw new Error('history object is required');
   }
 
-  if (!history.visibility || typeof history.visibility !== "string") {
-    throw new Error("history.visibility must be a non-empty string");
+  if (!history.visibility || typeof history.visibility !== 'string') {
+    throw new Error('history.visibility must be a non-empty string');
   }
 
-  if (!repository || typeof repository !== "object") {
-    throw new Error("repository object is required");
+  if (!repository || typeof repository !== 'object') {
+    throw new Error('repository object is required');
   }
 
-  if (!repository.binding || typeof repository.binding !== "string") {
-    throw new Error("repository.binding must be a non-empty string");
+  if (!repository.binding || typeof repository.binding !== 'string') {
+    throw new Error('repository.binding must be a non-empty string');
   }
 
   // Task shape evidence is optional but if provided must be an array
   let task_shape_evidence = [];
   if (task && task.observed_markers) {
     if (!Array.isArray(task.observed_markers)) {
-      throw new Error("task.observed_markers must be an array if provided");
+      throw new Error('task.observed_markers must be an array if provided');
     }
     task_shape_evidence = validateAndSortMarkers(task.observed_markers);
   }
@@ -92,32 +92,26 @@ export function deriveRouteInstanceFacts(input) {
  */
 function validateAndSortMarkers(markers) {
   const validMarkers = [
-    "multi_file_change_observed",
-    "directory_context_observed",
-    "build_manifest_observed",
-    "test_artifacts_observed",
-    "patch_shape_observed",
+    'multi_file_change_observed',
+    'directory_context_observed',
+    'build_manifest_observed',
+    'test_artifacts_observed',
+    'patch_shape_observed',
   ];
 
-  const canonical = [
-    "multi_file_change_observed",
-    "directory_context_observed",
-    "build_manifest_observed",
-    "test_artifacts_observed",
-    "patch_shape_observed",
-  ];
+  const canonical = ['multi_file_change_observed', 'directory_context_observed', 'build_manifest_observed', 'test_artifacts_observed', 'patch_shape_observed'];
 
   if (!Array.isArray(markers)) {
-    throw new Error("markers must be an array");
+    throw new Error('markers must be an array');
   }
 
   if (markers.length > 5) {
-    throw new Error("task_shape_evidence must have max 5 markers");
+    throw new Error('task_shape_evidence must have max 5 markers');
   }
 
   // Check for duplicates
   const seen = new Set();
-  markers.forEach((m) => {
+  markers.forEach(m => {
     if (!validMarkers.includes(m)) {
       throw new Error(`Invalid marker: '${m}'`);
     }

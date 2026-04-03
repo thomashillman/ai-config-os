@@ -7,7 +7,7 @@
  * Contract version: model_policy_version = v1
  */
 
-export const model_policy_version = "v1";
+export const model_policy_version = 'v1';
 
 /**
  * @type {Array<{
@@ -24,62 +24,62 @@ export const model_policy_version = "v1";
 export const modelPathRegistry = [
   {
     identity: {
-      provider: "anthropic",
-      model_id: "claude-haiku-4-5-20251001",
+      provider: 'anthropic',
+      model_id: 'claude-haiku-4-5-20251001',
     },
     compatibility: {
-      supported_execution_modes: ["sync", "streaming"],
+      supported_execution_modes: ['sync', 'streaming'],
     },
     policy_classes: {
-      model_tier: "budget",
-      cost_basis: "cost_efficient",
-      reliability_margin: "above_floor",
-      latency_risk: "interactive_safe",
+      model_tier: 'budget',
+      cost_basis: 'cost_efficient',
+      reliability_margin: 'above_floor',
+      latency_risk: 'interactive_safe',
     },
   },
   {
     identity: {
-      provider: "anthropic",
-      model_id: "claude-sonnet-4-6",
+      provider: 'anthropic',
+      model_id: 'claude-sonnet-4-6',
     },
     compatibility: {
-      supported_execution_modes: ["sync", "streaming"],
+      supported_execution_modes: ['sync', 'streaming'],
     },
     policy_classes: {
-      model_tier: "standard",
-      cost_basis: "cost_balanced",
-      reliability_margin: "high_margin",
-      latency_risk: "interactive_safe",
+      model_tier: 'standard',
+      cost_basis: 'cost_balanced',
+      reliability_margin: 'high_margin',
+      latency_risk: 'interactive_safe',
     },
   },
   {
     identity: {
-      provider: "anthropic",
-      model_id: "claude-opus-4-6",
+      provider: 'anthropic',
+      model_id: 'claude-opus-4-6',
     },
     compatibility: {
-      supported_execution_modes: ["sync", "streaming"],
+      supported_execution_modes: ['sync', 'streaming'],
     },
     policy_classes: {
-      model_tier: "premium",
-      cost_basis: "cost_heavy",
-      reliability_margin: "high_margin",
-      latency_risk: "interactive_tolerable",
+      model_tier: 'premium',
+      cost_basis: 'cost_heavy',
+      reliability_margin: 'high_margin',
+      latency_risk: 'interactive_tolerable',
     },
   },
   {
     identity: {
-      provider: "anthropic",
-      model_id: "claude-batch-1",
+      provider: 'anthropic',
+      model_id: 'claude-batch-1',
     },
     compatibility: {
-      supported_execution_modes: ["batch"],
+      supported_execution_modes: ['batch'],
     },
     policy_classes: {
-      model_tier: "budget",
-      cost_basis: "cost_efficient",
-      reliability_margin: "meets_floor",
-      latency_risk: "background_biased",
+      model_tier: 'budget',
+      cost_basis: 'cost_efficient',
+      reliability_margin: 'meets_floor',
+      latency_risk: 'background_biased',
     },
   },
 ];
@@ -91,10 +91,7 @@ export const modelPathRegistry = [
  * @returns {typeof modelPathRegistry[0] | null}
  */
 export function findModelPath(provider, modelId) {
-  return (
-    modelPathRegistry.find(
-      (m) =>
-        m.identity.provider === provider && m.identity.model_id === modelId,
-    ) || null
-  );
+  return modelPathRegistry.find(
+    m => m.identity.provider === provider && m.identity.model_id === modelId
+  ) || null;
 }

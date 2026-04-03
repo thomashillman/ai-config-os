@@ -28,36 +28,30 @@
  * @returns {Object} ExecutionSelection or {error}
  */
 export function resolveExecutionSelection(input) {
-  if (!input || typeof input !== "object") {
-    throw new Error("Input must be a non-null object");
+  if (!input || typeof input !== 'object') {
+    throw new Error('Input must be a non-null object');
   }
 
-  const {
-    route_candidates,
-    model_candidates,
-    policy_constraints,
-    resolver_version,
-    policy_version,
-  } = input;
+  const { route_candidates, model_candidates, policy_constraints, resolver_version, policy_version } = input;
 
   if (!Array.isArray(route_candidates) || route_candidates.length === 0) {
-    throw new Error("route_candidates must be a non-empty array");
+    throw new Error('route_candidates must be a non-empty array');
   }
 
   if (!Array.isArray(model_candidates) || model_candidates.length === 0) {
-    throw new Error("model_candidates must be a non-empty array");
+    throw new Error('model_candidates must be a non-empty array');
   }
 
-  if (!policy_constraints || typeof policy_constraints !== "object") {
-    throw new Error("policy_constraints is required");
+  if (!policy_constraints || typeof policy_constraints !== 'object') {
+    throw new Error('policy_constraints is required');
   }
 
   if (!resolver_version) {
-    throw new Error("resolver_version is required");
+    throw new Error('resolver_version is required');
   }
 
   if (!policy_version) {
-    throw new Error("policy_version is required");
+    throw new Error('policy_version is required');
   }
 
   // Step 1: Form valid route-plus-model pairs
@@ -73,13 +67,8 @@ export function resolveExecutionSelection(input) {
       };
 
       // Check if pair passes quality and reliability floors
-      if (
-        meetsQualityFloor(pair, policy_constraints.minimum_quality_floor) &&
-        meetsReliabilityFloor(
-          pair,
-          policy_constraints.minimum_reliability_floor,
-        )
-      ) {
+      if (meetsQualityFloor(pair, policy_constraints.minimum_quality_floor) &&
+          meetsReliabilityFloor(pair, policy_constraints.minimum_reliability_floor)) {
         validPairs.push(pair);
       }
     }
@@ -87,8 +76,8 @@ export function resolveExecutionSelection(input) {
 
   if (validPairs.length === 0) {
     return {
-      error: "no_valid_pairs",
-      reason: "No route-model pairs meet constraints and minimum floors",
+      error: 'no_valid_pairs',
+      reason: 'No route-model pairs meet constraints and minimum floors',
     };
   }
 
@@ -100,7 +89,7 @@ export function resolveExecutionSelection(input) {
     selectedPair,
     validPairs,
     route_candidates,
-    input.fallback_policy,
+    input.fallback_policy
   );
 
   // Step 4: Construct selection basis
@@ -122,16 +111,11 @@ export function resolveExecutionSelection(input) {
       route_id: selectedPair.route.route_id,
       route_kind: selectedPair.route.route_kind,
       effective_capabilities: {
-        artifact_completeness:
-          selectedPair.route.effective_capabilities.artifact_completeness,
-        history_availability:
-          selectedPair.route.effective_capabilities.history_availability,
-        locality_confidence:
-          selectedPair.route.effective_capabilities.locality_confidence,
-        verification_ceiling:
-          selectedPair.route.effective_capabilities.verification_ceiling,
-        allowed_task_classes:
-          selectedPair.route.effective_capabilities.allowed_task_classes,
+        artifact_completeness: selectedPair.route.effective_capabilities.artifact_completeness,
+        history_availability: selectedPair.route.effective_capabilities.history_availability,
+        locality_confidence: selectedPair.route.effective_capabilities.locality_confidence,
+        verification_ceiling: selectedPair.route.effective_capabilities.verification_ceiling,
+        allowed_task_classes: selectedPair.route.effective_capabilities.allowed_task_classes,
       },
     },
     resolved_model_path: {
@@ -159,35 +143,17 @@ export function resolveExecutionSelection(input) {
  */
 function derivePairCost(route, model) {
   const costOrder = { cost_efficient: 0, cost_balanced: 1, cost_heavy: 2 };
-  const completenessOrder = {
-    repo_complete: 0,
-    repo_partial: 1,
-    artifact_complete: 2,
-    diff_only: 3,
-  };
-  const historyOrder = {
-    repo_history: 0,
-    change_history: 1,
-    artifact_limited_history: 2,
-    no_history: 3,
-  };
+  const completenessOrder = { repo_complete: 0, repo_partial: 1, artifact_complete: 2, diff_only: 3 };
+  const historyOrder = { repo_history: 0, change_history: 1, artifact_limited_history: 2, no_history: 3 };
 
   const modelCostRank = costOrder[model.cost_basis];
-  const routeCompletenessRank =
-    completenessOrder[route.effective_capabilities.artifact_completeness];
-  const routeHistoryRank =
-    historyOrder[route.effective_capabilities.history_availability];
-  const isDiffOnly =
-    route.effective_capabilities.artifact_completeness === "diff_only";
+  const routeCompletenessRank = completenessOrder[route.effective_capabilities.artifact_completeness];
+  const routeHistoryRank = historyOrder[route.effective_capabilities.history_availability];
+  const isDiffOnly = route.effective_capabilities.artifact_completeness === 'diff_only';
 
   // Pair cost increases with narrower scope (higher ranks) and higher model cost
   // Formula: model_cost * 1000 + completeness_rank * 100 + history_rank * 10 + (diff_only ? 0 : 1)
-  return (
-    modelCostRank * 1000 +
-    routeCompletenessRank * 100 +
-    routeHistoryRank * 10 +
-    (isDiffOnly ? 0 : 1)
-  );
+  return modelCostRank * 1000 + routeCompletenessRank * 100 + routeHistoryRank * 10 + (isDiffOnly ? 0 : 1);
 }
 
 /**
@@ -201,9 +167,7 @@ function deriveEvidenceDepth(route) {
     artifact_complete: 2,
     diff_only: 1,
   };
-  return (
-    completenessMap[route.effective_capabilities.artifact_completeness] || 0
-  );
+  return completenessMap[route.effective_capabilities.artifact_completeness] || 0;
 }
 
 /**
@@ -221,10 +185,7 @@ function meetsQualityFloor(pair, minimumQuality) {
  */
 function meetsReliabilityFloor(pair, minimumReliability) {
   const reliabilityOrder = { meets_floor: 0, above_floor: 1, high_margin: 2 };
-  return (
-    reliabilityOrder[pair.model.reliability_margin] >=
-    reliabilityOrder[minimumReliability]
-  );
+  return reliabilityOrder[pair.model.reliability_margin] >= reliabilityOrder[minimumReliability];
 }
 
 /**
@@ -232,11 +193,7 @@ function meetsReliabilityFloor(pair, minimumReliability) {
  * @private
  */
 function selectCheapestPair(pairs) {
-  const latencyOrder = {
-    interactive_safe: 0,
-    interactive_tolerable: 1,
-    background_biased: 2,
-  };
+  const latencyOrder = { interactive_safe: 0, interactive_tolerable: 1, background_biased: 2 };
   const reliabilityOrder = { meets_floor: 0, above_floor: 1, high_margin: 2 };
 
   let selected = pairs[0];
@@ -253,20 +210,11 @@ function selectCheapestPair(pairs) {
         selected = pair;
       } else if (pair.evidence_depth === selected.evidence_depth) {
         // Tie-break 2: Stronger reliability margin
-        if (
-          reliabilityOrder[pair.model.reliability_margin] >
-          reliabilityOrder[selected.model.reliability_margin]
-        ) {
+        if (reliabilityOrder[pair.model.reliability_margin] > reliabilityOrder[selected.model.reliability_margin]) {
           selected = pair;
-        } else if (
-          reliabilityOrder[pair.model.reliability_margin] ===
-          reliabilityOrder[selected.model.reliability_margin]
-        ) {
+        } else if (reliabilityOrder[pair.model.reliability_margin] === reliabilityOrder[selected.model.reliability_margin]) {
           // Tie-break 3: Lower latency risk
-          if (
-            latencyOrder[pair.model.latency_risk] <
-            latencyOrder[selected.model.latency_risk]
-          ) {
+          if (latencyOrder[pair.model.latency_risk] < latencyOrder[selected.model.latency_risk]) {
             selected = pair;
           }
           // Tie-break 4: Config order (already handled by iteration order)
@@ -282,21 +230,15 @@ function selectCheapestPair(pairs) {
  * Generate fallback chain after primary selection.
  * @private
  */
-function generateFallbackChain(
-  selectedPair,
-  validPairs,
-  routeCandidates,
-  fallbackPolicy,
-) {
+function generateFallbackChain(selectedPair, validPairs, routeCandidates, fallbackPolicy) {
   const fallback_chain = [];
 
   // Route-preserving fallback: other models with same route
   const sameRouteFallbacks = validPairs.filter(
-    (p) =>
-      p.route.route_id === selectedPair.route.route_id && p !== selectedPair,
+    p => p.route.route_id === selectedPair.route.route_id && p !== selectedPair
   );
 
-  sameRouteFallbacks.forEach((pair) => {
+  sameRouteFallbacks.forEach(pair => {
     fallback_chain.push({
       route_id: pair.route.route_id,
       route_kind: pair.route.route_kind,
@@ -306,17 +248,15 @@ function generateFallbackChain(
         model_tier: pair.model.model_tier,
         execution_mode: pair.model.execution_mode,
       },
-      fallback_reason_class: "model_unavailable",
+      fallback_reason_class: 'model_unavailable',
     });
   });
 
   // Cross-route fallback: if policy allows and other routes are compatible
-  if (fallbackPolicy === "allow_cross_route") {
-    const otherRouteFallbacks = validPairs.filter(
-      (p) => p.route.route_id !== selectedPair.route.route_id,
-    );
+  if (fallbackPolicy === 'allow_cross_route') {
+    const otherRouteFallbacks = validPairs.filter(p => p.route.route_id !== selectedPair.route.route_id);
 
-    otherRouteFallbacks.forEach((pair) => {
+    otherRouteFallbacks.forEach(pair => {
       fallback_chain.push({
         route_id: pair.route.route_id,
         route_kind: pair.route.route_kind,
@@ -326,7 +266,7 @@ function generateFallbackChain(
           model_tier: pair.model.model_tier,
           execution_mode: pair.model.execution_mode,
         },
-        fallback_reason_class: "route_unavailable",
+        fallback_reason_class: 'route_unavailable',
       });
     });
   }
@@ -345,5 +285,5 @@ function generateSelectionReason(selectedPair, selectionBasis) {
     `cost: ${selectedPair.model.cost_basis}`,
     `reliability: ${selectedPair.model.reliability_margin}`,
   ];
-  return parts.join("; ");
+  return parts.join('; ');
 }

@@ -5,9 +5,9 @@
  * Identity changes only when canonical core fields change, not derived fields.
  */
 
-import { createHash } from "crypto";
+import { createHash } from 'crypto';
 
-const EXECUTION_SELECTION_SCHEMA_VERSION = "v1";
+const EXECUTION_SELECTION_SCHEMA_VERSION = 'v1';
 
 /**
  * Compute canonical identity projection from ExecutionSelection.
@@ -17,8 +17,8 @@ const EXECUTION_SELECTION_SCHEMA_VERSION = "v1";
  * @returns {Object} Canonical identity projection
  */
 export function canonicalIdentityProjection(executionSelection) {
-  if (!executionSelection || typeof executionSelection !== "object") {
-    throw new Error("executionSelection must be a non-null object");
+  if (!executionSelection || typeof executionSelection !== 'object') {
+    throw new Error('executionSelection must be a non-null object');
   }
 
   return {
@@ -27,22 +27,11 @@ export function canonicalIdentityProjection(executionSelection) {
       route_id: executionSelection.selected_route.route_id,
       route_kind: executionSelection.selected_route.route_kind,
       effective_capabilities: {
-        artifact_completeness:
-          executionSelection.selected_route.effective_capabilities
-            .artifact_completeness,
-        history_availability:
-          executionSelection.selected_route.effective_capabilities
-            .history_availability,
-        locality_confidence:
-          executionSelection.selected_route.effective_capabilities
-            .locality_confidence,
-        verification_ceiling:
-          executionSelection.selected_route.effective_capabilities
-            .verification_ceiling,
-        allowed_task_classes: [
-          ...executionSelection.selected_route.effective_capabilities
-            .allowed_task_classes,
-        ].sort(),
+        artifact_completeness: executionSelection.selected_route.effective_capabilities.artifact_completeness,
+        history_availability: executionSelection.selected_route.effective_capabilities.history_availability,
+        locality_confidence: executionSelection.selected_route.effective_capabilities.locality_confidence,
+        verification_ceiling: executionSelection.selected_route.effective_capabilities.verification_ceiling,
+        allowed_task_classes: [...executionSelection.selected_route.effective_capabilities.allowed_task_classes].sort(),
       },
     },
     resolved_model_path: {
@@ -51,7 +40,7 @@ export function canonicalIdentityProjection(executionSelection) {
       model_tier: executionSelection.resolved_model_path.model_tier,
       execution_mode: executionSelection.resolved_model_path.execution_mode,
     },
-    fallback_chain: (executionSelection.fallback_chain || []).map((fb) => ({
+    fallback_chain: (executionSelection.fallback_chain || []).map(fb => ({
       route_id: fb.route_id,
       route_kind: fb.route_kind,
       resolved_model_path: {
@@ -74,7 +63,7 @@ export function canonicalIdentityProjection(executionSelection) {
 export function computeSelectionDigest(executionSelection) {
   const projection = canonicalIdentityProjection(executionSelection);
   const canonical = JSON.stringify(deepSortKeys(projection));
-  return createHash("sha256").update(canonical).digest("hex");
+  return createHash('sha256').update(canonical).digest('hex');
 }
 
 /**
@@ -85,13 +74,11 @@ function deepSortKeys(obj) {
   if (Array.isArray(obj)) {
     return obj.map(deepSortKeys);
   }
-  if (obj !== null && typeof obj === "object") {
+  if (obj !== null && typeof obj === 'object') {
     const sorted = {};
-    Object.keys(obj)
-      .sort()
-      .forEach((key) => {
-        sorted[key] = deepSortKeys(obj[key]);
-      });
+    Object.keys(obj).sort().forEach(key => {
+      sorted[key] = deepSortKeys(obj[key]);
+    });
     return sorted;
   }
   return obj;
@@ -163,10 +150,10 @@ export function extractLightweightReference(executionSelection) {
  * All other actions should carry full ExecutionSelection if they reference it.
  */
 export const ALLOWED_LIGHTWEIGHT_REFERENCE_ACTIONS = [
-  "action_started",
-  "context_updated",
-  "tool_invoked",
-  "result_received",
+  'action_started',
+  'context_updated',
+  'tool_invoked',
+  'result_received',
 ];
 
 /**
