@@ -9,6 +9,7 @@ import {
   type AuthenticatedRequest,
   type TaskContextLookup,
 } from "../task-mutation-context";
+import type { TaskCommandType } from "../task-command";
 
 describe("resolvePrincipal", () => {
   it("derives principal from authenticated request", () => {
@@ -75,11 +76,11 @@ describe("resolveBoundary", () => {
 });
 
 describe("resolveAuthority", () => {
-  const allowedActions = [
+  const allowedActions: TaskCommandType[] = [
     "task.select_route",
     "task.transition_state",
     "task.append_finding",
-  ] as const;
+  ];
 
   it("grants direct_owner authority when principal matches boundary owner", () => {
     const principal = {
@@ -271,12 +272,12 @@ describe("resolveMutationContext", () => {
     return null;
   };
 
-  const allowedActions = [
+  const allowedActions: TaskCommandType[] = [
     "task.select_route",
     "task.transition_state",
     "task.append_finding",
     "task.create",
-  ] as const;
+  ];
 
   it("resolves context for task.create (task_lookup can be null)", async () => {
     const result = await resolveMutationContext(
