@@ -6,10 +6,16 @@
  * KV failure is fatal (propagates). DO failure is logged and swallowed.
  *
  * DO write failures are emitted as structured JSON logs with metrics for alerting.
+ *
+ * Step 2.4+: Supports apply-command shadow writes for authoritative store preparation.
+ * When command envelope is provided, invoke apply-command alongside put-state.
+ * In shadow mode: KV is authoritative, apply-command result is informational.
+ * After cutover (Step 4): apply-command becomes authoritative for migrated command types.
  */
 
 // @ts-expect-error - runtime JS module (no .d.ts)
 import type { KvTaskStore } from "../../runtime/lib/task-store-kv.mjs";
+import type { TaskCommand } from "./task-command";
 
 const DO_BASE_URL = "https://task-object";
 
@@ -118,9 +124,14 @@ export class DualWriteTaskStore {
       updatedAt: string;
       progress?: { completed_steps: number; total_steps: number };
     },
+    commandEnvelope?: TaskCommand,
   ) {
     const result = await this.kvStore.transitionState(taskId, payload);
     this._replicateToDo(taskId, result);
+    // Step 2.4+: Also invoke apply-command for shadow writes
+    if (commandEnvelope) {
+      this._applyCommandToDo(taskId, commandEnvelope);
+    }
     return result;
   }
 
@@ -131,9 +142,14 @@ export class DualWriteTaskStore {
       finding: Record<string, unknown>;
       updatedAt: string;
     },
+    commandEnvelope?: TaskCommand,
   ) {
     const result = await this.kvStore.appendFinding(taskId, payload);
     this._replicateToDo(taskId, result);
+    // Step 2.4+: Also invoke apply-command for shadow writes
+    if (commandEnvelope) {
+      this._applyCommandToDo(taskId, commandEnvelope);
+    }
     return result;
   }
 
@@ -161,9 +177,14 @@ export class DualWriteTaskStore {
       expectedVersion: number;
       selectedAt: string;
     },
+    commandEnvelope?: TaskCommand,
   ) {
     const result = await this.kvStore.selectRoute(taskId, payload);
     this._replicateToDo(taskId, result);
+    // Step 2.4+: Also invoke apply-command for shadow writes
+    if (commandEnvelope) {
+      this._applyCommandToDo(taskId, commandEnvelope);
+    }
     return result;
   }
 
@@ -205,6 +226,62 @@ export class DualWriteTaskStore {
       timestamp: new Date().toISOString(),
     };
     console.warn(`[DualWrite:metric] ${JSON.stringify(metric)}`);
+  }
+
+  /**
+   * Invoke apply-command on TaskObject for authoritative store shadow writes (Step 2.4+)
+   * Fire-and-forget, failure tolerant. In shadow mode, KV is still authoritative.
+   */
+  private _applyCommandToDo(
+    taskId: string,
+    command: TaskCommand,
+  ): void {
+    try {
+      const id = this.doNamespace.idFromName(taskId);
+      const stub = this.doNamespace.get(id);
+      stub
+        .fetch(`${DO_BASE_URL}/apply-command`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command }),
+        })
+        .catch((err: unknown) => {
+          const errorCode = categorizeError(err);
+          const message = err instanceof Error ? err.message : String(err);
+          const timestamp = new Date().toISOString();
+
+          const errorLog: DoWriteError = {
+            timestamp,
+            level: "warn",
+            component: "DualWrite",
+            event: "do_replication_failed",
+            task_id: taskId,
+            error_message: message,
+            error_code: errorCode,
+            operation: "apply-command",
+          };
+
+          this._emitStructuredLog(errorLog);
+          this._emitMetric(taskId, "do_replication_failed", errorCode);
+        });
+    } catch (err) {
+      const errorCode = categorizeError(err);
+      const message = err instanceof Error ? err.message : String(err);
+      const timestamp = new Date().toISOString();
+
+      const errorLog: DoWriteError = {
+        timestamp,
+        level: "warn",
+        component: "DualWrite",
+        event: "do_stub_creation_failed",
+        task_id: taskId,
+        error_message: message,
+        error_code: errorCode,
+      };
+
+      this._emitStructuredLog(errorLog);
+      this._emitMetric(taskId, "do_stub_creation_failed", errorCode);
+    }
   }
 
   private _replicateToDo(
