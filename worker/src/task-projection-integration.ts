@@ -79,7 +79,9 @@ export function computeTaskProjectionMetrics(
       amount: lag.projection_lag,
       is_lagging: lag.is_lagging,
     },
-    divergence: divergence ? { detected: true, fields: divergence.divergent_fields } : { detected: false },
+    divergence: divergence
+      ? { detected: true, fields: divergence.divergent_fields }
+      : { detected: false },
   };
 }
 

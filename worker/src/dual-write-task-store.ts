@@ -232,10 +232,7 @@ export class DualWriteTaskStore {
    * Invoke apply-command on TaskObject for authoritative store shadow writes (Step 2.4+)
    * Fire-and-forget, failure tolerant. In shadow mode, KV is still authoritative.
    */
-  private _applyCommandToDo(
-    taskId: string,
-    command: TaskCommand,
-  ): void {
+  private _applyCommandToDo(taskId: string, command: TaskCommand): void {
     try {
       const id = this.doNamespace.idFromName(taskId);
       const stub = this.doNamespace.get(id);

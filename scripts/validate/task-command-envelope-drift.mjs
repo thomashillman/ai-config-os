@@ -29,11 +29,7 @@ const CANONICAL_FIELDS = [
 
 const PRINCIPAL_FIELDS = ["principal_type", "principal_id"];
 const BOUNDARY_FIELDS = ["owner_principal_id", "workspace_id"];
-const AUTHORITY_FIELDS = [
-  "authority_mode",
-  "allowed_actions",
-  "stamped_at",
-];
+const AUTHORITY_FIELDS = ["authority_mode", "allowed_actions", "stamped_at"];
 
 const VALID_COMMAND_TYPES = [
   "task.create",

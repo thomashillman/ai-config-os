@@ -120,9 +120,8 @@ export class TaskObject implements DurableObject {
     try {
       // Load current state
       const currentVersion = await this.state.storage.get<number>("version");
-      const currentTask = await this.state.storage.get<Record<string, unknown>>(
-        "task",
-      );
+      const currentTask =
+        await this.state.storage.get<Record<string, unknown>>("task");
       const idempotencyIndex = await this.state.storage.get<
         Record<
           string,
@@ -252,7 +251,9 @@ export class TaskObject implements DurableObject {
         }
 
         case "task.append_finding": {
-          const payload = command.payload as { finding?: Record<string, unknown> };
+          const payload = command.payload as {
+            finding?: Record<string, unknown>;
+          };
           if (!payload.finding) {
             applyError = {
               code: "invalid_command",
@@ -354,10 +355,7 @@ export class TaskObject implements DurableObject {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      return jsonResponse(
-        { error: "internal_error", message },
-        500,
-      );
+      return jsonResponse({ error: "internal_error", message }, 500);
     }
   }
 

@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { buildTaskCommand } from "../task-command";
 import { resolveMutationContext } from "../task-mutation-context";
-import type { AuthenticatedRequest, TaskContextResolver } from "../task-mutation-context";
+import type {
+  AuthenticatedRequest,
+  TaskContextResolver,
+} from "../task-mutation-context";
 import type { Principal, Boundary, Authority } from "../task-command";
 
 /**

@@ -138,7 +138,10 @@ export function computeSemanticDigest(
   }
 
   // Sort keys for stable digests across implementations
-  const sorted = JSON.stringify(semanticPayload, Object.keys(semanticPayload).sort());
+  const sorted = JSON.stringify(
+    semanticPayload,
+    Object.keys(semanticPayload).sort(),
+  );
   return crypto.createHash("sha256").update(sorted).digest("hex");
 }
 
@@ -183,20 +186,18 @@ export interface ApplyCommandResponse {
  * Builder for creating canonical TaskCommand instances
  * Ensures all commands follow the authoritative structure
  */
-export function buildTaskCommand<T extends Record<string, unknown>>(
-  opts: {
-    task_id: string;
-    idempotency_key: string;
-    expected_task_version: number | null;
-    command_type: TaskCommandType;
-    payload: T;
-    principal: Principal;
-    boundary: Boundary;
-    authority: Authority;
-    request_context: RequestContext;
-    resolved_context?: ResolvedContext;
-  },
-): TaskCommand<T> {
+export function buildTaskCommand<T extends Record<string, unknown>>(opts: {
+  task_id: string;
+  idempotency_key: string;
+  expected_task_version: number | null;
+  command_type: TaskCommandType;
+  payload: T;
+  principal: Principal;
+  boundary: Boundary;
+  authority: Authority;
+  request_context: RequestContext;
+  resolved_context?: ResolvedContext;
+}): TaskCommand<T> {
   const resolvedContext = opts.resolved_context ?? opts.request_context;
   const semanticDigest = computeSemanticDigest(opts.command_type, opts.payload);
 

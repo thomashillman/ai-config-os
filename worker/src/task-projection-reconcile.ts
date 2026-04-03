@@ -31,9 +31,7 @@ export interface ProjectionLag {
  *
  * Used for shadow mode verification and divergence detection
  */
-export function reconstructAuthoritativeState(
-  commits: ActionCommit[],
-): {
+export function reconstructAuthoritativeState(commits: ActionCommit[]): {
   state: Record<string, unknown>;
   version: number;
 } {

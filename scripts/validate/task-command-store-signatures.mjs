@@ -49,9 +49,7 @@ function validateServiceContract() {
   // Verify mutation methods are properly marked
   for (const method of MUTATION_METHODS) {
     if (!REQUIRED_SERVICE_METHODS.includes(method)) {
-      errors.push(
-        `Mutation method ${method} not in required service methods`,
-      );
+      errors.push(`Mutation method ${method} not in required service methods`);
     }
   }
 
@@ -72,11 +70,7 @@ function validateErrorHandling() {
   }
 
   // Essential codes must always be present
-  const essentialCodes = [
-    "unauthorized",
-    "version_conflict",
-    "task_not_found",
-  ];
+  const essentialCodes = ["unauthorized", "version_conflict", "task_not_found"];
   for (const code of essentialCodes) {
     if (!STANDARD_ERROR_CODES.includes(code)) {
       errors.push(`Missing essential error code: ${code}`);
@@ -96,11 +90,7 @@ function validateBackwardCompatibility() {
   }
 
   // Service should maintain same method names
-  const oldMethodNames = [
-    "transitionState",
-    "selectRoute",
-    "appendFinding",
-  ];
+  const oldMethodNames = ["transitionState", "selectRoute", "appendFinding"];
   for (const name of oldMethodNames) {
     if (!REQUIRED_SERVICE_METHODS.includes(name)) {
       errors.push(
@@ -127,8 +117,12 @@ function runValidation() {
     console.log(
       "[store-signatures] ✓ Service signatures are stable and compatible",
     );
-    console.log(`[store-signatures] Methods: ${REQUIRED_SERVICE_METHODS.length}`);
-    console.log(`[store-signatures] Error codes: ${STANDARD_ERROR_CODES.length}`);
+    console.log(
+      `[store-signatures] Methods: ${REQUIRED_SERVICE_METHODS.length}`,
+    );
+    console.log(
+      `[store-signatures] Error codes: ${STANDARD_ERROR_CODES.length}`,
+    );
     console.log(
       "[store-signatures] Backward compatible: ✓ (mutation methods unchanged)",
     );

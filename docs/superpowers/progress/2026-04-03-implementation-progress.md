@@ -13,18 +13,21 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 ### ✅ Step 1: Internal Command Envelope and Server Stamping (COMPLETE)
 
 **Branch commits:**
+
 - `f1c07e6` - step 1.1: task-command envelope and mutation context types
 - `bac979e` - step 1.4: handler modifications with command building
 
 ### ✅ Step 2: Authoritative ApplyCommand and Replay Semantics (COMPLETE)
 
 **Branch commits:**
+
 - `664f575` - step 2.1-2.2: apply-command endpoint and idempotency
 - `0f4ff0a` - step 2.4: apply-command invocation infrastructure
 
 ### ✅ Step 3: Shadow Mode and Projection Hardening (PARTIAL - 3.1-3.3 COMPLETE)
 
 **Branch commits:**
+
 - `89e3bc5` - step 3.1-3.3: projection reconciliation helpers
 
 ## Completed Work (Detailed)
@@ -32,10 +35,12 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 ### ✅ Step 1: Internal Command Envelope and Server Stamping (COMPLETE)
 
 **Branch commits:**
+
 - `f1c07e6` - step 1.1: task-command envelope and mutation context types
 - `bac979e` - step 1.4: handler modifications with command building
 
 **Deliverables implemented:**
+
 - `worker/src/task-command.ts` - Canonical command envelope with:
   - `TaskCommand` interface with server-stamped principal, boundary, authority
   - `computeSemanticDigest()` for idempotency semantics
@@ -67,9 +72,11 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 ### ✅ Step 2: Authoritative ApplyCommand and Replay Semantics (IN PROGRESS)
 
 **Branch commits:**
+
 - `664f575` - step 2.1-2.2: apply-command endpoint and idempotency
 
 **Deliverables implemented:**
+
 - Extended `task-command.ts` with:
   - `ActionCommit` interface (immutable receipt for authoritative mutations)
   - `ApplyCommandRequest` and `ApplyCommandResponse` interfaces
@@ -98,10 +105,12 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 ### ✅ Step 3: Shadow Mode and Projection Hardening (COMPLETE)
 
 **Branch commits:**
+
 - `89e3bc5` - step 3.1-3.3: projection reconciliation helpers
 - `00678db` - step 3.6-3.7: surface metrics and divergence detection
 
 **Deliverables implemented:**
+
 - `worker/src/task-projection-reconcile.ts` - Projection repair and divergence detection:
   - `reconstructAuthoritativeState()` - Replay commits to rebuild current state
   - `detectProjectionDivergence()` - Compare authoritative vs served state
@@ -129,6 +138,7 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 ### ✅ Step 5: Build Hardening (COMPLETE)
 
 **Created validation scripts:**
+
 - `scripts/validate/task-command-envelope-drift.mjs` - Envelope structure validation
 - `scripts/validate/task-command-store-signatures.mjs` - Service contract validation
 - `ops/validate-task-command-store.sh` - Orchestrated validation suite
@@ -138,20 +148,24 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 ## Architecture Decisions
 
 ### Command Types in Scope (Narrow First)
+
 - `task.select_route` ← Step 3-4
 - `task.transition_state` ← Step 3-4
 - `task.append_finding` ← Step 3-4
 
 ### Deferred to Step 6
+
 - `task.create` - complex bootstrap state
 - `task.create_continuation` - handoff token flows
 
 ### Single-User Deployment
+
 - `Principal` resolved from authenticated request with default `owner` principal
 - `Authority` defaults to `direct_owner` for matching owners
 - Future: extend for multi-user delegation and approval workflows
 
 ### Storage Strategy
+
 - Commit log is append-only and durable
 - Idempotency index is mutable (safe to rebuild from commits)
 - Task state is mutable (reconstructible from commits)
@@ -168,6 +182,7 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 ### ✅ Step 4: Command-Type Cutover (COMPLETE)
 
 **Implementation:**
+
 - Full command semantics (route selection, state transition, finding append)
 - Compact mutation responses (action_id, version, replay status, projection_status)
 - Standard error handling (7 error codes)
@@ -177,6 +192,7 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 ## Test Coverage
 
 ### Worker Tests (161 passing)
+
 - Command envelope: 9 tests (digest, builder, payload preservation)
 - Mutation context: 19 tests (principal, boundary, authority, validation)
 - Apply-command: 7 tests (idempotency, version conflict, replay)
@@ -187,6 +203,7 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 - Existing: 64 tests (task-object, dual-write, storage)
 
 ### Test Gaps Identified
+
 - Integration test for command flow: handler → context → command → service
 - Storage persistence verification (atomic writes)
 - Projection lag detection and repair (Step 3)
@@ -214,20 +231,22 @@ Implementing an authoritative task-scoped command store to replace KV-first muta
 **Step 2:** Apply-command endpoint & idempotency ✓  
 **Step 3:** Projection monitoring & divergence detection ✓  
 **Step 4:** Command semantics & cutover ✓  
-**Step 5:** Build validation artifacts ✓  
+**Step 5:** Build validation artifacts ✓
 
 **Test Coverage:** 161 tests (12 files)  
 **Code Quality:** 0 type errors, 0 test failures  
-**Validations:** All passing (envelope, service, TypeScript)  
+**Validations:** All passing (envelope, service, TypeScript)
 
 ## Session Summary
 
 This final session completed the implementation:
+
 - ✅ Step 3.6-3.7: Projection metrics integration (16 tests)
 - ✅ Step 5: Build hardening (validation scripts)
 - ✅ Step 4: Full command semantics and cutover (32 tests)
 
 **Final Statistics:**
+
 - Total commits: 11 feature commits
 - New tests: 97 (across all steps)
 - Total tests: 161 passing
@@ -236,6 +255,7 @@ This final session completed the implementation:
 ## Implementation Complete
 
 The authoritative task command store is **100% implemented and tested**:
+
 - ✅ Command envelope with semantic digest
 - ✅ Server-side authority resolution
 - ✅ Apply-command endpoint with idempotency
@@ -248,6 +268,7 @@ The authoritative task command store is **100% implemented and tested**:
 Ready for deployment or further extension to Step 6 (task.create, task.create_continuation).
 
 ### Step 4.1-4.7: Command-Type Cutover
+
 1. Implement command payload handlers (route, state, findings)
 2. Wire command envelopes through service layer to store
 3. Make apply-command authoritative for narrow commands
@@ -257,18 +278,21 @@ Ready for deployment or further extension to Step 6 (task.create, task.create_co
 7. Validate no divergence and replay determinism
 
 **Critical Path:**
+
 - Complete payload handlers in apply-command
 - Wire command parameter through service (backward compatible)
 - Add integration tests for full flow
 - Validate cutover gate before deploying
 
 ### Step 4: Command-Type Cutover
+
 1. Make apply-command the real writer (no more shadow)
 2. KV becomes projection and index storage only
 3. Full payload semantics (route selection, state transition, findings)
 4. Compact mutation responses
 
 ### Step 5: Build Hardening
+
 1. Validation artifacts: task-command-envelope-drift.mjs
 2. Service signature drift detection
 3. Integration into build/test pipeline
@@ -292,12 +316,14 @@ Ready for deployment or further extension to Step 6 (task.create, task.create_co
 ## Validation Checklist
 
 ### Currently Passing
+
 - ✅ TypeScript compilation (`npm run check:test-types`)
 - ✅ All worker tests (99 tests)
 - ✅ Build completes without errors (`npm run build`)
 - ✅ No type errors in handlers or service integration points
 
 ### Still Needed
+
 - ⏳ Runtime tests (mjs modules)
 - ⏳ Integration test for command flow
 - ⏳ Mergeability gate validation

@@ -56,9 +56,7 @@ export interface AuthenticatedRequest {
  * Resolve principal from authenticated request
  * Single source of truth: derived from request auth headers, never client-supplied
  */
-export function resolvePrincipal(
-  request: AuthenticatedRequest,
-): Principal {
+export function resolvePrincipal(request: AuthenticatedRequest): Principal {
   return {
     principal_type: request.principal_type,
     principal_id: request.principal_id,
@@ -72,9 +70,7 @@ export function resolvePrincipal(
  * Derives workspace and repo context from authoritative task record or server config
  * Never accepts caller-supplied boundary identifiers alone
  */
-export function resolveBoundary(
-  taskContext: TaskContextLookup,
-): Boundary {
+export function resolveBoundary(taskContext: TaskContextLookup): Boundary {
   return {
     owner_principal_id: taskContext.owner_principal_id,
     workspace_id: taskContext.workspace_id,

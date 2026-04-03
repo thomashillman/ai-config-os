@@ -168,7 +168,10 @@ describe("buildTaskCommand", () => {
 
   it("uses resolved_context if provided, otherwise uses request_context", () => {
     const requestContext = { selected_at: "2026-04-03T00:00:00Z" };
-    const resolvedContext = { validated: true, selected_at: "2026-04-03T00:00:00Z" };
+    const resolvedContext = {
+      validated: true,
+      selected_at: "2026-04-03T00:00:00Z",
+    };
 
     const cmd1 = buildTaskCommand({
       task_id: "task-1",

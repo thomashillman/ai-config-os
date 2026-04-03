@@ -105,7 +105,9 @@ export function getTaskService(env: Env) {
  * Get the underlying task store directly (for mutation context resolution)
  * Allows looki ng up current task state for boundary validation
  */
-export function getTaskStore(env: Env): TaskStore | KvTaskStore | DualWriteTaskStore {
+export function getTaskStore(
+  env: Env,
+): TaskStore | KvTaskStore | DualWriteTaskStore {
   return ensureTaskStore(env);
 }
 

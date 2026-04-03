@@ -59,17 +59,17 @@ For the current single-user deployment, most authoritative writes will resolve t
 
 ## File map (create / own)
 
-| Area | Create / modify |
-| --- | --- |
+| Area                                    | Create / modify                                                                                                                                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Command envelope and context resolution | Create `worker/src/task-command.ts`; create `worker/src/task-mutation-context.ts`; create tests under `worker/src/__tests__/task-command*.test.ts`; modify `worker/src/types.ts` only if necessary |
-| Handler stamping | Modify `worker/src/handlers/tasks.ts`; modify `worker/src/auth.ts` only if shared request identity helpers belong there |
-| Service path | Modify `runtime/lib/task-control-plane-service-core.mjs`; modify `runtime/lib/task-control-plane-service-worker.mjs` |
-| Authoritative store | Modify `worker/src/task-object.ts` to add `apply-command`; keep legacy replication endpoints only for migration support |
-| Runtime wiring | Modify `worker/src/task-runtime.ts`; modify `worker/src/dual-write-task-store.ts` |
-| Projection logic | Modify `runtime/lib/task-store-kv.mjs`; create `runtime/lib/task-projection-reconcile.mjs` or equivalent focused module |
-| Validation artifacts | Create `scripts/validate/task-command-envelope-drift.mjs`; create `scripts/validate/task-command-store-signatures.mjs`; create `ops/validate-task-command-store.sh` |
-| Tests | Add authoritative-store tests, replay/conflict tests, projection-repair tests, boundary/security tests, command-type integration tests |
-| Docs | This plan file; spec updates only if implementation uncovers a genuine design mismatch |
+| Handler stamping                        | Modify `worker/src/handlers/tasks.ts`; modify `worker/src/auth.ts` only if shared request identity helpers belong there                                                                            |
+| Service path                            | Modify `runtime/lib/task-control-plane-service-core.mjs`; modify `runtime/lib/task-control-plane-service-worker.mjs`                                                                               |
+| Authoritative store                     | Modify `worker/src/task-object.ts` to add `apply-command`; keep legacy replication endpoints only for migration support                                                                            |
+| Runtime wiring                          | Modify `worker/src/task-runtime.ts`; modify `worker/src/dual-write-task-store.ts`                                                                                                                  |
+| Projection logic                        | Modify `runtime/lib/task-store-kv.mjs`; create `runtime/lib/task-projection-reconcile.mjs` or equivalent focused module                                                                            |
+| Validation artifacts                    | Create `scripts/validate/task-command-envelope-drift.mjs`; create `scripts/validate/task-command-store-signatures.mjs`; create `ops/validate-task-command-store.sh`                                |
+| Tests                                   | Add authoritative-store tests, replay/conflict tests, projection-repair tests, boundary/security tests, command-type integration tests                                                             |
+| Docs                                    | This plan file; spec updates only if implementation uncovers a genuine design mismatch                                                                                                             |
 
 ---
 

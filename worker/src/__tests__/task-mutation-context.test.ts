@@ -142,10 +142,7 @@ describe("isAuthorizedFor", () => {
   it("returns true if action is in allowed_actions", () => {
     const authority = {
       authority_mode: "direct_owner" as const,
-      allowed_actions: [
-        "task.select_route",
-        "task.transition_state",
-      ] as const,
+      allowed_actions: ["task.select_route", "task.transition_state"] as const,
       stamped_at: "2026-04-03T00:00:00Z",
     };
 
