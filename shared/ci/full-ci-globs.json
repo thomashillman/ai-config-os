@@ -12,7 +12,5 @@
   "schemas/**",
   "scripts/**",
   "shared/**",
-  "shared/agent-doctrine/**",
-  "shared/lib/**",
   "worker/**"
 ]
