@@ -45,7 +45,11 @@ fi
 # 4) Repo verification (fast -> broad)
 npm run -s validate
 npm run -s build
+# Root/node:test suite for build + validation contracts
 npm run -s test
+# Explicit split lanes: worker Vitest suite and standalone validator node:test suite
+npm run -s test:worker
+npm run -s test:validators
 npm run -s verify
 
 # 5) Explicit conflict-marker guard

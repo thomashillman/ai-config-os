@@ -56,7 +56,7 @@ echo
 
 # Step 4: Run authoritative-path tests
 echo "[4/4] Running authoritative-path tests..."
-npm test -- --reporter=verbose \
+npm run test -- --reporter=verbose \
   "src/__tests__/task-command.test.ts" \
   "src/__tests__/task-mutation-context.test.ts" \
   "src/__tests__/task-object-apply-command.test.ts" \

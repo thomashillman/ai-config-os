@@ -36,7 +36,7 @@ echo
 
 # Step 2: Run routing policy validator tests
 echo "[2/2] Running routing policy validator tests..."
-npm test -- "scripts/build/test/routing-policy-drift.test.mjs" > /dev/null 2>&1
+node --test "$ROOT_DIR/scripts/build/test/routing-policy-drift.test.mjs" > /dev/null 2>&1
 if [ $? -ne 0 ]; then
   echo "✗ Routing policy tests failed"
   exit 1
