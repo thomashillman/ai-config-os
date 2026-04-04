@@ -54,7 +54,7 @@ describe("Task Projection Integration", () => {
         task_version_before: 0,
         task_version_after: 1,
         task_state_after: { current_route: "local_repo", version: 1 },
-        committed_at: "2026-04-03T00:00:00Z",
+        created_at: "2026-04-03T00:00:00Z",
       };
 
       const taskState = { current_route: "local_repo", version: 1 };
@@ -87,7 +87,7 @@ describe("Task Projection Integration", () => {
           task_version_before: 0,
           task_version_after: 1,
           task_state_after: { current_route: "local_repo", version: 1 },
-          committed_at: "2026-04-03T00:00:00Z",
+          created_at: "2026-04-03T00:00:00Z",
         },
         {
           action_id: "action-2",
@@ -95,7 +95,7 @@ describe("Task Projection Integration", () => {
           task_version_before: 1,
           task_version_after: 2,
           task_state_after: { state: "in_progress", version: 2 },
-          committed_at: "2026-04-03T00:00:01Z",
+          created_at: "2026-04-03T00:00:01Z",
         },
       ];
 
@@ -127,7 +127,7 @@ describe("Task Projection Integration", () => {
         task_version_before: 0,
         task_version_after: 1,
         task_state_after: { current_route: "local_repo", version: 1 },
-        committed_at: "2026-04-03T00:00:00Z",
+        created_at: "2026-04-03T00:00:00Z",
       };
 
       const taskState = { current_route: "github_pr", version: 1 }; // Different route

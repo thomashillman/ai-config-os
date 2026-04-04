@@ -174,6 +174,9 @@ export interface ActionCommit {
   };
   readonly result_summary: string; // brief human-readable outcome
 
+  // Task state snapshot (needed by projection reconciliation)
+  readonly task_state_after: Record<string, unknown>; // the resulting task state after mutation
+
   // Canonical mutation input (KEEP UNCHANGED)
   readonly command_envelope: TaskCommand; // complete, unmodified command
 }

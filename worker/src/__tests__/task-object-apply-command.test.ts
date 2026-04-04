@@ -237,13 +237,13 @@ describe("TaskObject apply-command (unit tests)", () => {
           current_route: "local_repo",
           version: 2,
         },
-        committed_at: "2026-04-03T00:00:00Z",
+        created_at: "2026-04-03T00:00:00Z",
       };
 
       expect(commit.action_id).toBeDefined();
       expect(commit.task_version_before).toBe(1);
       expect(commit.task_version_after).toBe(2);
-      expect(commit.committed_at).toBeDefined();
+      expect(commit.created_at).toBeDefined();
     });
   });
 

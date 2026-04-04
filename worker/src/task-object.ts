@@ -340,6 +340,7 @@ export class TaskObject implements DurableObject {
           success: true,
         },
         result_summary: resultSummary,
+        task_state_after: updatedTask,
 
         // Canonical mutation input (unchanged)
         command_envelope: command,
