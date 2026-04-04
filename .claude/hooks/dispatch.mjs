@@ -19,6 +19,10 @@ import {
   normalizeFilePath,
 } from "./lib/contracts/hook-event.mjs";
 import { RuleExecutor } from "./lib/rule-executor.mjs";
+import {
+  capturePayload,
+  notifyCaptureLocation,
+} from "./lib/payload-capture.mjs";
 
 // Import the rule registry (populated as rules are implemented)
 import { rules } from "./lib/rules/index.mjs";
@@ -30,6 +34,12 @@ async function main() {
   try {
     // 1. Read stdin
     const rawInput = await readStdin();
+
+    // 1.5. Diagnostic: capture raw payload (one-shot, best-effort)
+    const payloadPath = capturePayload(rawInput);
+    if (payloadPath) {
+      notifyCaptureLocation(payloadPath);
+    }
 
     // 2. Parse JSON
     let event;
