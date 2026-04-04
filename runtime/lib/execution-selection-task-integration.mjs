@@ -184,11 +184,17 @@ export function resolveExecutionSelectionForTask({
         policyContext.minimum_reliability_floor || "above_floor",
     },
     fallback_policy: policyContext.fallback_policy || null,
-    route_contract_version: policyContext.route_contract_version || CURRENT_VERSIONS.route_contract_version,
-    model_policy_version: policyContext.model_policy_version || CURRENT_VERSIONS.model_policy_version,
-    resolver_version: policyContext.resolver_version || CURRENT_VERSIONS.resolver_version,
+    route_contract_version:
+      policyContext.route_contract_version ||
+      CURRENT_VERSIONS.route_contract_version,
+    model_policy_version:
+      policyContext.model_policy_version ||
+      CURRENT_VERSIONS.model_policy_version,
+    resolver_version:
+      policyContext.resolver_version || CURRENT_VERSIONS.resolver_version,
     execution_selection_schema_version:
-      policyContext.execution_selection_schema_version || CURRENT_VERSIONS.execution_selection_schema_version,
+      policyContext.execution_selection_schema_version ||
+      CURRENT_VERSIONS.execution_selection_schema_version,
   };
 
   const result = resolveExecutionSelection(resolutionInput);

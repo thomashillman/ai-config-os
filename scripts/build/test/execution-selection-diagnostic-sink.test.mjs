@@ -171,7 +171,10 @@ test("ExecutionSelectionDiagnosticSink: recordSelection includes bounded diagnos
   assert.equal(entry.selected_pair_summary.execution_mode, "native");
 
   // Verify route candidate summaries
-  assert.equal(entry.route_candidate_summaries[0].route_id, "route_claude_native");
+  assert.equal(
+    entry.route_candidate_summaries[0].route_id,
+    "route_claude_native",
+  );
   assert.equal(entry.route_candidate_summaries[0].route_kind, "native_claude");
 
   // Verify model candidate summaries
@@ -188,7 +191,11 @@ test("ExecutionSelectionDiagnosticSink: capture_reason must be one of allowed va
   const taskId = "task-reason-test";
 
   // Valid reasons
-  const validReasons = ["development", "replay_validation", "targeted_troubleshooting"];
+  const validReasons = [
+    "development",
+    "replay_validation",
+    "targeted_troubleshooting",
+  ];
   for (const reason of validReasons) {
     assert.doesNotThrow(() => {
       sink.recordSelection(selection, {
@@ -290,7 +297,10 @@ test("ExecutionSelectionDiagnosticSink: rejects invalid parameters", () => {
   const selection = createMockExecutionSelection();
 
   assert.throws(() => {
-    sink.recordSelection(null, { taskId: "task-1", captureReason: "development" });
+    sink.recordSelection(null, {
+      taskId: "task-1",
+      captureReason: "development",
+    });
   }, /executionSelection must be a non-null object/);
 
   assert.throws(() => {
@@ -373,10 +383,7 @@ test("ExecutionSelectionDiagnosticSink: rejects path traversal in selection_revi
   const selection = createMockExecutionSelection();
   const taskId = "safe-task-id";
 
-  const evilRevisions = [
-    "../../etc/passwd",
-    "rev/../../../secret",
-  ];
+  const evilRevisions = ["../../etc/passwd", "rev/../../../secret"];
 
   for (const evilRev of evilRevisions) {
     assert.throws(() => {
@@ -406,20 +413,42 @@ test("ExecutionSelectionDiagnosticSink: stored records must use bounded diagnost
   const entry = history[0];
 
   // Prohibited fields must not exist
-  assert.equal(entry.execution_selection, undefined, "full execution_selection must not be stored");
-  assert.equal(entry.selection_reason, undefined, "prose selection_reason must not be stored");
-  assert.equal(entry.selection_basis, undefined, "selection_basis must not be stored");
+  assert.equal(
+    entry.execution_selection,
+    undefined,
+    "full execution_selection must not be stored",
+  );
+  assert.equal(
+    entry.selection_reason,
+    undefined,
+    "prose selection_reason must not be stored",
+  );
+  assert.equal(
+    entry.selection_basis,
+    undefined,
+    "selection_basis must not be stored",
+  );
   assert.equal(entry.evaluation, undefined, "evaluation must not be stored");
   assert.equal(entry.metadata, undefined, "metadata must not be stored");
-  assert.equal(entry.fallback_chain, undefined, "full fallback_chain must not be stored");
+  assert.equal(
+    entry.fallback_chain,
+    undefined,
+    "full fallback_chain must not be stored",
+  );
 
   // Required bounded fields must exist
   assert.ok(entry.task_id, "task_id is required");
   assert.ok(entry.selection_revision, "selection_revision is required");
   assert.ok(entry.capture_reason, "capture_reason is required");
   assert.ok(entry.recorded_at, "recorded_at is required");
-  assert.ok(entry.route_candidate_summaries !== undefined, "route_candidate_summaries is required");
-  assert.ok(entry.model_candidate_summaries !== undefined, "model_candidate_summaries is required");
+  assert.ok(
+    entry.route_candidate_summaries !== undefined,
+    "route_candidate_summaries is required",
+  );
+  assert.ok(
+    entry.model_candidate_summaries !== undefined,
+    "model_candidate_summaries is required",
+  );
   assert.ok(entry.selected_pair_summary, "selected_pair_summary is required");
 
   rmSync(tempDir, { recursive: true, force: true });

@@ -56,7 +56,7 @@ function validateSelectionRevision(selectionRevision) {
     selectionRevision.includes("\\")
   ) {
     throw new Error(
-      `path traversal detected in selectionRevision: "${selectionRevision}"`
+      `path traversal detected in selectionRevision: "${selectionRevision}"`,
     );
   }
 }
@@ -70,7 +70,7 @@ function enforcePathBoundary(filePath, baseDir) {
   const normalizedFile = normalize(resolve(filePath));
   if (!normalizedFile.startsWith(normalizedBase)) {
     throw new Error(
-      `path boundary violation: ${normalizedFile} is outside ${normalizedBase}`
+      `path boundary violation: ${normalizedFile} is outside ${normalizedBase}`,
     );
   }
 }
@@ -130,8 +130,7 @@ export class ExecutionSelectionDiagnosticSink {
 
     // Validate selection_revision for path safety
     const selectionRevision =
-      context.selectionRevision ||
-      computeSelectionRevision(executionSelection);
+      context.selectionRevision || computeSelectionRevision(executionSelection);
     validateSelectionRevision(selectionRevision);
 
     // Validate capture_reason
@@ -142,7 +141,7 @@ export class ExecutionSelectionDiagnosticSink {
     ];
     if (!allowedReasons.includes(context.captureReason)) {
       throw new Error(
-        `captureReason must be one of: ${allowedReasons.join(", ")}`
+        `captureReason must be one of: ${allowedReasons.join(", ")}`,
       );
     }
 
@@ -153,7 +152,7 @@ export class ExecutionSelectionDiagnosticSink {
       (route) => ({
         route_id: route.route_id,
         route_kind: route.route_kind,
-      })
+      }),
     );
 
     const modelCandidateSummaries = (context.modelCandidates || []).map(
@@ -165,7 +164,7 @@ export class ExecutionSelectionDiagnosticSink {
         cost_basis: model.cost_basis,
         reliability_margin: model.reliability_margin,
         latency_risk: model.latency_risk,
-      })
+      }),
     );
 
     const entry = {
