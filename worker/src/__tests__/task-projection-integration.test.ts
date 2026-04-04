@@ -137,7 +137,7 @@ describe("Projection metrics integration with task responses", () => {
       };
 
       // With metrics attached, caller can see the lag
-      const responseWithMetrics = attachProjectionMetrics(taskData, expectedMetrics);
+      const responseWithMetrics = attachProjectionMetrics(taskData, expectedMetrics) as any;
       expect(responseWithMetrics._projection_metrics?.projection_lag?.is_lagging).toBe(true);
     });
   });
