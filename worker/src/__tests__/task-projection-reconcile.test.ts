@@ -297,42 +297,44 @@ describe("Task Projection Reconciliation", () => {
         request_context: {},
       });
 
+      const commitsToApply: ActionCommit[] = [
+        {
+          action_id: "action-1",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:00Z",
+          task_version_before: 0,
+          task_version_after: 1,
+          result: { success: true },
+          result_summary: "Route selected",
+          task_state_after: { version: 1 },
+          command_envelope: command,
+        },
+        {
+          action_id: "action-2",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:01Z",
+          task_version_before: 1,
+          task_version_after: 2,
+          result: { success: true },
+          result_summary: "Route selected",
+          task_state_after: { version: 2 },
+          command_envelope: command,
+        },
+      ];
+
       const plan = {
         task_id: "task-1",
         projected_version: 0,
         authoritative_version: 2,
-        commits_to_apply: [
-          {
-            action_id: "action-1",
-            task_id: command.task_id,
-            command_type: command.command_type,
-            command_digest: command.semantic_digest,
-            principal_id: command.principal.principal_id,
-            authority: command.authority,
-            created_at: "2026-04-03T00:00:00Z",
-            task_version_before: 0,
-            task_version_after: 1,
-            result: { success: true },
-            result_summary: "Route selected",
-            task_state_after: { version: 1 },
-            command_envelope: command,
-          },
-          {
-            action_id: "action-2",
-            task_id: command.task_id,
-            command_type: command.command_type,
-            command_digest: command.semantic_digest,
-            principal_id: command.principal.principal_id,
-            authority: command.authority,
-            created_at: "2026-04-03T00:00:01Z",
-            task_version_before: 1,
-            task_version_after: 2,
-            result: { success: true },
-            result_summary: "Route selected",
-            task_state_after: { version: 2 },
-            command_envelope: command,
-          },
-        ],
+        commits_to_apply: commitsToApply,
       };
 
       const result = validateRepairPlan(plan);
@@ -353,42 +355,44 @@ describe("Task Projection Reconciliation", () => {
         request_context: {},
       });
 
+      const commitsToApply: ActionCommit[] = [
+        {
+          action_id: "action-1",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:00Z",
+          task_version_before: 0,
+          task_version_after: 1,
+          result: { success: true },
+          result_summary: "Route selected",
+          task_state_after: { version: 1 },
+          command_envelope: command,
+        },
+        {
+          action_id: "action-3",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:02Z",
+          task_version_before: 2, // Gap: should be 1
+          task_version_after: 3,
+          result: { success: true },
+          result_summary: "Route selected",
+          task_state_after: { version: 3 },
+          command_envelope: command,
+        },
+      ];
+
       const plan = {
         task_id: "task-1",
         projected_version: 0,
         authoritative_version: 3,
-        commits_to_apply: [
-          {
-            action_id: "action-1",
-            task_id: command.task_id,
-            command_type: command.command_type,
-            command_digest: command.semantic_digest,
-            principal_id: command.principal.principal_id,
-            authority: command.authority,
-            created_at: "2026-04-03T00:00:00Z",
-            task_version_before: 0,
-            task_version_after: 1,
-            result: { success: true },
-            result_summary: "Route selected",
-            task_state_after: { version: 1 },
-            command_envelope: command,
-          },
-          {
-            action_id: "action-3",
-            task_id: command.task_id,
-            command_type: command.command_type,
-            command_digest: command.semantic_digest,
-            principal_id: command.principal.principal_id,
-            authority: command.authority,
-            created_at: "2026-04-03T00:00:02Z",
-            task_version_before: 2, // Gap: should be 1
-            task_version_after: 3,
-            result: { success: true },
-            result_summary: "Route selected",
-            task_state_after: { version: 3 },
-            command_envelope: command,
-          },
-        ],
+        commits_to_apply: commitsToApply,
       };
 
       const result = validateRepairPlan(plan);
