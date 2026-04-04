@@ -213,10 +213,11 @@ export async function handleTaskTransitionState(
       request_context: context.request_context,
     });
 
-    // Step 3: Execute mutation (current: via service, future: via authoritative store)
+    // Step 3: Execute mutation via authoritative store with command envelope
     const updated = (await getTaskService(env).transitionState(
       taskId,
       validation.value,
+      command,
     )) as Record<string, unknown>;
     return contractSuccessResponse({
       resource: "tasks.state",
@@ -302,10 +303,11 @@ export async function handleTaskRouteSelection(
       request_context: context.request_context,
     });
 
-    // Step 3: Execute mutation (current: via service, future: via authoritative store)
+    // Step 3: Execute mutation via authoritative store with command envelope
     const updated = (await getTaskService(env).selectRoute(
       taskId,
       validation.value,
+      command,
     )) as Record<string, unknown>;
 
     return contractSuccessResponse({
@@ -715,10 +717,11 @@ export async function handleTaskAppendFinding(
       request_context: context.request_context,
     });
 
-    // Step 3: Execute mutation (current: via service, future: via authoritative store)
+    // Step 3: Execute mutation via authoritative store with command envelope
     const updated = (await getTaskService(env).appendFinding(
       taskId,
       validation.value,
+      command,
     )) as Record<string, unknown>;
     return contractSuccessResponse(
       {

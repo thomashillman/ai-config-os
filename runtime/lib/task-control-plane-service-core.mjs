@@ -45,7 +45,7 @@ export function createTaskControlPlaneServiceCore({
       assertString("taskId", taskId);
       return taskStore.load(taskId);
     },
-    transitionState(taskId, transition) {
+    transitionState(taskId, transition, commandEnvelope = null) {
       assertString("taskId", taskId);
       assertObject("transition", transition);
       return taskStore.transitionState(taskId, {
@@ -54,16 +54,16 @@ export function createTaskControlPlaneServiceCore({
         nextAction: transition.next_action,
         updatedAt: transition.updated_at,
         progress: transition.progress,
-      });
+      }, commandEnvelope);
     },
-    selectRoute(taskId, payload) {
+    selectRoute(taskId, payload, commandEnvelope = null) {
       assertString("taskId", taskId);
       assertObject("payload", payload);
       return taskStore.selectRoute(taskId, {
         expectedVersion: payload.expected_version,
         routeId: payload.route_id,
         selectedAt: payload.selected_at,
-      });
+      }, commandEnvelope);
     },
     createContinuation(taskId, payload) {
       assertString("taskId", taskId);
@@ -90,14 +90,14 @@ export function createTaskControlPlaneServiceCore({
       assertString("taskId", taskId);
       return taskStore.getSnapshot(taskId, version);
     },
-    appendFinding(taskId, payload) {
+    appendFinding(taskId, payload, commandEnvelope = null) {
       assertString("taskId", taskId);
       assertObject("payload", payload);
       return taskStore.appendFinding(taskId, {
         expectedVersion: payload.expected_version,
         finding: payload.finding,
         updatedAt: payload.updated_at,
-      });
+      }, commandEnvelope);
     },
     transitionFindingsForRouteUpgrade(taskId, payload) {
       assertString("taskId", taskId);
