@@ -52,7 +52,12 @@ const sampleExecutionSelection = {
       fallback_reason_class: "model_unavailable",
     },
   ],
-  policy_version: "v1",
+  policy_version: {
+    route_contract_version: "v1",
+    model_policy_version: "v1",
+    resolver_version: "v1",
+  },
+  execution_selection_schema_version: "v1",
   selection_basis: {
     constraints_passed: true,
     route_admissible: true,

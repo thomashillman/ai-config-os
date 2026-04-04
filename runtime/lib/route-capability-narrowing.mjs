@@ -115,7 +115,7 @@ function narrowArtifactCompleteness(default_completeness, actual_surface) {
   }
 
   // Return the narrower (higher rank) of the two
-  return defaultRank <= effectiveRank ? default_completeness : effective;
+  return effectiveRank > defaultRank ? effective : default_completeness;
 }
 
 /**
@@ -156,7 +156,7 @@ function narrowHistoryAvailability(default_availability, actual_surface) {
     );
   }
 
-  return defaultRank <= effectiveRank ? default_availability : effective;
+  return effectiveRank > defaultRank ? effective : default_availability;
 }
 
 /**
@@ -197,7 +197,7 @@ function narrowLocalityConfidence(default_confidence, repository_binding) {
     );
   }
 
-  return defaultRank <= effectiveRank ? default_confidence : effective;
+  return effectiveRank > defaultRank ? effective : default_confidence;
 }
 
 /**
