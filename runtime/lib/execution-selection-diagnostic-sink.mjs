@@ -85,7 +85,10 @@ export class ExecutionSelectionDiagnosticSink {
     if (!context || typeof context !== "object") {
       throw new Error("context must be a non-null object");
     }
-    if (typeof context.taskId !== "string" || context.taskId.trim().length === 0) {
+    if (
+      typeof context.taskId !== "string" ||
+      context.taskId.trim().length === 0
+    ) {
       throw new Error("context.taskId is required");
     }
 
@@ -109,8 +112,8 @@ export class ExecutionSelectionDiagnosticSink {
       },
       metadata: {
         policy_intent: executionSelection.selection_basis || {},
-        route_compatibility_projection: executionSelection.selected_route
-          ?.effective_capabilities || {},
+        route_compatibility_projection:
+          executionSelection.selected_route?.effective_capabilities || {},
         fallback_policy: executionSelection.fallback_chain
           ? executionSelection.fallback_chain[0]?.policy || "standard"
           : "standard",
@@ -239,7 +242,10 @@ export class ExecutionSelectionDiagnosticSink {
     if (typeof taskId !== "string" || taskId.trim().length === 0) {
       throw new Error("taskId is required");
     }
-    if (typeof selectionRevision !== "string" || selectionRevision.trim().length === 0) {
+    if (
+      typeof selectionRevision !== "string" ||
+      selectionRevision.trim().length === 0
+    ) {
       throw new Error("selectionRevision is required");
     }
 

@@ -293,7 +293,10 @@ export function createTaskStoreClass({
       return clone(next);
     }
 
-    selectRoute(taskId, { routeId, expectedVersion, selectedAt, executionSelection = null }) {
+    selectRoute(
+      taskId,
+      { routeId, expectedVersion, selectedAt, executionSelection = null },
+    ) {
       const current = this.tasks.get(taskId);
       if (!current) {
         throw new TaskNotFoundError(taskId);

@@ -20,11 +20,14 @@ export function canonicalIdentityProjection(executionSelection) {
   }
 
   if (!executionSelection.execution_selection_schema_version) {
-    throw new Error("executionSelection.execution_selection_schema_version is required");
+    throw new Error(
+      "executionSelection.execution_selection_schema_version is required",
+    );
   }
 
   return {
-    execution_selection_schema_version: executionSelection.execution_selection_schema_version,
+    execution_selection_schema_version:
+      executionSelection.execution_selection_schema_version,
     selected_route: {
       route_id: executionSelection.selected_route.route_id,
       route_kind: executionSelection.selected_route.route_kind,
@@ -141,7 +144,9 @@ export function hasIdentityChanged(oldSelection, newSelection) {
  */
 export function enrichWithIdentity(executionSelection) {
   if (!executionSelection.execution_selection_schema_version) {
-    throw new Error("executionSelection.execution_selection_schema_version is required");
+    throw new Error(
+      "executionSelection.execution_selection_schema_version is required",
+    );
   }
 
   return {

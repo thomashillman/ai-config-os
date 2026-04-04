@@ -98,10 +98,7 @@ export function integrateExecutionSelectionWithTask({
   const nextTask = taskStore.update(taskId, {
     expectedVersion,
     changes: {
-      route_history: [
-        ...(currentTask.route_history || []),
-        routeHistoryEntry,
-      ],
+      route_history: [...(currentTask.route_history || []), routeHistoryEntry],
       execution_selections: [
         ...(currentTask.execution_selections || []),
         executionSelectionEntry,

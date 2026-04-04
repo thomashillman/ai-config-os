@@ -107,7 +107,10 @@ test("ExecutionSelectionDiagnosticSink: recordSelection writes JSONL entry", () 
   const history = sink.retrieveSelectionHistory(taskId);
   assert.ok(history.length > 0);
   assert.equal(history[0].task_id, taskId);
-  assert.equal(history[0].execution_selection.selected_route.route_id, "route_claude_native");
+  assert.equal(
+    history[0].execution_selection.selected_route.route_id,
+    "route_claude_native",
+  );
   assert.equal(history[0].recorded_at, timestamp);
 
   rmSync(tempDir, { recursive: true, force: true });
@@ -209,8 +212,12 @@ test("ExecutionSelectionDiagnosticSink: retrieveSelectionDiagnostics returns agg
   });
 
   // Retrieve diagnostics
-  const selectionRevision = sink.retrieveSelectionHistory(taskId)[0].selection_revision;
-  const diagnostics = sink.retrieveSelectionDiagnostics(taskId, selectionRevision);
+  const selectionRevision =
+    sink.retrieveSelectionHistory(taskId)[0].selection_revision;
+  const diagnostics = sink.retrieveSelectionDiagnostics(
+    taskId,
+    selectionRevision,
+  );
 
   assert.equal(diagnostics.task_id, taskId);
   assert.equal(diagnostics.selection_revision, selectionRevision);
@@ -254,8 +261,20 @@ test("ExecutionSelectionDiagnosticSink: handles multiple selections per task", (
 
   // Both selections should be recorded
   assert.ok(history.length >= 1);
-  assert.ok(history.some((e) => e.execution_selection?.resolved_model_path?.model_id === "claude-opus-4"));
-  assert.ok(history.some((e) => e.execution_selection?.resolved_model_path?.model_id === "claude-sonnet-3"));
+  assert.ok(
+    history.some(
+      (e) =>
+        e.execution_selection?.resolved_model_path?.model_id ===
+        "claude-opus-4",
+    ),
+  );
+  assert.ok(
+    history.some(
+      (e) =>
+        e.execution_selection?.resolved_model_path?.model_id ===
+        "claude-sonnet-3",
+    ),
+  );
 
   rmSync(tempDir, { recursive: true, force: true });
 });
@@ -265,40 +284,25 @@ test("ExecutionSelectionDiagnosticSink: rejects invalid parameters", () => {
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const selection = createMockExecutionSelection();
 
-  assert.throws(
-    () => {
-      sink.recordSelection(null, { taskId: "task-1", reason: "test" });
-    },
-    /executionSelection must be a non-null object/,
-  );
+  assert.throws(() => {
+    sink.recordSelection(null, { taskId: "task-1", reason: "test" });
+  }, /executionSelection must be a non-null object/);
 
-  assert.throws(
-    () => {
-      sink.recordSelection(selection, null);
-    },
-    /context must be a non-null object/,
-  );
+  assert.throws(() => {
+    sink.recordSelection(selection, null);
+  }, /context must be a non-null object/);
 
-  assert.throws(
-    () => {
-      sink.recordSelection(selection, { taskType: "impl" });
-    },
-    /context.taskId is required/,
-  );
+  assert.throws(() => {
+    sink.recordSelection(selection, { taskType: "impl" });
+  }, /context.taskId is required/);
 
-  assert.throws(
-    () => {
-      sink.retrieveSelectionHistory("");
-    },
-    /taskId is required/,
-  );
+  assert.throws(() => {
+    sink.retrieveSelectionHistory("");
+  }, /taskId is required/);
 
-  assert.throws(
-    () => {
-      sink.retrieveSelectionDiagnostics("task-1", "");
-    },
-    /selectionRevision is required/,
-  );
+  assert.throws(() => {
+    sink.retrieveSelectionDiagnostics("task-1", "");
+  }, /selectionRevision is required/);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
@@ -319,7 +323,10 @@ test("ExecutionSelectionDiagnosticSink: handles malformed JSONL lines gracefully
 
   // Manually append malformed line
   const taskDir = join(tempDir, taskId);
-  const filePath = join(taskDir, `${sink.retrieveSelectionHistory(taskId)[0].selection_revision}.jsonl`);
+  const filePath = join(
+    taskDir,
+    `${sink.retrieveSelectionHistory(taskId)[0].selection_revision}.jsonl`,
+  );
   appendFileSync(filePath, "not valid json\n");
   appendFileSync(filePath, '{"partial": "entry without all fields"}\n');
 

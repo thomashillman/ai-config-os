@@ -107,8 +107,10 @@ export function extractVersionsFromSelection(executionSelection) {
   }
 
   const versions = {
-    route_contract_version: executionSelection.policy_version.route_contract_version,
-    model_policy_version: executionSelection.policy_version.model_policy_version,
+    route_contract_version:
+      executionSelection.policy_version.route_contract_version,
+    model_policy_version:
+      executionSelection.policy_version.model_policy_version,
     resolver_version: executionSelection.policy_version.resolver_version,
     execution_selection_schema_version:
       executionSelection.execution_selection_schema_version,

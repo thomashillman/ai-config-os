@@ -50,7 +50,8 @@ function makeExecutionSelection(overrides = {}) {
       cost_posture: "cost_efficient",
       fallback_used: false,
     },
-    selection_reason: "route: github_pr; model: anthropic/claude-opus; cost: cost_efficient; reliability: above_floor",
+    selection_reason:
+      "route: github_pr; model: anthropic/claude-opus; cost: cost_efficient; reliability: above_floor",
     ...overrides,
   };
 }
@@ -107,7 +108,9 @@ class StubProgressEventStore {
       type: event.type,
       message: event.message,
       created_at: event.createdAt,
-      ...(event.metadata && { metadata: JSON.parse(JSON.stringify(event.metadata)) }),
+      ...(event.metadata && {
+        metadata: JSON.parse(JSON.stringify(event.metadata)),
+      }),
     };
     this.events.push(createdEvent);
     return createdEvent;
@@ -221,7 +224,10 @@ describe("integrateExecutionSelectionWithTask", () => {
     assert.equal(events[0].type, "execution_selection_recorded");
     assert.ok(events[0].metadata.execution_selection);
     assert.equal(events[0].metadata.selection_digest, result.selectionDigest);
-    assert.equal(events[0].metadata.selection_revision, result.selectionRevision);
+    assert.equal(
+      events[0].metadata.selection_revision,
+      result.selectionRevision,
+    );
   });
 
   test("updates route_history with selection reference", () => {
@@ -291,7 +297,10 @@ describe("integrateExecutionSelectionWithTask", () => {
     assert.equal(updated.execution_selections[0].route_id, "test_route");
     assert.ok(updated.execution_selections[0].digest);
     assert.ok(updated.execution_selections[0].revision);
-    assert.equal(updated.execution_selections[0].selected_at, "2024-01-02T00:00:00Z");
+    assert.equal(
+      updated.execution_selections[0].selected_at,
+      "2024-01-02T00:00:00Z",
+    );
   });
 });
 

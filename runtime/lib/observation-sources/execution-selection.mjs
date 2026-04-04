@@ -76,7 +76,8 @@ export class ExecutionSelectionObservationSource {
     for (const entry of selectionEntries) {
       if (!entry.execution_selection) continue;
 
-      const { selected_route, resolved_model_path, fallback_chain } = entry.execution_selection;
+      const { selected_route, resolved_model_path, fallback_chain } =
+        entry.execution_selection;
       const { selection_digest } = entry;
 
       // Track digest changes
@@ -89,13 +90,19 @@ export class ExecutionSelectionObservationSource {
       // Track routes
       if (selected_route && selected_route.route_id) {
         const routeId = selected_route.route_id;
-        routeDistribution.set(routeId, (routeDistribution.get(routeId) || 0) + 1);
+        routeDistribution.set(
+          routeId,
+          (routeDistribution.get(routeId) || 0) + 1,
+        );
       }
 
       // Track models
       if (resolved_model_path && resolved_model_path.model_id) {
         const modelId = resolved_model_path.model_id;
-        modelDistribution.set(modelId, (modelDistribution.get(modelId) || 0) + 1);
+        modelDistribution.set(
+          modelId,
+          (modelDistribution.get(modelId) || 0) + 1,
+        );
       }
 
       // Track fallback usage
@@ -108,8 +115,13 @@ export class ExecutionSelectionObservationSource {
     for (const entry of evaluationEntries) {
       if (!entry.evaluation) continue;
 
-      const { duration_ms, routes_evaluated, models_considered, routes_admitted, models_admitted } =
-        entry.evaluation;
+      const {
+        duration_ms,
+        routes_evaluated,
+        models_considered,
+        routes_admitted,
+        models_admitted,
+      } = entry.evaluation;
 
       if (duration_ms !== undefined) {
         evaluationTimes.push(duration_ms);
@@ -142,7 +154,8 @@ export class ExecutionSelectionObservationSource {
 
     const avgRoutesAdmitted =
       routesAdmittedRatios.length > 0
-        ? routesAdmittedRatios.reduce((a, b) => a + b, 0) / routesAdmittedRatios.length
+        ? routesAdmittedRatios.reduce((a, b) => a + b, 0) /
+          routesAdmittedRatios.length
         : 0;
 
     const avgModelsAdmitted =

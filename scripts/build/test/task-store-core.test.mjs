@@ -473,7 +473,10 @@ describe("TaskStore.selectRoute", () => {
       executionSelection,
     });
 
-    assert.ok(integrationCalled, "integration function should have been called");
+    assert.ok(
+      integrationCalled,
+      "integration function should have been called",
+    );
   });
 
   test("does not fail selectRoute if integration function throws", () => {

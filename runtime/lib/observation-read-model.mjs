@@ -154,9 +154,12 @@ export async function loadObservationSnapshot(options = {}) {
   // This is typically used for task-specific diagnostic aggregation
   if (options.taskId && events.length < limit) {
     try {
-      const executionSelectionSource = createExecutionSelectionObservationSource(
-        home ? join(home, ".ai-config-os", "diagnostics", "selections") : undefined,
-      );
+      const executionSelectionSource =
+        createExecutionSelectionObservationSource(
+          home
+            ? join(home, ".ai-config-os", "diagnostics", "selections")
+            : undefined,
+        );
       const selectionObservations = executionSelectionSource.loadObservations(
         options.taskId,
       );
