@@ -342,6 +342,7 @@ export function createTaskStoreClass({
             executionSelection,
             recordedAt: selectedAt,
           });
+          return clone(this.load(taskId));
         } catch (error) {
           // Log integration error but don't fail route selection
           // The route selection is committed even if selection integration fails
@@ -349,6 +350,7 @@ export function createTaskStoreClass({
             `Failed to integrate ExecutionSelection for task ${taskId}:`,
             error,
           );
+          return clone(next);
         }
       }
 
