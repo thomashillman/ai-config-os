@@ -62,6 +62,20 @@ Codex-oriented agents follow **AGENTS.md**; Claude-oriented detail lives in **CL
 - Use ASCII by default unless existing file content requires non-ASCII.
 - Do not revert unrelated in-progress changes in touched files.
 
+## Test integrity and code formatting
+
+**Tests are specification.** Treat existing tests, specs, snapshots, fixtures, mocks, and test data as protected by default.
+
+- Do not edit, rewrite, weaken, delete, skip, xfail, narrow, or otherwise relax test files to make a build pass.
+- Do not change snapshots, fixtures, mocks, or test data to rescue a failing implementation.
+- If a test appears wrong, outdated, or misaligned with intended behaviour, stop and explain the issue rather than changing it pre-emptively.
+- Test changes require explicit user approval. When proposing a test edit, explain why an implementation fix alone is insufficient before proceeding.
+- Prefer fixing production code over changing tests.
+- Solutions must be general: no hard-coded values designed to pass current test cases, no branching on test-only inputs, no workarounds that satisfy only the current suite.
+- Report whether any test-related file (spec, fixture, snapshot, mock) was touched in the change summary.
+
+**Code formatting:** All contributed code must pass `npm run format:check` (Prettier). Run `npm run format` to fix violations before declaring a change complete.
+
 ## Repository-specific git and release safety
 
 - Before major sync operations, inspect:
@@ -83,6 +97,26 @@ This repository may use a local proxy remote (`http://local_proxy@127.0.0.1:4159
 - Expected to work: `git add`, `git commit`, `git push -u origin <branch>`.
 - Expected not to work in some environments: `gh pr create` (even when `git push` works), direct push to protected `main`, proxy REST API calls. When `gh` is missing or unauthenticated, open a PR from GitHub’s compare URL instead.
 - Do not repoint the remote unless explicitly instructed.
+
+## Runtime lib components
+
+`runtime/lib/` is the task control plane and Momentum Engine. Key subsystems:
+
+- **Task control plane:** `task-control-plane-service.mjs`, `task-store-kv.mjs`, `portable-task-lifecycle.mjs` -- KV-backed task persistence and lifecycle.
+- **Momentum Engine:** `momentum-engine.mjs`, `momentum-narrator.mjs`, `momentum-observer.mjs`, `momentum-reflector.mjs`, `momentum-shelf.mjs` -- narration, observation, and intent lexicon.
+- **Routing policy:** `route-capability-narrowing.mjs`, `routing-policy-validators.mjs`, `execution-selection-resolver.mjs`, `model-path-evaluator.mjs` -- model selection, capability narrowing, and execution selection for skill dispatch.
+- **Progress pipeline:** `progress-event-pipeline.mjs`, `observation-event.mjs`, `runtime-action-dispatcher.mjs` -- event routing between components.
+
+Do not edit Worker bindings or KV schemas without updating the matching contracts in `runtime/lib/contracts/`.
+
+## Known landmines
+
+- **`CLAUDE.md` is generated.** Editing it directly will be silently overwritten by `npm run doctrine:build`. Edit `shared/agent-doctrine/repos/ai-config-os/claude.overlay.md` instead, then rebuild.
+- **`dist/` is generated.** Never hand-edit files under `dist/`. Run `npm run build` to regenerate after skill or compiler changes.
+- **Version drift.** Only bump `VERSION`; hand-editing `package.json` or plugin metadata will break `npm run version:check`. Always follow with `npm run version:sync`.
+- **`npm test` includes `pretest` compile.** If `dist/` is stale or compile fails, all tests will fail or produce false results. Run `npm run build` first when diagnosing test failures.
+- **`gh pr create` may fail.** The local proxy does not support `gh` REST calls in all environments. Open PRs from GitHub's compare URL when `gh` is unavailable.
+- **Symlinks in plugin output.** `plugins/core-skills/` may use dev symlinks on Unix. On CI or Windows these are real copies. Do not rely on symlink semantics in plugin paths.
 
 ## Living docs protocol
 
