@@ -7,8 +7,6 @@
 
 import { createHash } from "crypto";
 
-const EXECUTION_SELECTION_SCHEMA_VERSION = "v1";
-
 /**
  * Compute canonical identity projection from ExecutionSelection.
  * Returns only the fields that participate in identity.
@@ -21,8 +19,12 @@ export function canonicalIdentityProjection(executionSelection) {
     throw new Error("executionSelection must be a non-null object");
   }
 
+  if (!executionSelection.execution_selection_schema_version) {
+    throw new Error("executionSelection.execution_selection_schema_version is required");
+  }
+
   return {
-    execution_selection_schema_version: EXECUTION_SELECTION_SCHEMA_VERSION,
+    execution_selection_schema_version: executionSelection.execution_selection_schema_version,
     selected_route: {
       route_id: executionSelection.selected_route.route_id,
       route_kind: executionSelection.selected_route.route_kind,
@@ -100,6 +102,7 @@ function deepSortKeys(obj) {
 /**
  * Compute selection revision from canonical projection.
  * Returns a deterministic identifier that changes when canonical fields change.
+ * Revision format includes the schema version that was active when selection was created.
  *
  * @param {Object} executionSelection
  * @returns {string} Revision identifier
@@ -108,7 +111,7 @@ export function computeSelectionRevision(executionSelection) {
   const projection = canonicalIdentityProjection(executionSelection);
   // Revision format: schema_version + hash of identity
   const digest = computeSelectionDigest(executionSelection);
-  return `${EXECUTION_SELECTION_SCHEMA_VERSION}:${digest.substring(0, 16)}`;
+  return `${executionSelection.execution_selection_schema_version}:${digest.substring(0, 16)}`;
 }
 
 /**
@@ -131,14 +134,19 @@ export function hasIdentityChanged(oldSelection, newSelection) {
 }
 
 /**
- * Enrich ExecutionSelection with identity fields.
+ * Enrich ExecutionSelection with identity fields (digest and revision).
+ * Preserves the stamped execution_selection_schema_version without overwriting.
  * @param {Object} executionSelection
  * @returns {Object} ExecutionSelection with identity fields added
  */
 export function enrichWithIdentity(executionSelection) {
+  if (!executionSelection.execution_selection_schema_version) {
+    throw new Error("executionSelection.execution_selection_schema_version is required");
+  }
+
   return {
     ...executionSelection,
-    execution_selection_schema_version: EXECUTION_SELECTION_SCHEMA_VERSION,
+    // DO NOT OVERWRITE execution_selection_schema_version - preserve the stamped value
     selection_digest: computeSelectionDigest(executionSelection),
     selection_revision: computeSelectionRevision(executionSelection),
   };
