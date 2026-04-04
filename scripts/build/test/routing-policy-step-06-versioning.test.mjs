@@ -113,9 +113,11 @@ test("Step 6.4: Version extraction from ExecutionSelection", async (t) => {
   const sampleSelection = {
     selected_route: { route_id: "test" },
     resolved_model_path: { provider: "test", model_id: "test" },
-    route_contract_version: "v1",
-    model_policy_version: "v1",
-    resolver_version: "v1",
+    policy_version: {
+      route_contract_version: "v1",
+      model_policy_version: "v1",
+      resolver_version: "v1",
+    },
     execution_selection_schema_version: "v1",
   };
 
@@ -128,7 +130,10 @@ test("Step 6.4: Version extraction from ExecutionSelection", async (t) => {
   await t.test("raises error for missing versions", () => {
     const invalid = {
       ...sampleSelection,
-      resolver_version: undefined,
+      policy_version: {
+        ...sampleSelection.policy_version,
+        resolver_version: undefined,
+      },
     };
     assert.throws(
       () => extractVersionsFromSelection(invalid),
@@ -139,7 +144,10 @@ test("Step 6.4: Version extraction from ExecutionSelection", async (t) => {
   await t.test("validates format of extracted versions", () => {
     const selection = {
       ...sampleSelection,
-      resolver_version: "invalid",
+      policy_version: {
+        ...sampleSelection.policy_version,
+        resolver_version: "invalid",
+      },
     };
     assert.throws(
       () => extractVersionsFromSelection(selection),

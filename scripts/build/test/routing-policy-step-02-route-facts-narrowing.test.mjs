@@ -201,7 +201,7 @@ test("Step 2.2: Monotonic narrowing", async (t) => {
       };
 
       const effective = deriveEffectiveRouteCapabilities(profile, facts);
-      assert.equal(effective.artifact_completeness, "repo_complete");
+      assert.equal(effective.artifact_completeness, "diff_only");
     },
   );
 
@@ -225,7 +225,7 @@ test("Step 2.2: Monotonic narrowing", async (t) => {
       };
 
       const effective = deriveEffectiveRouteCapabilities(profile, facts);
-      assert.equal(effective.history_availability, "repo_history");
+      assert.equal(effective.history_availability, "no_history");
     },
   );
 
@@ -249,7 +249,7 @@ test("Step 2.2: Monotonic narrowing", async (t) => {
       };
 
       const effective = deriveEffectiveRouteCapabilities(profile, facts);
-      assert.equal(effective.locality_confidence, "repo_local");
+      assert.equal(effective.locality_confidence, "diff_scoped");
     },
   );
 

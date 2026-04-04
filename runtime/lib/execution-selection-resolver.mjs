@@ -22,8 +22,10 @@
  * @param {string} input.policy_constraints.minimum_quality_floor One of budget, standard, premium
  * @param {string} input.policy_constraints.minimum_reliability_floor One of meets_floor, above_floor, high_margin
  * @param {string} [input.fallback_policy] Cross-route fallback policy (optional)
- * @param {string} input.resolver_version Version identifier
- * @param {string} input.policy_version Overall policy version
+ * @param {string} input.route_contract_version Version of route registry/facts contract
+ * @param {string} input.model_policy_version Version of model policy contract
+ * @param {string} input.resolver_version Version of resolver join/fallback semantics
+ * @param {string} input.execution_selection_schema_version Version of ExecutionSelection schema
  *
  * @returns {Object} ExecutionSelection or {error}
  */
@@ -36,8 +38,10 @@ export function resolveExecutionSelection(input) {
     route_candidates,
     model_candidates,
     policy_constraints,
+    route_contract_version,
+    model_policy_version,
     resolver_version,
-    policy_version,
+    execution_selection_schema_version,
   } = input;
 
   if (!Array.isArray(route_candidates) || route_candidates.length === 0) {
@@ -52,12 +56,20 @@ export function resolveExecutionSelection(input) {
     throw new Error("policy_constraints is required");
   }
 
+  if (!route_contract_version) {
+    throw new Error("route_contract_version is required");
+  }
+
+  if (!model_policy_version) {
+    throw new Error("model_policy_version is required");
+  }
+
   if (!resolver_version) {
     throw new Error("resolver_version is required");
   }
 
-  if (!policy_version) {
-    throw new Error("policy_version is required");
+  if (!execution_selection_schema_version) {
+    throw new Error("execution_selection_schema_version is required");
   }
 
   // Step 1: Form valid route-plus-model pairs
@@ -141,14 +153,18 @@ export function resolveExecutionSelection(input) {
       execution_mode: selectedPair.model.execution_mode,
     },
     fallback_chain,
-    policy_version,
+    policy_version: {
+      route_contract_version,
+      model_policy_version,
+      resolver_version,
+    },
+    execution_selection_schema_version,
     selection_basis,
     selection_reason: generateSelectionReason(selectedPair, selection_basis),
   };
 
   return {
     execution_selection,
-    resolver_version,
     selection_success: true,
   };
 }
