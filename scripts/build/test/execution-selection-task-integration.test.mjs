@@ -418,6 +418,71 @@ describe("resolveExecutionSelectionForTask", () => {
     assert.equal(result.error, "no_valid_pairs");
     assert.ok(result.reason);
   });
+
+  test("uses major-only version defaults (v1) when policyContext omits routing-policy versions", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    let resolverInput = null;
+    const mockResolver = (input) => {
+      resolverInput = input;
+      return {
+        execution_selection: makeExecutionSelection({
+          policy_version: {
+            route_contract_version: input.route_contract_version,
+            model_policy_version: input.model_policy_version,
+            resolver_version: input.resolver_version,
+          },
+          execution_selection_schema_version: input.execution_selection_schema_version,
+        }),
+        selection_success: true,
+      };
+    };
+
+    const result = resolveExecutionSelectionForTask({
+      taskStore: store,
+      taskId: task.task_id,
+      taskType: "review_repository",
+      policyContext: {
+        // Intentionally omit routing-policy version fields
+        minimum_quality_floor: "premium",
+      },
+      routeCandidates: [{ route_id: "r1" }],
+      modelCandidates: [{ model_id: "m1" }],
+      resolveExecutionSelection: mockResolver,
+    });
+
+    assert.ok(resolverInput);
+    // Check that resolver received v1 defaults (NOT 1.0.0)
+    assert.equal(
+      resolverInput.route_contract_version,
+      "v1",
+      "route_contract_version should default to v1",
+    );
+    assert.equal(
+      resolverInput.model_policy_version,
+      "v1",
+      "model_policy_version should default to v1",
+    );
+    assert.equal(
+      resolverInput.resolver_version,
+      "v1",
+      "resolver_version should default to v1",
+    );
+    assert.equal(
+      resolverInput.execution_selection_schema_version,
+      "v1",
+      "execution_selection_schema_version should default to v1",
+    );
+
+    // Verify returned ExecutionSelection also has v1 versions
+    assert.ok(result.executionSelection);
+    assert.equal(result.executionSelection.policy_version.route_contract_version, "v1");
+    assert.equal(result.executionSelection.policy_version.model_policy_version, "v1");
+    assert.equal(result.executionSelection.policy_version.resolver_version, "v1");
+    assert.equal(result.executionSelection.execution_selection_schema_version, "v1");
+  });
 });
 
 // ─── extractExecutionSelectionFromTaskSnapshot ───────────────────────────────

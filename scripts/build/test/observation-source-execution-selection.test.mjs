@@ -81,7 +81,7 @@ test("ExecutionSelectionObservationSource: loads observations from sink", () => 
     taskId,
     taskType: "implementation",
     timestamp: new Date().toISOString(),
-    reason: "test_load",
+    reason: "development",
   });
 
   const observations = source.loadObservations(taskId);
@@ -105,7 +105,7 @@ test("ExecutionSelectionObservationSource: summarizes selection statistics", () 
     taskId,
     taskType: "implementation",
     timestamp: new Date().toISOString(),
-    reason: "initial",
+    reason: "development",
   });
 
   sink.recordSelectionEvaluation(selection, {
@@ -165,7 +165,7 @@ test("ExecutionSelectionObservationSource: tracks model diversity", () => {
       taskId,
       taskType: "implementation",
       timestamp: new Date().toISOString(),
-      reason: `selection-${modelId}`,
+      reason: "development" // selection-${modelId}`,
     });
   }
 
@@ -194,7 +194,7 @@ test("ExecutionSelectionObservationSource: tracks route distribution", () => {
       taskId,
       taskType: "implementation",
       timestamp: new Date().toISOString(),
-      reason: `selection-${i}`,
+      reason: "development" // selection-${i}`,
     });
   }
 
@@ -225,14 +225,14 @@ test("ExecutionSelectionObservationSource: tracks fallback usage", () => {
     taskId,
     taskType: "implementation",
     timestamp: new Date().toISOString(),
-    reason: "with_fallback",
+    reason: "development",
   });
 
   sink.recordSelection(selectionWithoutFallback, {
     taskId,
     taskType: "implementation",
     timestamp: new Date().toISOString(),
-    reason: "without_fallback",
+    reason: "development",
   });
 
   const observations = source.loadObservations(taskId);
@@ -257,7 +257,7 @@ test("ExecutionSelectionObservationSource: computes selection stability", () => 
       taskId,
       taskType: "implementation",
       timestamp: new Date().toISOString(),
-      reason: `selection-${i}`,
+      reason: "development" // selection-${i}`,
     });
   }
 
@@ -282,7 +282,7 @@ test("ExecutionSelectionObservationSource: computes average evaluation time", ()
     taskId,
     taskType: "implementation",
     timestamp: new Date().toISOString(),
-    reason: "initial",
+    reason: "development",
   });
 
   // Record multiple evaluations
@@ -320,7 +320,7 @@ test("ExecutionSelectionObservationSource: filters by type in summarize", () => 
     taskId,
     taskType: "implementation",
     timestamp: new Date().toISOString(),
-    reason: "test",
+    reason: "development",
   });
 
   sink.recordSelectionEvaluation(selection, {

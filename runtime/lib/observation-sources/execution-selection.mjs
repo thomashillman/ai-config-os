@@ -61,119 +61,54 @@ export class ExecutionSelectionObservationSource {
       (o) => o.type === "evaluation_result",
     );
 
-    // Build selection distribution
+    // Build selection distribution from bounded diagnostic entries
     const routeDistribution = new Map();
     const modelDistribution = new Map();
     const digestToRevision = new Map();
     let previousDigest = null;
     let digestChangeCount = 0;
-    const evaluationTimes = [];
-    const routesAdmittedRatios = [];
-    const modelsAdmittedRatios = [];
     let fallbackUsageCount = 0;
 
-    // Process selection entries
+    // Process selection entries (now using bounded contract)
     for (const entry of selectionEntries) {
-      if (!entry.execution_selection) continue;
-
-      const { selected_route, resolved_model_path, fallback_chain } =
-        entry.execution_selection;
-      const { selection_digest } = entry;
+      // Work with bounded diagnostic structure
+      if (!entry.selected_pair_summary) continue;
 
       // Track digest changes
-      if (previousDigest && previousDigest !== selection_digest) {
+      if (previousDigest && previousDigest !== entry.selection_revision) {
         digestChangeCount++;
       }
-      previousDigest = selection_digest;
-      digestToRevision.set(selection_digest, entry.selection_revision);
+      previousDigest = entry.selection_revision;
+      digestToRevision.set(entry.selection_revision, entry.selection_revision);
+
+      // Extract from bounded selected_pair_summary
+      const { route_id, model_id } = entry.selected_pair_summary;
 
       // Track routes
-      if (selected_route && selected_route.route_id) {
-        const routeId = selected_route.route_id;
+      if (route_id) {
         routeDistribution.set(
-          routeId,
-          (routeDistribution.get(routeId) || 0) + 1,
+          route_id,
+          (routeDistribution.get(route_id) || 0) + 1,
         );
       }
 
       // Track models
-      if (resolved_model_path && resolved_model_path.model_id) {
-        const modelId = resolved_model_path.model_id;
+      if (model_id) {
         modelDistribution.set(
-          modelId,
-          (modelDistribution.get(modelId) || 0) + 1,
+          model_id,
+          (modelDistribution.get(model_id) || 0) + 1,
         );
       }
 
-      // Track fallback usage
-      if (fallback_chain && fallback_chain.length > 0) {
-        fallbackUsageCount++;
-      }
+      // Note: fallback_chain info not available in bounded contract
+      // This metric is not computable from the current design
     }
 
-    // Process evaluation entries
-    for (const entry of evaluationEntries) {
-      if (!entry.evaluation) continue;
-
-      const {
-        duration_ms,
-        routes_evaluated,
-        models_considered,
-        routes_admitted,
-        models_admitted,
-      } = entry.evaluation;
-
-      if (duration_ms !== undefined) {
-        evaluationTimes.push(duration_ms);
-      }
-
-      if (
-        routes_evaluated !== undefined &&
-        routes_admitted !== undefined &&
-        routes_evaluated > 0
-      ) {
-        routesAdmittedRatios.push(routes_admitted / routes_evaluated);
-      }
-
-      if (
-        models_considered !== undefined &&
-        models_admitted !== undefined &&
-        models_considered > 0
-      ) {
-        modelsAdmittedRatios.push(models_admitted / models_considered);
-      }
-    }
-
-    // Compute averages and rates
-    const avgEvaluationTime =
-      evaluationTimes.length > 0
-        ? Math.round(
-            evaluationTimes.reduce((a, b) => a + b, 0) / evaluationTimes.length,
-          )
-        : 0;
-
-    const avgRoutesAdmitted =
-      routesAdmittedRatios.length > 0
-        ? routesAdmittedRatios.reduce((a, b) => a + b, 0) /
-          routesAdmittedRatios.length
-        : 0;
-
-    const avgModelsAdmitted =
-      modelsAdmittedRatios.length > 0
-        ? modelsAdmittedRatios.reduce((a, b) => a + b, 0) /
-          modelsAdmittedRatios.length
-        : 0;
-
-    const fallbackUsageRate =
-      selectionEntries.length > 0
-        ? fallbackUsageCount / selectionEntries.length
-        : 0;
-
-    // Selection stability: digest changes per 10 events
+    // Compute stability metric from bounded diagnostic entries
     const selectionStability =
       selectionEntries.length > 0
-        ? (digestChangeCount / Math.max(1, selectionEntries.length - 1)) * 10
-        : 0;
+        ? 1 - digestChangeCount / Math.max(1, selectionEntries.length - 1)
+        : 1;
 
     // Find most used route and model
     const mostSelectedRoute = Array.from(routeDistribution.entries()).sort(
@@ -184,6 +119,7 @@ export class ExecutionSelectionObservationSource {
       (a, b) => b[1] - a[1],
     )[0] || [null, 0];
 
+    // Return only metrics computable from bounded diagnostic contract
     return {
       total_selections: selectionEntries.length,
       selection_stability: Math.round(selectionStability * 100) / 100,
@@ -191,15 +127,10 @@ export class ExecutionSelectionObservationSource {
       route_diversity: routeDistribution.size,
       models_used: Object.fromEntries(modelDistribution),
       model_diversity: modelDistribution.size,
-      avg_evaluation_time_ms: avgEvaluationTime,
-      fallback_usage_rate: Math.round(fallbackUsageRate * 1000) / 1000,
-      routes_admitted_rate: Math.round(avgRoutesAdmitted * 1000) / 1000,
-      models_admitted_rate: Math.round(avgModelsAdmitted * 1000) / 1000,
       most_selected_route: mostSelectedRoute[0],
       most_selected_route_count: mostSelectedRoute[1],
       most_used_model: mostUsedModel[0],
       most_used_model_count: mostUsedModel[1],
-      total_evaluations: evaluationEntries.length,
     };
   }
 
@@ -215,15 +146,10 @@ export class ExecutionSelectionObservationSource {
       route_diversity: 0,
       models_used: {},
       model_diversity: 0,
-      avg_evaluation_time_ms: 0,
-      fallback_usage_rate: 0,
-      routes_admitted_rate: 0,
-      models_admitted_rate: 0,
       most_selected_route: null,
       most_selected_route_count: 0,
       most_used_model: null,
       most_used_model_count: 0,
-      total_evaluations: 0,
     };
   }
 }

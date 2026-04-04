@@ -11,6 +11,7 @@ import {
   computeSelectionDigest,
   computeSelectionRevision,
 } from "./execution-selection-identity.mjs";
+import { CURRENT_VERSIONS } from "./routing-policy-versioning.mjs";
 
 /**
  * Integrate ExecutionSelection into task state.
@@ -174,6 +175,7 @@ export function resolveExecutionSelectionForTask({
   }
 
   // Call resolver with context
+  // Use CURRENT_VERSIONS for routing-policy version defaults (major-only: v1, not 1.0.0)
   const resolutionInput = {
     route_candidates: routeCandidates,
     model_candidates: modelCandidates,
@@ -183,11 +185,11 @@ export function resolveExecutionSelectionForTask({
         policyContext.minimum_reliability_floor || "above_floor",
     },
     fallback_policy: policyContext.fallback_policy || null,
-    route_contract_version: policyContext.route_contract_version || "1.0.0",
-    model_policy_version: policyContext.model_policy_version || "1.0.0",
-    resolver_version: policyContext.resolver_version || "1.0.0",
+    route_contract_version: policyContext.route_contract_version || CURRENT_VERSIONS.route_contract_version,
+    model_policy_version: policyContext.model_policy_version || CURRENT_VERSIONS.model_policy_version,
+    resolver_version: policyContext.resolver_version || CURRENT_VERSIONS.resolver_version,
     execution_selection_schema_version:
-      policyContext.execution_selection_schema_version || "1.0.0",
+      policyContext.execution_selection_schema_version || CURRENT_VERSIONS.execution_selection_schema_version,
   };
 
   const result = resolveExecutionSelection(resolutionInput);

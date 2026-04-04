@@ -10,7 +10,7 @@
  * - Uses JSONL format for append-only immutability
  */
 
-import { join } from "node:path";
+import { join, resolve, normalize } from "node:path";
 import { homedir } from "node:os";
 import {
   mkdirSync,
@@ -46,8 +46,70 @@ import {
  */
 
 /**
+ * Validate taskId for path safety.
+ * Rejects path traversal attempts and invalid characters.
+ * @param {string} taskId
+ * @throws {Error} If taskId contains path traversal or invalid characters
+ */
+function validateTaskId(taskId) {
+  if (typeof taskId !== "string" || taskId.trim().length === 0) {
+    throw new Error("taskId must be a non-empty string");
+  }
+  // Reject path traversal attempts
+  if (taskId.includes("..") || taskId.includes("/") || taskId.includes("\\")) {
+    throw new Error(
+      `invalid task_id: path traversal detected in "${taskId}"`,
+    );
+  }
+  // Allow only alphanumeric, hyphen, underscore
+  if (!/^[a-zA-Z0-9_-]+$/.test(taskId)) {
+    throw new Error(
+      `invalid task_id: "${taskId}" contains invalid characters`,
+    );
+  }
+}
+
+/**
+ * Validate selectionRevision for path safety.
+ * Ensures it stays within the task directory.
+ * @param {string} selectionRevision
+ * @throws {Error} If selectionRevision contains path traversal
+ */
+function validateSelectionRevision(selectionRevision) {
+  if (typeof selectionRevision !== "string" || selectionRevision.length === 0) {
+    throw new Error("selectionRevision must be a non-empty string");
+  }
+  // Reject path traversal attempts
+  if (
+    selectionRevision.includes("..") ||
+    selectionRevision.includes("/") ||
+    selectionRevision.includes("\\")
+  ) {
+    throw new Error(
+      `path traversal detected in selectionRevision: "${selectionRevision}"`,
+    );
+  }
+}
+
+/**
+ * Verify file path stays within base directory.
+ * @param {string} filePath - Resolved file path
+ * @param {string} baseDir - Base directory
+ * @throws {Error} If filePath is outside baseDir
+ */
+function enforcePathBoundary(filePath, baseDir) {
+  const normalizedBase = normalize(resolve(baseDir));
+  const normalizedFile = normalize(resolve(filePath));
+  if (!normalizedFile.startsWith(normalizedBase)) {
+    throw new Error(
+      `path boundary violation: ${normalizedFile} is outside ${normalizedBase}`,
+    );
+  }
+}
+
+/**
  * ExecutionSelectionDiagnosticSink
- * Records and retrieves ExecutionSelection decisions and evaluation outcomes.
+ * Records and retrieves ExecutionSelection decisions with bounded diagnostic contract.
  */
 export class ExecutionSelectionDiagnosticSink {
   /**
@@ -68,14 +130,29 @@ export class ExecutionSelectionDiagnosticSink {
   }
 
   /**
-   * Record a selection decision
+   * Record a selection decision with bounded diagnostic contract.
+   *
+   * Stores only:
+   * - task_id
+   * - selection_revision
+   * - capture_reason (one of: development, replay_validation, targeted_troubleshooting)
+   * - recorded_at
+   * - route_candidate_summaries
+   * - model_candidate_summaries (max 3, admissible only)
+   * - selected_pair_summary
+   *
+   * Does NOT store:
+   * - Full execution_selection
+   * - Prose selection_reason
+   * - Rejected candidates
+   * - Runtime failure details
    *
    * @param {Object} executionSelection - The ExecutionSelection object
    * @param {Object} context - Selection context
    * @param {string} context.taskId - Task identifier
-   * @param {string} context.taskType - Type of task (e.g., "research", "implementation")
+   * @param {string} context.taskType - Type of task (required but not stored)
    * @param {string} context.timestamp - ISO8601 timestamp
-   * @param {string} context.reason - Why this selection was made
+   * @param {string} context.reason - capture_reason (development, replay_validation, or targeted_troubleshooting)
    * @throws {Error} If write fails or parameters are invalid
    */
   recordSelection(executionSelection, context) {
@@ -85,46 +162,73 @@ export class ExecutionSelectionDiagnosticSink {
     if (!context || typeof context !== "object") {
       throw new Error("context must be a non-null object");
     }
-    if (
-      typeof context.taskId !== "string" ||
-      context.taskId.trim().length === 0
-    ) {
-      throw new Error("context.taskId is required");
-    }
+
+    // Validate taskId for path safety
+    validateTaskId(context.taskId);
 
     const selectionDigest = computeSelectionDigest(executionSelection);
     const selectionRevision = computeSelectionRevision(executionSelection);
-    const timestamp = context.timestamp || new Date().toISOString();
 
+    // Validate selectionRevision for path safety
+    validateSelectionRevision(selectionRevision);
+
+    const timestamp = context.timestamp || new Date().toISOString();
+    const captureReason = context.reason || "development";
+
+    // Validate captureReason is one of the allowed values
+    const ALLOWED_CAPTURE_REASONS = [
+      "development",
+      "replay_validation",
+      "targeted_troubleshooting",
+    ];
+    if (!ALLOWED_CAPTURE_REASONS.includes(captureReason)) {
+      throw new Error(
+        `invalid capture_reason: "${captureReason}". Must be one of: ${ALLOWED_CAPTURE_REASONS.join(", ")}`,
+      );
+    }
+
+    // Build bounded diagnostic entry (NO full executionSelection, NO prose reason)
     const entry = {
-      selection_digest: selectionDigest,
-      selection_revision: selectionRevision,
       task_id: context.taskId,
+      selection_revision: selectionRevision,
+      capture_reason: captureReason,
       recorded_at: timestamp,
-      execution_selection: executionSelection,
-      evaluation: {
-        routes_evaluated: 0,
-        models_considered: 0,
-        routes_admitted: 0,
-        models_admitted: 0,
-        duration_ms: 0,
-        reason: context.reason || "selection_recorded",
-      },
-      metadata: {
-        policy_intent: executionSelection.selection_basis || {},
-        route_compatibility_projection:
-          executionSelection.selected_route?.effective_capabilities || {},
-        fallback_policy: executionSelection.fallback_chain
-          ? executionSelection.fallback_chain[0]?.policy || "standard"
-          : "standard",
+      route_candidate_summaries: [
+        {
+          route_id: executionSelection.selected_route?.route_id,
+          route_kind: executionSelection.selected_route?.route_kind,
+        },
+      ],
+      model_candidate_summaries: [
+        {
+          provider: executionSelection.resolved_model_path?.provider,
+          model_id: executionSelection.resolved_model_path?.model_id,
+          model_tier: executionSelection.resolved_model_path?.model_tier,
+          execution_mode: executionSelection.resolved_model_path?.execution_mode,
+          cost_basis: "standard",
+          reliability_margin: "baseline",
+          latency_risk: "low",
+        },
+      ],
+      selected_pair_summary: {
+        route_id: executionSelection.selected_route?.route_id,
+        route_kind: executionSelection.selected_route?.route_kind,
+        provider: executionSelection.resolved_model_path?.provider,
+        model_id: executionSelection.resolved_model_path?.model_id,
+        model_tier: executionSelection.resolved_model_path?.model_tier,
+        execution_mode: executionSelection.resolved_model_path?.execution_mode,
       },
     };
 
-    // Write to JSONL file
+    // Write to JSONL file with path safety checks
     const taskDir = join(this.baseDir, context.taskId);
+    enforcePathBoundary(taskDir, this.baseDir);
+
     mkdirSync(taskDir, { recursive: true });
 
     const filePath = join(taskDir, `${selectionRevision}.jsonl`);
+    enforcePathBoundary(filePath, this.baseDir);
+
     appendFileSync(filePath, JSON.stringify(entry) + "\n", "utf8");
   }
 
