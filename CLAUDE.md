@@ -174,6 +174,20 @@ Codex-oriented agents follow **AGENTS.md**; Claude-oriented detail lives in **CL
 - Use ASCII by default unless existing file content requires non-ASCII.
 - Do not revert unrelated in-progress changes in touched files.
 
+## Test integrity and code formatting
+
+**Tests are specification.** Treat existing tests, specs, snapshots, fixtures, mocks, and test data as protected by default.
+
+- Do not edit, rewrite, weaken, delete, skip, xfail, narrow, or otherwise relax test files to make a build pass.
+- Do not change snapshots, fixtures, mocks, or test data to rescue a failing implementation.
+- If a test appears wrong, outdated, or misaligned with intended behaviour, stop and explain the issue rather than changing it pre-emptively.
+- Test changes require explicit user approval. When proposing a test edit, explain why an implementation fix alone is insufficient before proceeding.
+- Prefer fixing production code over changing tests.
+- Solutions must be general: no hard-coded values designed to pass current test cases, no branching on test-only inputs, no workarounds that satisfy only the current suite.
+- Report whether any test-related file (spec, fixture, snapshot, mock) was touched in the change summary.
+
+**Code formatting:** All contributed code must pass `npm run format:check` (Prettier). Run `npm run format` to fix violations before declaring a change complete.
+
 ## Repository-specific git and release safety
 
 - Before major sync operations, inspect:
