@@ -90,6 +90,24 @@ else
   ((failed++))
 fi
 
+# Step 10: Task command store validation
+echo "Step 10: Validating task command store..."
+if ./ops/validate-task-command-store.sh > /tmp/val-task-store.out 2>&1; then
+  echo "  ✓ Pass"
+else
+  echo "  ✗ Fail"
+  ((failed++))
+fi
+
+# Step 11: Routing policy validation
+echo "Step 11: Validating routing policy..."
+if ./ops/validate-routing-policy.sh > /tmp/val-routing-policy.out 2>&1; then
+  echo "  ✓ Pass"
+else
+  echo "  ✗ Fail"
+  ((failed++))
+fi
+
 echo ""
 if [ "$failed" -eq 0 ]; then
   echo "==> All validation stages passed! ✓"
