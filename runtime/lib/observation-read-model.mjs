@@ -12,6 +12,7 @@ import { loadToolUsageObservations } from "./observation-sources/tool-usage.mjs"
 import { loadExecutionResourceObservations } from "./observation-sources/execution-resource.mjs";
 import { readSkillOutcomes } from "./observation-sources/skill-outcomes.mjs";
 import { mapRetrospectiveToObservations } from "./observation-sources/retrospectives.mjs";
+import { createExecutionSelectionObservationSource } from "./observation-sources/execution-selection.mjs";
 
 /**
  * Load observation snapshot from all available sources
@@ -40,6 +41,7 @@ export async function loadObservationSnapshot(options = {}) {
     bootstrap_success_count: 0,
     bootstrap_error_count: 0,
     loop_suspected_count: 0,
+    execution_selection_count: 0,
   };
 
   // Load bootstrap telemetry events
@@ -148,6 +150,30 @@ export async function loadObservationSnapshot(options = {}) {
     }
   }
 
+  // Load execution selection observations (if taskId provided)
+  // This is typically used for task-specific diagnostic aggregation
+  if (options.taskId && events.length < limit) {
+    try {
+      const executionSelectionSource = createExecutionSelectionObservationSource(
+        home ? join(home, ".ai-config-os", "diagnostics", "selections") : undefined,
+      );
+      const selectionObservations = executionSelectionSource.loadObservations(
+        options.taskId,
+      );
+      for (const event of selectionObservations) {
+        if (events.length >= limit) break;
+        const normalized = {
+          type: "execution_selection",
+          ...event,
+        };
+        events.push(normalized);
+        updateSummary(summary, normalized);
+      }
+    } catch {
+      // Execution selection diagnostics unavailable — continue silently
+    }
+  }
+
   summary.total_events = events.length;
   return { events, summary };
 }
@@ -194,6 +220,8 @@ function updateSummary(summary, event) {
     summary.skill_outcome_count++;
   } else if (event.type === "execution_resource") {
     summary.execution_resource_count++;
+  } else if (event.type === "execution_selection") {
+    summary.execution_selection_count++;
   }
 }
 
