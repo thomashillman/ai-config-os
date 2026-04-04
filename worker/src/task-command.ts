@@ -148,14 +148,37 @@ export function computeSemanticDigest(
 /**
  * ActionCommit -- Immutable receipt for authoritative task mutation
  * Written once, read many times. Forms the authoritative audit log.
+ *
+ * Contains:
+ * - Top-level authoritative receipt fields (for audit, replay, and attribution)
+ * - command_envelope (unchanged, canonical mutation input)
  */
 export interface ActionCommit {
+  // Authoritative receipt fields (top-level summary for audit and routing)
   readonly action_id: string; // UUID, generated on server
-  readonly command_envelope: TaskCommand;
-  readonly task_version_before: number;
-  readonly task_version_after: number;
-  readonly task_state_after: Record<string, unknown>;
-  readonly committed_at: string; // ISO 8601
+  readonly task_id: string; // from command.task_id
+  readonly command_type: string; // from command.command_type
+  readonly command_digest: string; // canonical semantic digest (excludes volatile fields)
+  readonly principal_id: string; // from command.principal.principal_id
+  readonly authority: Authority; // from command.authority
+  readonly request_id?: string; // optional, from command.request_context
+  readonly trace_id?: string; // optional, from command.request_context
+  readonly route_id?: string; // optional, from validated execution context
+  readonly model_path?: unknown; // optional, from validated execution context
+  readonly created_at: string; // ISO 8601, when mutation was committed
+  readonly task_version_before: number; // version before mutation
+  readonly task_version_after: number; // version after mutation
+  readonly result: {
+    readonly success: true; // only commits on success
+    readonly code?: string; // optional contextual code
+  };
+  readonly result_summary: string; // brief human-readable outcome
+
+  // Task state snapshot (needed by projection reconciliation)
+  readonly task_state_after: Record<string, unknown>; // the resulting task state after mutation
+
+  // Canonical mutation input (KEEP UNCHANGED)
+  readonly command_envelope: TaskCommand; // complete, unmodified command
 }
 
 /**

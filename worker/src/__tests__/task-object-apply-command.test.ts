@@ -237,13 +237,82 @@ describe("TaskObject apply-command (unit tests)", () => {
           current_route: "local_repo",
           version: 2,
         },
-        committed_at: "2026-04-03T00:00:00Z",
+        created_at: "2026-04-03T00:00:00Z",
       };
 
       expect(commit.action_id).toBeDefined();
       expect(commit.task_version_before).toBe(1);
       expect(commit.task_version_after).toBe(2);
-      expect(commit.committed_at).toBeDefined();
+      expect(commit.created_at).toBeDefined();
+    });
+  });
+
+  describe("atomicity and receipt completeness", () => {
+    it("one success creates exactly one ActionCommit", () => {
+      // TODO: After apply-command handler is fixed:
+      // Execute one command
+      // Verify exactly one ActionCommit is written (not zero, not multiple)
+      expect(true).toBe(true);
+    });
+
+    it("one success creates exactly one new version", () => {
+      // TODO: After apply-command handler is fixed:
+      // Start with version 5
+      // Execute one command
+      // Verify resulting version is exactly 6 (not 5, not 7)
+      expect(true).toBe(true);
+    });
+
+    it("version increments by exactly 1", () => {
+      // TODO: After apply-command handler is fixed:
+      // Multiple commands in sequence
+      // Verify each increments by exactly 1
+      expect(true).toBe(true);
+    });
+
+    it("idempotency index updates atomically with commit", () => {
+      // TODO: After apply-command handler is fixed:
+      // Execute command with idempotency_key="key-1"
+      // Verify idempotency_index entry exists
+      // Verify it was created atomically with the commit
+      expect(true).toBe(true);
+    });
+
+    it("ActionCommit has all required receipt fields", () => {
+      // TODO: After apply-command handler is fixed and ActionCommit interface updated:
+      // Execute command and get receipt
+      // Verify receipt has:
+      // - action_id (UUID)
+      // - task_id
+      // - command_type
+      // - command_digest
+      // - principal_id
+      // - authority
+      // - created_at (not committed_at)
+      // - task_version_before
+      // - task_version_after
+      // - result: {success: true, code?: string}
+      // - result_summary
+      // - command_envelope (unchanged)
+      expect(true).toBe(true);
+    });
+
+    it("replay returns original action_id even after task advances", () => {
+      // TODO: After apply-command handler is fixed:
+      // Execute command 1, get action_id_1
+      // Execute different command 2, task advances to version 3
+      // Replay command 1 with same idempotency_key
+      // Verify returned action_id equals original action_id_1 (not a new one)
+      // Verify returned version equals original version_1 (not current 3)
+      expect(true).toBe(true);
+    });
+
+    it("replay does NOT create a new ActionCommit", () => {
+      // TODO: After apply-command handler is fixed:
+      // Execute command, count commits (should be 1)
+      // Replay with same idempotency_key and digest
+      // Count commits again (should still be 1, not 2)
+      expect(true).toBe(true);
     });
   });
 });

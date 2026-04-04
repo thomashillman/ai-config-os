@@ -50,11 +50,18 @@ describe("Task Projection Integration", () => {
 
       const commit: ActionCommit = {
         action_id: "action-1",
-        command_envelope: command,
+        task_id: command.task_id,
+        command_type: command.command_type,
+        command_digest: command.semantic_digest,
+        principal_id: command.principal.principal_id,
+        authority: command.authority,
+        created_at: "2026-04-03T00:00:00Z",
         task_version_before: 0,
         task_version_after: 1,
+        result: { success: true },
+        result_summary: "Route selected",
         task_state_after: { current_route: "local_repo", version: 1 },
-        committed_at: "2026-04-03T00:00:00Z",
+        command_envelope: command,
       };
 
       const taskState = { current_route: "local_repo", version: 1 };
@@ -83,19 +90,33 @@ describe("Task Projection Integration", () => {
       const commits: ActionCommit[] = [
         {
           action_id: "action-1",
-          command_envelope: command,
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:00Z",
           task_version_before: 0,
           task_version_after: 1,
+          result: { success: true },
+          result_summary: "Route selected",
           task_state_after: { current_route: "local_repo", version: 1 },
-          committed_at: "2026-04-03T00:00:00Z",
+          command_envelope: command,
         },
         {
           action_id: "action-2",
-          command_envelope: command,
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:01Z",
           task_version_before: 1,
           task_version_after: 2,
+          result: { success: true },
+          result_summary: "Route selected",
           task_state_after: { state: "in_progress", version: 2 },
-          committed_at: "2026-04-03T00:00:01Z",
+          command_envelope: command,
         },
       ];
 
@@ -123,11 +144,18 @@ describe("Task Projection Integration", () => {
 
       const commit: ActionCommit = {
         action_id: "action-1",
-        command_envelope: command,
+        task_id: command.task_id,
+        command_type: command.command_type,
+        command_digest: command.semantic_digest,
+        principal_id: command.principal.principal_id,
+        authority: command.authority,
+        created_at: "2026-04-03T00:00:00Z",
         task_version_before: 0,
         task_version_after: 1,
+        result: { success: true },
+        result_summary: "Route selected",
         task_state_after: { current_route: "local_repo", version: 1 },
-        committed_at: "2026-04-03T00:00:00Z",
+        command_envelope: command,
       };
 
       const taskState = { current_route: "github_pr", version: 1 }; // Different route

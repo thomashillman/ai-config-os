@@ -48,11 +48,18 @@ describe("Task Projection Reconciliation", () => {
 
       const commit: ActionCommit = {
         action_id: "action-1",
-        command_envelope: command,
+        task_id: command.task_id,
+        command_type: command.command_type,
+        command_digest: command.semantic_digest,
+        principal_id: command.principal.principal_id,
+        authority: command.authority,
+        created_at: "2026-04-03T00:00:00Z",
         task_version_before: 0,
         task_version_after: 1,
+        result: { success: true },
+        result_summary: "Route selected",
         task_state_after: { current_route: "local_repo", version: 1 },
-        committed_at: "2026-04-03T00:00:00Z",
+        command_envelope: command,
       };
 
       const result = reconstructAuthoritativeState([commit]);
@@ -89,19 +96,33 @@ describe("Task Projection Reconciliation", () => {
       const commits: ActionCommit[] = [
         {
           action_id: "action-1",
-          command_envelope: commands[0],
+          task_id: commands[0].task_id,
+          command_type: commands[0].command_type,
+          command_digest: commands[0].semantic_digest,
+          principal_id: commands[0].principal.principal_id,
+          authority: commands[0].authority,
+          created_at: "2026-04-03T00:00:00Z",
           task_version_before: 0,
           task_version_after: 1,
+          result: { success: true },
+          result_summary: "Route selected",
           task_state_after: { current_route: "local_repo", version: 1 },
-          committed_at: "2026-04-03T00:00:00Z",
+          command_envelope: commands[0],
         },
         {
           action_id: "action-2",
-          command_envelope: commands[1],
+          task_id: commands[1].task_id,
+          command_type: commands[1].command_type,
+          command_digest: commands[1].semantic_digest,
+          principal_id: commands[1].principal.principal_id,
+          authority: commands[1].authority,
+          created_at: "2026-04-03T00:00:01Z",
           task_version_before: 1,
           task_version_after: 2,
+          result: { success: true },
+          result_summary: "State transitioned",
           task_state_after: { state: "in_progress", version: 2 },
-          committed_at: "2026-04-03T00:00:01Z",
+          command_envelope: commands[1],
         },
       ];
 
@@ -189,19 +210,33 @@ describe("Task Projection Reconciliation", () => {
       const commits: ActionCommit[] = [
         {
           action_id: "action-1",
-          command_envelope: command,
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:00Z",
           task_version_before: 1,
           task_version_after: 2,
+          result: { success: true },
+          result_summary: "Route selected",
           task_state_after: { current_route: "github_pr", version: 2 },
-          committed_at: "2026-04-03T00:00:00Z",
+          command_envelope: command,
         },
         {
           action_id: "action-2",
-          command_envelope: command,
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:01Z",
           task_version_before: 2,
           task_version_after: 3,
+          result: { success: true },
+          result_summary: "Route selected",
           task_state_after: { state: "in_progress", version: 3 },
-          committed_at: "2026-04-03T00:00:01Z",
+          command_envelope: command,
         },
       ];
 
@@ -227,11 +262,18 @@ describe("Task Projection Reconciliation", () => {
       const commits: ActionCommit[] = [
         {
           action_id: "action-1",
-          command_envelope: command,
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:00Z",
           task_version_before: 0,
           task_version_after: 1,
+          result: { success: true },
+          result_summary: "Route selected",
           task_state_after: { version: 1 },
-          committed_at: "2026-04-03T00:00:00Z",
+          command_envelope: command,
         },
       ];
 
@@ -255,28 +297,44 @@ describe("Task Projection Reconciliation", () => {
         request_context: {},
       });
 
+      const commitsToApply: ActionCommit[] = [
+        {
+          action_id: "action-1",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:00Z",
+          task_version_before: 0,
+          task_version_after: 1,
+          result: { success: true },
+          result_summary: "Route selected",
+          task_state_after: { version: 1 },
+          command_envelope: command,
+        },
+        {
+          action_id: "action-2",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:01Z",
+          task_version_before: 1,
+          task_version_after: 2,
+          result: { success: true },
+          result_summary: "Route selected",
+          task_state_after: { version: 2 },
+          command_envelope: command,
+        },
+      ];
+
       const plan = {
         task_id: "task-1",
         projected_version: 0,
         authoritative_version: 2,
-        commits_to_apply: [
-          {
-            action_id: "action-1",
-            command_envelope: command,
-            task_version_before: 0,
-            task_version_after: 1,
-            task_state_after: { version: 1 },
-            committed_at: "2026-04-03T00:00:00Z",
-          },
-          {
-            action_id: "action-2",
-            command_envelope: command,
-            task_version_before: 1,
-            task_version_after: 2,
-            task_state_after: { version: 2 },
-            committed_at: "2026-04-03T00:00:01Z",
-          },
-        ],
+        commits_to_apply: commitsToApply,
       };
 
       const result = validateRepairPlan(plan);
@@ -297,28 +355,44 @@ describe("Task Projection Reconciliation", () => {
         request_context: {},
       });
 
+      const commitsToApply: ActionCommit[] = [
+        {
+          action_id: "action-1",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:00Z",
+          task_version_before: 0,
+          task_version_after: 1,
+          result: { success: true },
+          result_summary: "Route selected",
+          task_state_after: { version: 1 },
+          command_envelope: command,
+        },
+        {
+          action_id: "action-3",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:02Z",
+          task_version_before: 2, // Gap: should be 1
+          task_version_after: 3,
+          result: { success: true },
+          result_summary: "Route selected",
+          task_state_after: { version: 3 },
+          command_envelope: command,
+        },
+      ];
+
       const plan = {
         task_id: "task-1",
         projected_version: 0,
         authoritative_version: 3,
-        commits_to_apply: [
-          {
-            action_id: "action-1",
-            command_envelope: command,
-            task_version_before: 0,
-            task_version_after: 1,
-            task_state_after: { version: 1 },
-            committed_at: "2026-04-03T00:00:00Z",
-          },
-          {
-            action_id: "action-3",
-            command_envelope: command,
-            task_version_before: 2, // Gap: should be 1
-            task_version_after: 3,
-            task_state_after: { version: 3 },
-            committed_at: "2026-04-03T00:00:02Z",
-          },
-        ],
+        commits_to_apply: commitsToApply,
       };
 
       const result = validateRepairPlan(plan);

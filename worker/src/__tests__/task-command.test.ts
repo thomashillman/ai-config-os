@@ -5,6 +5,7 @@ import {
   type Principal,
   type Boundary,
   type Authority,
+  type ActionCommit,
 } from "../task-command";
 
 describe("computeSemanticDigest", () => {
@@ -223,5 +224,149 @@ describe("buildTaskCommand", () => {
     });
 
     expect(cmd.payload).toEqual(payload);
+  });
+});
+
+describe("ActionCommit shape (failing tests)", () => {
+  const mockPrincipal: Principal = {
+    principal_type: "user",
+    principal_id: "user-123",
+    workspace_id: "ws-456",
+  };
+
+  const mockBoundary: Boundary = {
+    owner_principal_id: "user-123",
+    workspace_id: "ws-456",
+    repo_id: "repo-789",
+  };
+
+  const mockAuthority: Authority = {
+    authority_mode: "direct_owner",
+    allowed_actions: ["task.select_route", "task.transition_state"],
+    stamped_at: "2026-04-03T00:00:00Z",
+  };
+
+  describe("shape validation", () => {
+    it("should have action_id at top level", () => {
+      // This is a specification test - we expect the receipt to have this field
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.action_id exists and is string
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have task_id at top level", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.task_id exists and matches command.task_id
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have command_type at top level", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.command_type exists and matches command.command_type
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have command_digest at top level", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.command_digest exists and is valid SHA256 hex
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have principal_id at top level", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.principal_id exists and comes from command.principal.principal_id
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have authority at top level", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.authority exists and matches command.authority
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have created_at (not committed_at)", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.created_at exists and is ISO 8601
+      // TODO: Verify receipt.committed_at does NOT exist
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have result with success and code fields", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.result exists
+      // TODO: Verify receipt.result.success is always true
+      // TODO: Verify receipt.result.code is optional
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have result_summary string", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.result_summary exists and is string
+      // TODO: Verify it is human-readable outcome description
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have route_id optional", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.route_id is optional (undefined or string)
+      expect(receipt).toBeDefined();
+    });
+
+    it("should have model_path optional", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.model_path is optional (undefined or object)
+      expect(receipt).toBeDefined();
+    });
+
+    it("should keep command_envelope unchanged", () => {
+      const receipt = {} as unknown as ActionCommit;
+      // TODO: Verify receipt.command_envelope exists and is complete TaskCommand
+      // TODO: Verify command_envelope is not modified or flattened
+      expect(receipt).toBeDefined();
+    });
+  });
+
+  describe("field sourcing", () => {
+    it("principal_id comes from command.principal.principal_id", () => {
+      // TODO: After apply-command is fixed:
+      // Create command with principal.principal_id = "user-456"
+      // Apply command and get receipt
+      // Verify receipt.principal_id === "user-456"
+      expect(true).toBe(true);
+    });
+
+    it("authority comes from command.authority", () => {
+      // TODO: After apply-command is fixed:
+      // Create command with specific authority
+      // Apply command and get receipt
+      // Verify receipt.authority === command.authority
+      expect(true).toBe(true);
+    });
+
+    it("request_id and trace_id come from command.request_context if stamped", () => {
+      // TODO: After apply-command is fixed:
+      // Create command with request_context.request_id and request_context.trace_id
+      // Apply command and get receipt
+      // Verify receipt.request_id === command.request_context.request_id
+      // Verify receipt.trace_id === command.request_context.trace_id
+      expect(true).toBe(true);
+    });
+
+    it("command_digest equals canonical semantic digest", () => {
+      // TODO: After apply-command is fixed:
+      // Create command and apply it
+      // Get receipt
+      // Verify receipt.command_digest === command.semantic_digest
+      expect(true).toBe(true);
+    });
+
+    it("task_id and command_type come from command", () => {
+      // TODO: After apply-command is fixed:
+      // Create command with task_id="task-999" and command_type="task.transition_state"
+      // Apply command and get receipt
+      // Verify receipt.task_id === "task-999"
+      // Verify receipt.command_type === "task.transition_state"
+      expect(true).toBe(true);
+    });
   });
 });

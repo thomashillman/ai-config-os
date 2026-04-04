@@ -304,14 +304,46 @@ export class TaskObject implements DurableObject {
       updatedTask.version = newVersion;
       updatedTask.updated_at = now;
 
-      // Create action commit
+      // Extract result summary based on successful command type
+      let resultSummary = "Command executed";
+      switch (command.command_type) {
+        case "task.select_route":
+          resultSummary = "Route selected";
+          break;
+        case "task.transition_state":
+          resultSummary = "State transitioned";
+          break;
+        case "task.append_finding":
+          resultSummary = "Finding appended";
+          break;
+        default:
+          resultSummary = "Mutation applied";
+      }
+
+      // Create action commit with all required authoritative receipt fields
       const commit: ActionCommit = {
+        // Top-level authoritative receipt fields
         action_id: actionId,
-        command_envelope: command,
+        task_id: command.task_id,
+        command_type: command.command_type,
+        command_digest: command.semantic_digest,
+        principal_id: command.principal.principal_id,
+        authority: command.authority,
+        request_id: (command.request_context as Record<string, unknown>)?.request_id as string | undefined,
+        trace_id: (command.request_context as Record<string, unknown>)?.trace_id as string | undefined,
+        route_id: (command.resolved_context as Record<string, unknown>)?.route_id as string | undefined,
+        model_path: (command.resolved_context as Record<string, unknown>)?.model_path,
+        created_at: now,
         task_version_before: taskVersion,
         task_version_after: newVersion,
+        result: {
+          success: true,
+        },
+        result_summary: resultSummary,
         task_state_after: updatedTask,
-        committed_at: now,
+
+        // Canonical mutation input (unchanged)
+        command_envelope: command,
       };
 
       // Persist updates atomically
