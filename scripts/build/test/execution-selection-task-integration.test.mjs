@@ -20,8 +20,8 @@ function makeExecutionSelection(overrides = {}) {
       route_id: "github_pr",
       route_kind: "repository_remote",
       effective_capabilities: {
-        artifact_completeness: "repo_complete",
-        history_availability: "repo_history",
+        artifact_completeness: "repo_partial",
+        history_availability: "change_history",
         locality_confidence: "repo_remote_bound",
         verification_ceiling: "partial_artifact_verification",
         allowed_task_classes: ["patch_review", "artifact_review"],
@@ -29,7 +29,7 @@ function makeExecutionSelection(overrides = {}) {
     },
     resolved_model_path: {
       provider: "anthropic",
-      model_id: "claude-opus",
+      model_id: "claude-opus-4-6",
       model_tier: "premium",
       execution_mode: "streaming",
     },
@@ -51,7 +51,7 @@ function makeExecutionSelection(overrides = {}) {
       fallback_used: false,
     },
     selection_reason:
-      "route: github_pr; model: anthropic/claude-opus; cost: cost_efficient; reliability: above_floor",
+      "route: github_pr; model: anthropic/claude-opus-4-6; cost: cost_efficient; reliability: above_floor",
     ...overrides,
   };
 }
@@ -273,7 +273,7 @@ describe("integrateExecutionSelectionWithTask", () => {
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "test_route",
-        route_kind: "artifact_bundle",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
@@ -585,7 +585,7 @@ describe("REGRESSION: Canonical selection storage remains intact (Requirement A)
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "test_route_canonical",
-        route_kind: "artifact_bundle",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
@@ -700,7 +700,7 @@ describe("REGRESSION: Canonical selection storage remains intact (Requirement A)
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "specific_route_x",
-        route_kind: "artifact_bundle",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
@@ -854,7 +854,7 @@ describe("REGRESSION: Task-state audit references remain aligned (Requirement B)
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "audit_test_route",
-        route_kind: "artifact_bundle",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",

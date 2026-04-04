@@ -440,7 +440,7 @@ describe("TaskStore.selectRoute", () => {
       },
       resolved_model_path: {
         provider: "anthropic",
-        model_id: "claude-opus",
+        model_id: "claude-opus-4-6",
         model_tier: "premium",
         execution_mode: "streaming",
       },
@@ -463,7 +463,7 @@ describe("TaskStore.selectRoute", () => {
         fallback_used: false,
       },
       selection_reason:
-        "route: local_repo; model: anthropic/claude-opus; cost: cost_efficient; reliability: above_floor",
+        "route: local_repo; model: anthropic/claude-opus-4-6; cost: cost_efficient; reliability: above_floor",
     };
 
     store.selectRoute("task-001", {
@@ -503,7 +503,7 @@ describe("TaskStore.selectRoute", () => {
       },
       resolved_model_path: {
         provider: "anthropic",
-        model_id: "claude-opus",
+        model_id: "claude-opus-4-6",
         model_tier: "premium",
         execution_mode: "streaming",
       },
@@ -526,7 +526,7 @@ describe("TaskStore.selectRoute", () => {
         fallback_used: false,
       },
       selection_reason:
-        "route: local_repo; model: anthropic/claude-opus; cost: cost_efficient; reliability: above_floor",
+        "route: local_repo; model: anthropic/claude-opus-4-6; cost: cost_efficient; reliability: above_floor",
     };
 
     // selectRoute should succeed even if integration throws
@@ -561,7 +561,7 @@ describe("TaskStore.selectRoute", () => {
           execution_selections: [
             {
               digest: "test_digest",
-              revision: "1.0.0:test",
+              revision: "v1:test_digest",
               route_id: executionSelection.selected_route.route_id,
               selected_at: recordedAt,
             },
@@ -578,7 +578,7 @@ describe("TaskStore.selectRoute", () => {
     const executionSelection = {
       selected_route: {
         route_id: "integration_route",
-        route_kind: "artifact_bundle",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
@@ -589,7 +589,7 @@ describe("TaskStore.selectRoute", () => {
       },
       resolved_model_path: {
         provider: "anthropic",
-        model_id: "claude-opus",
+        model_id: "claude-opus-4-6",
         model_tier: "premium",
         execution_mode: "streaming",
       },
@@ -653,7 +653,7 @@ describe("TaskStore.selectRoute", () => {
     const executionSelection = {
       selected_route: {
         route_id: "route_v",
-        route_kind: "artifact_bundle",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
@@ -664,7 +664,7 @@ describe("TaskStore.selectRoute", () => {
       },
       resolved_model_path: {
         provider: "anthropic",
-        model_id: "claude-opus",
+        model_id: "claude-opus-4-6",
         model_tier: "premium",
         execution_mode: "streaming",
       },
@@ -714,7 +714,7 @@ describe("TaskStore.selectRoute", () => {
     const executionSelection = {
       selected_route: {
         route_id: "failed_integration_route",
-        route_kind: "artifact_bundle",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
@@ -725,7 +725,7 @@ describe("TaskStore.selectRoute", () => {
       },
       resolved_model_path: {
         provider: "anthropic",
-        model_id: "claude-opus",
+        model_id: "claude-opus-4-6",
         model_tier: "premium",
         execution_mode: "streaming",
       },
@@ -810,7 +810,7 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
           },
           resolved_model_path: {
             provider: "anthropic",
-            model_id: "claude-opus",
+            model_id: "claude-opus-4-6",
             model_tier: "premium",
             execution_mode: "streaming",
           },
@@ -888,7 +888,7 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
           },
           resolved_model_path: {
             provider: "anthropic",
-            model_id: "claude-opus",
+            model_id: "claude-opus-4-6",
             model_tier: "premium",
             execution_mode: "streaming",
           },
@@ -952,7 +952,7 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
       },
       resolved_model_path: {
         provider: "anthropic",
-        model_id: "claude-opus",
+        model_id: "claude-opus-4-6",
         model_tier: "premium",
         execution_mode: "streaming",
       },
@@ -962,7 +962,7 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
           route_kind: "artifact_diff",
           resolved_model_path: {
             provider: "anthropic",
-            model_id: "claude-sonnet",
+            model_id: "claude-sonnet-4-6",
             model_tier: "standard",
             execution_mode: "streaming",
           },
