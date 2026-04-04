@@ -78,6 +78,9 @@ export function evaluateModelPaths(input) {
   const overlays = dynamic_runtime_overlays || {};
 
   // Step 1: Filter to admissible candidates based on hard constraints and minimum floors
+  // v1 evaluator uses only: execution-mode compatibility, minimum_model_tier, reliability_floor, availability
+  // Other policy intent fields (quality_tier, latency_posture, cost_posture) are required but
+  // not used for filtering in v1; they are carried through for downstream use.
   const admissible = registry_snapshot
     .map((modelPath, originalIndex) => {
       const candidate = fromRegistryEntry(
@@ -112,6 +115,7 @@ export function evaluateModelPaths(input) {
   const nonDominated = computeNonDominatedFrontier(admissible);
 
   // Step 3: Select up to 3 representatives with deterministic ordering
+  // Note: preferred_model_tier is accepted but not used in v1 evaluator
   const representatives = selectRepresentatives(nonDominated);
 
   return {

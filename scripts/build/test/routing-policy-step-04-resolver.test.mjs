@@ -46,8 +46,10 @@ const baseInput = {
     minimum_quality_floor: "budget",
     minimum_reliability_floor: "meets_floor",
   },
+  route_contract_version: "v1",
+  model_policy_version: "v1",
   resolver_version: "v1",
-  policy_version: "v1",
+  execution_selection_schema_version: "v1",
 };
 
 test("Step 4.1: Valid pair formation and constraint filtering", async (t) => {
@@ -394,8 +396,21 @@ test("Step 4.5: ExecutionSelection structure", async (t) => {
     assert.ok(es.resolved_model_path);
     assert.ok(Array.isArray(es.fallback_chain));
     assert.ok(es.policy_version);
+    assert.ok(es.execution_selection_schema_version);
     assert.ok(es.selection_basis);
     assert.ok(es.selection_reason);
+  });
+
+  await t.test("policy_version has correct structure", () => {
+    const result = resolveExecutionSelection(baseInput);
+    const pv = result.execution_selection.policy_version;
+
+    assert.ok(pv.route_contract_version);
+    assert.ok(pv.model_policy_version);
+    assert.ok(pv.resolver_version);
+    assert.equal(pv.route_contract_version, "v1");
+    assert.equal(pv.model_policy_version, "v1");
+    assert.equal(pv.resolver_version, "v1");
   });
 
   await t.test("selected_route has correct structure", () => {

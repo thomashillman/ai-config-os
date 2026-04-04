@@ -102,10 +102,16 @@ export function createPolicyContext() {
  * @throws {Error} if versions are missing or invalid
  */
 export function extractVersionsFromSelection(executionSelection) {
+  if (!executionSelection.policy_version) {
+    throw new Error("Missing policy_version in ExecutionSelection");
+  }
+
   const versions = {
-    route_contract_version: executionSelection.route_contract_version,
-    model_policy_version: executionSelection.model_policy_version,
-    resolver_version: executionSelection.resolver_version,
+    route_contract_version:
+      executionSelection.policy_version.route_contract_version,
+    model_policy_version:
+      executionSelection.policy_version.model_policy_version,
+    resolver_version: executionSelection.policy_version.resolver_version,
     execution_selection_schema_version:
       executionSelection.execution_selection_schema_version,
   };
