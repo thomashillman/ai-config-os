@@ -15,16 +15,16 @@ import {
 
 function makeExecutionSelection(overrides = {}) {
   return {
-    execution_selection_schema_version: "1.0.0",
+    execution_selection_schema_version: "v1",
     selected_route: {
       route_id: "github_pr",
-      route_kind: "pull_request",
+      route_kind: "repository_remote",
       effective_capabilities: {
         artifact_completeness: "repo_complete",
         history_availability: "repo_history",
-        locality_confidence: "high",
-        verification_ceiling: "moderate",
-        allowed_task_classes: ["review_repository", "analyze_code"],
+        locality_confidence: "repo_remote_bound",
+        verification_ceiling: "partial_artifact_verification",
+        allowed_task_classes: ["patch_review", "artifact_review"],
       },
     },
     resolved_model_path: {
@@ -35,9 +35,9 @@ function makeExecutionSelection(overrides = {}) {
     },
     fallback_chain: [],
     policy_version: {
-      route_contract_version: "1.0.0",
-      model_policy_version: "1.0.0",
-      resolver_version: "1.0.0",
+      route_contract_version: "v1",
+      model_policy_version: "v1",
+      resolver_version: "v1",
     },
     selection_basis: {
       constraints_passed: true,
@@ -238,13 +238,13 @@ describe("integrateExecutionSelectionWithTask", () => {
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "claude_direct",
-        route_kind: "direct_api",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
     });
@@ -273,13 +273,13 @@ describe("integrateExecutionSelectionWithTask", () => {
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "test_route",
-        route_kind: "test",
+        route_kind: "artifact_bundle",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
     });
@@ -585,13 +585,13 @@ describe("REGRESSION: Canonical selection storage remains intact (Requirement A)
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "test_route_canonical",
-        route_kind: "test",
+        route_kind: "artifact_bundle",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
     });
@@ -700,13 +700,13 @@ describe("REGRESSION: Canonical selection storage remains intact (Requirement A)
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "specific_route_x",
-        route_kind: "test",
+        route_kind: "artifact_bundle",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
     });
@@ -854,13 +854,13 @@ describe("REGRESSION: Task-state audit references remain aligned (Requirement B)
     const selection = makeExecutionSelection({
       selected_route: {
         route_id: "audit_test_route",
-        route_kind: "test",
+        route_kind: "artifact_bundle",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
     });
@@ -953,7 +953,7 @@ describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)"
     store.tasks.set(task.task_id, task);
 
     const selection = makeExecutionSelection({
-      execution_selection_schema_version: "1.0.0",
+      execution_selection_schema_version: "v1",
     });
 
     integrateExecutionSelectionWithTask({
@@ -971,7 +971,7 @@ describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)"
 
     assert.equal(
       extracted.execution_selection_schema_version,
-      "1.0.0",
+      "v1",
       "execution_selection_schema_version should survive round-trip",
     );
   });
@@ -983,9 +983,9 @@ describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)"
 
     const selection = makeExecutionSelection({
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
     });
 
@@ -1008,7 +1008,7 @@ describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)"
     );
     assert.equal(
       extracted.policy_version.route_contract_version,
-      "1.0.0",
+      "v1",
       "policy_version.route_contract_version should survive round-trip",
     );
   });
@@ -1020,9 +1020,9 @@ describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)"
 
     const selection = makeExecutionSelection({
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
     });
 
@@ -1041,7 +1041,7 @@ describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)"
 
     assert.equal(
       extracted.policy_version.model_policy_version,
-      "1.0.0",
+      "v1",
       "policy_version.model_policy_version should survive round-trip",
     );
   });
@@ -1053,9 +1053,9 @@ describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)"
 
     const selection = makeExecutionSelection({
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
     });
 
@@ -1074,7 +1074,7 @@ describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)"
 
     assert.equal(
       extracted.policy_version.resolver_version,
-      "1.0.0",
+      "v1",
       "policy_version.resolver_version should survive round-trip",
     );
   });

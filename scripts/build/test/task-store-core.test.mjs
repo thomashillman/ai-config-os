@@ -429,13 +429,13 @@ describe("TaskStore.selectRoute", () => {
     const executionSelection = {
       selected_route: {
         route_id: "local_repo",
-        route_kind: "local",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
       resolved_model_path: {
@@ -446,11 +446,11 @@ describe("TaskStore.selectRoute", () => {
       },
       fallback_chain: [],
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
-      execution_selection_schema_version: "1.0.0",
+      execution_selection_schema_version: "v1",
       selection_basis: {
         constraints_passed: true,
         route_admissible: true,
@@ -492,13 +492,13 @@ describe("TaskStore.selectRoute", () => {
     const executionSelection = {
       selected_route: {
         route_id: "local_repo",
-        route_kind: "local",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
       resolved_model_path: {
@@ -509,11 +509,11 @@ describe("TaskStore.selectRoute", () => {
       },
       fallback_chain: [],
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
-      execution_selection_schema_version: "1.0.0",
+      execution_selection_schema_version: "v1",
       selection_basis: {
         constraints_passed: true,
         route_admissible: true,
@@ -578,13 +578,13 @@ describe("TaskStore.selectRoute", () => {
     const executionSelection = {
       selected_route: {
         route_id: "integration_route",
-        route_kind: "test",
+        route_kind: "artifact_bundle",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
       resolved_model_path: {
@@ -595,11 +595,11 @@ describe("TaskStore.selectRoute", () => {
       },
       fallback_chain: [],
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
-      execution_selection_schema_version: "1.0.0",
+      execution_selection_schema_version: "v1",
       selection_basis: {
         constraints_passed: true,
         route_admissible: true,
@@ -653,13 +653,13 @@ describe("TaskStore.selectRoute", () => {
     const executionSelection = {
       selected_route: {
         route_id: "route_v",
-        route_kind: "test",
+        route_kind: "artifact_bundle",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
       resolved_model_path: {
@@ -670,11 +670,11 @@ describe("TaskStore.selectRoute", () => {
       },
       fallback_chain: [],
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
-      execution_selection_schema_version: "1.0.0",
+      execution_selection_schema_version: "v1",
       selection_basis: {
         constraints_passed: true,
         route_admissible: true,
@@ -714,13 +714,13 @@ describe("TaskStore.selectRoute", () => {
     const executionSelection = {
       selected_route: {
         route_id: "failed_integration_route",
-        route_kind: "test",
+        route_kind: "artifact_bundle",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review"],
         },
       },
       resolved_model_path: {
@@ -731,11 +731,11 @@ describe("TaskStore.selectRoute", () => {
       },
       fallback_chain: [],
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
-      execution_selection_schema_version: "1.0.0",
+      execution_selection_schema_version: "v1",
       selection_basis: {
         constraints_passed: true,
         route_admissible: true,
@@ -799,13 +799,13 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
         execution_selection: {
           selected_route: {
             route_id: "full_route",
-            route_kind: "test",
+            route_kind: "artifact_bundle",
             effective_capabilities: {
               artifact_completeness: "repo_complete",
               history_availability: "repo_history",
-              locality_confidence: "high",
-              verification_ceiling: "high",
-              allowed_task_classes: ["analyze_code"],
+              locality_confidence: "repo_local",
+              verification_ceiling: "full_artifact_verification",
+              allowed_task_classes: ["repository_review"],
             },
           },
           resolved_model_path: {
@@ -816,11 +816,11 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
           },
           fallback_chain: [],
           policy_version: {
-            route_contract_version: "1.0.0",
-            model_policy_version: "1.0.0",
-            resolver_version: "1.0.0",
+            route_contract_version: "v1",
+            model_policy_version: "v1",
+            resolver_version: "v1",
           },
-          execution_selection_schema_version: "1.0.0",
+          execution_selection_schema_version: "v1",
           selection_basis: {
             constraints_passed: true,
             route_admissible: true,
@@ -835,7 +835,7 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
           selection_reason: "test reason",
         },
         selection_digest: "abc123",
-        selection_revision: "1.0.0:abc",
+        selection_revision: "rev-abc",
         selected_route_id: "full_route",
         reason: "test reason",
       },
@@ -877,13 +877,13 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
         execution_selection: {
           selected_route: {
             route_id: "no_diagnostic_route",
-            route_kind: "test",
+            route_kind: "artifact_bundle",
             effective_capabilities: {
               artifact_completeness: "repo_complete",
               history_availability: "repo_history",
-              locality_confidence: "high",
-              verification_ceiling: "high",
-              allowed_task_classes: ["analyze_code"],
+              locality_confidence: "repo_local",
+              verification_ceiling: "full_artifact_verification",
+              allowed_task_classes: ["repository_review"],
             },
           },
           resolved_model_path: {
@@ -894,11 +894,11 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
           },
           fallback_chain: [],
           policy_version: {
-            route_contract_version: "1.0.0",
-            model_policy_version: "1.0.0",
-            resolver_version: "1.0.0",
+            route_contract_version: "v1",
+            model_policy_version: "v1",
+            resolver_version: "v1",
           },
-          execution_selection_schema_version: "1.0.0",
+          execution_selection_schema_version: "v1",
           selection_basis: {
             constraints_passed: true,
             route_admissible: true,
@@ -913,7 +913,7 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
           selection_reason: "no diagnostic sink",
         },
         selection_digest: "xyz789",
-        selection_revision: "1.0.0:xyz",
+        selection_revision: "rev-xyz",
         selected_route_id: "no_diagnostic_route",
         reason: "no diagnostic sink",
       },
@@ -941,13 +941,13 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
     const fullSelection = {
       selected_route: {
         route_id: "full_route",
-        route_kind: "direct",
+        route_kind: "repository_local",
         effective_capabilities: {
           artifact_completeness: "repo_complete",
           history_availability: "repo_history",
-          locality_confidence: "high",
-          verification_ceiling: "high",
-          allowed_task_classes: ["analyze_code", "review_repository"],
+          locality_confidence: "repo_local",
+          verification_ceiling: "full_artifact_verification",
+          allowed_task_classes: ["repository_review", "patch_review"],
         },
       },
       resolved_model_path: {
@@ -959,7 +959,7 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
       fallback_chain: [
         {
           route_id: "fallback_route",
-          route_kind: "fallback",
+          route_kind: "artifact_diff",
           resolved_model_path: {
             provider: "anthropic",
             model_id: "claude-sonnet",
@@ -970,11 +970,11 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
         },
       ],
       policy_version: {
-        route_contract_version: "1.0.0",
-        model_policy_version: "1.0.0",
-        resolver_version: "1.0.0",
+        route_contract_version: "v1",
+        model_policy_version: "v1",
+        resolver_version: "v1",
       },
-      execution_selection_schema_version: "1.0.0",
+      execution_selection_schema_version: "v1",
       selection_basis: {
         constraints_passed: true,
         route_admissible: true,
@@ -998,7 +998,7 @@ describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirem
       metadata: {
         execution_selection: fullSelection,
         selection_digest: "digest_value",
-        selection_revision: "1.0.0:rev",
+        selection_revision: "rev-test",
         selected_route_id: "full_route",
         reason: "full detailed reason",
       },
