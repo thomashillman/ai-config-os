@@ -78,6 +78,9 @@ export function evaluateModelPaths(input) {
   const overlays = dynamic_runtime_overlays || {};
 
   // Step 1: Filter to admissible candidates based on hard constraints and minimum floors
+  // v1 evaluator uses only: execution-mode compatibility, minimum_model_tier, reliability_floor, availability
+  // Other policy intent fields (quality_tier, latency_posture, cost_posture) are required but
+  // not used for filtering in v1; they are carried through for downstream use.
   const admissible = registry_snapshot
     .map((modelPath, originalIndex) => {
       const candidate = fromRegistryEntry(
@@ -98,8 +101,6 @@ export function evaluateModelPaths(input) {
           route_compatibility_projection.minimum_model_tier,
         ) &&
         isReliabilityFloorMet(candidate, policy_intent.reliability_tier) &&
-        isLatencyPostureCompatible(candidate, policy_intent.latency_posture) &&
-        isCostPostureCompatible(candidate, policy_intent.cost_posture, overlays.live_cost_pressure_class) &&
         isAvailable(candidate, overlays.availability_state),
     );
 
@@ -114,10 +115,8 @@ export function evaluateModelPaths(input) {
   const nonDominated = computeNonDominatedFrontier(admissible);
 
   // Step 3: Select up to 3 representatives with deterministic ordering
-  const representatives = selectRepresentatives(
-    nonDominated,
-    route_compatibility_projection.preferred_model_tier,
-  );
+  // Note: preferred_model_tier is accepted but not used in v1 evaluator
+  const representatives = selectRepresentatives(nonDominated);
 
   return {
     admissible_candidates: representatives,
@@ -187,60 +186,6 @@ function isReliabilityFloorMet(candidate, reliabilityTier) {
     reliabilityOrder[candidate.reliability_margin] >=
     reliabilityOrder[reliabilityTier]
   );
-}
-
-/**
- * Check if candidate meets quality tier floor.
- * @private
- */
-function isQualityFloorMet(candidate, qualityTier) {
-  // If no quality tier specified, all candidates pass
-  if (!qualityTier) {
-    return true;
-  }
-
-  // Map model_tier to quality levels (budget < standard < premium)
-  const qualityOrder = { budget: 0, standard: 1, premium: 2 };
-  return qualityOrder[candidate.model_tier] >= qualityOrder[qualityTier];
-}
-
-/**
- * Check if candidate matches required latency posture.
- * Latency posture is a soft preference: candidates with better or equal latency are preferred.
- * @private
- */
-function isLatencyPostureCompatible(candidate, latencyPosture) {
-  // If no latency posture specified, all candidates are compatible
-  if (!latencyPosture) {
-    return true;
-  }
-
-  // Latency preference: candidate must be at least as good as posture
-  // Order: interactive_safe (best) < interactive_tolerable < background_biased (worst)
-  const latencyOrder = {
-    interactive_safe: 0,
-    interactive_tolerable: 1,
-    background_biased: 2,
-  };
-
-  // All candidates are admissible; ranking will prefer matching latency
-  return true;
-}
-
-/**
- * Check if candidate matches cost posture requirements.
- * Cost posture is influenced by dynamic runtime overlays but is primarily a soft preference.
- * @private
- */
-function isCostPostureCompatible(candidate, costPosture, liveCostPressure) {
-  // If live cost pressure is set (dynamic runtime overlay), it takes precedence
-  if (liveCostPressure === "high_cost_pressure") {
-    // Under cost pressure, filter to cost_efficient models only (hard constraint)
-    return candidate.cost_basis === "cost_efficient";
-  }
-
-  // Otherwise, all candidates are admissible; ranking will prefer matching cost posture
-  return true;
 }
 
 /**
@@ -367,10 +312,9 @@ function computeNonDominatedFrontier(candidates) {
 
 /**
  * Select up to 3 representatives from non-dominated frontier with deterministic ordering.
- * Prefers preferred_model_tier if specified.
  * @private
  */
-function selectRepresentatives(nonDominated, preferredTier) {
+function selectRepresentatives(nonDominated) {
   if (nonDominated.length === 0) {
     return [];
   }
@@ -382,7 +326,6 @@ function selectRepresentatives(nonDominated, preferredTier) {
     interactive_tolerable: 1,
     background_biased: 2,
   };
-  const tierOrder = { budget: 0, standard: 1, premium: 2 };
 
   const representatives = [];
   const used = new Set();
@@ -404,25 +347,20 @@ function selectRepresentatives(nonDominated, preferredTier) {
   representatives.push(cheapest);
   used.add(cheapestIdx);
 
-  // 2. Strongest reliability-margin candidate from remaining (highest reliability order), preferring preferred_tier
+  // 2. Strongest reliability-margin candidate from remaining (highest reliability order)
   if (nonDominated.length > 1) {
     let strongest = null;
     let strongestIdx = -1;
     for (let i = 0; i < nonDominated.length; i++) {
       if (!used.has(i)) {
         const c = nonDominated[i];
-        const cIsPreferred = preferredTier && c.model_tier === preferredTier;
-        const strongestIsPreferred = preferredTier && strongest && strongest.model_tier === preferredTier;
-
         if (
           !strongest ||
-          (cIsPreferred && !strongestIsPreferred) ||
-          (cIsPreferred === strongestIsPreferred &&
-            (reliabilityOrder[c.reliability_margin] >
-              reliabilityOrder[strongest.reliability_margin] ||
-            (reliabilityOrder[c.reliability_margin] ===
-              reliabilityOrder[strongest.reliability_margin] &&
-              c._originalIndex < strongest._originalIndex)))
+          reliabilityOrder[c.reliability_margin] >
+            reliabilityOrder[strongest.reliability_margin] ||
+          (reliabilityOrder[c.reliability_margin] ===
+            reliabilityOrder[strongest.reliability_margin] &&
+            c._originalIndex < strongest._originalIndex)
         ) {
           strongest = c;
           strongestIdx = i;
@@ -435,25 +373,20 @@ function selectRepresentatives(nonDominated, preferredTier) {
     }
   }
 
-  // 3. Lowest latency-risk candidate from remaining (lowest latency order), preferring preferred_tier
+  // 3. Lowest latency-risk candidate from remaining (lowest latency order)
   if (nonDominated.length > 2) {
     let lowestLatency = null;
     let lowestIdx = -1;
     for (let i = 0; i < nonDominated.length; i++) {
       if (!used.has(i)) {
         const c = nonDominated[i];
-        const cIsPreferred = preferredTier && c.model_tier === preferredTier;
-        const lowestIsPreferred = preferredTier && lowestLatency && lowestLatency.model_tier === preferredTier;
-
         if (
           !lowestLatency ||
-          (cIsPreferred && !lowestIsPreferred) ||
-          (cIsPreferred === lowestIsPreferred &&
-            (latencyOrder[c.latency_risk] <
-              latencyOrder[lowestLatency.latency_risk] ||
-            (latencyOrder[c.latency_risk] ===
-              latencyOrder[lowestLatency.latency_risk] &&
-              c._originalIndex < lowestLatency._originalIndex)))
+          latencyOrder[c.latency_risk] <
+            latencyOrder[lowestLatency.latency_risk] ||
+          (latencyOrder[c.latency_risk] ===
+            latencyOrder[lowestLatency.latency_risk] &&
+            c._originalIndex < lowestLatency._originalIndex)
         ) {
           lowestLatency = c;
           lowestIdx = i;
