@@ -79,53 +79,162 @@ test("ExecutionSelectionObservationSource: loads observations from sink", () => 
 
   sink.recordSelection(selection, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "test_load",
+    routeCandidates: [
+      { route_id: "route_claude_native", route_kind: "native_claude" },
+    ],
+    modelCandidates: [
+      {
+        provider: "anthropic",
+        model_id: "claude-opus-4",
+        model_tier: "premium",
+        execution_mode: "native",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+    ],
   });
 
   const observations = source.loadObservations(taskId);
 
   assert.ok(Array.isArray(observations));
   assert.equal(observations.length, 1);
-  assert.ok(observations[0].execution_selection);
+  assert.ok(observations[0].selected_pair_summary);
   assert.equal(observations[0].task_id, taskId);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionObservationSource: summarizes selection statistics", () => {
+test("ExecutionSelectionObservationSource: summarizes selection statistics from bounded contract", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const source = createExecutionSelectionObservationSource(tempDir);
   const taskId = "task-summary-stats";
   const selection = createMockExecutionSelection();
 
+  // Record a selection with 5 route candidates and 10 model candidates
+  // The bounded contract stores only summaries, not evaluation results
   sink.recordSelection(selection, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "initial",
-  });
-
-  sink.recordSelectionEvaluation(selection, {
-    taskId,
-    success: true,
-    duration_ms: 150,
-    routes_evaluated: 5,
-    models_considered: 10,
-    routes_admitted: 3,
-    models_admitted: 7,
+    routeCandidates: [
+      { route_id: "route_claude_native", route_kind: "native_claude" },
+      { route_id: "route_fallback_1", route_kind: "fallback" },
+      { route_id: "route_fallback_2", route_kind: "fallback" },
+      { route_id: "route_fallback_3", route_kind: "fallback" },
+      { route_id: "route_fallback_4", route_kind: "fallback" },
+    ],
+    modelCandidates: [
+      {
+        provider: "anthropic",
+        model_id: "claude-opus-4",
+        model_tier: "premium",
+        execution_mode: "native",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+      {
+        provider: "anthropic",
+        model_id: "claude-sonnet-3",
+        model_tier: "standard",
+        execution_mode: "api",
+        cost_basis: "cost_light",
+        reliability_margin: "standard",
+        latency_risk: "batch_safe",
+      },
+      {
+        provider: "anthropic",
+        model_id: "claude-haiku-2",
+        model_tier: "light",
+        execution_mode: "api",
+        cost_basis: "cost_light",
+        reliability_margin: "standard",
+        latency_risk: "batch_safe",
+      },
+      {
+        provider: "openai",
+        model_id: "gpt-4",
+        model_tier: "premium",
+        execution_mode: "api",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+      {
+        provider: "openai",
+        model_id: "gpt-4-turbo",
+        model_tier: "premium",
+        execution_mode: "api",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+      {
+        provider: "openai",
+        model_id: "gpt-3.5-turbo",
+        model_tier: "light",
+        execution_mode: "api",
+        cost_basis: "cost_light",
+        reliability_margin: "standard",
+        latency_risk: "batch_safe",
+      },
+      {
+        provider: "google",
+        model_id: "gemini-pro",
+        model_tier: "premium",
+        execution_mode: "api",
+        cost_basis: "cost_heavy",
+        reliability_margin: "standard",
+        latency_risk: "interactive_safe",
+      },
+      {
+        provider: "google",
+        model_id: "gemini-1.5",
+        model_tier: "premium",
+        execution_mode: "api",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+      {
+        provider: "meta",
+        model_id: "llama-2",
+        model_tier: "light",
+        execution_mode: "api",
+        cost_basis: "cost_light",
+        reliability_margin: "standard",
+        latency_risk: "batch_safe",
+      },
+      {
+        provider: "meta",
+        model_id: "llama-3",
+        model_tier: "standard",
+        execution_mode: "api",
+        cost_basis: "cost_light",
+        reliability_margin: "standard",
+        latency_risk: "interactive_safe",
+      },
+    ],
   });
 
   const observations = source.loadObservations(taskId);
   const summary = source.summarize(observations);
 
   assert.equal(summary.total_selections, 1);
-  assert.equal(summary.avg_evaluation_time_ms, 150);
-  assert.equal(summary.total_evaluations, 1);
-  assert.equal(summary.routes_admitted_rate, 0.6); // 3 / 5
-  assert.equal(summary.models_admitted_rate, 0.7); // 7 / 10
+  // Bounded contract: avg_evaluation_time_ms is always 0
+  assert.equal(summary.avg_evaluation_time_ms, 0);
+  // Bounded contract: total_evaluations is always 0 (no separate evaluation entries)
+  assert.equal(summary.total_evaluations, 0);
+  // Bounded contract: routes_admitted_rate = 1 / 5 = 0.2
+  assert.equal(summary.routes_admitted_rate, 0.2);
+  // Bounded contract: models_admitted_rate = 1 / 10 = 0.1
+  assert.equal(summary.models_admitted_rate, 0.1);
+  // Fallback usage rate is always 0 (bounded contract does not store fallback chains)
+  assert.equal(summary.fallback_usage_rate, 0);
   assert.ok(summary.most_selected_route);
   assert.equal(summary.most_selected_route, "route_claude_native");
   assert.ok(summary.most_used_model);
@@ -151,7 +260,7 @@ test("ExecutionSelectionObservationSource: returns empty summary for no observat
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionObservationSource: tracks model diversity", () => {
+test("ExecutionSelectionObservationSource: tracks model diversity from selected_pair_summary", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const source = createExecutionSelectionObservationSource(tempDir);
@@ -163,9 +272,22 @@ test("ExecutionSelectionObservationSource: tracks model diversity", () => {
     const selection = createMockExecutionSelection({ model_id: modelId });
     sink.recordSelection(selection, {
       taskId,
-      taskType: "implementation",
+      captureReason: "development",
       timestamp: new Date().toISOString(),
-      reason: `selection-${modelId}`,
+      routeCandidates: [
+        { route_id: "route_claude_native", route_kind: "native_claude" },
+      ],
+      modelCandidates: [
+        {
+          provider: "anthropic",
+          model_id: modelId,
+          model_tier: "premium",
+          execution_mode: "native",
+          cost_basis: "cost_heavy",
+          reliability_margin: "high_margin",
+          latency_risk: "interactive_safe",
+        },
+      ],
     });
   }
 
@@ -181,7 +303,7 @@ test("ExecutionSelectionObservationSource: tracks model diversity", () => {
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionObservationSource: tracks route distribution", () => {
+test("ExecutionSelectionObservationSource: tracks route distribution from selected_pair_summary", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const source = createExecutionSelectionObservationSource(tempDir);
@@ -192,9 +314,22 @@ test("ExecutionSelectionObservationSource: tracks route distribution", () => {
     const selection = createMockExecutionSelection();
     sink.recordSelection(selection, {
       taskId,
-      taskType: "implementation",
+      captureReason: "development",
       timestamp: new Date().toISOString(),
-      reason: `selection-${i}`,
+      routeCandidates: [
+        { route_id: "route_claude_native", route_kind: "native_claude" },
+      ],
+      modelCandidates: [
+        {
+          provider: "anthropic",
+          model_id: "claude-opus-4",
+          model_tier: "premium",
+          execution_mode: "native",
+          cost_basis: "cost_heavy",
+          reliability_margin: "high_margin",
+          latency_risk: "interactive_safe",
+        },
+      ],
     });
   }
 
@@ -209,55 +344,94 @@ test("ExecutionSelectionObservationSource: tracks route distribution", () => {
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionObservationSource: tracks fallback usage", () => {
+test("ExecutionSelectionObservationSource: fallback_usage_rate is always 0 with bounded contract", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const source = createExecutionSelectionObservationSource(tempDir);
   const taskId = "task-fallback-usage";
 
-  const selectionWithFallback = createMockExecutionSelection();
-  const selectionWithoutFallback = {
-    ...createMockExecutionSelection(),
-    fallback_chain: [],
-  };
+  // The bounded contract does not store fallback chains, so fallback_usage_rate is always 0
+  const selection1 = createMockExecutionSelection();
+  const selection2 = createMockExecutionSelection();
 
-  sink.recordSelection(selectionWithFallback, {
+  sink.recordSelection(selection1, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "with_fallback",
+    routeCandidates: [
+      { route_id: "route_claude_native", route_kind: "native_claude" },
+    ],
+    modelCandidates: [
+      {
+        provider: "anthropic",
+        model_id: "claude-opus-4",
+        model_tier: "premium",
+        execution_mode: "native",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+    ],
   });
 
-  sink.recordSelection(selectionWithoutFallback, {
+  sink.recordSelection(selection2, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "without_fallback",
+    routeCandidates: [
+      { route_id: "route_claude_native", route_kind: "native_claude" },
+    ],
+    modelCandidates: [
+      {
+        provider: "anthropic",
+        model_id: "claude-opus-4",
+        model_tier: "premium",
+        execution_mode: "native",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+    ],
   });
 
   const observations = source.loadObservations(taskId);
   const summary = source.summarize(observations);
 
   assert.equal(summary.total_selections, 2);
-  assert.equal(summary.fallback_usage_rate, 0.5); // 1 out of 2
+  // Bounded contract does not store fallback chains, so this is always 0
+  assert.equal(summary.fallback_usage_rate, 0);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionObservationSource: computes selection stability", () => {
+test("ExecutionSelectionObservationSource: computes selection_stability from revision changes", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const source = createExecutionSelectionObservationSource(tempDir);
   const taskId = "task-stability";
 
   // Record same selection multiple times (stable)
+  // selection_revision will be the same since the selection is identical
   const selection = createMockExecutionSelection();
   for (let i = 0; i < 10; i++) {
     sink.recordSelection(selection, {
       taskId,
-      taskType: "implementation",
+      captureReason: "development",
       timestamp: new Date().toISOString(),
-      reason: `selection-${i}`,
+      routeCandidates: [
+        { route_id: "route_claude_native", route_kind: "native_claude" },
+      ],
+      modelCandidates: [
+        {
+          provider: "anthropic",
+          model_id: "claude-opus-4",
+          model_tier: "premium",
+          execution_mode: "native",
+          cost_basis: "cost_heavy",
+          reliability_margin: "high_margin",
+          latency_risk: "interactive_safe",
+        },
+      ],
     });
   }
 
@@ -265,81 +439,85 @@ test("ExecutionSelectionObservationSource: computes selection stability", () => 
   const summary = source.summarize(observations);
 
   assert.equal(summary.total_selections, 10);
-  // No digest changes = 0 stability (meaning very stable)
+  // No selection_revision changes = 0 stability (meaning very stable)
   assert.equal(summary.selection_stability, 0);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionObservationSource: computes average evaluation time", () => {
+test("ExecutionSelectionObservationSource: avg_evaluation_time_ms is always 0 with bounded contract", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const source = createExecutionSelectionObservationSource(tempDir);
   const taskId = "task-eval-time";
   const selection = createMockExecutionSelection();
 
+  // The bounded contract does not store evaluation time information
   sink.recordSelection(selection, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "initial",
+    routeCandidates: [
+      { route_id: "route_claude_native", route_kind: "native_claude" },
+    ],
+    modelCandidates: [
+      {
+        provider: "anthropic",
+        model_id: "claude-opus-4",
+        model_tier: "premium",
+        execution_mode: "native",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+    ],
   });
-
-  // Record multiple evaluations
-  const durations = [100, 150, 200];
-  for (const duration of durations) {
-    sink.recordSelectionEvaluation(selection, {
-      taskId,
-      success: true,
-      duration_ms: duration,
-      routes_evaluated: 5,
-      models_considered: 10,
-      routes_admitted: 3,
-      models_admitted: 7,
-    });
-  }
 
   const observations = source.loadObservations(taskId);
   const summary = source.summarize(observations);
 
-  assert.equal(summary.total_evaluations, 3);
-  const expectedAvg = Math.round((100 + 150 + 200) / 3);
-  assert.equal(summary.avg_evaluation_time_ms, expectedAvg);
+  // Bounded contract never includes evaluation time
+  assert.equal(summary.total_evaluations, 0);
+  assert.equal(summary.avg_evaluation_time_ms, 0);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionObservationSource: filters by type in summarize", () => {
+test("ExecutionSelectionObservationSource: bounded contract has no separate evaluation entries", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const source = createExecutionSelectionObservationSource(tempDir);
   const taskId = "task-type-filtering";
   const selection = createMockExecutionSelection();
 
+  // Bounded contract only stores selection entries, no separate evaluation entries
   sink.recordSelection(selection, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "test",
-  });
-
-  sink.recordSelectionEvaluation(selection, {
-    taskId,
-    success: true,
-    duration_ms: 100,
-    routes_evaluated: 3,
-    models_considered: 5,
-    routes_admitted: 2,
-    models_admitted: 4,
+    routeCandidates: [
+      { route_id: "route_claude_native", route_kind: "native_claude" },
+    ],
+    modelCandidates: [
+      {
+        provider: "anthropic",
+        model_id: "claude-opus-4",
+        model_tier: "premium",
+        execution_mode: "native",
+        cost_basis: "cost_heavy",
+        reliability_margin: "high_margin",
+        latency_risk: "interactive_safe",
+      },
+    ],
   });
 
   const observations = source.loadObservations(taskId);
   const summary = source.summarize(observations);
 
-  // Should have both selection and evaluation data
+  // Bounded contract: only selections, no separate evaluation entries
   assert.equal(summary.total_selections, 1);
-  assert.equal(summary.total_evaluations, 1);
-  assert.equal(summary.avg_evaluation_time_ms, 100);
+  assert.equal(summary.total_evaluations, 0);
+  assert.equal(summary.avg_evaluation_time_ms, 0);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
