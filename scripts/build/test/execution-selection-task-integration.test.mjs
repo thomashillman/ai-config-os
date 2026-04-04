@@ -525,4 +525,587 @@ describe("extractExecutionSelectionFromTaskSnapshot", () => {
     assert.ok(result);
     assert.equal(result.selection_reason, "v1");
   });
+
+  test("does not return future selection with lower version boundary (version-bounded boundary)", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection1 = makeExecutionSelection({ selection_reason: "v1" });
+    const selection2 = makeExecutionSelection({ selection_reason: "v2" });
+    const selection3 = makeExecutionSelection({ selection_reason: "v3" });
+
+    store.progressEvents.append({
+      taskId: task.task_id,
+      eventId: "evt_1_execution_selection_recorded",
+      type: "execution_selection_recorded",
+      message: "First",
+      createdAt: "2024-01-01T00:00:00Z",
+      metadata: { execution_selection: selection1 },
+    });
+
+    store.progressEvents.append({
+      taskId: task.task_id,
+      eventId: "evt_2_execution_selection_recorded",
+      type: "execution_selection_recorded",
+      message: "Second",
+      createdAt: "2024-01-02T00:00:00Z",
+      metadata: { execution_selection: selection2 },
+    });
+
+    store.progressEvents.append({
+      taskId: task.task_id,
+      eventId: "evt_3_execution_selection_recorded",
+      type: "execution_selection_recorded",
+      message: "Third",
+      createdAt: "2024-01-03T00:00:00Z",
+      metadata: { execution_selection: selection3 },
+    });
+
+    // Request with version boundary of 2 should get v2, not v3
+    const result = extractExecutionSelectionFromTaskSnapshot({
+      taskStore: store,
+      taskId: task.task_id,
+      version: 2,
+    });
+
+    assert.ok(result);
+    assert.equal(result.selection_reason, "v2", "should return v2, not v3");
+  });
+});
+
+// ─── REGRESSION: Canonical Selection Storage ────────────────────────────────
+
+describe("REGRESSION: Canonical selection storage remains intact (Requirement A)", () => {
+  test("progress event metadata contains full ExecutionSelection with all fields", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection({
+      selected_route: {
+        route_id: "test_route_canonical",
+        route_kind: "test",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code"],
+        },
+      },
+    });
+
+    const result = integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const events = store.listProgressEvents(task.task_id);
+    const event = events.find((e) => e.type === "execution_selection_recorded");
+
+    assert.ok(event, "should have execution_selection_recorded event");
+    assert.ok(event.metadata, "event should have metadata");
+    assert.ok(
+      event.metadata.execution_selection,
+      "metadata should have full execution_selection",
+    );
+
+    // Verify the stored selection is complete and not flattened
+    const storedSelection = event.metadata.execution_selection;
+    assert.ok(
+      storedSelection.selected_route,
+      "stored selection should have selected_route",
+    );
+    assert.ok(
+      storedSelection.selected_route.route_id,
+      "stored selection should have route_id",
+    );
+    assert.ok(
+      storedSelection.resolved_model_path,
+      "stored selection should have resolved_model_path",
+    );
+    assert.ok(
+      storedSelection.fallback_chain,
+      "stored selection should have fallback_chain",
+    );
+    assert.ok(
+      storedSelection.policy_version,
+      "stored selection should have policy_version",
+    );
+    assert.ok(
+      storedSelection.execution_selection_schema_version,
+      "stored selection should have execution_selection_schema_version",
+    );
+  });
+
+  test("progress event metadata contains selection_digest matching computed identity", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection();
+
+    const result = integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const events = store.listProgressEvents(task.task_id);
+    const event = events.find((e) => e.type === "execution_selection_recorded");
+
+    assert.equal(
+      event.metadata.selection_digest,
+      result.selectionDigest,
+      "event metadata digest should match returned digest",
+    );
+  });
+
+  test("progress event metadata contains selection_revision matching computed identity", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection();
+
+    const result = integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const events = store.listProgressEvents(task.task_id);
+    const event = events.find((e) => e.type === "execution_selection_recorded");
+
+    assert.equal(
+      event.metadata.selection_revision,
+      result.selectionRevision,
+      "event metadata revision should match returned revision",
+    );
+  });
+
+  test("progress event metadata contains selected_route_id matching execution_selection.selected_route.route_id", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection({
+      selected_route: {
+        route_id: "specific_route_x",
+        route_kind: "test",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code"],
+        },
+      },
+    });
+
+    integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const events = store.listProgressEvents(task.task_id);
+    const event = events.find((e) => e.type === "execution_selection_recorded");
+
+    assert.equal(
+      event.metadata.selected_route_id,
+      "specific_route_x",
+      "metadata selected_route_id should match selection.selected_route.route_id",
+    );
+    assert.equal(
+      event.metadata.selected_route_id,
+      selection.selected_route.route_id,
+      "metadata selected_route_id should match selection property",
+    );
+  });
+});
+
+// ─── REGRESSION: Task-State Audit References Alignment ─────────────────────
+
+describe("REGRESSION: Task-state audit references remain aligned (Requirement B)", () => {
+  test("route_history entry contains selection_reference.digest matching progress event", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection();
+
+    const integrationResult = integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const updated = store.load(task.task_id);
+    const latestRouteHistory =
+      updated.route_history[updated.route_history.length - 1];
+
+    assert.ok(
+      latestRouteHistory.selection_reference,
+      "route_history should have selection_reference",
+    );
+    assert.equal(
+      latestRouteHistory.selection_reference.digest,
+      integrationResult.selectionDigest,
+      "route_history.selection_reference.digest should match progress event",
+    );
+  });
+
+  test("route_history entry contains selection_reference.revision matching progress event", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection();
+
+    const integrationResult = integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const updated = store.load(task.task_id);
+    const latestRouteHistory =
+      updated.route_history[updated.route_history.length - 1];
+
+    assert.equal(
+      latestRouteHistory.selection_reference.revision,
+      integrationResult.selectionRevision,
+      "route_history.selection_reference.revision should match progress event",
+    );
+  });
+
+  test("execution_selections audit entry contains digest matching progress event", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection();
+
+    const integrationResult = integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const updated = store.load(task.task_id);
+    const auditEntry =
+      updated.execution_selections[updated.execution_selections.length - 1];
+
+    assert.equal(
+      auditEntry.digest,
+      integrationResult.selectionDigest,
+      "execution_selections audit entry.digest should match progress event",
+    );
+  });
+
+  test("execution_selections audit entry contains revision matching progress event", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection();
+
+    const integrationResult = integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const updated = store.load(task.task_id);
+    const auditEntry =
+      updated.execution_selections[updated.execution_selections.length - 1];
+
+    assert.equal(
+      auditEntry.revision,
+      integrationResult.selectionRevision,
+      "execution_selections audit entry.revision should match progress event",
+    );
+  });
+
+  test("execution_selections audit entry contains route_id and selected_at", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection({
+      selected_route: {
+        route_id: "audit_test_route",
+        route_kind: "test",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code"],
+        },
+      },
+    });
+
+    const recordedAt = "2024-01-02T00:00:00Z";
+
+    integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: recordedAt,
+    });
+
+    const updated = store.load(task.task_id);
+    const auditEntry =
+      updated.execution_selections[updated.execution_selections.length - 1];
+
+    assert.equal(
+      auditEntry.route_id,
+      "audit_test_route",
+      "execution_selections audit entry should have route_id",
+    );
+    assert.equal(
+      auditEntry.selected_at,
+      recordedAt,
+      "execution_selections audit entry should have selected_at timestamp",
+    );
+  });
+
+  test("all three canonical stores (progress_event, route_history, execution_selections) remain synchronized", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection();
+    const recordedAt = "2024-01-02T00:00:00Z";
+
+    const integrationResult = integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: recordedAt,
+    });
+
+    const events = store.listProgressEvents(task.task_id);
+    const progressEvent = events.find(
+      (e) => e.type === "execution_selection_recorded",
+    );
+
+    const updated = store.load(task.task_id);
+    const routeHistoryEntry =
+      updated.route_history[updated.route_history.length - 1];
+    const auditEntry =
+      updated.execution_selections[updated.execution_selections.length - 1];
+
+    // All three should agree on digest
+    assert.equal(
+      progressEvent.metadata.selection_digest,
+      routeHistoryEntry.selection_reference.digest,
+      "progress event digest should match route_history digest",
+    );
+    assert.equal(
+      progressEvent.metadata.selection_digest,
+      auditEntry.digest,
+      "progress event digest should match audit entry digest",
+    );
+
+    // All three should agree on revision
+    assert.equal(
+      progressEvent.metadata.selection_revision,
+      routeHistoryEntry.selection_reference.revision,
+      "progress event revision should match route_history revision",
+    );
+    assert.equal(
+      progressEvent.metadata.selection_revision,
+      auditEntry.revision,
+      "progress event revision should match audit entry revision",
+    );
+  });
+});
+
+// ─── REGRESSION: Version Fields Survive Round-Trip Exactly ────────────────
+
+describe("REGRESSION: Version fields survive round-trip exactly (Requirement D)", () => {
+  test("execution_selection_schema_version is preserved exactly in stored selection", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection({
+      execution_selection_schema_version: "1.0.0",
+    });
+
+    integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const extracted = extractExecutionSelectionFromTaskSnapshot({
+      taskStore: store,
+      taskId: task.task_id,
+    });
+
+    assert.equal(
+      extracted.execution_selection_schema_version,
+      "1.0.0",
+      "execution_selection_schema_version should survive round-trip",
+    );
+  });
+
+  test("policy_version.route_contract_version is preserved exactly", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection({
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+    });
+
+    integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const extracted = extractExecutionSelectionFromTaskSnapshot({
+      taskStore: store,
+      taskId: task.task_id,
+    });
+
+    assert.ok(
+      extracted.policy_version,
+      "policy_version should exist in extracted selection",
+    );
+    assert.equal(
+      extracted.policy_version.route_contract_version,
+      "1.0.0",
+      "policy_version.route_contract_version should survive round-trip",
+    );
+  });
+
+  test("policy_version.model_policy_version is preserved exactly", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection({
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+    });
+
+    integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const extracted = extractExecutionSelectionFromTaskSnapshot({
+      taskStore: store,
+      taskId: task.task_id,
+    });
+
+    assert.equal(
+      extracted.policy_version.model_policy_version,
+      "1.0.0",
+      "policy_version.model_policy_version should survive round-trip",
+    );
+  });
+
+  test("policy_version.resolver_version is preserved exactly", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection({
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+    });
+
+    integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const extracted = extractExecutionSelectionFromTaskSnapshot({
+      taskStore: store,
+      taskId: task.task_id,
+    });
+
+    assert.equal(
+      extracted.policy_version.resolver_version,
+      "1.0.0",
+      "policy_version.resolver_version should survive round-trip",
+    );
+  });
+
+  test("policy_version object structure is preserved (nested, not flattened)", () => {
+    const store = new StubTaskStore();
+    const task = makeTask();
+    store.tasks.set(task.task_id, task);
+
+    const selection = makeExecutionSelection();
+
+    integrateExecutionSelectionWithTask({
+      taskStore: store,
+      taskId: task.task_id,
+      expectedVersion: 1,
+      executionSelection: selection,
+      recordedAt: "2024-01-02T00:00:00Z",
+    });
+
+    const extracted = extractExecutionSelectionFromTaskSnapshot({
+      taskStore: store,
+      taskId: task.task_id,
+    });
+
+    assert.ok(
+      typeof extracted.policy_version === "object",
+      "policy_version should be an object, not flattened",
+    );
+    assert.ok(
+      extracted.policy_version.route_contract_version,
+      "policy_version should be nested structure with fields",
+    );
+  });
 });

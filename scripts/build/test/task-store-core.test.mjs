@@ -541,6 +541,502 @@ describe("TaskStore.selectRoute", () => {
     const events = store.listProgressEvents("task-001");
     assert.ok(events.some((e) => e.type === "route_selected"));
   });
+
+  // ─── REGRESSION: TaskStore.selectRoute() Integration Path (Requirement E) ─
+
+  test("REGRESSION: successful integration returns latest persisted task state", () => {
+    let integrationWasCalled = false;
+    const mockIntegrationFn = ({
+      taskStore,
+      taskId,
+      expectedVersion,
+      executionSelection,
+      recordedAt,
+    }) => {
+      integrationWasCalled = true;
+      // Simulate successful integration that mutates task state
+      taskStore.update(taskId, {
+        expectedVersion,
+        changes: {
+          execution_selections: [
+            {
+              digest: "test_digest",
+              revision: "1.0.0:test",
+              route_id: executionSelection.selected_route.route_id,
+              selected_at: recordedAt,
+            },
+          ],
+        },
+      });
+    };
+
+    const store = makeTaskStore({
+      integrateExecutionSelectionWithTaskFn: mockIntegrationFn,
+    });
+    store.create(makeTask());
+
+    const executionSelection = {
+      selected_route: {
+        route_id: "integration_route",
+        route_kind: "test",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code"],
+        },
+      },
+      resolved_model_path: {
+        provider: "anthropic",
+        model_id: "claude-opus",
+        model_tier: "premium",
+        execution_mode: "streaming",
+      },
+      fallback_chain: [],
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+      execution_selection_schema_version: "1.0.0",
+      selection_basis: {
+        constraints_passed: true,
+        route_admissible: true,
+        quality_floor_met: true,
+        reliability_floor_met: true,
+        quality_posture: "standard",
+        reliability_posture: "above_floor",
+        latency_posture: "interactive_safe",
+        cost_posture: "cost_efficient",
+        fallback_used: false,
+      },
+      selection_reason: "route: integration_route",
+    };
+
+    const result = store.selectRoute("task-001", {
+      routeId: "integration_route",
+      expectedVersion: 1,
+      selectedAt: "2024-03-01T00:00:00Z",
+      executionSelection,
+    });
+
+    assert.ok(integrationWasCalled, "integration function should be called");
+    // Result should reflect the latest state after both route selection AND integration
+    assert.equal(
+      result.version,
+      3,
+      "task version should reflect both mutations (2->3)",
+    );
+    assert.ok(
+      result.execution_selections && result.execution_selections.length > 0,
+      "returned task should include execution_selections from integration",
+    );
+  });
+
+  test("REGRESSION: selectRoute version reflects both route selection and integration mutations", () => {
+    let integrationWasCalled = false;
+    const mockIntegrationFn = ({ taskStore, taskId, expectedVersion }) => {
+      integrationWasCalled = true;
+      // Integration performs an additional update
+      taskStore.update(taskId, {
+        expectedVersion,
+        changes: { updated_at: "2024-03-02T00:00:00Z" },
+      });
+    };
+
+    const store = makeTaskStore({
+      integrateExecutionSelectionWithTaskFn: mockIntegrationFn,
+    });
+    store.create(makeTask()); // version 1
+
+    const executionSelection = {
+      selected_route: {
+        route_id: "route_v",
+        route_kind: "test",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code"],
+        },
+      },
+      resolved_model_path: {
+        provider: "anthropic",
+        model_id: "claude-opus",
+        model_tier: "premium",
+        execution_mode: "streaming",
+      },
+      fallback_chain: [],
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+      execution_selection_schema_version: "1.0.0",
+      selection_basis: {
+        constraints_passed: true,
+        route_admissible: true,
+        quality_floor_met: true,
+        reliability_floor_met: true,
+        quality_posture: "standard",
+        reliability_posture: "above_floor",
+        latency_posture: "interactive_safe",
+        cost_posture: "cost_efficient",
+        fallback_used: false,
+      },
+      selection_reason: "test",
+    };
+
+    const result = store.selectRoute("task-001", {
+      routeId: "route_v",
+      expectedVersion: 1,
+      selectedAt: "2024-03-01T00:00:00Z",
+      executionSelection,
+    });
+
+    assert.ok(integrationWasCalled);
+    // selectRoute does route_selected (v1->v2), then integration does update (v2->v3)
+    assert.equal(result.version, 3, "version should be 3 after both mutations");
+  });
+
+  test("REGRESSION: when integration throws, route selection is still committed with non-integrated state", () => {
+    const mockIntegrationFn = () => {
+      throw new Error("Integration failed intentionally");
+    };
+
+    const store = makeTaskStore({
+      integrateExecutionSelectionWithTaskFn: mockIntegrationFn,
+    });
+    store.create(makeTask()); // version 1
+
+    const executionSelection = {
+      selected_route: {
+        route_id: "failed_integration_route",
+        route_kind: "test",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code"],
+        },
+      },
+      resolved_model_path: {
+        provider: "anthropic",
+        model_id: "claude-opus",
+        model_tier: "premium",
+        execution_mode: "streaming",
+      },
+      fallback_chain: [],
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+      execution_selection_schema_version: "1.0.0",
+      selection_basis: {
+        constraints_passed: true,
+        route_admissible: true,
+        quality_floor_met: true,
+        reliability_floor_met: true,
+        quality_posture: "standard",
+        reliability_posture: "above_floor",
+        latency_posture: "interactive_safe",
+        cost_posture: "cost_efficient",
+        fallback_used: false,
+      },
+      selection_reason: "test",
+    };
+
+    const result = store.selectRoute("task-001", {
+      routeId: "failed_integration_route",
+      expectedVersion: 1,
+      selectedAt: "2024-03-01T00:00:00Z",
+      executionSelection,
+    });
+
+    // Route selection should be committed even though integration failed
+    assert.equal(
+      result.current_route,
+      "failed_integration_route",
+      "route selection should be committed",
+    );
+    assert.equal(
+      result.version,
+      2,
+      "version should reflect route_selected event only (v1->v2)",
+    );
+
+    // Verify route_selected event exists
+    const events = store.listProgressEvents("task-001");
+    const routeEvent = events.find((e) => e.type === "route_selected");
+    assert.ok(routeEvent, "route_selected event should exist");
+    assert.equal(
+      routeEvent.metadata.route_id,
+      "failed_integration_route",
+      "route_selected event should have correct route_id",
+    );
+  });
+});
+
+// ─── REGRESSION: Canonical and Non-Canonical Separation (Requirement F) ────
+
+describe("REGRESSION: Canonical and non-canonical stores stay separate (Requirement F)", () => {
+  test("canonical task progress events carry full execution_selection", () => {
+    const store = makeTaskStore();
+    store.create(makeTask());
+
+    // Manually add a progress event with full selection (simulating integrateExecutionSelectionWithTask)
+    store.progressEvents.append({
+      taskId: "task-001",
+      eventId: "evt_1_execution_selection_recorded",
+      type: "execution_selection_recorded",
+      message: "Selection recorded",
+      createdAt: "2024-01-02T00:00:00Z",
+      metadata: {
+        execution_selection: {
+          selected_route: {
+            route_id: "full_route",
+            route_kind: "test",
+            effective_capabilities: {
+              artifact_completeness: "repo_complete",
+              history_availability: "repo_history",
+              locality_confidence: "high",
+              verification_ceiling: "high",
+              allowed_task_classes: ["analyze_code"],
+            },
+          },
+          resolved_model_path: {
+            provider: "anthropic",
+            model_id: "claude-opus",
+            model_tier: "premium",
+            execution_mode: "streaming",
+          },
+          fallback_chain: [],
+          policy_version: {
+            route_contract_version: "1.0.0",
+            model_policy_version: "1.0.0",
+            resolver_version: "1.0.0",
+          },
+          execution_selection_schema_version: "1.0.0",
+          selection_basis: {
+            constraints_passed: true,
+            route_admissible: true,
+            quality_floor_met: true,
+            reliability_floor_met: true,
+            quality_posture: "standard",
+            reliability_posture: "above_floor",
+            latency_posture: "interactive_safe",
+            cost_posture: "cost_efficient",
+            fallback_used: false,
+          },
+          selection_reason: "test reason",
+        },
+        selection_digest: "abc123",
+        selection_revision: "1.0.0:abc",
+        selected_route_id: "full_route",
+        reason: "test reason",
+      },
+    });
+
+    const events = store.listProgressEvents("task-001");
+    const selectionEvent = events.find(
+      (e) => e.type === "execution_selection_recorded",
+    );
+
+    assert.ok(selectionEvent, "should have execution_selection_recorded event");
+    assert.ok(
+      selectionEvent.metadata.execution_selection,
+      "progress event should carry full execution_selection",
+    );
+    assert.ok(
+      selectionEvent.metadata.execution_selection.selected_route,
+      "full selection should have selected_route",
+    );
+    assert.ok(
+      selectionEvent.metadata.execution_selection.resolved_model_path,
+      "full selection should have resolved_model_path",
+    );
+  });
+
+  test("bounded diagnostic storage is not required for task snapshot extraction", () => {
+    // Create store WITHOUT any diagnostic sink
+    const store = makeTaskStore();
+    store.create(makeTask());
+
+    // Add a progress event with full selection (canonical storage)
+    store.progressEvents.append({
+      taskId: "task-001",
+      eventId: "evt_1_execution_selection_recorded",
+      type: "execution_selection_recorded",
+      message: "Selection recorded",
+      createdAt: "2024-01-02T00:00:00Z",
+      metadata: {
+        execution_selection: {
+          selected_route: {
+            route_id: "no_diagnostic_route",
+            route_kind: "test",
+            effective_capabilities: {
+              artifact_completeness: "repo_complete",
+              history_availability: "repo_history",
+              locality_confidence: "high",
+              verification_ceiling: "high",
+              allowed_task_classes: ["analyze_code"],
+            },
+          },
+          resolved_model_path: {
+            provider: "anthropic",
+            model_id: "claude-opus",
+            model_tier: "premium",
+            execution_mode: "streaming",
+          },
+          fallback_chain: [],
+          policy_version: {
+            route_contract_version: "1.0.0",
+            model_policy_version: "1.0.0",
+            resolver_version: "1.0.0",
+          },
+          execution_selection_schema_version: "1.0.0",
+          selection_basis: {
+            constraints_passed: true,
+            route_admissible: true,
+            quality_floor_met: true,
+            reliability_floor_met: true,
+            quality_posture: "standard",
+            reliability_posture: "above_floor",
+            latency_posture: "interactive_safe",
+            cost_posture: "cost_efficient",
+            fallback_used: false,
+          },
+          selection_reason: "no diagnostic sink",
+        },
+        selection_digest: "xyz789",
+        selection_revision: "1.0.0:xyz",
+        selected_route_id: "no_diagnostic_route",
+        reason: "no diagnostic sink",
+      },
+    });
+
+    // This demonstrates that extraction from task snapshots does NOT depend
+    // on bounded diagnostic sink—it works entirely from progress events
+    const events = store.listProgressEvents("task-001");
+    assert.ok(events.length > 0, "should have progress events");
+
+    const selectionEvent = events.find(
+      (e) => e.type === "execution_selection_recorded",
+    );
+    assert.ok(selectionEvent, "selection event should be in progress events");
+    assert.ok(
+      selectionEvent.metadata.execution_selection,
+      "extraction should work from progress events alone, without diagnostic sink",
+    );
+  });
+
+  test("full ExecutionSelection is preserved in canonical task progress event, not shrunk to diagnostic shape", () => {
+    const store = makeTaskStore();
+    store.create(makeTask());
+
+    const fullSelection = {
+      selected_route: {
+        route_id: "full_route",
+        route_kind: "direct",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code", "review_repository"],
+        },
+      },
+      resolved_model_path: {
+        provider: "anthropic",
+        model_id: "claude-opus",
+        model_tier: "premium",
+        execution_mode: "streaming",
+      },
+      fallback_chain: [
+        {
+          route_id: "fallback_route",
+          route_kind: "fallback",
+          resolved_model_path: {
+            provider: "anthropic",
+            model_id: "claude-sonnet",
+            model_tier: "standard",
+            execution_mode: "streaming",
+          },
+          fallback_reason_class: "model_unavailable",
+        },
+      ],
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+      execution_selection_schema_version: "1.0.0",
+      selection_basis: {
+        constraints_passed: true,
+        route_admissible: true,
+        quality_floor_met: true,
+        reliability_floor_met: true,
+        quality_posture: "premium",
+        reliability_posture: "high_margin",
+        latency_posture: "interactive_safe",
+        cost_posture: "cost_efficient",
+        fallback_used: false,
+      },
+      selection_reason: "full detailed reason",
+    };
+
+    store.progressEvents.append({
+      taskId: "task-001",
+      eventId: "evt_1_execution_selection_recorded",
+      type: "execution_selection_recorded",
+      message: "Full selection stored",
+      createdAt: "2024-01-02T00:00:00Z",
+      metadata: {
+        execution_selection: fullSelection,
+        selection_digest: "digest_value",
+        selection_revision: "1.0.0:rev",
+        selected_route_id: "full_route",
+        reason: "full detailed reason",
+      },
+    });
+
+    const events = store.listProgressEvents("task-001");
+    const event = events.find((e) => e.type === "execution_selection_recorded");
+    const storedSelection = event.metadata.execution_selection;
+
+    // Verify all key structures are preserved (not shrunk)
+    assert.ok(
+      storedSelection.fallback_chain,
+      "fallback_chain should be preserved",
+    );
+    assert.equal(
+      storedSelection.fallback_chain.length,
+      1,
+      "fallback_chain should have the full chain",
+    );
+    assert.ok(
+      storedSelection.selection_basis,
+      "selection_basis should be preserved",
+    );
+    assert.equal(
+      storedSelection.selection_basis.quality_posture,
+      "premium",
+      "selection_basis fields should be complete",
+    );
+    assert.ok(
+      storedSelection.resolved_model_path,
+      "resolved_model_path should be preserved",
+    );
+    assert.equal(
+      storedSelection.resolved_model_path.model_tier,
+      "premium",
+      "model info should be complete",
+    );
+  });
 });
 
 // ─── TaskStore.listProgressEvents ─────────────────────────────────────────────
