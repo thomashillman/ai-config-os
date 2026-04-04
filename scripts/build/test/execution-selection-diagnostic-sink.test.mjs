@@ -2,8 +2,9 @@
  * Tests for ExecutionSelectionDiagnosticSink
  *
  * Validates:
- * - Recording selection decisions to JSONL files
- * - Recording evaluation outcomes
+ * - Recording selection decisions with bounded diagnostic contract
+ * - Bounded contract enforcement (no full execution_selection storage)
+ * - Path safety and validation
  * - Retrieving selection history for a task
  * - Retrieving specific selection diagnostics
  * - JSONL append-only semantics
@@ -44,13 +45,14 @@ function createMockExecutionSelection() {
       model_id: "claude-opus-4",
       model_tier: "premium",
       execution_mode: "native",
+      cost_basis: "cost_heavy",
+      reliability_margin: "high_margin",
+      latency_risk: "interactive_safe",
     },
     fallback_chain: [
       {
         route_id: "route_fallback_api",
         route_kind: "api_fallback",
-        priority: 1,
-        policy: "standard",
         resolved_model_path: {
           provider: "anthropic",
           model_id: "claude-sonnet-3",
@@ -77,7 +79,25 @@ function createMockExecutionSelection() {
       cost_posture: "cost_balanced",
       fallback_used: false,
     },
-    selection_reason: "cheapest_valid_pair_with_margin",
+  };
+}
+
+function createMockRouteCandidate() {
+  return {
+    route_id: "route_claude_native",
+    route_kind: "native_claude",
+  };
+}
+
+function createMockModelCandidate() {
+  return {
+    provider: "anthropic",
+    model_id: "claude-opus-4",
+    model_tier: "premium",
+    execution_mode: "native",
+    cost_basis: "cost_heavy",
+    reliability_margin: "high_margin",
+    latency_risk: "interactive_safe",
   };
 }
 
@@ -98,25 +118,34 @@ test("ExecutionSelectionDiagnosticSink: recordSelection writes JSONL entry", () 
 
   sink.recordSelection(selection, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp,
-    reason: "initial_selection",
+    routeCandidates: [createMockRouteCandidate()],
+    modelCandidates: [createMockModelCandidate()],
   });
 
-  // Verify file was created
+  // Verify file was created and contains bounded contract
   const history = sink.retrieveSelectionHistory(taskId);
   assert.ok(history.length > 0);
-  assert.equal(history[0].task_id, taskId);
-  assert.equal(
-    history[0].execution_selection.selected_route.route_id,
-    "route_claude_native",
-  );
-  assert.equal(history[0].recorded_at, timestamp);
+  const entry = history[0];
+
+  assert.equal(entry.task_id, taskId);
+  assert.equal(entry.capture_reason, "development");
+  assert.ok(entry.selection_revision);
+  assert.equal(entry.recorded_at, timestamp);
+
+  // Verify bounded contract - no full execution_selection
+  assert.equal(entry.execution_selection, undefined);
+
+  // Verify bounded fields exist
+  assert.ok(Array.isArray(entry.route_candidate_summaries));
+  assert.ok(Array.isArray(entry.model_candidate_summaries));
+  assert.ok(entry.selected_pair_summary);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionDiagnosticSink: recordSelection includes evaluation context", () => {
+test("ExecutionSelectionDiagnosticSink: recordSelection includes bounded diagnostic fields", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const selection = createMockExecutionSelection();
@@ -124,55 +153,65 @@ test("ExecutionSelectionDiagnosticSink: recordSelection includes evaluation cont
 
   sink.recordSelection(selection, {
     taskId,
-    taskType: "research",
+    captureReason: "replay_validation",
     timestamp: new Date().toISOString(),
-    reason: "policy_driven_selection",
+    routeCandidates: [createMockRouteCandidate()],
+    modelCandidates: [createMockModelCandidate()],
   });
 
   const history = sink.retrieveSelectionHistory(taskId);
   const entry = history[0];
 
-  assert.ok(entry.selection_digest);
-  assert.ok(entry.selection_revision);
-  assert.deepEqual(entry.metadata.policy_intent, selection.selection_basis);
-  assert.ok(entry.metadata.route_compatibility_projection);
-  assert.ok(entry.metadata.fallback_policy);
+  // Verify selected_pair_summary has only required fields
+  assert.equal(entry.selected_pair_summary.route_id, "route_claude_native");
+  assert.equal(entry.selected_pair_summary.route_kind, "native_claude");
+  assert.equal(entry.selected_pair_summary.provider, "anthropic");
+  assert.equal(entry.selected_pair_summary.model_id, "claude-opus-4");
+  assert.equal(entry.selected_pair_summary.model_tier, "premium");
+  assert.equal(entry.selected_pair_summary.execution_mode, "native");
+
+  // Verify route candidate summaries
+  assert.equal(
+    entry.route_candidate_summaries[0].route_id,
+    "route_claude_native",
+  );
+  assert.equal(entry.route_candidate_summaries[0].route_kind, "native_claude");
+
+  // Verify model candidate summaries
+  assert.ok(entry.model_candidate_summaries[0].provider);
+  assert.ok(entry.model_candidate_summaries[0].model_id);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionDiagnosticSink: recordSelectionEvaluation appends to file", () => {
+test("ExecutionSelectionDiagnosticSink: capture_reason must be one of allowed values", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const selection = createMockExecutionSelection();
-  const taskId = "task-789";
+  const taskId = "task-reason-test";
 
-  // Record initial selection
-  sink.recordSelection(selection, {
-    taskId,
-    taskType: "implementation",
-    timestamp: new Date().toISOString(),
-    reason: "initial",
-  });
+  // Valid reasons
+  const validReasons = [
+    "development",
+    "replay_validation",
+    "targeted_troubleshooting",
+  ];
+  for (const reason of validReasons) {
+    assert.doesNotThrow(() => {
+      sink.recordSelection(selection, {
+        taskId: `${taskId}-${reason}`,
+        captureReason: reason,
+      });
+    });
+  }
 
-  // Record evaluation outcome
-  sink.recordSelectionEvaluation(selection, {
-    taskId,
-    success: true,
-    duration_ms: 245,
-    routes_evaluated: 3,
-    models_considered: 12,
-    routes_admitted: 2,
-    models_admitted: 8,
-    reason: "evaluation_successful",
-    timestamp: new Date().toISOString(),
-  });
-
-  // Retrieve and verify both entries exist
-  const history = sink.retrieveSelectionHistory(taskId);
-  assert.equal(history.length, 2);
-  assert.ok(!history[0].type || history[0].type === "selection");
-  assert.equal(history[1].type, "evaluation_result");
+  // Invalid reason
+  assert.throws(() => {
+    sink.recordSelection(selection, {
+      taskId: `${taskId}-invalid`,
+      captureReason: "invalid_reason",
+    });
+  }, /captureReason must be one of/);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
@@ -188,7 +227,7 @@ test("ExecutionSelectionDiagnosticSink: retrieveSelectionHistory returns empty f
   rmSync(tempDir, { recursive: true, force: true });
 });
 
-test("ExecutionSelectionDiagnosticSink: retrieveSelectionDiagnostics returns aggregated data", () => {
+test("ExecutionSelectionDiagnosticSink: retrieveSelectionDiagnostics returns bounded diagnostic entries", () => {
   const tempDir = createTempDir();
   const sink = new ExecutionSelectionDiagnosticSink(tempDir);
   const selection = createMockExecutionSelection();
@@ -196,19 +235,8 @@ test("ExecutionSelectionDiagnosticSink: retrieveSelectionDiagnostics returns agg
 
   sink.recordSelection(selection, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "test",
-  });
-
-  sink.recordSelectionEvaluation(selection, {
-    taskId,
-    success: true,
-    duration_ms: 150,
-    routes_evaluated: 5,
-    models_considered: 10,
-    routes_admitted: 3,
-    models_admitted: 7,
   });
 
   // Retrieve diagnostics
@@ -221,10 +249,8 @@ test("ExecutionSelectionDiagnosticSink: retrieveSelectionDiagnostics returns agg
 
   assert.equal(diagnostics.task_id, taskId);
   assert.equal(diagnostics.selection_revision, selectionRevision);
-  assert.equal(diagnostics.summary.total_entries, 2);
-  assert.ok(diagnostics.summary.selection_entry);
-  assert.equal(diagnostics.summary.evaluations.length, 1);
-  assert.equal(diagnostics.summary.evaluations[0].duration_ms, 150);
+  assert.ok(Array.isArray(diagnostics.entries));
+  assert.ok(diagnostics.entries.length > 0);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
@@ -245,36 +271,22 @@ test("ExecutionSelectionDiagnosticSink: handles multiple selections per task", (
 
   sink.recordSelection(selection1, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "first",
   });
 
   sink.recordSelection(selection2, {
     taskId,
-    taskType: "implementation",
+    captureReason: "replay_validation",
     timestamp: new Date().toISOString(),
-    reason: "second",
   });
 
   const history = sink.retrieveSelectionHistory(taskId);
 
   // Both selections should be recorded
   assert.ok(history.length >= 1);
-  assert.ok(
-    history.some(
-      (e) =>
-        e.execution_selection?.resolved_model_path?.model_id ===
-        "claude-opus-4",
-    ),
-  );
-  assert.ok(
-    history.some(
-      (e) =>
-        e.execution_selection?.resolved_model_path?.model_id ===
-        "claude-sonnet-3",
-    ),
-  );
+  // Verify no full execution_selection is stored
+  assert.ok(history.every((e) => e.execution_selection === undefined));
 
   rmSync(tempDir, { recursive: true, force: true });
 });
@@ -285,7 +297,10 @@ test("ExecutionSelectionDiagnosticSink: rejects invalid parameters", () => {
   const selection = createMockExecutionSelection();
 
   assert.throws(() => {
-    sink.recordSelection(null, { taskId: "task-1", reason: "test" });
+    sink.recordSelection(null, {
+      taskId: "task-1",
+      captureReason: "development",
+    });
   }, /executionSelection must be a non-null object/);
 
   assert.throws(() => {
@@ -293,16 +308,16 @@ test("ExecutionSelectionDiagnosticSink: rejects invalid parameters", () => {
   }, /context must be a non-null object/);
 
   assert.throws(() => {
-    sink.recordSelection(selection, { taskType: "impl" });
-  }, /context.taskId is required/);
+    sink.recordSelection(selection, { captureReason: "development" });
+  }, /taskId must be a non-empty string/);
 
   assert.throws(() => {
     sink.retrieveSelectionHistory("");
-  }, /taskId is required/);
+  }, /taskId must be a non-empty string/);
 
   assert.throws(() => {
     sink.retrieveSelectionDiagnostics("task-1", "");
-  }, /selectionRevision is required/);
+  }, /selectionRevision must be a non-empty string/);
 
   rmSync(tempDir, { recursive: true, force: true });
 });
@@ -316,9 +331,8 @@ test("ExecutionSelectionDiagnosticSink: handles malformed JSONL lines gracefully
   const selection = createMockExecutionSelection();
   sink.recordSelection(selection, {
     taskId,
-    taskType: "implementation",
+    captureReason: "development",
     timestamp: new Date().toISOString(),
-    reason: "test",
   });
 
   // Manually append malformed line
@@ -328,12 +342,114 @@ test("ExecutionSelectionDiagnosticSink: handles malformed JSONL lines gracefully
     `${sink.retrieveSelectionHistory(taskId)[0].selection_revision}.jsonl`,
   );
   appendFileSync(filePath, "not valid json\n");
-  appendFileSync(filePath, '{"partial": "entry without all fields"}\n');
+  appendFileSync(filePath, '{"partial": "entry"}\n');
 
-  // Should skip malformed lines and return valid entry
+  // Should skip malformed lines and return valid entries
   const history = sink.retrieveSelectionHistory(taskId);
   assert.ok(history.length > 0);
-  assert.ok(history[0].execution_selection);
+  // Verify bounded contract - no full execution_selection
+  assert.equal(history[0].execution_selection, undefined);
+  assert.ok(history[0].selected_pair_summary);
+
+  rmSync(tempDir, { recursive: true, force: true });
+});
+
+test("ExecutionSelectionDiagnosticSink: rejects path traversal in taskId", () => {
+  const tempDir = createTempDir();
+  const sink = new ExecutionSelectionDiagnosticSink(tempDir);
+  const selection = createMockExecutionSelection();
+
+  const evilTaskIds = [
+    "../../etc/passwd",
+    "task/../../../etc/passwd",
+    "task/..\\..\\..\\windows\\system32",
+  ];
+
+  for (const evilTaskId of evilTaskIds) {
+    assert.throws(() => {
+      sink.recordSelection(selection, {
+        taskId: evilTaskId,
+        captureReason: "development",
+      });
+    }, /path traversal detected/);
+  }
+
+  rmSync(tempDir, { recursive: true, force: true });
+});
+
+test("ExecutionSelectionDiagnosticSink: rejects path traversal in selection_revision", () => {
+  const tempDir = createTempDir();
+  const sink = new ExecutionSelectionDiagnosticSink(tempDir);
+  const selection = createMockExecutionSelection();
+  const taskId = "safe-task-id";
+
+  const evilRevisions = ["../../etc/passwd", "rev/../../../secret"];
+
+  for (const evilRev of evilRevisions) {
+    assert.throws(() => {
+      sink.recordSelection(selection, {
+        taskId,
+        selectionRevision: evilRev,
+        captureReason: "development",
+      });
+    }, /path traversal detected/);
+  }
+
+  rmSync(tempDir, { recursive: true, force: true });
+});
+
+test("ExecutionSelectionDiagnosticSink: stored records must use bounded diagnostic contract", () => {
+  const tempDir = createTempDir();
+  const sink = new ExecutionSelectionDiagnosticSink(tempDir);
+  const selection = createMockExecutionSelection();
+  const taskId = "task-contract-test";
+
+  sink.recordSelection(selection, {
+    taskId,
+    captureReason: "development",
+  });
+
+  const history = sink.retrieveSelectionHistory(taskId);
+  const entry = history[0];
+
+  // Prohibited fields must not exist
+  assert.equal(
+    entry.execution_selection,
+    undefined,
+    "full execution_selection must not be stored",
+  );
+  assert.equal(
+    entry.selection_reason,
+    undefined,
+    "prose selection_reason must not be stored",
+  );
+  assert.equal(
+    entry.selection_basis,
+    undefined,
+    "selection_basis must not be stored",
+  );
+  assert.equal(entry.evaluation, undefined, "evaluation must not be stored");
+  assert.equal(entry.metadata, undefined, "metadata must not be stored");
+  assert.equal(
+    entry.fallback_chain,
+    undefined,
+    "full fallback_chain must not be stored",
+  );
+
+  // Required bounded fields must exist
+  assert.ok(entry.task_id, "task_id is required");
+  assert.ok(entry.selection_revision, "selection_revision is required");
+  assert.ok(entry.capture_reason, "capture_reason is required");
+  assert.ok(entry.recorded_at, "recorded_at is required");
+  assert.ok(
+    entry.route_candidate_summaries !== undefined,
+    "route_candidate_summaries is required",
+  );
+  assert.ok(
+    entry.model_candidate_summaries !== undefined,
+    "model_candidate_summaries is required",
+  );
+  assert.ok(entry.selected_pair_summary, "selected_pair_summary is required");
 
   rmSync(tempDir, { recursive: true, force: true });
 });

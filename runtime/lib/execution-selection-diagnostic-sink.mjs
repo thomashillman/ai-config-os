@@ -2,15 +2,15 @@
  * Execution Selection Diagnostic Sink
  *
  * Segregated diagnostic recording for ExecutionSelection observations.
- * Provides append-only JSONL recording and retrieval for selection decisions,
- * evaluation outcomes, and aggregated diagnostics.
+ * Provides append-only JSONL recording with bounded diagnostic contract.
+ * Enforces path safety and rejects full ExecutionSelection storage.
  *
  * Storage layout:
  * - ~/.ai-config-os/diagnostics/selections/{taskId}/{selectionRevision}.json
  * - Uses JSONL format for append-only immutability
  */
 
-import { join } from "node:path";
+import { join, resolve, normalize } from "node:path";
 import { homedir } from "node:os";
 import {
   mkdirSync,
@@ -25,36 +25,73 @@ import {
 } from "./execution-selection-identity.mjs";
 
 /**
- * DiagnosticEntry structure for serialization
+ * Validate taskId for path safety.
+ * Rejects path traversal attempts and invalid characters.
+ * @private
+ */
+function validateTaskId(taskId) {
+  if (typeof taskId !== "string" || taskId.trim().length === 0) {
+    throw new Error("taskId must be a non-empty string");
+  }
+  if (taskId.includes("..") || taskId.includes("/") || taskId.includes("\\")) {
+    throw new Error(`invalid task_id: path traversal detected in "${taskId}"`);
+  }
+  if (!/^[a-zA-Z0-9_-]+$/.test(taskId)) {
+    throw new Error(`invalid task_id: "${taskId}" contains invalid characters`);
+  }
+}
+
+/**
+ * Validate selectionRevision for path safety.
+ * Rejects path traversal attempts.
+ * @private
+ */
+function validateSelectionRevision(selectionRevision) {
+  if (typeof selectionRevision !== "string" || selectionRevision.length === 0) {
+    throw new Error("selectionRevision must be a non-empty string");
+  }
+  if (
+    selectionRevision.includes("..") ||
+    selectionRevision.includes("/") ||
+    selectionRevision.includes("\\")
+  ) {
+    throw new Error(
+      `path traversal detected in selectionRevision: "${selectionRevision}"`,
+    );
+  }
+}
+
+/**
+ * Enforce path boundary to prevent directory traversal.
+ * @private
+ */
+function enforcePathBoundary(filePath, baseDir) {
+  const normalizedBase = normalize(resolve(baseDir));
+  const normalizedFile = normalize(resolve(filePath));
+  if (!normalizedFile.startsWith(normalizedBase)) {
+    throw new Error(
+      `path boundary violation: ${normalizedFile} is outside ${normalizedBase}`,
+    );
+  }
+}
+
+/**
+ * DiagnosticEntry structure for bounded diagnostic contract
  * @typedef {Object} DiagnosticEntry
- * @property {string} selection_digest - Canonical digest of ExecutionSelection
- * @property {string} selection_revision - Revision identifier (computed)
  * @property {string} task_id - Task identifier
+ * @property {string} selection_revision - Revision identifier (computed)
+ * @property {string} capture_reason - One of: development, replay_validation, targeted_troubleshooting
  * @property {string} recorded_at - ISO8601 timestamp
- * @property {Object} execution_selection - The full ExecutionSelection object
- * @property {Object} evaluation - Evaluation metrics and outcomes
- * @property {number} evaluation.routes_evaluated - Number of routes considered
- * @property {number} evaluation.models_considered - Number of models considered
- * @property {number} evaluation.routes_admitted - Number of routes passing constraints
- * @property {number} evaluation.models_admitted - Number of models passing constraints
- * @property {number} evaluation.duration_ms - Time spent on evaluation
- * @property {string} evaluation.reason - Narrative reason for selection
- * @property {Object} metadata - Additional context and policy state
- * @property {Object} metadata.policy_intent - Policy constraints that drove selection
- * @property {Object} metadata.route_compatibility_projection - Route capability matrix
- * @property {string} metadata.fallback_policy - Fallback policy applied
+ * @property {Array} route_candidate_summaries - Minimal route summaries
+ * @property {Array} model_candidate_summaries - Minimal model summaries
+ * @property {Object} selected_pair_summary - Summary of selected pair only
  */
 
 /**
  * ExecutionSelectionDiagnosticSink
- * Records and retrieves ExecutionSelection decisions and evaluation outcomes.
+ * Records and retrieves ExecutionSelection diagnostics with bounded contract.
  */
 export class ExecutionSelectionDiagnosticSink {
-  /**
-   * Create a diagnostic sink for ExecutionSelection observations
-   * @param {string} [baseDir] - Base directory for diagnostic storage
-   *                            Defaults to ~/.ai-config-os/diagnostics/selections/
-   */
   constructor(baseDir = null) {
     if (baseDir === null) {
       const home = homedir();
@@ -68,15 +105,17 @@ export class ExecutionSelectionDiagnosticSink {
   }
 
   /**
-   * Record a selection decision
+   * Record a selection decision with bounded diagnostic contract.
    *
    * @param {Object} executionSelection - The ExecutionSelection object
    * @param {Object} context - Selection context
    * @param {string} context.taskId - Task identifier
-   * @param {string} context.taskType - Type of task (e.g., "research", "implementation")
-   * @param {string} context.timestamp - ISO8601 timestamp
-   * @param {string} context.reason - Why this selection was made
-   * @throws {Error} If write fails or parameters are invalid
+   * @param {string} context.selectionRevision - Selection revision identifier
+   * @param {string} context.captureReason - One of: development, replay_validation, targeted_troubleshooting
+   * @param {string} [context.timestamp] - ISO8601 timestamp (optional)
+   * @param {Array} [context.routeCandidates] - Route candidates evaluated (optional)
+   * @param {Array} [context.modelCandidates] - Model candidates evaluated (optional)
+   * @throws {Error} If parameters are invalid or path safety checks fail
    */
   recordSelection(executionSelection, context) {
     if (!executionSelection || typeof executionSelection !== "object") {
@@ -85,98 +124,73 @@ export class ExecutionSelectionDiagnosticSink {
     if (!context || typeof context !== "object") {
       throw new Error("context must be a non-null object");
     }
-    if (
-      typeof context.taskId !== "string" ||
-      context.taskId.trim().length === 0
-    ) {
-      throw new Error("context.taskId is required");
+
+    // Validate task_id for path safety
+    validateTaskId(context.taskId);
+
+    // Validate selection_revision for path safety
+    const selectionRevision =
+      context.selectionRevision || computeSelectionRevision(executionSelection);
+    validateSelectionRevision(selectionRevision);
+
+    // Validate capture_reason
+    const allowedReasons = [
+      "development",
+      "replay_validation",
+      "targeted_troubleshooting",
+    ];
+    if (!allowedReasons.includes(context.captureReason)) {
+      throw new Error(
+        `captureReason must be one of: ${allowedReasons.join(", ")}`,
+      );
     }
 
-    const selectionDigest = computeSelectionDigest(executionSelection);
-    const selectionRevision = computeSelectionRevision(executionSelection);
     const timestamp = context.timestamp || new Date().toISOString();
 
+    // Build bounded diagnostic entry
+    const routeCandidateSummaries = (context.routeCandidates || []).map(
+      (route) => ({
+        route_id: route.route_id,
+        route_kind: route.route_kind,
+      }),
+    );
+
+    const modelCandidateSummaries = (context.modelCandidates || []).map(
+      (model) => ({
+        provider: model.provider,
+        model_id: model.model_id,
+        model_tier: model.model_tier,
+        execution_mode: model.execution_mode,
+        cost_basis: model.cost_basis,
+        reliability_margin: model.reliability_margin,
+        latency_risk: model.latency_risk,
+      }),
+    );
+
     const entry = {
-      selection_digest: selectionDigest,
-      selection_revision: selectionRevision,
       task_id: context.taskId,
+      selection_revision: selectionRevision,
+      capture_reason: context.captureReason,
       recorded_at: timestamp,
-      execution_selection: executionSelection,
-      evaluation: {
-        routes_evaluated: 0,
-        models_considered: 0,
-        routes_admitted: 0,
-        models_admitted: 0,
-        duration_ms: 0,
-        reason: context.reason || "selection_recorded",
-      },
-      metadata: {
-        policy_intent: executionSelection.selection_basis || {},
-        route_compatibility_projection:
-          executionSelection.selected_route?.effective_capabilities || {},
-        fallback_policy: executionSelection.fallback_chain
-          ? executionSelection.fallback_chain[0]?.policy || "standard"
-          : "standard",
+      route_candidate_summaries: routeCandidateSummaries,
+      model_candidate_summaries: modelCandidateSummaries,
+      selected_pair_summary: {
+        route_id: executionSelection.selected_route.route_id,
+        route_kind: executionSelection.selected_route.route_kind,
+        provider: executionSelection.resolved_model_path.provider,
+        model_id: executionSelection.resolved_model_path.model_id,
+        model_tier: executionSelection.resolved_model_path.model_tier,
+        execution_mode: executionSelection.resolved_model_path.execution_mode,
       },
     };
 
-    // Write to JSONL file
+    // Write to JSONL file with path boundary check
     const taskDir = join(this.baseDir, context.taskId);
     mkdirSync(taskDir, { recursive: true });
 
     const filePath = join(taskDir, `${selectionRevision}.jsonl`);
-    appendFileSync(filePath, JSON.stringify(entry) + "\n", "utf8");
-  }
+    enforcePathBoundary(filePath, this.baseDir);
 
-  /**
-   * Record evaluation outcome for a selection
-   *
-   * @param {Object} executionSelection - The ExecutionSelection object
-   * @param {Object} evaluationResult - Evaluation metrics
-   * @param {boolean} evaluationResult.success - Whether selection succeeded
-   * @param {number} evaluationResult.duration_ms - Time spent evaluating
-   * @param {number} evaluationResult.routes_evaluated - Routes considered
-   * @param {number} evaluationResult.models_considered - Models considered
-   * @param {number} [evaluationResult.routes_admitted] - Routes passing constraints
-   * @param {number} [evaluationResult.models_admitted] - Models passing constraints
-   * @param {string} evaluationResult.taskId - Task identifier
-   * @throws {Error} If write fails or parameters are invalid
-   */
-  recordSelectionEvaluation(executionSelection, evaluationResult) {
-    if (!executionSelection || typeof executionSelection !== "object") {
-      throw new Error("executionSelection must be a non-null object");
-    }
-    if (!evaluationResult || typeof evaluationResult !== "object") {
-      throw new Error("evaluationResult must be a non-null object");
-    }
-    if (typeof evaluationResult.taskId !== "string") {
-      throw new Error("evaluationResult.taskId is required");
-    }
-
-    const selectionRevision = computeSelectionRevision(executionSelection);
-    const timestamp = evaluationResult.timestamp || new Date().toISOString();
-
-    const entry = {
-      selection_revision: selectionRevision,
-      task_id: evaluationResult.taskId,
-      recorded_at: timestamp,
-      type: "evaluation_result",
-      evaluation: {
-        success: evaluationResult.success,
-        duration_ms: evaluationResult.duration_ms,
-        routes_evaluated: evaluationResult.routes_evaluated,
-        models_considered: evaluationResult.models_considered,
-        routes_admitted: evaluationResult.routes_admitted || 0,
-        models_admitted: evaluationResult.models_admitted || 0,
-        reason: evaluationResult.reason || "evaluation_recorded",
-      },
-    };
-
-    // Append to existing selection file
-    const taskDir = join(this.baseDir, evaluationResult.taskId);
-    mkdirSync(taskDir, { recursive: true });
-
-    const filePath = join(taskDir, `${selectionRevision}.jsonl`);
     appendFileSync(filePath, JSON.stringify(entry) + "\n", "utf8");
   }
 
@@ -184,15 +198,15 @@ export class ExecutionSelectionDiagnosticSink {
    * Retrieve all selection history for a task
    *
    * @param {string} taskId - Task identifier
-   * @returns {Array<DiagnosticEntry>} Array of diagnostic entries
-   * @throws {Error} If task directory doesn't exist
+   * @returns {Array} Array of bounded diagnostic entries
+   * @throws {Error} If taskId is invalid
    */
   retrieveSelectionHistory(taskId) {
-    if (typeof taskId !== "string" || taskId.trim().length === 0) {
-      throw new Error("taskId is required");
-    }
+    validateTaskId(taskId);
 
     const taskDir = join(this.baseDir, taskId);
+    enforcePathBoundary(taskDir, this.baseDir);
+
     const entries = [];
 
     // Return empty array if task directory doesn't exist
@@ -207,6 +221,8 @@ export class ExecutionSelectionDiagnosticSink {
         if (!file.endsWith(".jsonl")) continue;
 
         const filePath = join(taskDir, file);
+        enforcePathBoundary(filePath, this.baseDir);
+
         try {
           const content = readFileSync(filePath, "utf8");
           const lines = content.split("\n").filter((line) => line.trim());
@@ -236,29 +252,19 @@ export class ExecutionSelectionDiagnosticSink {
    * @param {string} taskId - Task identifier
    * @param {string} selectionRevision - Selection revision identifier
    * @returns {Object} Aggregated diagnostic data for the selection
-   * @throws {Error} If parameters are invalid
+   * @throws {Error} If parameters are invalid or path safety checks fail
    */
   retrieveSelectionDiagnostics(taskId, selectionRevision) {
-    if (typeof taskId !== "string" || taskId.trim().length === 0) {
-      throw new Error("taskId is required");
-    }
-    if (
-      typeof selectionRevision !== "string" ||
-      selectionRevision.trim().length === 0
-    ) {
-      throw new Error("selectionRevision is required");
-    }
+    validateTaskId(taskId);
+    validateSelectionRevision(selectionRevision);
 
     const filePath = join(this.baseDir, taskId, `${selectionRevision}.jsonl`);
+    enforcePathBoundary(filePath, this.baseDir);
+
     const diagnostics = {
       selection_revision: selectionRevision,
       task_id: taskId,
       entries: [],
-      summary: {
-        total_entries: 0,
-        selection_entry: null,
-        evaluations: [],
-      },
     };
 
     // Return empty diagnostics if file doesn't exist
@@ -274,14 +280,6 @@ export class ExecutionSelectionDiagnosticSink {
         try {
           const parsed = JSON.parse(line);
           diagnostics.entries.push(parsed);
-          diagnostics.summary.total_entries++;
-
-          // Categorize by type
-          if (parsed.type === "evaluation_result") {
-            diagnostics.summary.evaluations.push(parsed.evaluation);
-          } else if (!parsed.type || parsed.type === "selection") {
-            diagnostics.summary.selection_entry = parsed;
-          }
         } catch {
           // Skip malformed lines
         }
