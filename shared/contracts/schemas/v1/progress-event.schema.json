@@ -29,6 +29,7 @@
       "enum": [
         "state_change",
         "route_selected",
+        "execution_selection_recorded",
         "finding_recorded",
         "finding_transitioned",
         "continuation_created",

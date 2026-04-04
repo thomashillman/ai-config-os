@@ -59,7 +59,29 @@
         "required": ["route", "selected_at"],
         "properties": {
           "route": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
-          "selected_at": { "type": "string", "format": "date-time" }
+          "selected_at": { "type": "string", "format": "date-time" },
+          "selection_reference": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "digest": { "type": "string", "minLength": 1 },
+              "revision": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "execution_selections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["digest", "revision", "selected_at", "route_id"],
+        "properties": {
+          "digest": { "type": "string", "minLength": 1 },
+          "revision": { "type": "string", "minLength": 1 },
+          "selected_at": { "type": "string", "format": "date-time" },
+          "route_id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
         }
       }
     },

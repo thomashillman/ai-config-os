@@ -72,6 +72,7 @@ export function createPortableTask({
     unresolved_questions: [],
     approvals: [],
     route_history: [{ route: routeId, selected_at: now }],
+    execution_selections: [],
     next_action: nextAction,
     version: 1,
     updated_at: now,

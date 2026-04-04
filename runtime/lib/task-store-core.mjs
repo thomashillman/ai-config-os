@@ -36,6 +36,7 @@ export function createTaskStoreClass({
   clone = defaultClone,
   maxSnapshots = null,
   setInitialRouteOnCreate = false,
+  integrateExecutionSelectionWithTaskFn = null,
 } = {}) {
   if (typeof transitionPortableTaskState !== "function") {
     throw new Error("transitionPortableTaskState must be provided");
@@ -292,7 +293,7 @@ export function createTaskStoreClass({
       return clone(next);
     }
 
-    selectRoute(taskId, { routeId, expectedVersion, selectedAt }) {
+    selectRoute(taskId, { routeId, expectedVersion, selectedAt, executionSelection = null }) {
       const current = this.tasks.get(taskId);
       if (!current) {
         throw new TaskNotFoundError(taskId);
@@ -323,6 +324,30 @@ export function createTaskStoreClass({
           route_id: routeId,
         },
       });
+
+      // If ExecutionSelection is provided and integration function is available,
+      // integrate it into task state
+      if (
+        executionSelection &&
+        typeof integrateExecutionSelectionWithTaskFn === "function"
+      ) {
+        try {
+          integrateExecutionSelectionWithTaskFn({
+            taskStore: this,
+            taskId,
+            expectedVersion: next.version,
+            executionSelection,
+            recordedAt: selectedAt,
+          });
+        } catch (error) {
+          // Log integration error but don't fail route selection
+          // The route selection is committed even if selection integration fails
+          console.warn(
+            `Failed to integrate ExecutionSelection for task ${taskId}:`,
+            error,
+          );
+        }
+      }
 
       return clone(next);
     }

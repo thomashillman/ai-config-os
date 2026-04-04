@@ -107,6 +107,7 @@ function makeTask(overrides = {}) {
     created_at: "2024-01-01T00:00:00Z",
     updated_at: "2024-01-01T00:00:00Z",
     route_history: [],
+    execution_selections: [],
     findings: [],
     progress: { total_steps: 4, completed_steps: 0 },
     ...overrides,
@@ -402,6 +403,140 @@ describe("TaskStore.selectRoute", () => {
         }),
       TaskNotFoundError,
     );
+  });
+
+  test("integrates ExecutionSelection when provided and integration function exists", () => {
+    // Track integration function calls
+    let integrationCalled = false;
+    const mockIntegrationFn = ({
+      taskStore,
+      taskId,
+      expectedVersion,
+      executionSelection,
+      recordedAt,
+    }) => {
+      integrationCalled = true;
+      assert.equal(taskId, "task-001");
+      assert.ok(executionSelection);
+      assert.equal(executionSelection.selected_route.route_id, "local_repo");
+    };
+
+    const store = makeTaskStore({
+      integrateExecutionSelectionWithTaskFn: mockIntegrationFn,
+    });
+    store.create(makeTask());
+
+    const executionSelection = {
+      selected_route: {
+        route_id: "local_repo",
+        route_kind: "local",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code"],
+        },
+      },
+      resolved_model_path: {
+        provider: "anthropic",
+        model_id: "claude-opus",
+        model_tier: "premium",
+        execution_mode: "streaming",
+      },
+      fallback_chain: [],
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+      execution_selection_schema_version: "1.0.0",
+      selection_basis: {
+        constraints_passed: true,
+        route_admissible: true,
+        quality_floor_met: true,
+        reliability_floor_met: true,
+        quality_posture: "standard",
+        reliability_posture: "above_floor",
+        latency_posture: "interactive_safe",
+        cost_posture: "cost_efficient",
+        fallback_used: false,
+      },
+      selection_reason:
+        "route: local_repo; model: anthropic/claude-opus; cost: cost_efficient; reliability: above_floor",
+    };
+
+    store.selectRoute("task-001", {
+      routeId: "local_repo",
+      expectedVersion: 1,
+      selectedAt: "2024-03-01T00:00:00Z",
+      executionSelection,
+    });
+
+    assert.ok(integrationCalled, "integration function should have been called");
+  });
+
+  test("does not fail selectRoute if integration function throws", () => {
+    const mockIntegrationFn = () => {
+      throw new Error("Integration failed");
+    };
+
+    const store = makeTaskStore({
+      integrateExecutionSelectionWithTaskFn: mockIntegrationFn,
+    });
+    store.create(makeTask());
+
+    const executionSelection = {
+      selected_route: {
+        route_id: "local_repo",
+        route_kind: "local",
+        effective_capabilities: {
+          artifact_completeness: "repo_complete",
+          history_availability: "repo_history",
+          locality_confidence: "high",
+          verification_ceiling: "high",
+          allowed_task_classes: ["analyze_code"],
+        },
+      },
+      resolved_model_path: {
+        provider: "anthropic",
+        model_id: "claude-opus",
+        model_tier: "premium",
+        execution_mode: "streaming",
+      },
+      fallback_chain: [],
+      policy_version: {
+        route_contract_version: "1.0.0",
+        model_policy_version: "1.0.0",
+        resolver_version: "1.0.0",
+      },
+      execution_selection_schema_version: "1.0.0",
+      selection_basis: {
+        constraints_passed: true,
+        route_admissible: true,
+        quality_floor_met: true,
+        reliability_floor_met: true,
+        quality_posture: "standard",
+        reliability_posture: "above_floor",
+        latency_posture: "interactive_safe",
+        cost_posture: "cost_efficient",
+        fallback_used: false,
+      },
+      selection_reason:
+        "route: local_repo; model: anthropic/claude-opus; cost: cost_efficient; reliability: above_floor",
+    };
+
+    // selectRoute should succeed even if integration throws
+    const result = store.selectRoute("task-001", {
+      routeId: "local_repo",
+      expectedVersion: 1,
+      selectedAt: "2024-03-01T00:00:00Z",
+      executionSelection,
+    });
+
+    assert.equal(result.current_route, "local_repo");
+    const events = store.listProgressEvents("task-001");
+    assert.ok(events.some((e) => e.type === "route_selected"));
   });
 });
 
