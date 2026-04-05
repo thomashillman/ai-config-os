@@ -26,6 +26,7 @@ import type {
   ApplyCommandResponse,
   ActionCommit,
 } from "./task-command";
+import { applyTaskCommandMutation } from "./task-command-mutations";
 
 interface TaskObjectMeta {
   created_at: string;
@@ -38,6 +39,11 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function createActionId(command: TaskCommand, taskVersion: number): string {
+  const safeKey = command.idempotency_key.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `action_${safeKey}_v${taskVersion + 1}`;
 }
 
 export class TaskObject implements DurableObject {
@@ -60,6 +66,9 @@ export class TaskObject implements DurableObject {
       }
       if (request.method === "GET" && path === "/get-state") {
         return this.handleGetState();
+      }
+      if (request.method === "GET" && path === "/commits") {
+        return this.handleGetCommits();
       }
       if (request.method === "POST" && path === "/append-event") {
         return this.handleAppendEvent(request);
@@ -149,6 +158,12 @@ export class TaskObject implements DurableObject {
           );
         }
 
+        const existingCommits =
+          (await this.state.storage.get<ActionCommit[]>("commits")) ?? [];
+        const commit = existingCommits.find(
+          (candidate) => candidate.action_id === existingEntry.action_id,
+        );
+
         // Return original result (replay)
         return jsonResponse({
           ok: true,
@@ -156,7 +171,8 @@ export class TaskObject implements DurableObject {
           task_id: command.task_id,
           resulting_task_version: existingEntry.task_version,
           replayed: true,
-          projection_status: "complete",
+          projection_status: "pending",
+          task_state_after: commit?.task_state_after ?? null,
         });
       }
 
@@ -176,149 +192,32 @@ export class TaskObject implements DurableObject {
         }
       }
 
-      // Apply command semantics based on command type
-      const updatedTask = { ...currentTask };
-      let applyError: { code: string; message: string } | null = null;
-
-      switch (command.command_type) {
-        case "task.select_route": {
-          const payload = command.payload as { route_id?: string };
-          if (!payload.route_id) {
-            applyError = {
-              code: "invalid_command",
-              message: "route_id required for select_route",
-            };
-          } else {
-            // Validate route is available for task type
-            const taskType = String(updatedTask.task_type ?? "");
-            const validRoutes: Record<string, string[]> = {
-              review_repository: [
-                "local_repo",
-                "github_pr",
-                "uploaded_bundle",
-                "pasted_diff",
-              ],
-            };
-            const availableRoutes = validRoutes[taskType] ?? [];
-
-            if (!availableRoutes.includes(payload.route_id)) {
-              applyError = {
-                code: "invalid_command",
-                message: `Route '${payload.route_id}' not available for task type '${taskType}'`,
-              };
-            } else {
-              updatedTask.current_route = payload.route_id;
-            }
-          }
-          break;
-        }
-
-        case "task.transition_state": {
-          const payload = command.payload as {
-            next_state?: string;
-            next_action?: string;
-          };
-          if (!payload.next_state) {
-            applyError = {
-              code: "invalid_command",
-              message: "next_state required for transition_state",
-            };
-          } else {
-            // Validate state transition is allowed
-            const currentState = String(updatedTask.state ?? "created");
-            const validTransitions: Record<string, string[]> = {
-              created: ["ready", "in_progress"],
-              ready: ["in_progress"],
-              in_progress: ["completed", "blocked"],
-              blocked: ["in_progress"],
-              completed: [],
-            };
-
-            const allowedStates = validTransitions[currentState] ?? [];
-            if (!allowedStates.includes(payload.next_state)) {
-              applyError = {
-                code: "invalid_command",
-                message: `Invalid state transition from '${currentState}' to '${payload.next_state}'`,
-              };
-            } else {
-              updatedTask.state = payload.next_state;
-              if (payload.next_action) {
-                updatedTask.current_action = payload.next_action;
-              }
-            }
-          }
-          break;
-        }
-
-        case "task.append_finding": {
-          const payload = command.payload as {
-            finding?: Record<string, unknown>;
-          };
-          if (!payload.finding) {
-            applyError = {
-              code: "invalid_command",
-              message: "finding required for append_finding",
-            };
-          } else {
-            const finding = payload.finding as Record<string, unknown>;
-            // Validate finding has required fields
-            if (!finding.findingId || !finding.summary) {
-              applyError = {
-                code: "invalid_command",
-                message: "Finding missing required fields (findingId, summary)",
-              };
-            } else {
-              const findings = Array.isArray(updatedTask.findings)
-                ? (updatedTask.findings as unknown[])
-                : [];
-              findings.push(finding);
-              updatedTask.findings = findings;
-            }
-          }
-          break;
-        }
-
-        default:
-          applyError = {
-            code: "invalid_command",
-            message: `Unknown command type: ${command.command_type}`,
-          };
-      }
-
-      // Return error if command execution failed
-      if (applyError) {
+      let updatedTask: Record<string, unknown>;
+      let resultSummary = "Mutation applied";
+      try {
+        const applied = applyTaskCommandMutation({
+          command,
+          task: (currentTask ?? {}) as Record<string, unknown>,
+          taskVersion,
+        });
+        updatedTask = applied.task;
+        resultSummary = applied.summary;
+      } catch (mutationError) {
         return jsonResponse(
           {
-            error: applyError.code,
-            message: applyError.message,
+            error: "invalid_command",
+            message:
+              mutationError instanceof Error
+                ? mutationError.message
+                : "Failed to apply command",
           },
           400,
         );
       }
 
-      // Generate action ID and new version
-      const actionId = `action-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const actionId = createActionId(command, taskVersion);
       const newVersion = taskVersion + 1;
       const now = new Date().toISOString();
-
-      updatedTask.version = newVersion;
-      updatedTask.updated_at = now;
-
-      // Extract result summary based on successful command type
-      let resultSummary = "Command executed";
-      switch (command.command_type) {
-        case "task.select_route":
-          resultSummary = "Route selected";
-          break;
-        case "task.transition_state":
-          resultSummary = "State transitioned";
-          break;
-        case "task.append_finding":
-          resultSummary = "Finding appended";
-          break;
-        default:
-          resultSummary = "Mutation applied";
-      }
 
       // Create action commit with all required authoritative receipt fields
       const commit: ActionCommit = {
@@ -329,10 +228,14 @@ export class TaskObject implements DurableObject {
         command_digest: command.semantic_digest,
         principal_id: command.principal.principal_id,
         authority: command.authority,
-        request_id: (command.request_context as Record<string, unknown>)?.request_id as string | undefined,
-        trace_id: (command.request_context as Record<string, unknown>)?.trace_id as string | undefined,
-        route_id: (command.resolved_context as Record<string, unknown>)?.route_id as string | undefined,
-        model_path: (command.resolved_context as Record<string, unknown>)?.model_path,
+        request_id: (command.request_context as Record<string, unknown>)
+          ?.request_id as string | undefined,
+        trace_id: (command.request_context as Record<string, unknown>)
+          ?.trace_id as string | undefined,
+        route_id: (command.resolved_context as Record<string, unknown>)
+          ?.route_id as string | undefined,
+        model_path: (command.resolved_context as Record<string, unknown>)
+          ?.model_path,
         created_at: now,
         task_version_before: taskVersion,
         task_version_after: newVersion,
@@ -384,11 +287,18 @@ export class TaskObject implements DurableObject {
         resulting_task_version: newVersion,
         replayed: false,
         projection_status: "pending", // KV update may lag
+        task_state_after: updatedTask,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
       return jsonResponse({ error: "internal_error", message }, 500);
     }
+  }
+
+  private async handleGetCommits(): Promise<Response> {
+    const commits =
+      (await this.state.storage.get<ActionCommit[]>("commits")) ?? [];
+    return jsonResponse({ commits });
   }
 
   private async handlePutState(request: Request): Promise<Response> {

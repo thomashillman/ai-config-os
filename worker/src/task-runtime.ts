@@ -15,6 +15,7 @@ let taskStore: TaskStore | KvTaskStore | DualWriteTaskStore | null = null;
 let taskStoreSecret: string | null = null;
 let taskStoreKvRef: unknown | null = null;
 let taskStoreDualWriteEnabled = false;
+let taskCommandStoreMode = "shadow";
 
 const MAX_CONTINUATION_FINGERPRINTS = 5000;
 const continuationFingerprints = new Map<string, string>();
@@ -24,14 +25,20 @@ function ensureTaskStore(
 ): TaskStore | KvTaskStore | DualWriteTaskStore {
   const secret = env.HANDOFF_TOKEN_SIGNING_KEY ?? null;
   const kv = env.MANIFEST_KV ?? null;
-  const dualWriteRequested = env.TASK_DO_DUAL_WRITE === "true";
+  const commandStoreMode =
+    env.TASK_COMMAND_STORE_MODE === "authoritative"
+      ? "authoritative"
+      : "shadow";
+  const dualWriteRequested =
+    env.TASK_DO_DUAL_WRITE === "true" || commandStoreMode === "authoritative";
 
   // Use KV-backed store when available (durable, survives Worker instance recycling)
   if (kv) {
     const needsRebuild =
       !taskStore ||
       kv !== taskStoreKvRef ||
-      dualWriteRequested !== taskStoreDualWriteEnabled;
+      dualWriteRequested !== taskStoreDualWriteEnabled ||
+      commandStoreMode !== taskCommandStoreMode;
     if (needsRebuild) {
       const kvStore = new KvTaskStore(
         kv,
@@ -39,8 +46,13 @@ function ensureTaskStore(
       );
 
       if (dualWriteRequested && env.TASK_OBJECT) {
-        taskStore = new DualWriteTaskStore(kvStore, env.TASK_OBJECT);
+        taskStore = new DualWriteTaskStore(
+          kvStore,
+          env.TASK_OBJECT,
+          commandStoreMode,
+        );
         taskStoreDualWriteEnabled = true;
+        taskCommandStoreMode = commandStoreMode;
       } else {
         if (dualWriteRequested && !env.TASK_OBJECT) {
           console.warn(
@@ -49,6 +61,7 @@ function ensureTaskStore(
         }
         taskStore = kvStore;
         taskStoreDualWriteEnabled = false;
+        taskCommandStoreMode = "shadow";
       }
 
       taskStoreSecret = secret;
@@ -67,6 +80,7 @@ function ensureTaskStore(
     taskStoreSecret = secret;
     taskStoreKvRef = null;
     taskStoreDualWriteEnabled = false;
+    taskCommandStoreMode = "shadow";
   }
 
   return taskStore;

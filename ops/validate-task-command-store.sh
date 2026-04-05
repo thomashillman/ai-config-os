@@ -57,6 +57,8 @@ echo
 # Step 4: Run authoritative-path tests
 echo "[4/4] Running authoritative-path tests..."
 npm run test -- --reporter=verbose \
+  "src/task-runtime-dual-write.test.ts" \
+  "src/dual-write-task-store.test.ts" \
   "src/__tests__/task-command.test.ts" \
   "src/__tests__/task-mutation-context.test.ts" \
   "src/__tests__/task-object-apply-command.test.ts" \

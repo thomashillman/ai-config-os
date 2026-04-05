@@ -1,23 +1,16 @@
-/**
- * DualWriteTaskStore -- Adapter that wraps KvTaskStore (primary) and
- * replicates mutations to a Durable Object (secondary, fire-and-forget).
- *
- * PR1: Reads are KV-only. DO writes are non-blocking and failure-tolerant.
- * KV failure is fatal (propagates). DO failure is logged and swallowed.
- *
- * DO write failures are emitted as structured JSON logs with metrics for alerting.
- *
- * Step 2.4+: Supports apply-command shadow writes for authoritative store preparation.
- * When command envelope is provided, invoke apply-command alongside put-state.
- * In shadow mode: KV is authoritative, apply-command result is informational.
- * After cutover (Step 4): apply-command becomes authoritative for migrated command types.
- */
-
 // @ts-expect-error - runtime JS module (no .d.ts)
 import type { KvTaskStore } from "../../runtime/lib/task-store-kv.mjs";
-import type { TaskCommand } from "./task-command";
+import type { TaskCommand, ActionCommit } from "./task-command";
+import { computeTaskProjectionMetrics } from "./task-projection-integration";
+import {
+  computeProjectionLag,
+  planProjectionRepair,
+  validateRepairPlan,
+} from "./task-projection-reconcile";
 
 const DO_BASE_URL = "https://task-object";
+
+export type TaskCommandStoreMode = "shadow" | "authoritative";
 
 interface DoWriteError {
   timestamp: string;
@@ -28,6 +21,26 @@ interface DoWriteError {
   error_message: string;
   error_code: string;
   operation?: string;
+}
+
+export interface MutationReceipt {
+  action_id: string;
+  task_id: string;
+  resulting_task_version: number;
+  replayed: boolean;
+  projection_status: "applied" | "pending";
+}
+
+interface ApplyCommandDoResponse {
+  ok: boolean;
+  action_id: string;
+  task_id: string;
+  resulting_task_version: number;
+  replayed: boolean;
+  projection_status?: string;
+  task_state_after?: Record<string, unknown> | null;
+  error?: string;
+  message?: string;
 }
 
 function categorizeError(err: unknown): string {
@@ -46,16 +59,154 @@ function categorizeError(err: unknown): string {
 export class DualWriteTaskStore {
   private kvStore: KvTaskStore;
   private doNamespace: DurableObjectNamespace;
+  private mode: TaskCommandStoreMode;
 
-  constructor(kvStore: KvTaskStore, doNamespace: DurableObjectNamespace) {
+  constructor(
+    kvStore: KvTaskStore,
+    doNamespace: DurableObjectNamespace,
+    mode: TaskCommandStoreMode = "shadow",
+  ) {
     this.kvStore = kvStore;
     this.doNamespace = doNamespace;
+    this.mode = mode;
   }
 
-  // ---- Read-only methods: delegate to KV only ----
+  private isAuthoritativeCommand(commandEnvelope?: TaskCommand): boolean {
+    return (
+      this.mode === "authoritative" &&
+      !!commandEnvelope &&
+      (commandEnvelope.command_type === "task.select_route" ||
+        commandEnvelope.command_type === "task.transition_state" ||
+        commandEnvelope.command_type === "task.append_finding")
+    );
+  }
+
+  private getStub(taskId: string): DurableObjectStub {
+    const id = this.doNamespace.idFromName(taskId);
+    return this.doNamespace.get(id);
+  }
+
+  private async fetchDoJson<T>(
+    taskId: string,
+    path: string,
+    init?: RequestInit,
+  ): Promise<T> {
+    const stub = this.getStub(taskId);
+    const response = await stub.fetch(`${DO_BASE_URL}${path}`, init);
+    const body = (await response.json()) as T & {
+      error?: string;
+      message?: string;
+    };
+    if (!response.ok) {
+      const detail =
+        typeof body.message === "string"
+          ? body.message
+          : typeof body.error === "string"
+            ? body.error
+            : `TaskObject request failed with status ${response.status}`;
+      throw new Error(detail);
+    }
+    return body;
+  }
+
+  private _emitStructuredLog(error: DoWriteError): void {
+    console.warn(JSON.stringify(error));
+  }
+
+  private _emitMetric(
+    taskId: string,
+    event: "do_replication_failed" | "do_stub_creation_failed",
+    errorCode: string,
+  ): void {
+    const metric = {
+      event,
+      task_id: taskId,
+      error_code: errorCode,
+      timestamp: new Date().toISOString(),
+    };
+    console.warn(`[DualWrite:metric] ${JSON.stringify(metric)}`);
+  }
+
+  private async applyAuthoritativeCommand(
+    taskId: string,
+    command: TaskCommand,
+    kvProjectionWrite: () => Promise<unknown>,
+  ): Promise<MutationReceipt> {
+    const authoritative = await this.fetchDoJson<ApplyCommandDoResponse>(
+      taskId,
+      "/apply-command",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command }),
+      },
+    );
+
+    let projectionStatus: MutationReceipt["projection_status"] = "applied";
+    try {
+      await kvProjectionWrite();
+    } catch (error) {
+      projectionStatus = "pending";
+      const errorCode = categorizeError(error);
+      this._emitStructuredLog({
+        timestamp: new Date().toISOString(),
+        level: "warn",
+        component: "DualWrite",
+        event: "do_replication_failed",
+        task_id: taskId,
+        error_message:
+          error instanceof Error ? error.message : "Projection write failed",
+        error_code: errorCode,
+        operation: "projection-write",
+      });
+      this._emitMetric(taskId, "do_replication_failed", errorCode);
+    }
+
+    return {
+      action_id: authoritative.action_id,
+      task_id: authoritative.task_id,
+      resulting_task_version: authoritative.resulting_task_version,
+      replayed: authoritative.replayed,
+      projection_status: projectionStatus,
+    };
+  }
+
+  private async fetchAuthoritativeCommits(
+    taskId: string,
+  ): Promise<ActionCommit[]> {
+    try {
+      const body = await this.fetchDoJson<{ commits?: ActionCommit[] }>(
+        taskId,
+        "/commits",
+      );
+      return Array.isArray(body.commits) ? body.commits : [];
+    } catch {
+      return [];
+    }
+  }
 
   async load(taskId: string) {
-    return this.kvStore.load(taskId);
+    const task = (await this.kvStore.load(taskId)) as Record<string, unknown>;
+    const commits = await this.fetchAuthoritativeCommits(taskId);
+    if (commits.length === 0) {
+      return task;
+    }
+
+    const metrics = computeTaskProjectionMetrics(
+      task,
+      typeof task.version === "number" ? task.version : null,
+      commits,
+    );
+
+    return {
+      ...task,
+      projection: {
+        authoritative_version: metrics.authoritative_version,
+        projected_version: metrics.projected_version,
+        projection_lag: metrics.projection_lag,
+        divergence: metrics.divergence,
+      },
+    };
   }
 
   async loadByCode(shortCode: string) {
@@ -98,8 +249,6 @@ export class DualWriteTaskStore {
     return this.kvStore.getCheckpointLog(taskId);
   }
 
-  // ---- Mutation methods: KV first (primary), then DO (secondary, fire-and-forget) ----
-
   async create(task: Record<string, unknown>) {
     const result = await this.kvStore.create(task);
     this._replicateToDo(String(result.task_id), result);
@@ -126,12 +275,15 @@ export class DualWriteTaskStore {
     },
     commandEnvelope?: TaskCommand,
   ) {
+    if (this.isAuthoritativeCommand(commandEnvelope)) {
+      return this.applyAuthoritativeCommand(taskId, commandEnvelope!, () =>
+        this.kvStore.transitionState(taskId, payload),
+      );
+    }
+
     const result = await this.kvStore.transitionState(taskId, payload);
     this._replicateToDo(taskId, result);
-    // Step 2.4+: Also invoke apply-command for shadow writes
-    if (commandEnvelope) {
-      this._applyCommandToDo(taskId, commandEnvelope);
-    }
+    if (commandEnvelope) this._applyCommandToDo(taskId, commandEnvelope);
     return result;
   }
 
@@ -144,12 +296,15 @@ export class DualWriteTaskStore {
     },
     commandEnvelope?: TaskCommand,
   ) {
+    if (this.isAuthoritativeCommand(commandEnvelope)) {
+      return this.applyAuthoritativeCommand(taskId, commandEnvelope!, () =>
+        this.kvStore.appendFinding(taskId, payload),
+      );
+    }
+
     const result = await this.kvStore.appendFinding(taskId, payload);
     this._replicateToDo(taskId, result);
-    // Step 2.4+: Also invoke apply-command for shadow writes
-    if (commandEnvelope) {
-      this._applyCommandToDo(taskId, commandEnvelope);
-    }
+    if (commandEnvelope) this._applyCommandToDo(taskId, commandEnvelope);
     return result;
   }
 
@@ -179,12 +334,15 @@ export class DualWriteTaskStore {
     },
     commandEnvelope?: TaskCommand,
   ) {
+    if (this.isAuthoritativeCommand(commandEnvelope)) {
+      return this.applyAuthoritativeCommand(taskId, commandEnvelope!, () =>
+        this.kvStore.selectRoute(taskId, payload),
+      );
+    }
+
     const result = await this.kvStore.selectRoute(taskId, payload);
     this._replicateToDo(taskId, result);
-    // Step 2.4+: Also invoke apply-command for shadow writes
-    if (commandEnvelope) {
-      this._applyCommandToDo(taskId, commandEnvelope);
-    }
+    if (commandEnvelope) this._applyCommandToDo(taskId, commandEnvelope);
     return result;
   }
 
@@ -200,7 +358,6 @@ export class DualWriteTaskStore {
       taskId,
       payload,
     );
-    // Continuation packages contain the full task; replicate the embedded task state
     const embeddedTask = result?.task;
     if (embeddedTask && typeof embeddedTask === "object") {
       this._replicateToDo(taskId, embeddedTask as Record<string, unknown>);
@@ -208,30 +365,57 @@ export class DualWriteTaskStore {
     return result;
   }
 
-  // ---- DO replication (fire-and-forget) ----
+  async repairProjection(taskId: string): Promise<{
+    repaired: boolean;
+    projected_version: number;
+    authoritative_version: number;
+    commits_replayed: number;
+  }> {
+    const [projectedTask, commits] = await Promise.all([
+      this.kvStore.load(taskId),
+      this.fetchAuthoritativeCommits(taskId),
+    ]);
 
-  private _emitStructuredLog(error: DoWriteError): void {
-    console.warn(JSON.stringify(error));
-  }
+    const projectedVersion = Number(projectedTask?.version ?? 0);
+    const authoritativeVersion = commits.length
+      ? commits[commits.length - 1].task_version_after
+      : projectedVersion;
 
-  private _emitMetric(
-    taskId: string,
-    event: "do_replication_failed" | "do_stub_creation_failed",
-    errorCode: string,
-  ): void {
-    const metric = {
-      event,
-      task_id: taskId,
-      error_code: errorCode,
-      timestamp: new Date().toISOString(),
+    const plan = planProjectionRepair(
+      taskId,
+      authoritativeVersion,
+      projectedVersion,
+      commits,
+    );
+
+    const continuity = validateRepairPlan(plan);
+    if (!continuity.valid) {
+      throw new Error(
+        `Projection repair continuity check failed: ${continuity.error ?? "unknown error"}`,
+      );
+    }
+
+    for (const commit of plan.commits_to_apply) {
+      await this.kvStore.update(taskId, {
+        expectedVersion: commit.task_version_before,
+        changes: commit.task_state_after,
+      });
+    }
+
+    const repairedTask = await this.kvStore.load(taskId);
+    const lag = computeProjectionLag(
+      authoritativeVersion,
+      Number(repairedTask?.version ?? 0),
+    );
+
+    return {
+      repaired: !lag.is_lagging,
+      projected_version: lag.projected_version,
+      authoritative_version: lag.authoritative_version,
+      commits_replayed: plan.commits_to_apply.length,
     };
-    console.warn(`[DualWrite:metric] ${JSON.stringify(metric)}`);
   }
 
-  /**
-   * Invoke apply-command on TaskObject for authoritative store shadow writes (Step 2.4+)
-   * Fire-and-forget, failure tolerant. In shadow mode, KV is still authoritative.
-   */
   private _applyCommandToDo(taskId: string, command: TaskCommand): void {
     try {
       const id = this.doNamespace.idFromName(taskId);

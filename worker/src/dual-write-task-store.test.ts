@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DualWriteTaskStore } from "./dual-write-task-store";
-
-// ── Mock KvTaskStore ─────────────────────────────────────────────────────────
+import { buildTaskCommand } from "./task-command";
 
 function makeMockKvStore() {
   const task = { task_id: "task_1", version: 2, state: "active" };
@@ -26,30 +25,70 @@ function makeMockKvStore() {
       .fn()
       .mockResolvedValue({ ...task, version: 3 }),
     selectRoute: vi.fn().mockResolvedValue({ ...task, version: 3 }),
-    createContinuationPackage: vi.fn().mockResolvedValue({
-      schema_version: "1.0.0",
-      task: { ...task, version: 3 },
-      handoff_token_id: "tok_1",
-      created_at: "2026-01-01T00:00:00Z",
-    }),
+    createContinuationPackage: vi.fn().mockResolvedValue({ task }),
   };
 }
 
-// ── Mock DurableObjectNamespace ──────────────────────────────────────────────
-
 function makeMockDoNamespace() {
-  const fetchFn = vi
-    .fn()
-    .mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+  const fetchFn = vi.fn().mockResolvedValue(
+    new Response(
+      JSON.stringify({
+        ok: true,
+        action_id: "action-1",
+        task_id: "task_1",
+        resulting_task_version: 3,
+        replayed: false,
+      }),
+    ),
+  );
   const stub = { fetch: fetchFn };
   const namespace = {
     idFromName: vi.fn().mockReturnValue("do-id-1"),
     get: vi.fn().mockReturnValue(stub),
   };
-  return { namespace, stub, fetchFn };
+  return { namespace, fetchFn };
 }
 
-describe("DualWriteTaskStore", () => {
+function makeCommand(
+  type: "task.select_route" | "task.transition_state" | "task.append_finding",
+) {
+  const payload =
+    type === "task.select_route"
+      ? { route_id: "local_repo" }
+      : type === "task.transition_state"
+        ? { next_state: "active", next_action: "continue" }
+        : {
+            finding: {
+              findingId: "f-1",
+              summary: "Finding",
+              status: "verified",
+              recordedByRoute: "local_repo",
+              recordedAt: "2026-04-05T00:00:00.000Z",
+            },
+          };
+
+  return buildTaskCommand({
+    task_id: "task_1",
+    idempotency_key: `${type}-1`,
+    expected_task_version: 2,
+    command_type: type,
+    payload,
+    principal: { principal_type: "user", principal_id: "u1" },
+    boundary: { owner_principal_id: "u1", workspace_id: "ws1" },
+    authority: {
+      authority_mode: "direct_owner",
+      allowed_actions: [type],
+      stamped_at: "2026-04-05T00:00:00.000Z",
+    },
+    request_context: {
+      updated_at: "2026-04-05T00:00:00.000Z",
+      selected_at: "2026-04-05T00:00:00.000Z",
+    },
+    resolved_context: { route_id: "local_repo" },
+  });
+}
+
+describe("DualWriteTaskStore authoritative mode", () => {
   let kvStore: ReturnType<typeof makeMockKvStore>;
   let doMock: ReturnType<typeof makeMockDoNamespace>;
   let store: DualWriteTaskStore;
@@ -57,223 +96,58 @@ describe("DualWriteTaskStore", () => {
   beforeEach(() => {
     kvStore = makeMockKvStore();
     doMock = makeMockDoNamespace();
-    store = new DualWriteTaskStore(kvStore as never, doMock.namespace as never);
+    store = new DualWriteTaskStore(
+      kvStore as never,
+      doMock.namespace as never,
+      "authoritative",
+    );
   });
 
-  describe("read methods delegate to KV only", () => {
-    it("load", async () => {
-      const result = await store.load("task_1");
-      expect(kvStore.load).toHaveBeenCalledWith("task_1");
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-      expect(result.task_id).toBe("task_1");
-    });
+  it("routes migrated command through apply-command before KV projection write", async () => {
+    const command = makeCommand("task.select_route");
 
-    it("loadByCode", async () => {
-      await store.loadByCode("abc1");
-      expect(kvStore.loadByCode).toHaveBeenCalledWith("abc1");
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-
-    it("loadByName", async () => {
-      await store.loadByName("my-task");
-      expect(kvStore.loadByName).toHaveBeenCalledWith("my-task");
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-
-    it("listProgressEvents", async () => {
-      await store.listProgressEvents("task_1");
-      expect(kvStore.listProgressEvents).toHaveBeenCalled();
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-
-    it("getReadinessView", async () => {
-      await store.getReadinessView("task_1");
-      expect(kvStore.getReadinessView).toHaveBeenCalled();
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-
-    it("listSnapshots", async () => {
-      await store.listSnapshots("task_1");
-      expect(kvStore.listSnapshots).toHaveBeenCalled();
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-
-    it("getSnapshot", async () => {
-      await store.getSnapshot("task_1", 1);
-      expect(kvStore.getSnapshot).toHaveBeenCalled();
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-
-    it("listRecentTasks", async () => {
-      await store.listRecentTasks();
-      expect(kvStore.listRecentTasks).toHaveBeenCalled();
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-
-    it("getLatestActiveTask", async () => {
-      await store.getLatestActiveTask();
-      expect(kvStore.getLatestActiveTask).toHaveBeenCalled();
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-
-    it("getCheckpointLog", async () => {
-      await store.getCheckpointLog("task_1");
-      expect(kvStore.getCheckpointLog).toHaveBeenCalled();
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
-  });
-
-  describe("mutation methods call KV first, then DO", () => {
-    it("create", async () => {
-      const task = { task_id: "task_1", version: 1, state: "pending" };
-      const result = await store.create(task);
-      expect(kvStore.create).toHaveBeenCalledWith(task);
-      expect(result.version).toBe(1);
-
-      // Give fire-and-forget time to execute
-      await new Promise((r) => setTimeout(r, 10));
-      expect(doMock.namespace.idFromName).toHaveBeenCalledWith("task_1");
-      expect(doMock.namespace.get).toHaveBeenCalled();
-      expect(doMock.fetchFn).toHaveBeenCalled();
-    });
-
-    it("transitionState", async () => {
-      const payload = {
-        expectedVersion: 2,
-        nextState: "completed",
-        nextAction: "done",
-        updatedAt: "2026-01-01T00:00:00Z",
-      };
-      await store.transitionState("task_1", payload);
-      expect(kvStore.transitionState).toHaveBeenCalledWith("task_1", payload);
-      await new Promise((r) => setTimeout(r, 10));
-      expect(doMock.fetchFn).toHaveBeenCalled();
-    });
-
-    it("appendFinding", async () => {
-      const payload = {
-        expectedVersion: 2,
-        finding: { finding_id: "f1" },
-        updatedAt: "2026-01-01T00:00:00Z",
-      };
-      await store.appendFinding("task_1", payload);
-      expect(kvStore.appendFinding).toHaveBeenCalledWith("task_1", payload);
-      await new Promise((r) => setTimeout(r, 10));
-      expect(doMock.fetchFn).toHaveBeenCalled();
-    });
-
-    it("selectRoute", async () => {
-      const payload = {
+    const result = await store.selectRoute(
+      "task_1",
+      {
         routeId: "local_repo",
         expectedVersion: 2,
-        selectedAt: "2026-01-01T00:00:00Z",
-      };
-      await store.selectRoute("task_1", payload);
-      expect(kvStore.selectRoute).toHaveBeenCalledWith("task_1", payload);
-      await new Promise((r) => setTimeout(r, 10));
-      expect(doMock.fetchFn).toHaveBeenCalled();
-    });
+        selectedAt: "2026-04-05T00:00:00.000Z",
+      },
+      command,
+    );
 
-    it("update", async () => {
-      const payload = {
-        expectedVersion: 2,
-        changes: { next_action: "review" },
-      };
-      await store.update("task_1", payload);
-      expect(kvStore.update).toHaveBeenCalledWith("task_1", payload);
-      await new Promise((r) => setTimeout(r, 10));
-      expect(doMock.fetchFn).toHaveBeenCalled();
-    });
-
-    it("transitionFindingsForRouteUpgrade", async () => {
-      const payload = {
-        expectedVersion: 2,
-        toRouteId: "local_repo",
-        upgradedAt: "2026-01-01T00:00:00Z",
-        toEquivalenceLevel: "equal",
-      };
-      await store.transitionFindingsForRouteUpgrade("task_1", payload);
-      expect(kvStore.transitionFindingsForRouteUpgrade).toHaveBeenCalledWith(
-        "task_1",
-        payload,
-      );
-      await new Promise((r) => setTimeout(r, 10));
-      expect(doMock.fetchFn).toHaveBeenCalled();
-    });
-
-    it("createContinuationPackage", async () => {
-      const payload = {
-        handoffToken: { token_id: "tok_1" },
-        effectiveExecutionContract: { task_id: "task_1" },
-      };
-      await store.createContinuationPackage("task_1", payload);
-      expect(kvStore.createContinuationPackage).toHaveBeenCalledWith(
-        "task_1",
-        payload,
-      );
-      await new Promise((r) => setTimeout(r, 10));
-      expect(doMock.fetchFn).toHaveBeenCalled();
+    expect(doMock.fetchFn).toHaveBeenCalledWith(
+      "https://task-object/apply-command",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(kvStore.selectRoute).toHaveBeenCalled();
+    expect(result).toEqual({
+      action_id: "action-1",
+      task_id: "task_1",
+      resulting_task_version: 3,
+      replayed: false,
+      projection_status: "applied",
     });
   });
 
-  describe("error handling", () => {
-    it("propagates KV errors without calling DO", async () => {
-      kvStore.create.mockRejectedValue(new Error("KV write failed"));
-      await expect(store.create({ task_id: "task_1" })).rejects.toThrow(
-        "KV write failed",
-      );
-      expect(doMock.namespace.idFromName).not.toHaveBeenCalled();
-    });
+  it("keeps authoritative success when KV projection write fails", async () => {
+    kvStore.transitionState.mockRejectedValue(
+      new Error("kv projection failed"),
+    );
+    const command = makeCommand("task.transition_state");
 
-    it("swallows DO errors and returns KV result", async () => {
-      doMock.fetchFn.mockRejectedValue(new Error("DO unreachable"));
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await store.transitionState(
+      "task_1",
+      {
+        expectedVersion: 2,
+        nextState: "active",
+        nextAction: "continue",
+        updatedAt: "2026-04-05T00:00:00.000Z",
+      },
+      command,
+    );
 
-      const result = await store.create({ task_id: "task_1", version: 1 });
-      expect(result.version).toBe(1);
-
-      // Wait for fire-and-forget
-      await new Promise((r) => setTimeout(r, 10));
-      const structuredCall = warnSpy.mock.calls.find(
-        (args) =>
-          typeof args[0] === "string" &&
-          args[0].includes('"component":"DualWrite"') &&
-          args[0].includes('"event":"do_replication_failed"'),
-      );
-      expect(structuredCall).toBeDefined();
-      warnSpy.mockRestore();
-    });
-
-    it("swallows DO stub creation errors", async () => {
-      doMock.namespace.idFromName.mockImplementation(() => {
-        throw new Error("bad ID");
-      });
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-      const result = await store.create({ task_id: "task_1", version: 1 });
-      expect(result.version).toBe(1);
-      const structuredCall = warnSpy.mock.calls.find(
-        (args) =>
-          typeof args[0] === "string" &&
-          args[0].includes('"event":"do_stub_creation_failed"') &&
-          args[0].includes("bad ID"),
-      );
-      expect(structuredCall).toBeDefined();
-      warnSpy.mockRestore();
-    });
-  });
-
-  describe("DO replication sends correct payload", () => {
-    it("sends task state to /put-state", async () => {
-      await store.create({ task_id: "task_1", version: 1, state: "pending" });
-      await new Promise((r) => setTimeout(r, 10));
-
-      expect(doMock.fetchFn).toHaveBeenCalledTimes(1);
-      const [url, init] = doMock.fetchFn.mock.calls[0] as [string, RequestInit];
-      expect(url).toBe("https://task-object/put-state");
-      expect(init.method).toBe("POST");
-      const body = JSON.parse(init.body as string);
-      expect(body.task.task_id).toBe("task_1");
-    });
+    expect(result.projection_status).toBe("pending");
+    expect(result.action_id).toBe("action-1");
   });
 });

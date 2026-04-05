@@ -42,21 +42,11 @@ export function reconstructAuthoritativeState(commits: ActionCommit[]): {
     };
   }
 
-  // Start from initial state (before first commit)
-  let state = commits[0].command_envelope.payload;
-  let version = 0;
-
-  // Replay each commit in sequence
-  for (const commit of commits) {
-    // Apply state from commit (in real implementation, would apply command semantics)
-    state = {
-      ...state,
-      ...commit.task_state_after,
-    };
-    version = commit.task_version_after;
-  }
-
-  return { state, version };
+  const orderedCommits = [...commits].sort(
+    (a, b) => a.task_version_after - b.task_version_after,
+  );
+  const latest = orderedCommits[orderedCommits.length - 1];
+  return { state: latest.task_state_after, version: latest.task_version_after };
 }
 
 /**

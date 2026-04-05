@@ -73,6 +73,7 @@ import {
   handleTaskGet,
   handleTaskList,
   handleTaskProgressEvents,
+  handleTaskProjectionRepair,
   handleTaskReadiness,
   handleTaskRouteSelection,
   handleTaskSnapshots,
@@ -488,6 +489,11 @@ export function createWorkerHandler(
       pattern: /^\/v1\/tasks\/([^/]+)\/findings$/,
       handler: ({ request, env, params }) =>
         handleTaskAppendFinding(request, env, params[0]),
+    },
+    {
+      method: "POST",
+      pattern: /^\/v1\/tasks\/([^/]+)\/projection-repair$/,
+      handler: ({ env, params }) => handleTaskProjectionRepair(env, params[0]),
     },
   ];
 
