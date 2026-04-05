@@ -142,6 +142,17 @@ export class DualWriteTaskStore {
       },
     );
 
+    if (authoritative.replayed) {
+      return {
+        action_id: authoritative.action_id,
+        task_id: authoritative.task_id,
+        resulting_task_version: authoritative.resulting_task_version,
+        replayed: true,
+        projection_status:
+          authoritative.projection_status === "pending" ? "pending" : "applied",
+      };
+    }
+
     let projectionStatus: MutationReceipt["projection_status"] = "applied";
     try {
       await kvProjectionWrite();
@@ -187,34 +198,23 @@ export class DualWriteTaskStore {
 
   async load(taskId: string) {
     const task = (await this.kvStore.load(taskId)) as Record<string, unknown>;
-    const commits = await this.fetchAuthoritativeCommits(taskId);
-    if (commits.length === 0) {
-      return task;
-    }
-
-    const metrics = computeTaskProjectionMetrics(
-      task,
-      typeof task.version === "number" ? task.version : null,
-      commits,
-    );
-
-    return {
-      ...task,
-      projection: {
-        authoritative_version: metrics.authoritative_version,
-        projected_version: metrics.projected_version,
-        projection_lag: metrics.projection_lag,
-        divergence: metrics.divergence,
-      },
-    };
+    return this.decorateProjection(taskId, task);
   }
 
   async loadByCode(shortCode: string) {
-    return this.kvStore.loadByCode(shortCode);
+    const task = (await this.kvStore.loadByCode(shortCode)) as Record<
+      string,
+      unknown
+    > | null;
+    return this.decorateProjectionForTask(task);
   }
 
   async loadByName(nameOrSlug: string) {
-    return this.kvStore.loadByName(nameOrSlug);
+    const task = (await this.kvStore.loadByName(nameOrSlug)) as Record<
+      string,
+      unknown
+    > | null;
+    return this.decorateProjectionForTask(task);
   }
 
   async listProgressEvents(taskId: string) {
@@ -238,11 +238,20 @@ export class DualWriteTaskStore {
     limit?: number;
     updatedWithinSeconds?: number;
   }) {
-    return this.kvStore.listRecentTasks(options);
+    const tasks = (await this.kvStore.listRecentTasks(options)) as Array<
+      Record<string, unknown>
+    >;
+    return Promise.all(
+      tasks.map((task) => this.decorateProjectionForTask(task)),
+    );
   }
 
   async getLatestActiveTask() {
-    return this.kvStore.getLatestActiveTask();
+    const task = (await this.kvStore.getLatestActiveTask()) as Record<
+      string,
+      unknown
+    > | null;
+    return this.decorateProjectionForTask(task);
   }
 
   async getCheckpointLog(taskId: string) {
@@ -515,5 +524,43 @@ export class DualWriteTaskStore {
       this._emitStructuredLog(errorLog);
       this._emitMetric(taskId, "do_stub_creation_failed", errorCode);
     }
+  }
+
+  private async decorateProjection(
+    taskId: string,
+    task: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
+    const commits = await this.fetchAuthoritativeCommits(taskId);
+    if (commits.length === 0) {
+      return task;
+    }
+
+    const metrics = computeTaskProjectionMetrics(
+      task,
+      typeof task.version === "number" ? task.version : null,
+      commits,
+    );
+
+    return {
+      ...task,
+      projection: {
+        authoritative_version: metrics.authoritative_version,
+        projected_version: metrics.projected_version,
+        projection_lag: metrics.projection_lag,
+        divergence: metrics.divergence,
+      },
+    };
+  }
+
+  private async decorateProjectionForTask(
+    task: Record<string, unknown> | null,
+  ): Promise<Record<string, unknown> | null> {
+    if (!task) {
+      return null;
+    }
+    if (typeof task.task_id !== "string") {
+      return task;
+    }
+    return this.decorateProjection(task.task_id, task);
   }
 }

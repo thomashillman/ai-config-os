@@ -93,6 +93,25 @@ describe("computeSemanticDigest", () => {
     expect(digests[0]).toBe(digests[1]);
     expect(digests[1]).toBe(digests[2]);
   });
+
+  it("matches the canonical SHA-256 digest for semantic payload", () => {
+    const digest = computeSemanticDigest("task.select_route", {
+      route_id: "local_repo",
+      route_index: 0,
+    });
+    expect(digest).toBe(
+      "28fe92e614bf99eeadf7c73a14d8208d36db3acae94bba17fb1c1d96a4a470f9",
+    );
+  });
+
+  it("does not use repeated chunk pseudo-hash shape", () => {
+    const digest = computeSemanticDigest("task.transition_state", {
+      next_state: "ready",
+      next_action: "continue",
+    });
+    const firstChunk = digest.slice(0, 8);
+    expect(digest).not.toBe(firstChunk.repeat(8));
+  });
 });
 
 describe("buildTaskCommand", () => {
