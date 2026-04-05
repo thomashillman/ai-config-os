@@ -167,7 +167,7 @@ describe("buildTaskCommand", () => {
     expect(cmd.semantic_digest).toBe(cmd2.semantic_digest);
   });
 
-  it("uses resolved_context if provided, otherwise uses request_context", () => {
+  it("uses resolved_context if provided, otherwise defaults to empty resolved_context", () => {
     const requestContext = { selected_at: "2026-04-03T00:00:00Z" };
     const resolvedContext = {
       validated: true,
@@ -201,7 +201,7 @@ describe("buildTaskCommand", () => {
       request_context: requestContext,
     });
 
-    expect(cmd2.resolved_context).toEqual(requestContext);
+    expect(cmd2.resolved_context).toEqual({});
   });
 
   it("preserves payload without modification", () => {

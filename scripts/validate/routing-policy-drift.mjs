@@ -1,217 +1,129 @@
-/**
- * Validate routing policy contract stability
- *
- * Step 5: Build hardening - detects when routing policy structure drifts
- * from the canonical definition. Ensures routing remains auditable and deterministic.
- *
- * Checks:
- * 1. Route registry schema (identity, capabilities, limits, preferences)
- * 2. Model path registry schema (identity, compatibility, policy_classes)
- * 3. Route instance facts contract (observational fields)
- * 4. ExecutionSelection identity projection (canonical fields)
- * 5. Version fields are major-only (no patch/minor changes)
- * 6. Narrowing only narrows capability, never widens
- */
+import {
+  routeProfiles,
+  route_contract_version,
+} from "../../runtime/config/route-profiles.mjs";
+import {
+  modelPathRegistry,
+  model_policy_version,
+} from "../../runtime/config/model-path-registry.mjs";
+import { CURRENT_VERSIONS } from "../../runtime/lib/routing-policy-versioning.mjs";
+import {
+  canonicalIdentityProjection,
+  computeSelectionDigest,
+} from "../../runtime/lib/execution-selection-identity.mjs";
 
-const CANONICAL_ROUTE_FIELDS = [
-  "route_id",
-  "route_name",
-  "route_contract_version",
-  "capabilities",
-  "limits",
-  "preferences",
-];
+function assert(condition, message) {
+  if (!condition) throw new Error(message);
+}
 
-const CANONICAL_MODEL_FIELDS = [
-  "model_id",
-  "model_name",
-  "model_policy_version",
-  "compatibility_matrix",
-  "policy_classes",
-];
-
-const CANONICAL_EXECUTION_SELECTION_FIELDS = [
-  "selection_id",
-  "selection_revision",
-  "selected_route_id",
-  "selected_model_id",
-  "resolved_execution",
-  "execution_selection_schema_version",
-];
-
-const VERSION_FIELDS = [
-  "route_contract_version",
-  "model_policy_version",
-  "execution_selection_schema_version",
-  "resolver_version",
-];
-
-const NARROWING_OPERATIONS = [
-  "capabilityNarrowing",
-  "modelEvaluationNarrowing",
-  "routeInstanceNarrowing",
-];
-
-function validateRouteRegistry() {
-  const errors = [];
-
-  if (!CANONICAL_ROUTE_FIELDS || CANONICAL_ROUTE_FIELDS.length === 0) {
-    errors.push("No route registry fields defined");
+function validateRouteProfiles() {
+  assert(
+    Array.isArray(routeProfiles) && routeProfiles.length > 0,
+    "routeProfiles must be non-empty",
+  );
+  for (const route of routeProfiles) {
+    assert(
+      typeof route.identity?.route_id === "string",
+      "route.identity.route_id missing",
+    );
+    assert(
+      typeof route.identity?.route_kind === "string",
+      "route.identity.route_kind missing",
+    );
+    assert(
+      typeof route.default_capabilities === "object",
+      "route.default_capabilities missing",
+    );
   }
-
-  // Check each required field
-  const required = ["route_id", "route_contract_version", "capabilities"];
-  for (const field of required) {
-    if (!CANONICAL_ROUTE_FIELDS.includes(field)) {
-      errors.push(`Missing required route field: ${field}`);
-    }
-  }
-
-  // Version field must be present
-  if (!CANONICAL_ROUTE_FIELDS.includes("route_contract_version")) {
-    errors.push("Route registry missing version field");
-  }
-
-  return errors;
+  assert(
+    route_contract_version === CURRENT_VERSIONS.route_contract_version,
+    "route contract version drift detected",
+  );
 }
 
 function validateModelRegistry() {
-  const errors = [];
-
-  if (!CANONICAL_MODEL_FIELDS || CANONICAL_MODEL_FIELDS.length === 0) {
-    errors.push("No model registry fields defined");
+  assert(
+    Array.isArray(modelPathRegistry) && modelPathRegistry.length > 0,
+    "modelPathRegistry must be non-empty",
+  );
+  for (const model of modelPathRegistry) {
+    assert(
+      typeof model.identity?.provider === "string",
+      "model.identity.provider missing",
+    );
+    assert(
+      typeof model.identity?.model_id === "string",
+      "model.identity.model_id missing",
+    );
+    assert(
+      typeof model.policy_classes === "object",
+      "model.policy_classes missing",
+    );
   }
-
-  // Check each required field
-  const required = ["model_id", "model_policy_version", "compatibility_matrix"];
-  for (const field of required) {
-    if (!CANONICAL_MODEL_FIELDS.includes(field)) {
-      errors.push(`Missing required model field: ${field}`);
-    }
-  }
-
-  // Version field must be present
-  if (!CANONICAL_MODEL_FIELDS.includes("model_policy_version")) {
-    errors.push("Model registry missing version field");
-  }
-
-  return errors;
+  assert(
+    model_policy_version === CURRENT_VERSIONS.model_policy_version,
+    "model policy version drift detected",
+  );
 }
 
 function validateExecutionSelectionIdentity() {
-  const errors = [];
+  const sample = {
+    execution_selection_schema_version:
+      CURRENT_VERSIONS.execution_selection_schema_version,
+    selected_route: {
+      route_id: "local_repo",
+      route_kind: "repository_local",
+      effective_capabilities: {
+        artifact_completeness: "repo_complete",
+        history_availability: "repo_history",
+        locality_confidence: "repo_local",
+        verification_ceiling: "full_artifact_verification",
+        allowed_task_classes: ["repository_review"],
+      },
+    },
+    resolved_model_path: {
+      provider: "openai",
+      model_id: "gpt-5",
+      model_tier: "premium",
+      execution_mode: "default",
+    },
+    fallback_chain: [],
+    policy_version: {
+      route_contract_version: CURRENT_VERSIONS.route_contract_version,
+      model_policy_version: CURRENT_VERSIONS.model_policy_version,
+      resolver_version: CURRENT_VERSIONS.resolver_version,
+    },
+  };
 
-  if (!CANONICAL_EXECUTION_SELECTION_FIELDS || CANONICAL_EXECUTION_SELECTION_FIELDS.length === 0) {
-    errors.push("No execution selection fields defined");
-  }
-
-  // Check each required field
-  const required = [
-    "selection_id",
-    "selected_route_id",
-    "selected_model_id",
-    "execution_selection_schema_version",
-  ];
-  for (const field of required) {
-    if (!CANONICAL_EXECUTION_SELECTION_FIELDS.includes(field)) {
-      errors.push(`Missing required execution selection field: ${field}`);
-    }
-  }
-
-  return errors;
-}
-
-function validateVersionFields() {
-  const errors = [];
-
-  if (!VERSION_FIELDS || VERSION_FIELDS.length === 0) {
-    errors.push("No version fields defined");
-  }
-
-  // Check for minimum version fields
-  const required = [
-    "route_contract_version",
-    "model_policy_version",
-    "execution_selection_schema_version",
-  ];
-  for (const field of required) {
-    if (!VERSION_FIELDS.includes(field)) {
-      errors.push(`Missing version field: ${field}`);
-    }
-  }
-
-  // Version fields should follow major-only convention
-  // (e.g., "1", "2", "3" not "1.0.1" or "1.2.3")
-  // This is validated in integration tests
-  for (const versionField of VERSION_FIELDS) {
-    if (!versionField || typeof versionField !== "string") {
-      errors.push(`Invalid version field: ${versionField}`);
-    }
-  }
-
-  return errors;
-}
-
-function validateNarrowingOperations() {
-  const errors = [];
-
-  if (!NARROWING_OPERATIONS || NARROWING_OPERATIONS.length === 0) {
-    errors.push("No narrowing operations defined");
-  }
-
-  for (const op of NARROWING_OPERATIONS) {
-    if (!op || typeof op !== "string") {
-      errors.push(`Invalid narrowing operation: ${op}`);
-    }
-  }
-
-  // Narrowing must reduce capability surface, never expand
-  // (checked via function behavior in actual implementation)
-  if (NARROWING_OPERATIONS.length < 3) {
-    errors.push(
-      `Expected at least 3 narrowing operations, found ${NARROWING_OPERATIONS.length}`,
-    );
-  }
-
-  return errors;
+  const projection = canonicalIdentityProjection(sample);
+  const digest = computeSelectionDigest(sample);
+  assert(
+    typeof projection.selected_route.route_id === "string",
+    "identity projection missing selected route",
+  );
+  assert(
+    typeof digest === "string" && digest.length === 64,
+    "selection digest must be sha256 hex",
+  );
 }
 
 function runValidation() {
   console.log("[routing-policy-drift] Starting routing policy validation...");
-
-  const allErrors = [
-    ...validateRouteRegistry(),
-    ...validateModelRegistry(),
-    ...validateExecutionSelectionIdentity(),
-    ...validateVersionFields(),
-    ...validateNarrowingOperations(),
-  ];
-
-  if (allErrors.length === 0) {
-    console.log(
-      "[routing-policy-drift] ✓ Routing policy contracts are stable and consistent",
-    );
-    console.log(
-      `[routing-policy-drift] Route fields: ${CANONICAL_ROUTE_FIELDS.length}`,
-    );
-    console.log(
-      `[routing-policy-drift] Model fields: ${CANONICAL_MODEL_FIELDS.length}`,
-    );
-    console.log(
-      `[routing-policy-drift] ExecutionSelection fields: ${CANONICAL_EXECUTION_SELECTION_FIELDS.length}`,
-    );
-    console.log(`[routing-policy-drift] Version fields: ${VERSION_FIELDS.length}`);
-    console.log(
-      `[routing-policy-drift] Narrowing operations: ${NARROWING_OPERATIONS.length}`,
-    );
-    return 0;
-  }
-
-  console.error("[routing-policy-drift] ✗ Validation failed:");
-  for (const error of allErrors) {
-    console.error(`  - ${error}`);
-  }
-  return 1;
+  validateRouteProfiles();
+  validateModelRegistry();
+  validateExecutionSelectionIdentity();
+  console.log(
+    "[routing-policy-drift] ✓ Live routing policy contracts validated",
+  );
 }
 
-process.exit(runValidation());
+try {
+  runValidation();
+  process.exit(0);
+} catch (error) {
+  console.error("[routing-policy-drift] ✗ Validation failed:");
+  console.error(
+    `  - ${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exit(1);
+}

@@ -16,7 +16,11 @@ import {
   resolveMutationContext,
   type TaskContextResolver,
 } from "../task-mutation-context";
-import { buildTaskCommand, type TaskCommandType } from "../task-command";
+import {
+  buildTaskCommand,
+  deriveDeterministicIdempotencyKey,
+  type TaskCommandType,
+} from "../task-command";
 import type { Env } from "../types";
 import {
   validateTaskCreatePayload,
@@ -123,6 +127,41 @@ function internalError(message: string): Response {
   );
 }
 
+function resolveValidatedContext(
+  requestContext: Record<string, unknown>,
+): Record<string, unknown> {
+  const resolved: Record<string, unknown> = {};
+  if (typeof requestContext.route_id === "string") {
+    resolved.route_id = requestContext.route_id;
+  }
+  if (
+    requestContext.model_path &&
+    typeof requestContext.model_path === "object" &&
+    !Array.isArray(requestContext.model_path)
+  ) {
+    resolved.model_path = requestContext.model_path;
+  }
+  if (typeof requestContext.request_id === "string") {
+    resolved.request_id = requestContext.request_id;
+  }
+  if (typeof requestContext.trace_id === "string") {
+    resolved.trace_id = requestContext.trace_id;
+  }
+  return resolved;
+}
+
+function toMutationReceiptData(
+  result: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    action_id: result.action_id,
+    task_id: result.task_id,
+    resulting_task_version: result.resulting_task_version,
+    replayed: result.replayed,
+    projection_status: result.projection_status,
+  };
+}
+
 export async function handleTaskGet(
   env: Env,
   taskId: string,
@@ -196,21 +235,34 @@ export async function handleTaskTransitionState(
     const context = contextResult.context!;
 
     // Step 2: Build authoritative command envelope
-    const idempotencyKey = `state-${taskId}-${validation.value.updated_at ?? Date.now()}`;
+    const commandPayload = {
+      next_state: validation.value.next_state,
+      next_action: validation.value.next_action,
+    };
+    const idempotencyKey = deriveDeterministicIdempotencyKey({
+      command_type: "task.transition_state",
+      task_id: taskId,
+      expected_task_version: validation.value.expected_version ?? null,
+      payload: commandPayload,
+      caller_key:
+        typeof validation.value.idempotency_key === "string"
+          ? validation.value.idempotency_key
+          : undefined,
+    });
 
     const command = buildTaskCommand({
       task_id: taskId,
       idempotency_key: idempotencyKey,
       expected_task_version: validation.value.expected_version ?? null,
       command_type: "task.transition_state",
-      payload: {
-        next_state: validation.value.next_state,
-        next_action: validation.value.next_action,
-      },
+      payload: commandPayload,
       principal: context.principal,
       boundary: context.boundary,
       authority: context.authority,
       request_context: context.request_context,
+      resolved_context: resolveValidatedContext(
+        context.request_context as Record<string, unknown>,
+      ),
     });
 
     // Step 3: Execute mutation via authoritative store with command envelope
@@ -221,10 +273,9 @@ export async function handleTaskTransitionState(
     )) as Record<string, unknown>;
     return contractSuccessResponse({
       resource: "tasks.state",
-      data: { task: updated },
-      summary: taskSummary(updated),
+      data: toMutationReceiptData(updated),
+      summary: "Task state transition accepted.",
       capability: WORKER_CAPABILITY,
-      meta: taskMeta(updated),
     });
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -287,20 +338,33 @@ export async function handleTaskRouteSelection(
     const context = contextResult.context!;
 
     // Step 2: Build authoritative command envelope
-    const idempotencyKey = `route-${taskId}-${validation.value.selected_at ?? Date.now()}`;
+    const commandPayload = {
+      route_id: validation.value.route_id,
+    };
+    const idempotencyKey = deriveDeterministicIdempotencyKey({
+      command_type: "task.select_route",
+      task_id: taskId,
+      expected_task_version: validation.value.expected_version ?? null,
+      payload: commandPayload,
+      caller_key:
+        typeof validation.value.idempotency_key === "string"
+          ? validation.value.idempotency_key
+          : undefined,
+    });
 
     const command = buildTaskCommand({
       task_id: taskId,
       idempotency_key: idempotencyKey,
       expected_task_version: validation.value.expected_version ?? null,
       command_type: "task.select_route",
-      payload: {
-        route_id: validation.value.route_id,
-      },
+      payload: commandPayload,
       principal: context.principal,
       boundary: context.boundary,
       authority: context.authority,
       request_context: context.request_context,
+      resolved_context: resolveValidatedContext(
+        context.request_context as Record<string, unknown>,
+      ),
     });
 
     // Step 3: Execute mutation via authoritative store with command envelope
@@ -312,10 +376,9 @@ export async function handleTaskRouteSelection(
 
     return contractSuccessResponse({
       resource: "tasks.route_selection",
-      data: { task: updated },
-      summary: taskSummary(updated),
+      data: toMutationReceiptData(updated),
+      summary: "Route selection accepted.",
       capability: WORKER_CAPABILITY,
-      meta: taskMeta(updated),
     });
   } catch (error) {
     const mapped = taskErrorResponse(error);
@@ -701,20 +764,33 @@ export async function handleTaskAppendFinding(
     const context = contextResult.context!;
 
     // Step 2: Build authoritative command envelope
-    const idempotencyKey = `finding-${taskId}-${validation.value.updated_at ?? Date.now()}`;
+    const commandPayload = {
+      finding: validation.value.finding,
+    };
+    const idempotencyKey = deriveDeterministicIdempotencyKey({
+      command_type: "task.append_finding",
+      task_id: taskId,
+      expected_task_version: validation.value.expected_version ?? null,
+      payload: commandPayload,
+      caller_key:
+        typeof validation.value.idempotency_key === "string"
+          ? validation.value.idempotency_key
+          : undefined,
+    });
 
     const command = buildTaskCommand({
       task_id: taskId,
       idempotency_key: idempotencyKey,
       expected_task_version: validation.value.expected_version ?? null,
       command_type: "task.append_finding",
-      payload: {
-        finding: validation.value.finding,
-      },
+      payload: commandPayload,
       principal: context.principal,
       boundary: context.boundary,
       authority: context.authority,
       request_context: context.request_context,
+      resolved_context: resolveValidatedContext(
+        context.request_context as Record<string, unknown>,
+      ),
     });
 
     // Step 3: Execute mutation via authoritative store with command envelope
@@ -726,10 +802,9 @@ export async function handleTaskAppendFinding(
     return contractSuccessResponse(
       {
         resource: "tasks.finding_recorded",
-        data: { task: updated },
-        summary: taskSummary(updated),
+        data: toMutationReceiptData(updated),
+        summary: "Finding append accepted.",
         capability: WORKER_CAPABILITY,
-        meta: taskMeta(updated),
       },
       201,
     );
@@ -795,11 +870,16 @@ export async function handleTaskAnswerQuestion(
   const answeredAt = validation.value.answered_at || new Date().toISOString();
   const questionFindingId = toQuestionFindingId(questionId);
 
+  const answerKey =
+    validation.value.idempotency_key ||
+    `${taskId}:${questionFindingId}:${validation.value.expected_version}:${validation.value.answer.trim()}`;
+  const stableAnswerId = `answer_${encodeURIComponent(answerKey).replace(/%/g, "_")}`;
+
   try {
     const updated = await getTaskService(env).appendFinding(taskId, {
       expected_version: validation.value.expected_version,
       finding: {
-        findingId: `answer_${Date.now()}`,
+        findingId: stableAnswerId,
         summary: `Answer: ${validation.value.answer.trim()}`,
         status: "verified",
         recordedByRoute: validation.value.answered_by_route || "hub",
@@ -843,11 +923,16 @@ export async function handleTaskDismissQuestion(
   const questionFindingId = toQuestionFindingId(questionId);
   const reason = validation.value.reason?.trim();
 
+  const dismissKey =
+    validation.value.idempotency_key ||
+    `${taskId}:${questionFindingId}:${validation.value.expected_version}:${reason ?? ""}`;
+  const stableDismissId = `dismiss_${encodeURIComponent(dismissKey).replace(/%/g, "_")}`;
+
   try {
     const updated = await getTaskService(env).appendFinding(taskId, {
       expected_version: validation.value.expected_version,
       finding: {
-        findingId: `dismiss_${Date.now()}`,
+        findingId: stableDismissId,
         summary: reason
           ? `Dismissed: ${reason}`
           : `Dismissed question ${questionFindingId}`,
@@ -910,6 +995,35 @@ export async function handleTaskAvailableRoutes(
     return (
       taskErrorResponse(error) ??
       internalError("Unexpected task route availability error")
+    );
+  }
+}
+
+export async function handleTaskProjectionRepair(
+  env: Env,
+  taskId: string,
+): Promise<Response> {
+  try {
+    const store = getTaskStore(env) as {
+      repairProjection?: (id: string) => Promise<Record<string, unknown>>;
+    };
+    if (typeof store.repairProjection !== "function") {
+      return validationError(
+        "Projection repair is only available when command store mode is authoritative.",
+      );
+    }
+    const repair = await store.repairProjection(taskId);
+    return contractSuccessResponse({
+      resource: "tasks.projection_repair",
+      data: repair,
+      summary: "Projection repair completed.",
+      capability: WORKER_CAPABILITY,
+    });
+  } catch (error) {
+    const mapped = taskErrorResponse(error);
+    if (mapped) return mapped;
+    return validationError(
+      error instanceof Error ? error.message : "Failed to repair projection",
     );
   }
 }

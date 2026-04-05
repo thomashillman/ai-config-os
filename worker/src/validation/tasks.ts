@@ -61,6 +61,16 @@ export function validateTaskStatePayload(
     };
   if (!isIsoDateTime(data.updated_at))
     return { ok: false, error: "Field 'updated_at' must be an ISO timestamp" };
+  if (
+    data.idempotency_key !== undefined &&
+    (typeof data.idempotency_key !== "string" ||
+      data.idempotency_key.trim().length === 0)
+  ) {
+    return {
+      ok: false,
+      error: "Field 'idempotency_key' must be a non-empty string when provided",
+    };
+  }
 
   if (data.progress !== undefined) {
     const progress = asObject(data.progress);
@@ -92,6 +102,16 @@ export function validateRouteSelectionPayload(
     return { ok: false, error: "Field 'route_id' must be a non-empty string" };
   if (!isIsoDateTime(data.selected_at))
     return { ok: false, error: "Field 'selected_at' must be an ISO timestamp" };
+  if (
+    data.idempotency_key !== undefined &&
+    (typeof data.idempotency_key !== "string" ||
+      data.idempotency_key.trim().length === 0)
+  ) {
+    return {
+      ok: false,
+      error: "Field 'idempotency_key' must be a non-empty string when provided",
+    };
+  }
   return { ok: true, value: data as unknown as RouteSelectionPayload };
 }
 
@@ -128,6 +148,16 @@ export function validateAppendFindingPayload(
     return { ok: false, error: "Field 'finding' must be an object" };
   if (!isIsoDateTime(data.updated_at))
     return { ok: false, error: "Field 'updated_at' must be an ISO timestamp" };
+  if (
+    data.idempotency_key !== undefined &&
+    (typeof data.idempotency_key !== "string" ||
+      data.idempotency_key.trim().length === 0)
+  ) {
+    return {
+      ok: false,
+      error: "Field 'idempotency_key' must be a non-empty string when provided",
+    };
+  }
   return { ok: true, value: data as unknown as AppendFindingPayload };
 }
 
@@ -167,6 +197,16 @@ export function validateAnswerQuestionPayload(
     return { ok: false, error: "Field 'expected_version' must be an integer" };
   if (typeof data.answer !== "string" || data.answer.trim().length === 0)
     return { ok: false, error: "Field 'answer' must be a non-empty string" };
+  if (
+    data.idempotency_key !== undefined &&
+    (typeof data.idempotency_key !== "string" ||
+      data.idempotency_key.trim().length === 0)
+  ) {
+    return {
+      ok: false,
+      error: "Field 'idempotency_key' must be a non-empty string when provided",
+    };
+  }
   if (data.answered_at !== undefined && !isIsoDateTime(data.answered_at))
     return { ok: false, error: "Field 'answered_at' must be an ISO timestamp" };
   if (
@@ -190,6 +230,16 @@ export function validateDismissQuestionPayload(
   if (!data) return { ok: false, error: "Payload must be a JSON object" };
   if (!Number.isInteger(data.expected_version))
     return { ok: false, error: "Field 'expected_version' must be an integer" };
+  if (
+    data.idempotency_key !== undefined &&
+    (typeof data.idempotency_key !== "string" ||
+      data.idempotency_key.trim().length === 0)
+  ) {
+    return {
+      ok: false,
+      error: "Field 'idempotency_key' must be a non-empty string when provided",
+    };
+  }
   if (data.dismissed_at !== undefined && !isIsoDateTime(data.dismissed_at))
     return {
       ok: false,

@@ -10,6 +10,8 @@ export interface Env {
   TASK_OBJECT?: DurableObjectNamespace;
   // Feature flag: set to "true" to enable dual-write to Durable Object
   TASK_DO_DUAL_WRITE?: string;
+  // Explicit command store mode for migrated command types
+  TASK_COMMAND_STORE_MODE?: "shadow" | "authoritative";
 
   // PHASE 1 PRIMARY PATH: Service binding to executor Worker
   // Cloudflare-first execution. Main Worker invokes executor Worker via
@@ -68,6 +70,7 @@ export type TransitionTaskStatePayload = {
   next_state: string;
   next_action: string;
   updated_at: string;
+  idempotency_key?: string;
   progress?: { completed_steps: number; total_steps: number };
 };
 
@@ -75,6 +78,7 @@ export type RouteSelectionPayload = {
   expected_version: number;
   route_id: string;
   selected_at: string;
+  idempotency_key?: string;
 };
 
 export type ContinuationPayload = {
@@ -87,6 +91,7 @@ export type AppendFindingPayload = {
   expected_version: number;
   finding: Record<string, unknown>;
   updated_at: string;
+  idempotency_key?: string;
 };
 
 export type TransitionFindingsPayload = {
@@ -99,12 +104,14 @@ export type TransitionFindingsPayload = {
 export type AnswerQuestionPayload = {
   expected_version: number;
   answer: string;
+  idempotency_key?: string;
   answered_by_route?: string;
   answered_at?: string;
 };
 
 export type DismissQuestionPayload = {
   expected_version: number;
+  idempotency_key?: string;
   reason?: string;
   dismissed_by_route?: string;
   dismissed_at?: string;

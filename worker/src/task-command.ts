@@ -10,7 +10,16 @@
  * This is the source of truth for command structure and idempotency.
  */
 
-import crypto from "node:crypto";
+function stableHexDigest(input: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash +=
+      (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  const chunk = (hash >>> 0).toString(16).padStart(8, "0");
+  return `${chunk}${chunk}${chunk}${chunk}${chunk}${chunk}${chunk}${chunk}`;
+}
 
 /**
  * Supported command types for task mutations
@@ -24,6 +33,17 @@ export type TaskCommandType =
   | "task.answer_question"
   | "task.dismiss_question"
   | "task.create_continuation";
+
+export const TASK_COMMAND_TYPES: readonly TaskCommandType[] = [
+  "task.create",
+  "task.select_route",
+  "task.transition_state",
+  "task.append_finding",
+  "task.transition_findings",
+  "task.answer_question",
+  "task.dismiss_question",
+  "task.create_continuation",
+] as const;
 
 /**
  * Principal -- Canonical authenticated actor identity
@@ -142,7 +162,7 @@ export function computeSemanticDigest(
     semanticPayload,
     Object.keys(semanticPayload).sort(),
   );
-  return crypto.createHash("sha256").update(sorted).digest("hex");
+  return stableHexDigest(sorted);
 }
 
 /**
@@ -221,7 +241,6 @@ export function buildTaskCommand<T extends Record<string, unknown>>(opts: {
   request_context: RequestContext;
   resolved_context?: ResolvedContext;
 }): TaskCommand<T> {
-  const resolvedContext = opts.resolved_context ?? opts.request_context;
   const semanticDigest = computeSemanticDigest(opts.command_type, opts.payload);
 
   return {
@@ -234,7 +253,32 @@ export function buildTaskCommand<T extends Record<string, unknown>>(opts: {
     boundary: opts.boundary,
     authority: opts.authority,
     request_context: opts.request_context,
-    resolved_context: resolvedContext,
+    resolved_context: opts.resolved_context ?? {},
     semantic_digest: semanticDigest,
   };
+}
+
+export function deriveDeterministicIdempotencyKey(input: {
+  command_type: TaskCommandType;
+  task_id: string;
+  expected_task_version: number | null;
+  payload: Record<string, unknown>;
+  caller_key?: string;
+}): string {
+  if (
+    typeof input.caller_key === "string" &&
+    input.caller_key.trim().length > 0
+  ) {
+    return input.caller_key.trim();
+  }
+
+  const payloadDigest = computeSemanticDigest(
+    input.command_type,
+    input.payload,
+  );
+  const versionPart =
+    input.expected_task_version === null
+      ? "null"
+      : String(input.expected_task_version);
+  return `${input.command_type}:${input.task_id}:v${versionPart}:${payloadDigest}`;
 }

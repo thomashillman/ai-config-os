@@ -81,12 +81,12 @@ describe("task-runtime dual-write wiring", () => {
     vi.clearAllMocks();
   });
 
-  it('returns DualWriteTaskStore when flag is "true" and binding is present', () => {
+  it("returns DualWriteTaskStore when authoritative mode and binding are present", () => {
     const env = {
       AUTH_TOKEN: "tok",
       EXECUTOR_SHARED_SECRET: "sec",
       MANIFEST_KV: makeMockKv(),
-      TASK_DO_DUAL_WRITE: "true",
+      TASK_COMMAND_STORE_MODE: "authoritative",
       TASK_OBJECT: makeMockDoNamespace(),
     };
 
@@ -94,12 +94,13 @@ describe("task-runtime dual-write wiring", () => {
     expect(service._taskStore).toBeInstanceOf(DualWriteTaskStore);
   });
 
-  it('returns KvTaskStore when flag is "false"', () => {
+  it("returns KvTaskStore when shadow mode and dual write disabled", () => {
     const env = {
       AUTH_TOKEN: "tok",
       EXECUTOR_SHARED_SECRET: "sec",
       MANIFEST_KV: makeMockKv(),
       TASK_DO_DUAL_WRITE: "false",
+      TASK_COMMAND_STORE_MODE: "shadow",
     };
 
     const service = getTaskService(env as never) as {
