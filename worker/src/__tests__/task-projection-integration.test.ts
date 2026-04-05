@@ -6,7 +6,10 @@
  */
 
 import { test, expect } from "vitest";
-import { attachProjectionMetrics, extractProjectionMetrics } from "../task-projection-integration";
+import {
+  attachProjectionMetrics,
+  extractProjectionMetrics,
+} from "../task-projection-integration";
 
 test("projection metrics: attach to task without losing task data", () => {
   const taskData = {
@@ -14,7 +17,7 @@ test("projection metrics: attach to task without losing task data", () => {
     state: "ready",
     current_route: "local_repo",
     findings: [],
-    version: 5
+    version: 5,
   };
 
   const metrics = {
@@ -22,7 +25,7 @@ test("projection metrics: attach to task without losing task data", () => {
     authoritative_version: 5,
     projected_version: 5,
     projection_lag: { amount: 0, is_lagging: false },
-    divergence: { detected: false }
+    divergence: { detected: false },
   };
 
   const withMetrics = attachProjectionMetrics(taskData, metrics);
@@ -44,7 +47,7 @@ test("projection metrics: preserve metrics when attaching", () => {
     authoritative_version: 10,
     projected_version: 7,
     projection_lag: { amount: 3, is_lagging: true },
-    divergence: { detected: false }
+    divergence: { detected: false },
   };
 
   const withMetrics = attachProjectionMetrics(taskData, metrics);
@@ -64,8 +67,8 @@ test("projection metrics: extract metrics from task with attached metrics", () =
       authoritative_version: 5,
       projected_version: 5,
       projection_lag: { amount: 0, is_lagging: false },
-      divergence: { detected: false }
-    }
+      divergence: { detected: false },
+    },
   };
 
   const extracted = extractProjectionMetrics(taskWithMetrics);
@@ -78,7 +81,7 @@ test("projection metrics: extract metrics from task with attached metrics", () =
 test("projection metrics: return null when no metrics attached", () => {
   const taskWithoutMetrics = {
     task_id: "task-1",
-    state: "ready"
+    state: "ready",
   };
 
   const extracted = extractProjectionMetrics(taskWithoutMetrics);
@@ -89,7 +92,7 @@ test("projection metrics: return null when no metrics attached", () => {
 test("projection metrics: return null when metrics field is not an object", () => {
   const taskWithInvalidMetrics = {
     task_id: "task-1",
-    _projection_metrics: "invalid"
+    _projection_metrics: "invalid",
   };
 
   const extracted = extractProjectionMetrics(taskWithInvalidMetrics);
@@ -103,19 +106,19 @@ test("scenario: authoritative commit succeeds but projection update fails", () =
   const taskData = {
     task_id: "task-1",
     version: 9, // Old projected version
-    state: "in_progress"
+    state: "in_progress",
   };
 
   // Authoritative has 2 commits
   const authorCommits = [
     {
       task_version_after: 9,
-      task_state_after: { state: "in_progress" }
+      task_state_after: { state: "in_progress" },
     },
     {
       task_version_after: 10,
-      task_state_after: { state: "completed" } // Recent change not in KV yet
-    }
+      task_state_after: { state: "completed" }, // Recent change not in KV yet
+    },
   ] as any;
 
   // We would compute metrics showing authoritative at 10, projected at 9
@@ -127,12 +130,17 @@ test("scenario: authoritative commit succeeds but projection update fails", () =
     authoritative_version: 10,
     projected_version: 9,
     projection_lag: { amount: 1, is_lagging: true },
-    divergence: { detected: true } // states differ
+    divergence: { detected: true }, // states differ
   };
 
   // With metrics attached, caller can see the lag
-  const responseWithMetrics = attachProjectionMetrics(taskData, expectedMetrics) as any;
-  expect(responseWithMetrics._projection_metrics?.projection_lag?.is_lagging).toBe(true);
+  const responseWithMetrics = attachProjectionMetrics(
+    taskData,
+    expectedMetrics,
+  ) as any;
+  expect(
+    responseWithMetrics._projection_metrics?.projection_lag?.is_lagging,
+  ).toBe(true);
 });
 
 test("scenario: projection repair from authoritative history", () => {
@@ -142,7 +150,7 @@ test("scenario: projection repair from authoritative history", () => {
     authoritative_version: 10,
     projected_version: 7,
     projection_lag: { amount: 3, is_lagging: true },
-    divergence: { detected: false }
+    divergence: { detected: false },
   };
 
   // Repair would:
@@ -156,9 +164,34 @@ test("scenario: projection repair from authoritative history", () => {
   const repairedMetrics = {
     ...lagMetrics,
     projected_version: 10,
-    projection_lag: { amount: 0, is_lagging: false }
+    projection_lag: { amount: 0, is_lagging: false },
   };
 
-  expect(repairedMetrics.projected_version).toBe(repairedMetrics.authoritative_version);
+  expect(repairedMetrics.projected_version).toBe(
+    repairedMetrics.authoritative_version,
+  );
   expect(repairedMetrics.projection_lag?.is_lagging).toBe(false);
+});
+
+test("projection metrics attachment does not mutate authoritative source object", () => {
+  const taskData = {
+    task_id: "task-1",
+    version: 4,
+    state: "in_progress",
+  };
+  const metrics = {
+    has_commits: true,
+    authoritative_version: 5,
+    projected_version: 4,
+    projection_lag: { amount: 1, is_lagging: true },
+    divergence: { detected: true, fields: ["state"] },
+  };
+
+  const withMetrics = attachProjectionMetrics(taskData, metrics);
+
+  expect(withMetrics).not.toBe(taskData);
+  expect((taskData as any)._projection_metrics).toBeUndefined();
+  expect((withMetrics as any)._projection_metrics?.projection_lag?.amount).toBe(
+    1,
+  );
 });

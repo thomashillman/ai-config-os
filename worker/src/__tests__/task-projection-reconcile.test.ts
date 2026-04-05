@@ -281,6 +281,57 @@ describe("Task Projection Reconciliation", () => {
       const plan = planProjectionRepair("task-1", 1, 1, commits);
       expect(plan.commits_to_apply.length).toBe(0); // Already synced
     });
+
+    it("should converge after replayed command by selecting only missing versions", () => {
+      const command = buildTaskCommand({
+        task_id: "task-1",
+        idempotency_key: "idem-3",
+        expected_task_version: 2,
+        command_type: "task.transition_state",
+        payload: { next_state: "completed" },
+        principal: mockPrincipal,
+        boundary: mockBoundary,
+        authority: mockAuthority,
+        request_context: {},
+      });
+
+      const commits: ActionCommit[] = [
+        {
+          action_id: "action-2",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:01Z",
+          task_version_before: 1,
+          task_version_after: 2,
+          result: { success: true },
+          result_summary: "State transitioned",
+          task_state_after: { version: 2, state: "active" },
+          command_envelope: command,
+        },
+        {
+          action_id: "action-3",
+          task_id: command.task_id,
+          command_type: command.command_type,
+          command_digest: command.semantic_digest,
+          principal_id: command.principal.principal_id,
+          authority: command.authority,
+          created_at: "2026-04-03T00:00:02Z",
+          task_version_before: 2,
+          task_version_after: 3,
+          result: { success: true },
+          result_summary: "State transitioned",
+          task_state_after: { version: 3, state: "completed" },
+          command_envelope: command,
+        },
+      ];
+
+      const plan = planProjectionRepair("task-1", 3, 2, commits);
+      expect(plan.commits_to_apply).toHaveLength(1);
+      expect(plan.commits_to_apply[0].task_version_after).toBe(3);
+    });
   });
 
   describe("validateRepairPlan", () => {

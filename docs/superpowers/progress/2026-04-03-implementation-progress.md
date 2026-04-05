@@ -23,6 +23,10 @@ For those commands, TaskObject `/apply-command` is now the authoritative write p
 7. Wired projection metadata into live task reads (`projection` object on task reads when authoritative commits exist).
 8. Added invokable projection repair path via `POST /v1/tasks/:taskId/projection-repair` (authoritative mode only).
 9. Reworked drift validators and validator tests to inspect live module behavior/contracts instead of static constant lists.
+10. Fixed authoritative replay semantics so replayed receipts do not re-run KV projection writes or regress to false projection pending states.
+11. Surfaced projection lag/divergence metadata consistently across live read paths (`load`, code lookup, name lookup, latest-active, and recent-task list).
+12. Replaced the placeholder repeated-chunk digest with a real SHA-256 semantic digest implementation while preserving semantic field selection rules.
+13. Added replay/projection-repair regression tests that cover lag repair convergence, continuity failure surfacing, and replay-safe repair outcomes.
 
 ## Scope intentionally unchanged
 
