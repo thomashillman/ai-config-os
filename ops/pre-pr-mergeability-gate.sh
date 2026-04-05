@@ -45,6 +45,8 @@ fi
 # 4) Repo verification (fast -> broad)
 npm run -s validate
 npm run -s build
+npm run -s test:worker
+npm run -s test:validators
 npm run -s test
 npm run -s verify
 
